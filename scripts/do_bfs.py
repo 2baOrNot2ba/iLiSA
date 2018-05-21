@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""A script to run Olaf's pulsar campaign."""
+"""A script to record beamformed stream data."""
 #TobiaC 2018-04-26 (2018-04-26)
 
 import sys
@@ -14,7 +14,7 @@ import ilisa.observations.stationcontrol as stationcontrol
 
 BLOCK = False
 dumpername = 'dump_udp_ow_4'
-pathtodumper = os.path.dirname(ilisa.observations.beamformed_rec.__file__)
+pathtodumper = os.path.dirname(ilisa.observations.beamformedstreams.__file__)
 dumpercmd = os.path.join(pathtodumper, dumpername)
 print dumpercmd
 #dumpercmd = 'echo' #For testing purposes
@@ -73,90 +73,92 @@ if __name__=="__main__":
                         help='Duration of observation in seconds')
     parser.add_argument("band",
                         help='Band: 30_90, 110_190, 210_250')
+    parser.add_argument("pointing",
+                        help='Pointing direction: eg CasA')
     parser.add_argument("--halt", action="store_true",
                         help="Halt observing state on completion")
     args = parser.parse_args()
     
     starttimestr = args.starttimestr
-    duration = eval(args.duration) #Duration in seconds '3480'
+    duration = eval(args.duration) # Duration in seconds
     band = args.band # RCUMODE={LBA : 10_90 3, HBAlo : 110_190 5, HBAhi : 210_250 7}
     
     ###
     bits = 8 #8
     attenuation = None
-    #Subbands allocation as per Olaf.
+    # Subbands allocation
     if band == '10_90' or band == '30_90':
-        #LBA
+        # LBA
         lanes = (0,1) #(0,1)
         beamletIDs = '0:243' #'0:243'
         subbandNrs = '164:407' #'164:407'
     elif band == '110_190':
-        #HBAlo
+        # HBAlo
         lanes = (0,1,2,3) #Normally (0,1,2,3) for all 4 lanes.
         beamletIDs = '0:487'
         subbandNrs = '12:499'
     elif band == '210_250':
-        #HBAhi
+        # HBAhi
         lanes = (0,1)
         beamletIDs = '0:243'
         subbandNrs = '12:255'
     else :
         print "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi)."
         exit(1)
-    #pointing = observing.stdPointings('CasA')
-    pointing = '3.968124,0.969105,J2000' #Olaf's target
-    #Wait until it is time to start
+    pointing = observing.stdPointings(args.pointing)
+
+    # Wait until it is time to start
     nw=datetime.datetime.utcnow()
     st=datetime.datetime.strptime(starttimestr,"%Y-%m-%dT%H:%M:%S")
 
-    pause = 5 #Sufficient?
-    maxminsetuptime=datetime.timedelta(seconds=105+pause) #Longest minimal time before
-                                                       #observation start to set up
+    pause = 5 # Sufficient?
+    maxminsetuptime=datetime.timedelta(seconds=105+pause) # Longest minimal time
+                                                          # before observation
+                                                          # start to set up
     d= (st-maxminsetuptime)-nw
-    #print nw
-    #print st
     timeuntilboot = d.total_seconds()
     if timeuntilboot < 0.:
         timeuntilboot = 0
-    print "Will boot to observe state after "+str(timeuntilboot)+" seconds..."
+    print("Will boot to observe state after "+str(timeuntilboot)+" seconds...")
     time.sleep(timeuntilboot)
-    print "Booting @ ", datetime.datetime.utcnow()
-    myObsSes = observing.Session() #From swlevel 0 it takes about 1:30min? to reach swlevel 3
+    print("Booting @ {}".format(datetime.datetime.utcnow()))
+    # From swlevel 0 it takes about 1:30min? to reach swlevel 3
+    myObsSes = observing.Session()
     
     # Necessary since fork creates multiple instances of myObsSes and each one
     # will call it's __del__ on completion and __del__ shutdown...
     myObsSes.halt_observingstate_when_finished = False
     myObsSes.exit_check = False
     
-    #BEGIN Dummy or hot beam start: (takes about 10sec) 
-                              #TODO: This seems necessary, otherwise beamctl will not start up next time,
-                              #       although it should not have to necessary.)
-    print "Running warmup beam... @ "+str(datetime.datetime.utcnow())
+    # BEGIN Dummy or hot beam start: (takes about 10sec) 
+    # TODO: This seems necessary, otherwise beamctl will not start up next time,
+    #       although it should not have to necessary.)
+    print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
     myObsSes.stationcontroller.runbeamctl(beamletIDs, subbandNrs, band, pointing)
     myObsSes.stationcontroller.rcusetup(bits, attenuation) #setting bits also seems necessary.
     myObsSes.stationcontroller.stopBeam()
-    #END Dummy or hot start
+    # END Dummy or hot start
 
-    print "Pause ", pause, "s after boot."
+    print("Pause {}s after boot.".format(pause))
     time.sleep(pause)
     
-    #Real beam start:
-    print "Now running real beam... @ "+str(datetime.datetime.utcnow())
-    beamctl_CMD = myObsSes.stationcontroller.runbeamctl(beamletIDs, subbandNrs, band, pointing)
+    # Real beam start:
+    print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+    beamctl_CMD = myObsSes.stationcontroller.runbeamctl(beamletIDs, subbandNrs,
+                                                                 band, pointing)
     rcu_setup_CMD = myObsSes.stationcontroller.rcusetup(bits, attenuation)
-    #rcustat = subprocess.check_output("ssh user6@se607c rspctl --rcu", shell=True)
-    #print rcustat
     nw=datetime.datetime.utcnow()
     timeleft = st-nw
     if timeleft.total_seconds() < 0.:
         starttimestr = nw.strftime("%Y-%m-%dT%H:%M:%S")
-    print "(Beam started) Time left before recording: ", timeleft.total_seconds()
+    print("(Beam started) Time left before recording: {}".format(
+                                                     timeleft.total_seconds()))
     
     REC = True
     if REC == True:
         setuprecording(starttimestr, duration, lanes, band)
     else:
-        print "Not recording"
+        print("Not recording")
     sys.stdout.flush()
     myObsSes.stationcontroller.stopBeam()
     headertime = datetime.datetime.strptime(starttimestr,"%Y-%m-%dT%H:%M:%S"
