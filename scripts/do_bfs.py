@@ -8,7 +8,7 @@ import subprocess
 import time
 import datetime
 import argparse
-import ilisa.observations.beamformed_rec
+import ilisa.observations.beamformedstreams
 import ilisa.observations.observing as observing
 import ilisa.observations.stationcontrol as stationcontrol
 
