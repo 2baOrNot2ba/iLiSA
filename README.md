@@ -1,15 +1,16 @@
-# LiSA - LOFAR in Stand-Alone mode #
+# iLiSA - internatal LOFAR in Stand-Alone mode #
 
-LiSA provides a package to make observations on LOFAR stations in stand-alone
-called standalone and a package to handle LOFAR station metadata.
+iLiSA provides a package to make observations on international LOFAR stations in
+stand-alone mode called observations and a package to handle metadata about
+the configuration of the LOFAR station's antenna metadata called antennameta.
 
 ### What is this repository for? ###
 
-LiSA is of interest to people that have access to a LOFAR station or if you wish
+iLiSA is of interest to people that have access to a LOFAR station or if you wish
 to read-in data taken with a LOFAR station in stand-alone mode. LOFAR is a low-frequency
 radio telescope array located in Europe.
 
-The "observation" package allows you to make and record standard stand-alone
+The "observations" package allows you to make and record standard stand-alone
 observations such as:
 
 * BST - Beamlet statics (Temporal power of beamlets)
@@ -19,7 +20,7 @@ observations such as:
 * TBB - Transient Buffer Board (Direct sampling of each receiving unit)
 * BFS - Beam-formed streams (Streamed complex voltages of beamlets)
 
-Observation using LiSA are made with science-level python functions which issue
+Observation using iLiSA are made with science-level python functions which issue
 the hardware-level commands to the station's Monitoring And Control interface.
 
 The "antennameta" is of interest if you wish access a LOFAR station's metadata.
@@ -44,6 +45,6 @@ processing stand-alone data (e.g. imaging xst data, handling TBB data).
 
 ### Status ###
 
-Please note that LiSA is still in developement. It has been used heavily on the
+Please note that iLiSA is still in developement. It has been used heavily on the
 Swedish LOFAR station. Features such as TBB handling require DAL software.
 
