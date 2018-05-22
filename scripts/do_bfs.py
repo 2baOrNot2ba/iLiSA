@@ -16,7 +16,6 @@ BLOCK = False
 dumpername = 'dump_udp_ow_4'
 pathtodumper = os.path.dirname(ilisa.observations.beamformedstreams.__file__)
 dumpercmd = os.path.join(pathtodumper, dumpername)
-print dumpercmd
 #dumpercmd = 'echo' #For testing purposes
 
 
@@ -43,9 +42,9 @@ def startlanerec(lane, starttimestr, duration, band):
                           +' > '+dumplogname,
                          shell=True
                    )
-    print "dumper log written in "+dumplogname
+    print("dumper log written in {}".format(dumplogname))
     datafileguess=outdumpdir+outfilepre+'_'+str(port)+'.start.'+starttimestr+'.000'
-    print "Hopefully created dumpfile: "+datafileguess
+    print("Hopefully created dumpfile: ".format(datafileguess))
 #    return datafileguess
 
 
@@ -62,7 +61,7 @@ def setuprecording(starttimestr, duration, lanes, band):
             child_pids.append(newpid)
     for lane in lanes:
         pid, status = os.waitpid(child_pids[lane], 0)
-        print "lane "+str(lane)+" finished with status "+str(status)
+        print("lane {} finished with status {}.".format(lane,status))
 
 
 if __name__=="__main__":
@@ -94,7 +93,7 @@ if __name__=="__main__":
         subbandNrs = '164:407' #'164:407'
     elif band == '110_190':
         # HBAlo
-        lanes = (0,1,2,3) #Normally (0,1,2,3) for all 4 lanes.
+        lanes = (0,1,2,3) # Normally (0,1,2,3) for all 4 lanes.
         beamletIDs = '0:487'
         subbandNrs = '12:499'
     elif band == '210_250':
@@ -103,8 +102,8 @@ if __name__=="__main__":
         beamletIDs = '0:243'
         subbandNrs = '12:255'
     else :
-        print "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi)."
-        exit(1)
+        raise ValueError, \
+        "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi)."
     pointing = observing.stdPointings(args.pointing)
 
     # Wait until it is time to start
