@@ -180,7 +180,7 @@ def cvcimage(cvctype, cvcpath, cubeslice, req_calsrc, docalibrate = True):
 # Conversion between datatypes
 def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
     """Convert xst data to bst data"""
-    xstpu, UVWxyz = imaging.phaseref_xstpol(xst, obstime, freq, stnPos, antpos,
+    xstpu, UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos,
                                                                        pointing)
     bstXX = numpy.sum(xstpu[0,0,...].squeeze(), axis=(0,1))
     bstXY = numpy.sum(xstpu[0,1,...].squeeze(), axis=(0,1))
@@ -194,7 +194,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     powers (this is like beamlet statics, bst, data but also has the complex,
     cross-hand polarization components, which the bst does not have)."""
     # Phase up ACC towards pointing direction
-    accpu = imaging.phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos,
+    accpu = phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos,
                                                                        pointing)
     # Sum up phased up ACCs per polarization component over all baselines
     bstXX = numpy.sum(numpy.real(accpu[0,0,...].squeeze()), axis=(1,2))

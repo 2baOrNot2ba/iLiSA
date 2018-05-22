@@ -8,6 +8,7 @@ import argparse
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
 import ilisa.observations.dataIO as dataIO
+import ilisa.observations.imaging as imaging
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.observing as observing
 
@@ -73,11 +74,11 @@ def main(calrunfolder, desiredsrc):
         sys.stdout.write('({}/{})\n'.format(tidx+1, nrACCfiles))
         if sb == None:
            (bstXX[tidx,:], bstXY[tidx,:], bstYY[tidx,:]
-            ) = dataIO.accpol2bst(accpol, sbobstimes, freqs,
+            ) = imaging.accpol2bst(accpol, sbobstimes, freqs,
                                   stnPos, antpos, pointing)
         else:
             (bstXX[tidx], bstXY[tidx], bstYY[tidx]
-            ) = dataIO.xst2bst(accpol[:,:,sb,...].squeeze(), sbobstimes[sb], freqs[sb],
+            ) = imaging.xst2bst(accpol[:,:,sb,...].squeeze(), sbobstimes[sb], freqs[sb],
                                 stnPos, antpos, pointing)
     calrunendtime = sbobstimes[-1]
     ACCsbsampleduration = datetime.timedelta(seconds=1)
