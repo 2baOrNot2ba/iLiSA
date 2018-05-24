@@ -9,7 +9,8 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from ilisa.antennameta.antennafieldlib import parseAntennaField, getArrayBandParams, list_stations
+from ilisa.antennameta.antennafieldlib import parseAntennaField, \
+                         parseiHBADeltasfile, getArrayBandParams, list_stations
 
 BANDARRS = ['LBA', 'HBA']
 CASA_CFG_DTYPE = [('X',float),('Y',float),('Z',float),('Diam',float),('Name','S5')]
@@ -147,7 +148,7 @@ def output_all_stations_arrcfg():
     for bandarr in BANDARRS:
         for stnid in stnId_list:
             print stnid, bandarr
-            output_arrcfg_station(bandarr, stnid)
+            output_arrcfg_station(stnid, bandarr)
 
 
 def output_all_tile_arrcfg():
@@ -232,30 +233,9 @@ def printmaxbaselines():
             print k, b, m[k][b]
 
 
-def output_stationmeta(stnid, bandarr, quantity='all', output='default'):
-    if quantity=='cfg' or quantity=='all':
-        print("Quantity: Array configuration:")
-        output_arrcfg_station(stnid, bandarr, output=output)
-    if quantity=='rot' or quantity=='all':
-        print("Quantity: Array rotation matrix:")
-        output_rotmat_station(stnid, bandarr, output=output)
-
-
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("stnid")
-    parser.add_argument("bandarr")
-    parser.add_argument("quantity", nargs='?', default='all')
-    args = parser.parse_args()
-    #plot_arrayconfiguration(args.stnid, args.bandarr, args.coordsys)
-    output_stationmeta(args.stnid, args.bandarr, quantity=args.quantity,
-                                                             output=sys.stdout)
-
-
 if __name__ == '__main__':
-    main()
-    #output_all_arrcfg_ILT()
-    #output_all_stations_arrcfg()
-    #output_all_tile_arrcfg()
-    #output_all_rotmats()
+    output_all_arrcfg_ILT()
+    output_all_stations_arrcfg()
+    output_all_tile_arrcfg()
+    output_all_rotmats()
 
