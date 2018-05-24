@@ -3,6 +3,7 @@
 other formats such as CASA .cfg files.
 """
 import os
+import sys
 import datetime
 import argparse
 import numpy as np
@@ -45,7 +46,7 @@ def _get_casacfg_header(tier, bandarr=None, stnid=None):
         raise
     header += ("\n"
               #+"Created by {}\n".format(os.path.basename(__file__))
-              +"Created with {}\n".format("LoStationMeta")
+              +"Created with {}\n".format("iLiSA")
               +"Created at {}\n".format(datetime.datetime.utcnow())
               +"\n"
               +columnlabels
@@ -53,7 +54,7 @@ def _get_casacfg_header(tier, bandarr=None, stnid=None):
     return header
 
 
-def save_arrcfg_station(bandarr, stnid):
+def output_arrcfg_station(stnid, bandarr, output='default'):
     """Output a station array configuration in a CASA simmos .cfg format.
     """
     stnPos, stnRot, stnRelPos, stnIntilePos = getArrayBandParams(stnid, bandarr)
@@ -69,11 +70,12 @@ def save_arrcfg_station(bandarr, stnid):
     outtable['Z'] = np.squeeze(stnRelPos[:,2])
     outtable['Diam'] = diam
     outtable['Name'] = ['ANT'+str(elem) for elem in range(nrelems)]
-    filename = os.path.join(CASA_CFG_DEST, stnid+"_"+bandarr+'.cfg')
-    np.savetxt(filename, outtable, fmt=CASA_CFG_FMT, header=header)
+    if output=='default':
+        output = os.path.join(CASA_CFG_DEST, stnid+"_"+bandarr+'.cfg')
+    np.savetxt(output, outtable, fmt=CASA_CFG_FMT, header=header)
 
 
-def save_arrcfg_tile(stnid):
+def output_arrcfg_tile(stnid):
     """Output a station's HBA tile array configuration in CASA simobs .cfg format.
     """
     bandarr = 'HBA'
@@ -91,22 +93,26 @@ def save_arrcfg_tile(stnid):
     np.savetxt(filename, outtable, fmt=CASA_CFG_FMT, header=header)
 
 
-def save_all_rotmats():
+def output_rotmat_station(stnid, bandarr, output='default'):
+    stnpos, stnrot, stnrelpos, stnintilepos = \
+                         getArrayBandParams(stnid, bandarr)
+    if output=='default':
+        output = os.path.join(ALIGNMENT_DEST, '{}_{}.txt'.format(stnid, bandarr))
+    header = _get_casacfg_header('rot', bandarr, stnid)
+    np.savetxt(output, stnrot, fmt="%12f %12f %12f", header=header)
+
+
+def output_all_rotmats():
     """Save all LOFAR station rotation matrices. The rotation matrices define
     the alignment of the stations."""
     stnid_list = sorted(list_stations())
     for stnid in stnid_list:
         for bandarr in BANDARRS:
-            stnpos, stnrot, stnrelpos, stnintilepos = \
-                         getArrayBandParams(stnid, bandarr)
             print("{} {}".format(stnid, bandarr))
-            filename = os.path.join(ALIGNMENT_DEST, '{}_{}.txt'.format(stnid,
-                                                                       bandarr))
-            header = _get_casacfg_header('rot', bandarr, stnid)
-            np.savetxt(filename, stnrot, fmt="%12f %12f %12f", header=header)
+            output_rotmat_station(stnid, bandarr)
 
 
-def save_all_arrcfg_ILT():
+def output_all_arrcfg_ILT():
     """Save ILT's array configuration in a CASA sim .cfg format, for both LBA
        and HBA.
     """
@@ -134,23 +140,23 @@ def save_all_arrcfg_ILT():
         np.savetxt(filename, outtable, fmt=CASA_CFG_FMT, header=header)
 
 
-def save_all_stations_arrcfg():
+def output_all_stations_arrcfg():
     """Save all station array configurations.
     """
     stnId_list = list_stations()
     for bandarr in BANDARRS:
         for stnid in stnId_list:
             print stnid, bandarr
-            save_arrcfg_station(bandarr, stnid)
+            output_arrcfg_station(bandarr, stnid)
 
 
-def save_all_tile_arrcfg():
+def output_all_tile_arrcfg():
     """Save all tile array configurations.
     """
     stnId_list = list_stations()
     bandarr = 'HBA'
     for stnid in stnId_list:
-        save_arrcfg_tile(stnid)
+        output_arrcfg_tile(stnid)
 
 
 def maxbaselinelen():
@@ -219,22 +225,37 @@ def plot_arrayconfiguration(stnid, bandarr, coordsys):
     plt.show()
 
 
+def printmaxbaselines():
+    m= maxbaselinelen()
+    for k in m.keys():
+        for b in m[k].keys():
+            print k, b, m[k][b]
+
+
+def output_stationmeta(stnid, bandarr, quantity='all', output='default'):
+    if quantity=='cfg' or quantity=='all':
+        print("Quantity: Array configuration:")
+        output_arrcfg_station(stnid, bandarr, output=output)
+    if quantity=='rot' or quantity=='all':
+        print("Quantity: Array rotation matrix:")
+        output_rotmat_station(stnid, bandarr, output=output)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("stnid")
     parser.add_argument("bandarr")
-    parser.add_argument("coordsys", nargs='?', default='abs')
+    parser.add_argument("quantity", nargs='?', default='all')
     args = parser.parse_args()
-    plot_arrayconfiguration(args.stnid, args.bandarr, args.coordsys)
+    #plot_arrayconfiguration(args.stnid, args.bandarr, args.coordsys)
+    output_stationmeta(args.stnid, args.bandarr, quantity=args.quantity,
+                                                             output=sys.stdout)
 
 
 if __name__ == '__main__':
-    save_all_arrcfg_ILT()
-    #save_all_stations_arrcfg()
-    #save_all_tile_arrcfg()
-    #save_all_rotmats()
-    #main()
-#    m= maxbaselinelen()
-#    for k in m.keys():
-#        for b in m[k].keys():
-#            print k, b, m[k][b]
+    main()
+    #output_all_arrcfg_ILT()
+    #output_all_stations_arrcfg()
+    #output_all_tile_arrcfg()
+    #output_all_rotmats()
+
