@@ -104,7 +104,7 @@ if __name__=="__main__":
     else :
         raise ValueError, \
         "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi)."
-    pointing = observing.stdPointings(args.pointing)
+    pointing = observing.normalizebeamctldir(args.pointing)
 
     # Wait until it is time to start
     nw=datetime.datetime.utcnow()
