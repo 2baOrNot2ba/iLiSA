@@ -17,10 +17,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     duration = int(eval(args.duration))
     myobs = observing.Session()
+    myobs.halt_observingstate_when_finished = True
     myobs.bits = 16
     myobs.bsxST(args.statistic, args.frequency, args.integration, duration,
          args.pointSrc)
-    HALT_LOFAR_SERVICES=False
-    if HALT_LOFAR_SERVICES:
-            myobs.stationcontroller.shutdownObservationState()
 
