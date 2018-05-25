@@ -328,8 +328,11 @@ class Session(object):
         obsdatetime_stamp = self.get_data_timestamp()
         bsxSTobsEpoch, datapath = self.getbsxstdatapath('bst', obsdatetime_stamp,
                              rcumode, subband, integration, duration, pointing)
-        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat", datapath)
-        
+        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat",
+                                                                       datapath)
+        # beamlet statistics also generate *01[XY].dat that are empty so remove:
+        self.stationcontroller.rm(
+                              self.stationcontroller.lcuDumpDir+"/*01[XY].dat") 
         return bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo\
                , datapath
 
