@@ -79,12 +79,12 @@ def pointingGrid(NrAzDirs=8,NrElDirs=7):
 
 def parsebeamctldir(beamctldirarg):
     """Parse a beamctl direction string into direction tuple.
-    
+
     Parameters
     ----------
     beamctldirarg : str
         String with format 'angle1,angle2,refsys'
-    
+
     Returns
     -------
     dirtuple : tuple or None
@@ -103,20 +103,20 @@ def parsebeamctldir(beamctldirarg):
 
 def stdPointings(directionterm):
     """Find beamctl direction string based on direction term.
-    
+
     Parameters
     ----------
     directionterm : str or None
         Source name or term for a direction. E.g. 'Z' for Zenith
         or 'CasA' for Cassiopeia A. If set to None, the function returns the
         direction terms it knows about.
-    
+
     Returns
     -------
     beamctldir : str
         Argument suitable for beamctl direction arguments --anadir and --digdir.
         If input is None it will return all the direction terms it knows.
-    
+
     Raises
     ------
     KeyError
@@ -128,7 +128,7 @@ def stdPointings(directionterm):
           'S':    str(2*math.pi/2)+",0.,AZELGEO",
           'W':    str(3*math.pi/2)+",0.,AZELGEO",
           'Z':    '0.,'+str(math.pi/2)+',AZELGEO',
-          'CasA': '6.123487,1.026515,J2000', 
+          'CasA': '6.123487,1.026515,J2000',
           'CygA': '5.233660,0.710940,J2000',
           'TauA': '1.459672,0.384225,J2000',
           'VirA': '3.276086,0.216265,J2000',
@@ -148,13 +148,13 @@ def stdPointings(directionterm):
 
 def normalizebeamctldir(gendirstr):
     """Parse a general direction string.
-    
+
     Parameters
     ----------
     gendirstr : str
         This could be one of the direction terms or it could a beamctl direction
         string.
-    
+
     Returns
     -------
     beamctldirstr : str
@@ -177,10 +177,10 @@ def normalizebeamctldir(gendirstr):
 class Session(object):
     """observing.Session class is a client type class typically running on the
     compute node."""
-    
+
     def cleanup(self):
         pass
-    
+
     def checkobservingallowed(self):
         """Check whether observations are allowed. This occurs is someone else
         is using the station."""
@@ -197,7 +197,7 @@ class Session(object):
             print "Warning: Someone else ({}) is using LCU".format(serviceuser)
             print "         (You are running as {})".format(self.stationcontroller.user)
             return False
-    
+
     def __init__(self, accessconffile=None,
                        goto_observingstate_when_starting=True):
         """Initialize a Session object, which has access to a station via
@@ -215,14 +215,14 @@ class Session(object):
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
         self.stationcontroller = stationcontrol.Station(lcuaccessconf)
-        
+
         self.LOFARdataArchive = dpuaccessconf['LOFARdataArchive']
         self.bf_data_dir =      dpuaccessconf['BeamFormDataDir']
         self.bf_port0 =     int(dpuaccessconf['BeamFormPort0'])
         self.bf_logfile =       dpuaccessconf['BeamFormLogFile']
         self.tbbraw2h5cmd =     dpuaccessconf['TBBraw2h5Cmd']
         self.tbbh5dumpdir =     dpuaccessconf['TBBh5dumpDir']
-        
+
         self.DryRun = lcuaccessconf['DryRun']
         self.bits = 16 # Default to 16
         self.exit_check = True
@@ -231,9 +231,9 @@ class Session(object):
         # Check whether the station is being used by someone else:
         if self.checkobservingallowed() and goto_observingstate_when_starting:
             self.stationcontroller.bootToObservationState()
-    
+
     def haltobservingstate(self):
-        """Halt observing state on station.""" 
+        """Halt observing state on station."""
         if self.checkobservingallowed():
             self.stationcontroller.shutdownObservationState()
             self.cleanup()
@@ -241,7 +241,7 @@ class Session(object):
             self.stationcontroller.cleanup()
         # Close down stationcontroller:
         del self.stationcontroller
-    
+
     def __del__(self):
         """Normally, shutdown observation mode on station."""
         if self.halt_observingstate_when_finished:
@@ -251,7 +251,7 @@ class Session(object):
                 swlevel = self.stationcontroller.getswlevel()
                 if int(swlevel) != 0:
                     print "Warning: You are leaving station in swlevel {} != 0".format(swlevel)
-    
+
     def movefromlcu(self, source, dest, recursive=False):
         """Move file(s) off LCU to DPU."""
         if not os.path.isdir(dest):
@@ -268,16 +268,16 @@ class Session(object):
         if not self.stationcontroller.DryRun:
             subprocess.call(fullcmd, shell=True)
             self.stationcontroller.rm(source)
-    
+
     def get_data_timestamp(self):
         """Get timestamp of datafiles on LCU."""
         dd_dir, acc_dir = self.stationcontroller.getdatalist()
         # Assumes only one file in datadump dir with
         # format YYYYmmdd_HHMMSS_[bsx]st.dat
-        obsdate, obstime, obssuff = dd_dir[0].split('_', 2) 
+        obsdate, obstime, obssuff = dd_dir[0].split('_', 2)
         obsdatetime_stamp = obsdate+'_'+obstime
         return obsdatetime_stamp
-    
+
 #######################################
 # Begin: Basic obs modes
     def getbsxstdatapath(self, LOFARdatTYPE, datetime_stamp, rcumode, sb,
@@ -296,12 +296,12 @@ class Session(object):
             st_extName += "_"+LOFARdatTYPE
             datapath = os.path.join(stDataArchive, st_extName)
             return stObsEpoch, datapath
-    
+
     def do_bst(self, frequency, integration, duration, pointing):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz."""
         if not self.checkobservingallowed():
             raise RuntimeError
-        
+
         CALTABLESRC='default'   # FIXME put this in args
         freqLo = frequency
         # Setup Calibration:
@@ -332,16 +332,16 @@ class Session(object):
                                                                        datapath)
         # beamlet statistics also generate *01[XY].dat that are empty so remove:
         self.stationcontroller.rm(
-                              self.stationcontroller.lcuDumpDir+"/*01[XY].dat") 
+                              self.stationcontroller.lcuDumpDir+"/*01[XY].dat")
         return bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo\
                , datapath
 
     def do_sst(self, frequency, integration, duration, pointing):
         """Run an sst static."""
-        
+
         if not self.checkobservingallowed():
             raise RuntimeError
-        
+
         SYS_TEMP_MEAS = False    # Use this to do a system temperature measurement.
 
         # Specify freq range
@@ -373,10 +373,10 @@ class Session(object):
         """Run an xst statistic towards the given pointing. This corresponds to
         a crosscorrelation of all elements at the given frequency and integration
         repeated for a duration of seconds."""
-        
+
         if not self.checkobservingallowed():
             raise RuntimeError
-        
+
         # Start beamforming
         beamctl_CMDs, rspctl_SET, beamctl_main = \
                          self.stationcontroller.streambeam(frequency, pointing)
@@ -397,16 +397,16 @@ class Session(object):
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
         return bsxSTobsEpoch, rspctl_SET, beamctl_CMDs, rspctl_CMD, caltabinfo \
                  , datapath
-    
+
     def bsxST(self, statistic, frequency, integration, duration, pointSrc):
         """Run a statisics observation.
-        
+
         Parameters
         ----------
         statistic : str
             Statistic can be either 'BST', 'SST' or 'XST'
             (corresponding to spectral, beamlet or crosscorrelation).
-        frequency : 
+        frequency :
             frequency in Hz.
         integration : int
             integration time in seconds.
@@ -445,13 +445,13 @@ class Session(object):
 
 # End: Basic obs modes
 #######################################
-    
+
     def do_acc(self, band, duration_req, pointSrc='Z', exit_obsstate=False):
         """Perform calibration observation mode on station. Also known as ACC mode.
         The duration may be longer than requested so as to fit within the cadence
         of whole ACC aquisitions (512+7=519 seconds). swlevel needs to cycle
         down to 2 (or less) and then to 3.
-        
+
         Parameters
         ----------
             band: str
@@ -483,7 +483,7 @@ class Session(object):
             print("Warning: will use longer duration {}s to fit with ACC cadence.\
                   ".format(duration))
         obsStartDate = time.strftime("%Y%m%d_%H%M%S",time.gmtime())
-        
+
         # Run ACC mode
         sst_integration = 600
         beamctl_CMD, rspctl_CMD = \
@@ -491,7 +491,7 @@ class Session(object):
                                         sst_integration)
         if exit_obsstate:
             self.stationcontroller.bootToObservationState(0)
-        
+
         # Transfer data from LCU to DAU
         ACCsrcFiles = self.stationcontroller.ACCsrcDir+"/*.dat"
         ACCdestDir = os.path.join(self.LOFARdataArchive, 'acc',
@@ -506,11 +506,11 @@ class Session(object):
             print "Creating directory "+ACCdestDir+" for ACC "+str(duration)\
                   +" s rcumode="+rcumode+" calibration"
             os.mkdir(ACCdestDir)
-        
+
         # Move ACC dumps to storage
         obsdatetime_stamp = self.get_data_timestamp()
         self.movefromlcu(ACCsrcFiles, ACCdestDir)
-        
+
         # Move concurrent data to storage
         bsxSTobsEpoch, datapath = self.getbsxstdatapath('sst', obsdatetime_stamp,
                               rcumode, "", sst_integration, duration, "")
@@ -519,7 +519,7 @@ class Session(object):
         self.create_LOFARst_header('sst', datapath, bsxSTobsEpoch, "",
                                    beamctl_CMD, rspctl_CMD, "")
         self.stationcontroller.cleanup()
-        
+
         # Postprocess?
         if False:
             if not self.stationcontroller.DryRun and not rcumode == '3':
@@ -530,18 +530,18 @@ class Session(object):
                 print("Not reducing ACCs on DPU in {} (stnid={}) into BSTs...\
                       ".format(ACCdestDir, self.stationcontroller.stnid))
         return ACCdestDir
-    
-    def setupSEPTON(elemsOn=elOn_gILT):
+
+    def setupSEPTON(self, elemsOn=elOn_gILT):
         """Setup Single Element per Tile ON mode. This only valid for HBA and
         currently only rcumode=5."""
         self.stationcontroller.bootToObservationState(2) # Note: LCU must be in
                                                          # swlevel=2 to run SEPTON!
         #self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
         self.stationcontroller.turnoffElinTile_byEl(elemsOn)
-    
+
     #####################
     # BEGIN: TBB services
-    
+
     def do_tbb(self, duration, band):
         """Record duration seconds of TBB data from rcumode."""
 
@@ -553,10 +553,10 @@ class Session(object):
         freqBand = stationcontrol.band2freqrange(band)
         antset = stationcontrol.band2antset(band)
         self.stationcontroller.streambeam(freqBand, pointing)
-        
+
         print "Set up TBBs"
         self.stationcontroller.setupTBBs()
-        
+
         print "Wait a while for TBBs to fill up"
         time.sleep(20)
         #Start data capture process locally
@@ -569,10 +569,10 @@ class Session(object):
         print "Start streaming "+str(duration)+" s of TBB data out of LCU"
         self.stationcontroller.startTBBdataStream(float(duration))
         dalcap.join()
-    
+
     # END: TBB services
     ###################
-    
+
     def create_LOFARst_header(self, LOFARstTYPE, datapath, LOFARstObsEpoch,
                         rspsetup_CMD, beamctl_CMD, rspctl_CMD, caltableInfo=""):
         """Create a header file for LOFAR standalone observation."""
@@ -632,4 +632,3 @@ def capture_data_DAL1(tbbraw2h5cmd, TBBh5dumpDir, observer, antennaSet, project,
                       +" -P 31670 -P 31671 -P 31672 "
                       +" -P 31673 -P 31674 -P 31675 "
                       +grdcmd), shell=True)
-
