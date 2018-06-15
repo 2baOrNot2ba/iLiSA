@@ -1,4 +1,3 @@
-#TobiaC 2018-02-09 (2018-01-26)
 """LOFAR module for basic hi-level functionality for observing in LOCAL station
 mode.
 """
@@ -11,16 +10,12 @@ import numpy
 # LOFAR convience
 ALLRCUs = "0:191"
 
-# LCU state
-#BEAM_ON = None
-#CALTAB_DEFAULT = None
-
 # LOFAR constants
 Nqfreq = 100.0e6  # Nyquist frequency in Hz
-TotNrOfsb = 512 # Total number of subbands. (Subbands numbered 0:511)
+TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
 NrBeamletsPerLane = 61
-baseSB = 0 # Nominally 0.
+baseSB = 0  # Nominally 0.
 beamlets_lane0 = range(0,                   1*NrBeamletsPerLane)
 beamlets_lane1 = range(1*NrBeamletsPerLane, 2*NrBeamletsPerLane)
 beamlets_lane2 = range(2*NrBeamletsPerLane, 3*NrBeamletsPerLane)
@@ -28,7 +23,7 @@ beamlets_lane3 = range(3*NrBeamletsPerLane, 4*NrBeamletsPerLane)
 maxNrSubbands = 4*NrBeamletsPerLane
 elementsInTile = 16
 nrTiles = 96
-beamboottime = 12.0 # Time it takes for beams to settle, depends on LBA or HBA...
+beamboottime = 12.0  # Time it takes for beams to settle, depends on LBA or HBA
 
 
 def band2antset(band):
@@ -36,10 +31,10 @@ def band2antset(band):
     Assumption is that one wants to use as many of antennas in field as
     possible.
     """
-    if band=="10_90" or band=="30_90":
-        antset="LBA_INNER"
-    elif band=="110_190" or band=="170_230" or band=="210_250":
-        antset="HBA_JOINED"
+    if band == "10_90" or band == "30_90":
+        antset = "LBA_INNER"
+    elif band == "110_190" or band == "170_230" or band == "210_250":
+        antset = "HBA_JOINED"
     else:
         raise ValueError("Undefined band: {}.".format(band))
     return antset
@@ -65,7 +60,7 @@ def band2rcumode(band):
 def rcumode2band(rcumode):
     """Map rcumode to band string as used in beamctl arguments."""
     rcumode = str(rcumode)
-    if   rcumode == "3":
+    if rcumode == "3":
         band = "10_90"
     elif rcumode == "4":
         band = "30_90"
@@ -83,6 +78,7 @@ def rcumode2band(rcumode):
 def rcumode2freqrange(rcumode):
     return rcumode2band(rcumode).split('_')
 
+
 def band2freqrange(band):
     return tuple(map(int, band.split('_')))
 
@@ -93,10 +89,10 @@ def rcumode2antset(rcumode):
     possible. (This function may soon be deprecated.)
     """
     # NOTE new/more antennasets are now available.
-    if rcumode=="3":
-        antset="LBA_INNER"
-    elif rcumode=="5" or rcumode=="7":
-        antset="HBA_JOINED"
+    if rcumode == "3":
+        antset = "LBA_INNER"
+    elif rcumode == "5" or rcumode == "7":
+        antset = "HBA_JOINED"
     else:
         raise ValueError("Undefined rcumode: {}.".format(rcumode))
     return antset
@@ -107,40 +103,40 @@ def rcumode2sbfreqs(rcumode):
     Returns an array of frequencies where index is subband number."""
     NZ = (int(rcumode)-3)/2
     # Note the endpoint=False here. Before it 2018-03-22 it was missing.
-    freqs = numpy.linspace(NZ*Nqfreq, (NZ+1)*Nqfreq, TotNrOfsb, endpoint=False) #in Hz
+    freqs = numpy.linspace(NZ*Nqfreq, (NZ+1)*Nqfreq, TotNrOfsb, endpoint=False)
     return freqs
 
 
 def rcumode2NyquistZone(rcumode):
-    NZ=int((int(rcumode)-3)/2)
+    NZ = int((int(rcumode)-3)/2)
     return NZ
 
 
 def NyquistZone2rcumode(NZ):
-    rcumode=NZ*2+3
+    rcumode = NZ*2+3
     return str(rcumode)
 
 
 def freq2sb(freq):
     """Convert frequency in Hz to subband number and Nyquist zone."""
-    absSB=int(round(freq/Nqfreq*TotNrOfsb))
-    sb=absSB % TotNrOfsb
-    NqZone=absSB / TotNrOfsb
+    absSB = int(round(freq/Nqfreq*TotNrOfsb))
+    sb = absSB % TotNrOfsb
+    NqZone = absSB / TotNrOfsb
     return sb, NqZone
 
 
-def sb2freq(sb,NqZone):
+def sb2freq(sb, NqZone):
     """Convert subband in a given Nyquist zone to a frequency."""
-    freq= Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
+    freq = Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
     return freq
 
 
 def freq2beamParam(freq):
     """Get beam parameters antset, rcumode and subband for with frequency (Hz).
     """
-    sb, sbNZ=freq2sb(freq)
-    rcumode=NyquistZone2rcumode(sbNZ)
-    antset=rcumode2antset(rcumode)
+    sb, sbNZ = freq2sb(freq)
+    rcumode = NyquistZone2rcumode(sbNZ)
+    antset = rcumode2antset(rcumode)
     return (antset, rcumode, str(sb))
 
 
@@ -149,14 +145,14 @@ def freqBand2sb(freqBand, wordsize_bits=16):
     maxsbs = maxNrOfBeamlets(wordsize_bits)
     freqLo = freqBand[0]
     sbLo, sbLoNZ = freq2sb(freqLo)
-    if len(freqBand)==2:
+    if len(freqBand) == 2:
         freqHi = freqBand[1]
         sbHi, sbHiNZ = freq2sb(freqHi)
     else:
         sbHi = sbLo+min(maxsbs, TotNrOfsb-sbLo)-1
         sbHiNZ = sbLoNZ
     NrSBs = sbHi-sbLo+1
-    if NrSBs > maxsbs :
+    if NrSBs > maxsbs:
         print "Frequency range not permitted: too many subbands"
         raise ValueError
     if sbLoNZ != sbHiNZ:
@@ -170,8 +166,8 @@ def freqBand2sb(freqBand, wordsize_bits=16):
 
 
 def maxNrOfBeamlets(wordsize_bits):
-    """Return maximum number of subbands, depending on word size of ADC samples:
-    16-bit, 8-bit modes."""
+    """Return maximum number of subbands, depending on word size of ADC
+    samples: 16-bit, 8-bit modes."""
     maxNrOfSBs_16 = 244
     if wordsize_bits == 16:
         maxNrOfSBs = maxNrOfSBs_16
@@ -200,8 +196,8 @@ def parse_multibeamctl_args(beamctl_strs):
     digdir_list = []
     beamctl_str_lst = beamctl_strs.split("; ")
     for beamctl_str in beamctl_str_lst:
-        (antennaset, rcus, rcumode, beamlets,
-              subbands, anadir, digdir)=parse_beamctl_args(beamctl_str)
+        (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir
+         ) = parse_beamctl_args(beamctl_str)
         antennaset_list.append(antennaset)
         rcus_list.append(rcus)
         rcumode_list.append(rcumode)
@@ -215,11 +211,11 @@ def parse_multibeamctl_args(beamctl_strs):
 
 def parse_beamctl_args(beamctl_str):
     """Parse beamctl command arguments"""
-    beamctl_str_normalized = beamctl_str.replace('=',' ')
+    beamctl_str_normalized = beamctl_str.replace('=', ' ')
     beamctl_parser = argparse.ArgumentParser()
     beamctl_parser.add_argument('--antennaset')
     beamctl_parser.add_argument('--rcus')
-    beamctl_parser.add_argument('--rcumode') # Obsolete
+    beamctl_parser.add_argument('--rcumode')  # Obsolete
     beamctl_parser.add_argument('--band')
     beamctl_parser.add_argument('--beamlets')
     beamctl_parser.add_argument('--subbands')
@@ -241,10 +237,10 @@ class Station(object):
     """This class manages an International LOFAR station."""
     lofarroot = "/opt/lofar_local/"
     lofarstationtestdir = "/localhome/stationtest/"
-    ACCsrcDir = "/localhome/data/ACCdata/" # This is set in CalServer.conf
-                                    # when CalServer is running. (Activated
-                                    # with lcu script "CalServDump.sh 1"
+    # ACCsrcDir is set in CalServer.conf and used when CalServer is running.
+    ACCsrcDir = "/localhome/data/ACCdata/"
     CalServer_conf = lofarroot + "/etc/CalServer.conf"
+
     def setupaccess(self, accessconf):
         """Initialize with user-station configuration."""
         self.stnid = accessconf['stnid']
@@ -255,11 +251,13 @@ class Station(object):
         self.lcuDumpDir = accessconf['dumpdir']
         # Should lcu scripts be used?:
         self.usescriptonlcu = accessconf['usescriptonlcu']
-        #TODO Implement condition: if self.usescriptonlcu:
+        # TODO Implement condition: if self.usescriptonlcu:
         # This is where the scripts are:
-        self.scriptsDir="/data/home/"+accessconf['user']+"/scripts/" # TODO Remove dependency on this (scripts should run on system-wide PATH
+        # TODO Remove dependency on scriptsDir:
+        # (scripts should run on system-wide PATH)
+        self.scriptsDir = "/data/home/"+accessconf['user']+"/scripts/"
         self.DryRun = accessconf['DryRun']
-        self.verbose = True # Write out LCU commands
+        self.verbose = True  # Write out LCU commands
         if self.checkaccess() and self.verbose:
             print "Established access to LCU."
 
@@ -279,15 +277,12 @@ class Station(object):
             self.accessible = False
         return self.accessible
 
-
     def __init__(self, lcuaccessconf=None):
         if lcuaccessconf is not None:
             self.setupaccess(lcuaccessconf)
 
-
     def __del__(self):
         pass
-
 
     def execOnLCU(self, cmdline, backgroundJOB=False, quotes="'"):
         """Execute a command on the LCU, either as a background job or in the
@@ -296,7 +291,7 @@ class Station(object):
         """
         LCUprompt = "On LCU> "
         shellinvoc = "ssh "+self.lcuURL
-        if backgroundJOB == True:
+        if backgroundJOB is True:
             cmdline = "(( "+cmdline+" ) > "+self.lcuHome+"lofarctl.log 2>&1) &"
         if self.DryRun:
             prePrompt = "(dryrun) "
@@ -304,20 +299,24 @@ class Station(object):
             prePrompt = ""
         if self.verbose:
             print prePrompt+LCUprompt+cmdline
-        if self.DryRun == False and self.accessible:
+        if self.DryRun is False and self.accessible:
             if backgroundJOB == 'locally':
                 # Runs in background locally rather than in background on LCU
-                lcuproc = subprocess.call(shellinvoc+" "+cmdline+" &", shell=True)
+                lcuproc = subprocess.call(shellinvoc+" "+cmdline+" &",
+                                          shell=True)
             else:
-                if quotes=="'":
-                    lcuproc = subprocess.call(shellinvoc+" "+"'"+cmdline+"'", shell=True)
-                elif quotes=='"':
-                    lcuproc = subprocess.call(shellinvoc+" "+'"'+cmdline+'"', shell=True)
+                if quotes == "'":
+                    lcuproc = subprocess.call(shellinvoc+" "+"'"+cmdline+"'",
+                                              shell=True)
+                elif quotes == '"':
+                    lcuproc = subprocess.call(shellinvoc+" "+'"'+cmdline+'"',
+                                              shell=True)
                 else:
-                    lcuproc = subprocess.call(shellinvoc+" "+cmdline, shell=True)
+                    lcuproc = subprocess.call(shellinvoc+" "+cmdline,
+                                              shell=True)
         elif not self.accessible:
-            print "Warning: not running as "+self.lcuURL+" since it is not accesible."
-
+            print("Warning: not running as "+self.lcuURL
+                  + " since it is not accesible.")
 
     def _stdoutLCU(self, cmdline):
         """Execute a command on the LCU and check its output."""
@@ -329,67 +328,65 @@ class Station(object):
             prePrompt = ""
         if self.verbose:
             print prePrompt+LCUprompt+cmdline
-        if self.DryRun == False:
+        if self.DryRun is False:
             try:
                 output = subprocess.check_output(shellinvoc+" '"+cmdline+"'",
-                                             shell=True).rstrip()
+                                                 shell=True).rstrip()
             except subprocess.CalledProcessError, e:
                 raise Exception('Access LCU error: {}'.format(e))
         else:
             output = "None"
         return output
 
-
     def outfromLCU(self, cmdline, integration, duration):
         print "LCUo>", cmdline
         cmd = subprocess.Popen("ssh "+self.lcuURL+" "+"'"+cmdline+"'",
-                                  stdin = subprocess.PIPE, stdout = subprocess.PIPE,
-                                  stderr = subprocess.PIPE, shell=True)
+                               stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, shell=True)
         count = 0
         outstrname = 'stderr'
         while cmd.poll() is None:
             if outstrname == 'stdout':
-               outstr = cmd.stdout
+                outstr = cmd.stdout
             elif outstrname == 'stderr':
-               outstr = cmd.stderr
+                outstr = cmd.stderr
             else:
-               print "Unknown output name"
-               exit(1)
+                print "Unknown output name"
+                exit(1)
             try:
                 got = cmd.stderr.readline()
             except IOError:
                 print("ioerror")
                 exit(1)
             else:
-                #print got
+                # print got
                 if "shape(stats)=" in got:
-                   if count % 4 == 0:
-                      print str(int(round(duration-count/4.0*integration,0)))\
-                            +"sec left out of "+str(duration)
-                   count += 1
-
+                    if count % 4 == 0:
+                        print(str(int(round(duration-count/4.0*integration, 0)
+                                      )) + "sec left out of " + str(duration))
+                    count += 1
 
     def getdatalist(self):
         ls_lcuDumpDir = self._stdoutLCU("ls "+self.lcuDumpDir).split('\n')
         ls_ACCsrcDir = self._stdoutLCU("ls "+self.ACCsrcDir).split('\n')
         return ls_lcuDumpDir, ls_ACCsrcDir
 
-
     def whoServiceBroker(self):
-        """Check who is running the Service Broker on the LCU. This is an indication
-        of who is currently using the station."""
+        """Check who is running the Service Broker on the LCU. This is an
+        indication of who is currently using the station."""
         try:
-            ps_out = self._stdoutLCU("/bin/ps -CServiceBroker --no-headers -ouser")
+            ps_out = \
+              self._stdoutLCU("/bin/ps -CServiceBroker --no-headers -ouser")
         except:
-            # Can happen if no ServiceBroker process running. Pretend ps returns blank
-            ps_out =""
+            # Can happen if no ServiceBroker process running. Pretend ps
+            # returns blank
+            ps_out = ""
         ps_out_lns = ps_out.splitlines()
         if len(ps_out_lns) == 0:
             sb_user = 'None'
         else:
             sb_user = ps_out_lns[0]
         return sb_user
-
 
     def getstationswitchmode(self):
         """Get mode of station switch. Can be 'ILT' or 'local' mode."""
@@ -398,13 +395,13 @@ class Station(object):
         except:
             # Can happen if no ServiceBroker process running
             print "Caught"
-            getstationmode_out =""
+            getstationmode_out = ""
         stationmode = getstationmode_out.split()[-1]
         return stationmode
 
     def rm(self, source):
-       """Remove specified source file(s) on LCU."""
-       self.execOnLCU("rm -fr "+source)
+        """Remove specified source file(s) on LCU."""
+        self.execOnLCU("rm -fr "+source)
 
     def cleanup(self):
         """Clean up all local data dumps. It is usually the ObsSession()
@@ -420,7 +417,6 @@ class Station(object):
         disabledrcus = filecontents.split(',')
         return disabledrcus
 
-
     def selectrcustr(self, rcumode):
         disabledrcustr = self.getDISABLEDRCUs(rcumode)
         if disabledrcustr[0] != '':
@@ -429,14 +425,15 @@ class Station(object):
             enabledrcus = [rcu for rcu in allrcus if rcu not in disabledrcus]
             # difenabrcu = numpy.diff(enabledrcus)
             enabledrcuflagstr = str(enabledrcus[0])+":"
-            for rcuidx in range(1,len(enabledrcus)-1):
-                    if enabledrcus[rcuidx]-enabledrcus[rcuidx-1] != 1:
-                        enabledrcuflagstr += str(enabledrcus[rcuidx-1])+","+str(enabledrcus[rcuidx])+":"
+            for rcuidx in range(1, len(enabledrcus)-1):
+                if enabledrcus[rcuidx]-enabledrcus[rcuidx-1] != 1:
+                    enabledrcuflagstr += \
+                      str(enabledrcus[rcuidx-1])+","+str(enabledrcus[rcuidx])\
+                      + ":"
             enabledrcuflagstr += str(enabledrcus[-1])
         else:
             enabledrcuflagstr = ALLRCUs
         return enabledrcuflagstr
-
 
     def getMACversion(self):
         """Get MAC version of station."""
@@ -444,7 +441,6 @@ class Station(object):
         if self.DryRun:
             macversionstr = "Mock-version-2.0.0"
         return macversionstr
-
 
     def getswlevel(self):
         """Get current Software Level of station. Returns a string which
@@ -454,56 +450,53 @@ class Station(object):
             swlevel = 'Mock 3'
         return swlevel
 
-
     def bootToObservationState(self, swleveltarget=3, FullReboot=False):
         """Get station to observation state."""
-        #Stop any beam and remove any data in lcu datadump
+        # Stop any beam and remove any data in lcu datadump
         self.execOnLCU("killall beamctl")
 
-        if FullReboot != True:
+        if FullReboot is not True:
             print "Checking swlevel (prior to running observations)"
             if not self.DryRun:
-              swlevel = self.getswlevel()
+                swlevel = self.getswlevel()
             else:
-              swlevel = "undefined"
+                swlevel = "undefined"
             print "Found swlevel="+swlevel
             if swlevel != str(swleveltarget):
-#              FullReboot = True
-               self.execOnLCU("swlevel "+str(swleveltarget))
-        if FullReboot == True:
-          #May need to be swlevel 0, but swlevel 1 is faster
-          self.execOnLCU("swlevel 0; swlevel "+str(swleveltarget))
-        #TODO check if we own the swlevel
-
+                # FullReboot = True
+                self.execOnLCU("swlevel "+str(swleveltarget))
+        if FullReboot is True:
+            # May need to be swlevel 0, but swlevel 1 is faster
+            self.execOnLCU("swlevel 0; swlevel "+str(swleveltarget))
+        # TODO check if we own the swlevel
 
     def stopBeam(self):
         """Stop any running beamctl processes."""
-        #Stop any beamctl and clean up datadump dir on lcu.
+        # Stop any beamctl and clean up datadump dir on lcu.
         self.execOnLCU("killall beamctl")
-        #Put caltables back to default
+        # Put caltables back to default
         self.selectCalTable('default')
-        #print("Beam off at %s"%time.asctime(time.localtime(time.time())))
-
+        # print("Beam off at %s"%time.asctime(time.localtime(time.time())))
 
     def shutdownObservationState(self):
-        #Go to swlevel 0. No LOFAR services will be running after this.
+        # Go to swlevel 0. No LOFAR services will be running after this.
         self.execOnLCU('swlevel 0')
-
 
 ##Basic station data taking commands BEGIN
 
     def rspctl_cmd(self, bits=16, attenuation=None):
-        """Return rspctl command to setup RCUs: bits is 8 or 16, and attenuation is
-        0 to 31.
+        """Return rspctl command to setup RCUs: bits is 8 or 16, and
+        attenuation is 0 to 31.
         (Nothing is executed on LCU)"""
         # TODO should maybe check if bit mode is already correct...
-        # Note: Looks like bitmode and rcuattenuation have to be set in separate commands.
+        # NOTE Looks like bitmode and rcuattenuation have to be set in separate
+        #      commands.
         rspctl_CMDs = ""
         rspctl_CMDs += "rspctl --bitmode="+str(bits)+" ; "
         if attenuation:
-            rspctl_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "  #NOTE: attenuation only set when beamctl is runnning.
+            # NOTE attenuation only set when beamctl is runnning.
+            rspctl_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "
         return rspctl_CMDs
-
 
     def rcusetup(self, bits, attenuation):
         """Setup basic RCU setting: bits is 8 or 16, and attenuation is 0 to 31
@@ -511,7 +504,6 @@ class Station(object):
         rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
         self.execOnLCU(rcu_setup_CMD)
         return rcu_setup_CMD
-
 
     def setupbeamlets(self, beamletIDs, subbandNrs, band, pointing,
                       RCUSflag=ALLRCUs, beamletDurStr=""):
@@ -522,16 +514,17 @@ class Station(object):
         digdir = pointing
 
         try:
-            band = rcumode2band(band) #See if band is actually old rcumode 3,5,7 etc
+            # See if band is actually old rcumode 3,5,7 etc
+            band = rcumode2band(band)
         except ValueError:
-            pass  #OK it's not an rcumode, assume it's a proper band descriptor
+            pass    # It's not an rcumode. Assume it's a proper band descriptor
         antset = band2antset(band)
-        beamctl_CMD = ("beamctl --antennaset="+antset+" --rcus="+RCUSflag+" --band="+band
-                           +" --beamlets="+beamletIDs+" --subbands="+subbandNrs
-                           +" --anadir="+anadir+beamletDurStr
-                           +" --digdir="+digdir+beamletDurStr)
+        beamctl_CMD = ("beamctl --antennaset="+antset+" --rcus="+RCUSflag
+                       + " --band="+band+" --beamlets="+beamletIDs
+                       + " --subbands="+subbandNrs
+                       + " --anadir="+anadir+beamletDurStr
+                       + " --digdir="+digdir+beamletDurStr)
         return beamctl_CMD
-
 
     def runbeamctl(self, beamletIDs, subbandNrs, rcumode, pointing,
                    RCUSflag=ALLRCUs, beamletDurStr="", backgroundJOB=True):
@@ -541,14 +534,13 @@ class Station(object):
         self.execOnLCU(beamctl_CMD, backgroundJOB)
         waittime = 10
         print "Waiting "+str(waittime)+" seconds"
-        time.sleep(waittime) #Wait for beam to settle
+        time.sleep(waittime)  # Wait for beam to settle
         return beamctl_CMD
 
-
-    def streambeam(self, freqBand, pointings, recDuration=float('inf'), bits=16,
-                   attenuation=0, DUMMYWARMUP=False):
-        #Multiple sbs with same pointing
-        #or one sb with pointing
+    def streambeam(self, freqBand, pointings, recDuration=float('inf'),
+                   bits=16, attenuation=0, DUMMYWARMUP=False):
+        # Multiple sbs with same pointing
+        # or one sb with pointing
         beamctl_CMDs = ""
         MultiBeamctl = False
 
@@ -557,92 +549,94 @@ class Station(object):
         elif type(freqBand) is float:
             antset, rcumode, subbands = freq2beamParam(freqBand)
             if type(pointings) is tuple:
-                MultiBeamctl=True
+                MultiBeamctl = True
             else:
-                #Nominally:
-                beamletIDs='0'
-                #(special test used):
+                # Nominally:
+                beamletIDs = '0'
+                # (special test used):
                 # nrBLs = 61*4*16/bits
                 # beamletIDs=','.join([str(b) for b in range(nrBLs)])
                 # #subbands = ((subbands+',')*nrBLs).rstrip(',')
 
         # Select good rcus
         enabledrcus = ALLRCUs
-        #enabledrcus = self.selectrcustr(rcumode)
+        # enabledrcus = self.selectrcustr(rcumode)
 
         if MultiBeamctl:
-            for beamletNr in range(0,len(pointings)):
+            for beamletNr in range(0, len(pointings)):
                 beamctl_CMDs = (beamctl_CMDs
-                  +self.setupbeamlets(str(beamletNr), subbands, rcumode,
-                                      pointings[beamletNr])+" & \\"+"\n"
-                )
-          #beamctl_CMDs=beamctl_CMDs[:-2] #Trim off trailing "; "
+                                + self.setupbeamlets(str(beamletNr), subbands,
+                                                     rcumode,
+                                                     pointings[beamletNr])
+                                + " & \\"+"\n"
+                                )
+            # beamctl_CMDs=beamctl_CMDs[:-2] #Trim off trailing "; "
         else:
             beamctl_main = self.setupbeamlets(beamletIDs, subbands, rcumode,
                                               pointings, RCUSflag=enabledrcus)
             backgroundJOB = True
             beamctl_CMDs = beamctl_main
-            #beamctl_CMDs="(("+beamctl_CMDs+") & )"
-        #print "(About to stream beams)"
-        #recStop_CMD=":" #bash no-op
-        if backgroundJOB == True:
+            # beamctl_CMDs="(("+beamctl_CMDs+") & )"
+        # print "(About to stream beams)"
+        # recStop_CMD=":" #bash no-op
+        if backgroundJOB is True:
             beamctl_CMDs += " & "
         # Setup rspctl settings
         rspctl_SET = self.rspctl_cmd(bits, attenuation)
-        #beamctl_CMDs = rspctl_SET + beamctl_CMDs # rspctl cmd before beamctl
-        beamctl_CMDs = beamctl_CMDs + rspctl_SET # rspctl cmd *after* beamctl
+        # beamctl_CMDs = rspctl_SET + beamctl_CMDs # rspctl cmd before beamctl
+        beamctl_CMDs = beamctl_CMDs + rspctl_SET  # rspctl cmd *after* beamctl
         if recDuration != float('inf'):
             recDuration_CMD = " sleep "+str(recDuration+beamboottime)+"; "
             recStop_CMD = "killall beamctl"
-            #Start beam streaming and stop after recDuration seconds
-            #beamctl_CMD_BG="(("+beamctl_CMDs+") &)" #Put beamctl in bg
+            # Start beam streaming and stop after recDuration seconds
+            # beamctl_CMD_BG="(("+beamctl_CMDs+") &)" #Put beamctl in bg
             beamctl_CMDs += recDuration_CMD
             beamctl_CMDs += recStop_CMD
-            backgroundJOB = True # FIX this
+            backgroundJOB = True  # FIX this
         if DUMMYWARMUP:
             print "Warm-up with dummy beam"
             self.execOnLCU(beamctl_CMDs+" sleep "+str(1)
-                           +"; killall beamctl", False)
+                           + "; killall beamctl", False)
         self.execOnLCU(beamctl_CMDs, backgroundJOB)
         if backgroundJOB:
-            beamSettleTime = 6.0 #Time in seconds before beam settles. Can be only 5s if bitmode unchanged
+            beamSettleTime = 6.0    # Time in seconds before beam settles.
+                                    # Can be only 5s if bitmode unchanged
             print "Waiting "+str(beamSettleTime)+"s for beam to settle"
             time.sleep(beamSettleTime)
-        return beamctl_CMDs, rspctl_SET, beamctl_main # FIX separation between beamctl_CMDs & _main
+        # FIX separation between beamctl_CMDs & _main
+        return beamctl_CMDs, rspctl_SET, beamctl_main
 
-
-###Basic station "statistic" datataking BEGIN
+### Basic station "statistic" datataking BEGIN
     def rec_bst(self, integration, duration):
-        rspctl_CMD=( "rspctl --statistics=beamlet"
-                    +" --integration="+str(integration)
-                    +" --duration="+str(duration)
-                    +" --directory="+self.lcuDumpDir)
+        rspctl_CMD = ("rspctl --statistics=beamlet"
+                      + " --integration="+str(integration)
+                      + " --duration="+str(duration)
+                      + " --directory="+self.lcuDumpDir)
         self.outfromLCU(rspctl_CMD, integration, duration)
         return rspctl_CMD
 
-
     def rec_sst(self, integration, duration):
-        rspctl_CMD=( "rspctl --statistics=subband"
-                    +" --integration="+str(integration)
-                    +" --duration="+str(duration)
-                    +" --directory="+self.lcuDumpDir)
+        rspctl_CMD = ("rspctl --statistics=subband"
+                      + " --integration="+str(integration)
+                      + " --duration="+str(duration)
+                      + " --directory="+self.lcuDumpDir)
         self.execOnLCU(rspctl_CMD)
         return rspctl_CMD
 
-
     def rec_xst(self, sb, integration, duration):
-        rspctl_CMDs=""
-        rspctl_CMD=("rspctl --xcsubband="+sb) #Seems like this has to be sent before xstats
+        rspctl_CMDs = ""
+        # NOTE:  Seems like this has to be sent before xstats
+        rspctl_CMD = ("rspctl --xcsubband="+sb)
         self.execOnLCU(rspctl_CMD)
-        rspctl_CMDs +=  rspctl_CMD + "\n"
-        rspctl_CMD=( "rspctl --xcstatistics"
-                    +" --integration="+str(integration)
-                    +" --duration="+str(duration)
-                    +" --directory="+self.lcuDumpDir)
+        rspctl_CMDs += rspctl_CMD + "\n"
+        rspctl_CMD = ("rspctl --xcstatistics"
+                      + " --integration="+str(integration)
+                      + " --duration="+str(duration)
+                      + " --directory="+self.lcuDumpDir)
         self.execOnLCU(rspctl_CMD)
         rspctl_CMDs += rspctl_CMD
         return rspctl_CMDs
-###Basic station "statistic" datataking END
+### Basic station "statistic" datataking END
 
 ### TBB control BEGIN
     def setupTBBs(self):
@@ -665,7 +659,6 @@ class Station(object):
             self.execOnLCU("tbbctl --record")
             print "Finished setting up TBBs & started recording"
 
-
     def freezeTBBdata(self):
         if self.usescriptonlcu:
             self.execOnLCU("scripts/tbb_stop.sh")
@@ -675,40 +668,53 @@ class Station(object):
             print "Stopping any dummy beam"
             self.stopBeam()
 
-
     def startTBBdataStream(self, duration):
         """Stream duration seconds of TBB data out of the LCU to
         datataking node."""
-        udpdelay=500 #Set delay between subsequent frames. One delay unit is 5us.
-                     #(Previously 100)
-        nrpages=str(int(duration*2*Nqfreq/1024))  #One page is 1024 samples.
-                                                          #Normal sampling frequency
-                                                          #is 200MHz.
+        # Set delay between subsequent frames. One delay unit is 5us.
+        udpdelay = 500  # (Previously 100)
+        nrpages = str(int(duration*2*Nqfreq/1024))  # One page is 1024 samples.
+                                                    # Normal sampling frequency
+                                                    # is 200MHz.
         if self.usescriptonlcu:
             self.execOnLCU("scripts/tbb_dumpall.sh"+" "+nrpages)
         else:
             print "Streaming TBB data"
-            self.execOnLCU("tbbctl --storage=lofarA1 --select=0:15,16:31,32:47")
-            self.execOnLCU("tbbctl --storage=lofarA2 --select=48:63,64:79,80:95")
+            self.execOnLCU("tbbctl --storage=lofarA1 --select=0:15,16:31,32:47"
+                           )
+            self.execOnLCU("tbbctl --storage=lofarA2 --select=48:63,64:79,80:95"
+                           )
             self.execOnLCU("tbbctl --storage=lofarA3 --select=96:111,112:127,128:143")
             self.execOnLCU("tbbctl --storage=lofarA4 --select=144:159,160:175,176:191")
 
             self.execOnLCU("tbbctl --cepdelay="+str(udpdelay))
 
-            self.execOnLCU("tbbctl --readall="+nrpages+" --select=0:15", backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=48:63", backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=96:111", backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=144:159", backgroundJOB='locally' )
+            self.execOnLCU("tbbctl --readall="+nrpages+" --select=0:15",
+                           backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=48:63",
+                           backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=96:111",
+                           backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=144:159",
+                           backgroundJOB='locally' )
 
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=16:31", backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=64:79", backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=112:127", backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=160:175", backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=16:31",
+                           backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=64:79",
+                           backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=112:127",
+                           backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=160:175",
+                           backgroundJOB='locally')
 
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=32:47", backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=80:95", backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=128:143", backgroundJOB='locally')
-            # Last one is not put in background so the parent process blocks until finished.
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=32:47",
+                           backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=80:95",
+                           backgroundJOB='locally')
+            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=128:143",
+                           backgroundJOB='locally')
+            # Last one is not put in background so the parent process blocks
+            # until finished.
             self.execOnLCU("tbbctl --readall="+nrpages+"  --select=176:191",
                            backgroundJOB='locally')
 
@@ -717,17 +723,17 @@ class Station(object):
     def runACC(self, rcumode, duration, pointing, sst_integration=600):
         """Perform ACC calibration observation on station.
 
-        ACC files are autocovariance-cubes: the covariance of all array elements
-        with each as a function of subband. These files are generated by the
-        MAC service called CalServer. It run at swlevel 3 and is configured in
-        the file lofar/etc/CalServer.conf. Note subband integration is always 1s,
-        so ACC file is dumped after 512 seconds.
+        ACC files are autocovariance-cubes: the covariance of all array
+        elements with each as a function of subband. These files are generated
+        by the MAC service called CalServer. It run at swlevel 3 and is
+        configured in the file lofar/etc/CalServer.conf. Note subband
+        integration is always 1s, so ACC file is dumped after 512 seconds.
         """
 
         # Make dump data directory for concurrent SST data
         self.execOnLCU(
           'if [ ! -d "'+self.lcuDumpDir+'" ]; then mkdir '
-          +self.lcuDumpDir+'; fi', quotes="'")
+          + self.lcuDumpDir+'; fi', quotes="'")
 
         # Make sure swlevel=<2
         self.bootToObservationState(2)
@@ -747,7 +753,7 @@ r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^
 
         midfreq = float(freqs[len(freqs)/2])
         beamctl_CMD, rspctl_SET, beamctl_main = self.streambeam(midfreq,
-                                                                 pointing)
+                                                                pointing)
 
         # Run for $duration seconds
         rspctl_CMD = self.rec_sst(sst_integration, duration)
@@ -772,35 +778,36 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
         # TODO Consider use of "beamctl --calinfo"
         if self.usescriptonlcu:
             caltableInfo = subprocess.check_output("ssh "
-                                               +self.lcuURL
-                                               +" "+"infoCalTable.sh"+" "+str(rcumode),
-                                               shell=True)
+                                                   + self.lcuURL
+                                                   + " "+"infoCalTable.sh"+" "
+                                                   + str(rcumode),
+                                                   shell=True)
         else:
             caltableInfo = ""
             for line in subprocess.check_output("ssh "+self.lcuURL
-                                             +" "
-                                             +"cat /opt/lofar/etc/CalTable_mode"
-                                             +str(rcumode)+".dat",shell=True).split('\n'):
+                                                + " "
+                                                + "cat /opt/lofar/etc/CalTable_mode"
+                                                + str(rcumode)+".dat",
+                                                shell=True).split('\n'):
                 if line == "HeaderStop": break
                 if line == "HeaderStart": continue
                 caltableInfo += line + '\n'
         return caltableInfo
 
-
     def selectCalTable(self, which):
-        """This is specific to an lcu which has the script SelectCalTable.sh with
-        which a user can switch between different caltables. se607c has this
-        at /opt/lofar_local/bin/
+        """This is specific to an lcu which has the script SelectCalTable.sh
+        with which a user can switch between different caltables. se607c has
+        this at /opt/lofar_local/bin/
         """
-        if which=='default':
-            SelCalTabArg="0"
-        elif which=='local':
-            SelCalTabArg="1"
+        if which == 'default':
+            SelCalTabArg = "0"
+        elif which == 'local':
+            SelCalTabArg = "1"
         self.execOnLCU("SelectCalTable.sh"+" "+SelCalTabArg)
 
-
     def turnoffLBA_LNAs(self,):
-        """Turn-off the LNAs on LBA. (Used as an indication of system temperature."""
+        """Turn-off the LNAs on LBA. (Used as an indication of system
+        temperature."""
         # TODO allow selection of rcus rather than always all.
         rspctl_CMD = "rspctl --rcu=0x00034880 --sel=0:191"
         time.sleep(30)
@@ -808,7 +815,6 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
         print "Warning: Turning OFF LBA LNAs."
         time.sleep(30)
         return rspctl_CMD
-
 
     def setrcumode(self, rcumode):
         """Set the rcumode."""
