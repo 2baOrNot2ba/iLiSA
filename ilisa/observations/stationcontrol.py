@@ -7,7 +7,7 @@ import time
 import subprocess
 import argparse
 import numpy
-
+import observing
 
 # LOFAR convience
 ALLRCUs = "0:191"
@@ -808,34 +808,39 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
         time.sleep(2.0)
 
 
-#SEPTON
+# SEPTON
     setElem_ON = 128
     setElem_OFF = 2
+
     def turnoffElinTile_byTile(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by tile, which is more intuitive but slower."""
         self.setrcumode(5)
         for tileNr in range(nrTiles):
-            #Start with all elements in tile off
-            tileMap=[setElem_OFF for elemNr in range(elementsInTile)] #2 is OFF
-            #Turn on the appropriate element
-            tileMap[elemsOn[tileNr]]=setElem_ON #128 is ON
-            lcucmd="rspctl --hbadelay="+str(tileMap).strip('[]').replace(" ","")+" --select="+str(2*tileNr)+","+str(2*tileNr+1)
+            # Start with all elements in tile off
+            # (2 is OFF)
+            tileMap = [self.setElem_OFF for elemNr in range(elementsInTile)]
+            # Turn on the appropriate element
+            tileMap[elemsOn[tileNr]] = self.setElem_ON  # 128 is ON
+            lcucmd = "rspctl --hbadelay="\
+                     + str(tileMap).strip('[]').replace(" ", "")\
+                     + " --select="+str(2*tileNr)+","+str(2*tileNr+1)
             self.execOnLCU(lcucmd)
-
 
     def turnoffElinTile_byEl(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by element, which is less intuitive but faster."""
         self.setrcumode(5)
         for elNr in range(elementsInTile):
-            tiles=[ind for ind in range(nrTiles) if elNr==elemsOn[ind] ]
+            tiles = [ind for ind in range(nrTiles) if elNr == elemsOn[ind]]
             if len(tiles) == 0:
                 continue
-            tileMap=[setElem_OFF for elemNr in range(elementsInTile)]
-            tileMap[elNr]=setElem_ON
-            rcus=tiles2rcus(tiles)
-            lcucmd="rspctl --hbadelay="+str(tileMap).strip('[]').replace(" ","")+" --select="+str(rcus).strip('[]').replace(" ","")
+            tileMap = [self.setElem_OFF for elemNr in range(elementsInTile)]
+            tileMap[elNr] = self.setElem_ON
+            rcus = observing.tiles2rcus(tiles)
+            lcucmd = "rspctl --hbadelay="\
+                     + str(tileMap).strip('[]').replace(" ", "")\
+                     + " --select="+str(rcus).strip('[]').replace(" ", "")
             self.execOnLCU(lcucmd)
 
 ## Special commands END
