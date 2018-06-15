@@ -105,7 +105,7 @@ def readbstfolder(BSTfilefolder):
     nrsbs = sbhi-sblo+1
     BSTdirls = os.listdir(BSTfilefolder)
     BSTfiles = [ f for f in BSTdirls if f.endswith('.dat')]
-    
+
     # Now read the BST pol data
     BST_dtype = numpy.dtype(('f8', (nrsbs,)))
     BSTdata = {}
@@ -150,7 +150,7 @@ def readsst(SSTfile):
     ----------
     SSTfile : str
         Name of SST datafile.
-    
+
     Returns
     -------
     SSTdata : (512, N)
@@ -166,12 +166,12 @@ def readsst(SSTfile):
 
 def readsstfolder(SSTfolder):
     """Read-in SST datafile.
-    
+
     Parameters
     ----------
     SSTfolder : str
         The name of the folder which contains an SST datafile for each RCU.
-    
+
     Returns
     -------
     SSTdatarcu : (192, 512, N)
@@ -212,7 +212,7 @@ def readxst(XSTfilefolder):
     ----------
     SSTfolder : str
         The name of the XST folder.
-    
+
     Returns
     -------
     XSTdata : (192, 192, N)
@@ -231,11 +231,11 @@ def readxst(XSTfilefolder):
 
 def xst2XY(xst):
     """Return polarized components of flat XST data.
-    
+
     Parameters
     ----------
     xst : (N,M) array of complex
-    
+
     Returns
     -------
     XX, YY, XY, YX: (N/2,M/2) array of complex
@@ -256,7 +256,7 @@ def parse_accfolder(caldumpdir):
     if obsdirinfo_m is None:
         raise ValueError, "Calibration directory does not have correct syntax."
     obsdirinfo = obsdirinfo_m.groupdict()
-    d0 = datetime.datetime(int(obsdirinfo['year']), 
+    d0 = datetime.datetime(int(obsdirinfo['year']),
                            int(obsdirinfo['month']),
                            int(obsdirinfo['day']),
                            int(obsdirinfo['hour']),
@@ -275,7 +275,7 @@ def parse_accfilename(filepath):
     if obsfileinfo_m is None:
         raise ValueError, "Filename not in nominal ACC format."
     obsfileinfo = obsfileinfo_m.groupdict()
-    t_end = datetime.datetime(int(obsfileinfo['year']), 
+    t_end = datetime.datetime(int(obsfileinfo['year']),
                            int(obsfileinfo['month']),
                            int(obsfileinfo['day']),
                            int(obsfileinfo['hour']),
@@ -380,14 +380,14 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
         hf['frequency'].attrs['unit'] = "Hz"
         hf['timeaccstart'] = filestarttimes.view('<i8')
         hf['timeaccstart'].attrs['unit'] = "s"
-        
+
         hf['XX'] = bstXX
         hf['XX'].attrs['unit'] = "arb. power"
         hf['XY'] = bstXY
         hf['XY'].attrs['unit'] = "arb. complex power"
         hf['YY'] = bstYY
         hf['YY'].attrs['unit'] = "arb. power"
-        
+
         hf['XX'].dims.create_scale(hf['timeaccstart'])
         hf['XX'].dims.create_scale(hf['frequency'])
         hf['XY'].dims.create_scale(hf['timeaccstart'])
@@ -406,12 +406,12 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
         numpy.save(acc2bstbase+'_XX', bstXX)
         numpy.save(acc2bstbase+'_XY', bstXY)
         numpy.save(acc2bstbase+'_YY', bstYY)
-    return acc2bstbase
+    return acc2bstbase + "." + saveformat
 
 
 def cvc2cvpol(cvc):
     """Convert a covariance cube into an array indexed by polarization channels.
-    
+
     Parameters
     ----------
     cvc: (M,N,N) array (usually M=512 & N=196)
@@ -419,7 +419,7 @@ def cvc2cvpol(cvc):
         station when it is in calibration mode. It is the covariance matrices
         of the 196 rcus (98 X-polarized & 98 Y-polarized interleaved) over 512
         subbands.
-        
+
     Returns
     -------
     cvpol: (2,2,M,N/2,N/2) array
@@ -437,5 +437,4 @@ def cvc2cvpol(cvc):
 
 
 if __name__=="__main__":
-    ACCdata = readACC(sys.argv[1])
-
+    ACCdata = readacc(sys.argv[1])
