@@ -21,7 +21,7 @@ Nqfreq = 100.0e6  # Nyquist frequency in Hz
 TotNrOfsb = 512 # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
 NrBeamletsPerLane = 61
-baseSB = 0 # Nominally 0. 
+baseSB = 0 # Nominally 0.
 beamlets_lane0 = range(0,                   1*NrBeamletsPerLane)
 beamlets_lane1 = range(1*NrBeamletsPerLane, 2*NrBeamletsPerLane)
 beamlets_lane2 = range(2*NrBeamletsPerLane, 3*NrBeamletsPerLane)
@@ -193,7 +193,7 @@ def parse_multibeamctl_args(beamctl_strs):
     digdir_list = []
     beamctl_str_lst = beamctl_strs.split("; ")
     for beamctl_str in beamctl_str_lst:
-        (antennaset, rcus, rcumode, beamlets, 
+        (antennaset, rcus, rcumode, beamlets,
               subbands, anadir, digdir)=parse_beamctl_args(beamctl_str)
         antennaset_list.append(antennaset)
         rcus_list.append(rcus)
@@ -202,7 +202,7 @@ def parse_multibeamctl_args(beamctl_strs):
         subbands_list.append(subbands)
         anadir_list.append(anadir)
         digdir_list.append(digdir)
-    return (antennaset_list, rcus_list, rcumode_list, beamlets_list, 
+    return (antennaset_list, rcus_list, rcumode_list, beamlets_list,
             subbands_list, anadir_list, digdir_list)
 
 
@@ -222,7 +222,7 @@ def parse_beamctl_args(beamctl_str):
     beamctl_parser.add_argument('--digdir')
     args = beamctl_parser.parse_args(beamctl_str_normalized.split()[1:])
     rcumode = band2rcumode(args.band)
-    return (args.antennaset, args.rcus, rcumode, args.beamlets, 
+    return (args.antennaset, args.rcus, rcumode, args.beamlets,
             args.subbands, args.anadir, args.digdir)
 
 
@@ -232,16 +232,12 @@ def parse_beamctl_args(beamctl_str):
 
 class Station(object):
     """This class manages an International LOFAR station."""
-    
     lofarroot = "/opt/lofar_local/"
     lofarstationtestdir = "/localhome/stationtest/"
-    
-    ACCsrcDir = "/localhome/data/ACCdata/" # This is set in CalServer.conf 
+    ACCsrcDir = "/localhome/data/ACCdata/" # This is set in CalServer.conf
                                     # when CalServer is running. (Activated
                                     # with lcu script "CalServDump.sh 1"
     CalServer_conf = lofarroot + "/etc/CalServer.conf"
-    
-    
     def setupaccess(self, accessconf):
         """Initialize with user-station configuration."""
         self.stnid = accessconf['stnid']
@@ -259,11 +255,10 @@ class Station(object):
         self.verbose = True # Write out LCU commands
         if self.checkaccess() and self.verbose:
             print "Established access to LCU."
-    
-    
+
+
     def checkaccess(self):
         """Check that this object has access to LCU.
-        
         Note: It does this by trying to get the MAC version number."""
         self.MACversion = ""
         try:
@@ -275,17 +270,17 @@ class Station(object):
         else:
             self.accessible = False
         return self.accessible
-    
-    
+
+
     def __init__(self, lcuaccessconf=None):
         if lcuaccessconf is not None:
             self.setupaccess(lcuaccessconf)
-    
-    
+
+
     def __del__(self):
         pass
-    
-    
+
+
     def execOnLCU(self, cmdline, backgroundJOB=False, quotes="'"):
         """Execute a command on the LCU, either as a background job or in the
         foreground (blocking). Typically access is remote via ssh.
@@ -314,8 +309,8 @@ class Station(object):
                     lcuproc = subprocess.call(shellinvoc+" "+cmdline, shell=True)
         elif not self.accessible:
             print "Warning: not running as "+self.lcuURL+" since it is not accesible."
-    
-    
+
+
     def _stdoutLCU(self, cmdline):
         """Execute a command on the LCU and check its output."""
         LCUprompt = "On LCU> "
@@ -335,11 +330,11 @@ class Station(object):
         else:
             output = "None"
         return output
-    
-    
+
+
     def outfromLCU(self, cmdline, integration, duration):
         print "LCUo>", cmdline
-        cmd = subprocess.Popen("ssh "+self.lcuURL+" "+"'"+cmdline+"'", 
+        cmd = subprocess.Popen("ssh "+self.lcuURL+" "+"'"+cmdline+"'",
                                   stdin = subprocess.PIPE, stdout = subprocess.PIPE,
                                   stderr = subprocess.PIPE, shell=True)
         count = 0
@@ -364,14 +359,14 @@ class Station(object):
                       print str(int(round(duration-count/4.0*integration,0)))\
                             +"sec left out of "+str(duration)
                    count += 1
-    
-    
+
+
     def getdatalist(self):
         ls_lcuDumpDir = self._stdoutLCU("ls "+self.lcuDumpDir).split('\n')
         ls_ACCsrcDir = self._stdoutLCU("ls "+self.ACCsrcDir).split('\n')
         return ls_lcuDumpDir, ls_lcuDumpDir
-    
-    
+
+
     def whoServiceBroker(self):
         """Check who is running the Service Broker on the LCU. This is an indication
         of who is currently using the station."""
@@ -386,8 +381,8 @@ class Station(object):
         else:
             sb_user = ps_out_lns[0]
         return sb_user
-    
-    
+
+
     def getstationswitchmode(self):
         """Get mode of station switch. Can be 'ILT' or 'local' mode."""
         try:
@@ -398,17 +393,17 @@ class Station(object):
             getstationmode_out =""
         stationmode = getstationmode_out.split()[-1]
         return stationmode
-    
+
     def rm(self, source):
        """Remove specified source file(s) on LCU."""
        self.execOnLCU("rm -fr "+source)
-    
+
     def cleanup(self):
         """Clean up all local data dumps. It is usually the ObsSession()
         objects responsibility to call this."""
         self.execOnLCU("rm -fr "+self.lcuDumpDir+"/*")
         self.execOnLCU("rm "+self.ACCsrcDir+"/*.dat")
-    
+
     def getDISABLEDRCUs(self, rcumode):
         """Return list of RCUs to be disabled (as determined by ASTRON)."""
         filename = self.lofarstationtestdir+"DISABLED/disabled-mode" \
@@ -416,8 +411,8 @@ class Station(object):
         filecontents = self._stdoutLCU("cat "+filename)
         disabledrcus = filecontents
         return filecontents.split(',')
-    
-    
+
+
     def selectrcustr(self, rcumode):
         disabledrcustr = self.getDISABLEDRCUs(rcumode)
         if disabledrcustr[0] != '':
@@ -433,16 +428,16 @@ class Station(object):
         else:
             enabledrcuflagstr = ALLRCUs
         return enabledrcuflagstr
-    
-    
+
+
     def getMACversion(self):
         """Get MAC version of station."""
         macversionstr = self._stdoutLCU("swlevel -V")
         if self.DryRun:
             macversionstr = "Mock-version-2.0.0"
         return macversionstr
-    
-    
+
+
     def getswlevel(self):
         """Get current Software Level of station. Returns a string which
         under normal local mode operations is an integer between 0-3."""
@@ -450,13 +445,13 @@ class Station(object):
         if self.DryRun:
             swlevel = 'Mock 3'
         return swlevel
-    
-    
+
+
     def bootToObservationState(self, swleveltarget=3, FullReboot=False):
         """Get station to observation state."""
         #Stop any beam and remove any data in lcu datadump
         self.execOnLCU("killall beamctl")
-        
+
         if FullReboot != True:
             print "Checking swlevel (prior to running observations)"
             if not self.DryRun:
@@ -498,7 +493,7 @@ class Station(object):
         rspctl_CMDs = ""
         rspctl_CMDs += "rspctl --bitmode="+str(bits)+" ; "
         if attenuation:
-            rspctl_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "  #NOTE: attenuation only set when beamctl is runnning. 
+            rspctl_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "  #NOTE: attenuation only set when beamctl is runnning.
         return rspctl_CMDs
 
 
@@ -562,11 +557,11 @@ class Station(object):
                 # nrBLs = 61*4*16/bits
                 # beamletIDs=','.join([str(b) for b in range(nrBLs)])
                 # #subbands = ((subbands+',')*nrBLs).rstrip(',')
-        
+
         # Select good rcus
         enabledrcus = ALLRCUs
         #enabledrcus = self.selectrcustr(rcumode)
-        
+
         if MultiBeamctl:
             for beamletNr in range(0,len(pointings)):
                 beamctl_CMDs = (beamctl_CMDs
@@ -592,7 +587,7 @@ class Station(object):
             recDuration_CMD = " sleep "+str(recDuration+beamboottime)+"; "
             recStop_CMD = "killall beamctl"
             #Start beam streaming and stop after recDuration seconds
-            #beamctl_CMD_BG="(("+beamctl_CMDs+") &)" #Put beamctl in bg 
+            #beamctl_CMD_BG="(("+beamctl_CMDs+") &)" #Put beamctl in bg
             beamctl_CMDs += recDuration_CMD
             beamctl_CMDs += recStop_CMD
             backgroundJOB = True # FIX this
@@ -713,7 +708,7 @@ class Station(object):
 ### ACC control BEGIN
     def runACC(self, rcumode, duration, pointing, sst_integration=600):
         """Perform ACC calibration observation on station.
-        
+
         ACC files are autocovariance-cubes: the covariance of all array elements
         with each as a function of subband. These files are generated by the
         MAC service called CalServer. It run at swlevel 3 and is configured in
@@ -725,10 +720,10 @@ class Station(object):
         self.execOnLCU(
           'if [ ! -d "'+self.lcuDumpDir+'" ]; then mkdir '
           +self.lcuDumpDir+'; fi', quotes="'")
-        
+
         # Make sure swlevel=<2
         self.bootToObservationState(2)
-        
+
         # Set CalServ.conf to dump ACCs:
         if self.usescriptonlcu:
             self.execOnLCU(self.scriptsDir+'/CalServDump.sh 1')
@@ -736,20 +731,20 @@ class Station(object):
             self.execOnLCU(
 r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/ ; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}".format(self.ACCsrcDir, self.CalServer_conf)
             , quotes='"')
-        
+
         # Boot to swlevel 3 so the calserver service starts (
         self.bootToObservationState()
-        
+
         freqs = rcumode2sbfreqs(rcumode)
-        
+
         midfreq = float(freqs[len(freqs)/2])
         beamctl_CMD, rspctl_SET, beamctl_main = self.streambeam(midfreq,
                                                                  pointing)
-        
+
         # Run for $duration seconds
         rspctl_CMD = self.rec_sst(sst_integration, duration)
         self.stopBeam()
-        
+
         # Switch back to normal state i.e. turn-off ACC dumping:
         if self.usescriptonlcu:
             self.execOnLCU(self.scriptsDir+'/CalServDump.sh 0')
@@ -757,12 +752,12 @@ r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^
             self.execOnLCU(
 r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}".format(self.CalServer_conf)
             , quotes='"')
-        
+
         return beamctl_CMD, rspctl_CMD
-        
+
 ### ACC control END
 ##Basic station data taking commands END
-    
+
 ## Special commands START
     def getCalTableInfo(self, rcumode):
         """Fetch and return the caltable info from the LCU."""
@@ -782,8 +777,8 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
                 if line == "HeaderStart": continue
                 caltableInfo += line + '\n'
         return caltableInfo
-    
-    
+
+
     def selectCalTable(self, which):
         """This is specific to an lcu which has the script SelectCalTable.sh with
         which a user can switch between different caltables. se607c has this
@@ -805,9 +800,9 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
         print "Warning: Turning OFF LBA LNAs."
         time.sleep(30)
         return rspctl_CMD
-    
-    
-    def setrcumode(rcumode):
+
+
+    def setrcumode(self, rcumode):
         """Set the rcumode."""
         self.execOnLCU("rspctl --mode={}".format(rcumode))
         time.sleep(2.0)
@@ -819,7 +814,7 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
     def turnoffElinTile_byTile(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by tile, which is more intuitive but slower."""
-        setrcumode(5)
+        self.setrcumode(5)
         for tileNr in range(nrTiles):
             #Start with all elements in tile off
             tileMap=[setElem_OFF for elemNr in range(elementsInTile)] #2 is OFF
@@ -832,7 +827,7 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
     def turnoffElinTile_byEl(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by element, which is less intuitive but faster."""
-        setrcumode(5)
+        self.setrcumode(5)
         for elNr in range(elementsInTile):
             tiles=[ind for ind in range(nrTiles) if elNr==elemsOn[ind] ]
             if len(tiles) == 0:
@@ -847,4 +842,3 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
 
 # Basic station control END
 #######################################
-
