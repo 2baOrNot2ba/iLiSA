@@ -2,7 +2,6 @@
 XST."""
 from __future__ import print_function
 import sys
-import os
 import datetime
 import casacore.measures
 import casacore.quanta.quantity
@@ -154,7 +153,6 @@ def cvcimage(cvctype, cvcpath, cubeslice, req_calsrc, docalibrate = True):
         starttime, stnid, beamctl_cmd = dataIO.parse_bsxST_header(cvcpath)
         t0, sb, rcumode = obsfileinfo['datetime'], obsfileinfo['subband']\
                           , obsfileinfo['rcumode']
-        nz = stationcontrol.rcumode2NyquistZone(rcumode)
         t = t0 + datetime.timedelta(seconds=float(cubeslice))
         cubeslice = int(cubeslice)
     pntstr = observing.stdPointings(req_calsrc)
@@ -163,7 +161,7 @@ def cvcimage(cvctype, cvcpath, cubeslice, req_calsrc, docalibrate = True):
     stnPos, stnRot, antpos, stnIntilePos \
                             = antennafieldlib.getArrayBandParams(stnid, bandarr)
     freqs = stationcontrol.rcumode2sbfreqs(rcumode)
-    stn2Dcoord = stnRot.T * antpos.T
+    # stn2Dcoord = stnRot.T * antpos.T
     # Apply calibration
     if cvctype == 'acc':
         cvcdata, caltabhead = calibrationtables.calibrateACC(cvcdata_unc,
