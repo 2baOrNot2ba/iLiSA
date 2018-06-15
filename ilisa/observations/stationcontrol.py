@@ -7,7 +7,6 @@ import time
 import subprocess
 import argparse
 import numpy
-import observing
 
 # LOFAR convience
 ALLRCUs = "0:191"
@@ -181,6 +180,13 @@ def maxNrOfBeamlets(wordsize_bits):
         print "Unknown wordsize: ", str(wordsize_bits)
         raise('ValueError')
     return maxNrOfSBs
+
+
+def tiles2rcus(tiles):
+    rcus = []
+    for tile in tiles:
+        rcus.extend([2*tile, 2*tile+1])  # Set same delay for both X&Y pol rcu
+    return rcus
 
 
 def parse_multibeamctl_args(beamctl_strs):
@@ -837,7 +843,7 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
                 continue
             tileMap = [self.setElem_OFF for elemNr in range(elementsInTile)]
             tileMap[elNr] = self.setElem_ON
-            rcus = observing.tiles2rcus(tiles)
+            rcus = tiles2rcus(tiles)
             lcucmd = "rspctl --hbadelay="\
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")

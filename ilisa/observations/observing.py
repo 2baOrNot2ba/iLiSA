@@ -46,12 +46,6 @@ def elementMap2str(elmap):
         elmapStr=elmapStr+hex(el).lstrip('0').lstrip('x')
     return elmapStr
 
-def tiles2rcus(tiles):
-    rcus=[]
-    for tile in tiles:
-        rcus.extend([2*tile, 2*tile+1]) #Set same delay for both X & Y pol rcu
-    return rcus
-
 
 #######################################
 # Begin Direction related code
