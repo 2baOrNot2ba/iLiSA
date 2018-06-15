@@ -15,14 +15,14 @@ import ilisa.observations.observing as observing
 
 def main(calrunfolder, desiredsrc):
     """Convert the ACC folder into a hdf or numpy file.
-    
+
     The output file will be created in the current working path.
-    
+
     Parameters
     ----------
     calrunfolder : str
         Path to the folder that contains a set of temporally contiguous ACC files.
-        
+
     stnid : str
         Station id. e.g. SE607.
     """
@@ -44,10 +44,9 @@ def main(calrunfolder, desiredsrc):
     ACCfiles.sort() #Alphabetical sort equivalent to chronological order
     nrACCfiles = len(ACCfiles)
     (caltab, ctheader) = calibrationtables.getcaltab(rcumode, stnid, calrundatestr)
-    
+
     sb = None
     if sb == None:
-        bst = numpy.zeros((nrACCfiles, stationcontrol.TotNrOfsb))
         (bstXX, bstXY, bstYY) = (
              numpy.zeros((nrACCfiles, stationcontrol.TotNrOfsb)),
              numpy.zeros((nrACCfiles, stationcontrol.TotNrOfsb), dtype=complex),
@@ -83,9 +82,10 @@ def main(calrunfolder, desiredsrc):
     calrunendtime = sbobstimes[-1]
     ACCsbsampleduration = datetime.timedelta(seconds=1)
     calrunduration = calrunendtime - calrunstarttime + ACCsbsampleduration
-    acc2bstbase = dataIO.saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, 
-                               calrunstarttime, calrunduration, rcumode, calsrc,
-                               ctheader['Calibration'], stnid)
+    acc2bstname = dataIO.saveacc2bst((bstXX, bstXY, bstYY), filestarttimes,
+                                     calrunstarttime, calrunduration, rcumode,
+                                     calsrc, ctheader['Calibration'], stnid)
+    print("Created file: {}".format(acc2bstname))
 
 
 if __name__ == "__main__":
@@ -95,4 +95,3 @@ if __name__ == "__main__":
     parser.add_argument("desiredsrc", type=str, nargs='?', default=None)
     args = parser.parse_args()
     main(args.calrunfolder, args.desiredsrc)
-
