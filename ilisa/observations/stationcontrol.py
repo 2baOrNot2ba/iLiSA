@@ -135,9 +135,10 @@ def sb2freq(sb,NqZone):
     return freq
 
 
-def freq2beamParam(freq): #freq in Hz
+def freq2beamParam(freq):
+    """Get beam parameters antset, rcumode and subband for with frequency (Hz).
+    """
     sb, sbNZ=freq2sb(freq)
-    NrSBs=1
     rcumode=NyquistZone2rcumode(sbNZ)
     antset=rcumode2antset(rcumode)
     return (antset, rcumode, str(sb))
@@ -269,8 +270,9 @@ class Station(object):
         self.MACversion = ""
         try:
             self.MACversion = self.getMACversion()
-        except Exception as e:
-            print "Error: Station object cannot access station with URL "+self.lcuURL
+        except Exception:
+            print("Error: Station object cannot access station with URL: "
+                  + self.lcuURL)
         if self.MACversion is not "":
             self.accessible = True
         else:
@@ -370,7 +372,7 @@ class Station(object):
     def getdatalist(self):
         ls_lcuDumpDir = self._stdoutLCU("ls "+self.lcuDumpDir).split('\n')
         ls_ACCsrcDir = self._stdoutLCU("ls "+self.ACCsrcDir).split('\n')
-        return ls_lcuDumpDir, ls_lcuDumpDir
+        return ls_lcuDumpDir, ls_ACCsrcDir
 
 
     def whoServiceBroker(self):
@@ -412,11 +414,11 @@ class Station(object):
 
     def getDISABLEDRCUs(self, rcumode):
         """Return list of RCUs to be disabled (as determined by ASTRON)."""
-        filename = self.lofarstationtestdir+"DISABLED/disabled-mode" \
-                   +str(rcumode)+".txt"
+        filename = (self.lofarstationtestdir + "DISABLED/disabled-mode"
+                    + str(rcumode) + ".txt")
         filecontents = self._stdoutLCU("cat "+filename)
-        disabledrcus = filecontents
-        return filecontents.split(',')
+        disabledrcus = filecontents.split(',')
+        return disabledrcus
 
 
     def selectrcustr(self, rcumode):
@@ -425,7 +427,7 @@ class Station(object):
             disabledrcus = [int(rcustr) for rcustr in disabledrcustr]
             allrcus = range(nrofrcus)
             enabledrcus = [rcu for rcu in allrcus if rcu not in disabledrcus]
-            difenabrcu = numpy.diff(enabledrcus)
+            # difenabrcu = numpy.diff(enabledrcus)
             enabledrcuflagstr = str(enabledrcus[0])+":"
             for rcuidx in range(1,len(enabledrcus)-1):
                     if enabledrcus[rcuidx]-enabledrcus[rcuidx-1] != 1:
