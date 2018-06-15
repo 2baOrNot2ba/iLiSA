@@ -53,17 +53,17 @@ def phaseref_xstpol(xstpol, obstime0, freq, stnPos, antpos, pointing):
     return xstpupol, UVWxyz
 
 
-def phaseref_accs(acc, sbobstimes, freqs, stnPos, antpos, pointing):
-    """ """
-    accphasedup = numpy.zeros(acc.shape, dtype=complex)
-    print("sb", end='')
-    for sb in range(acc.shape[0]):
-        print(sb, end='')
-        xst = acc[sb,...].squeeze()
-        xstphasedup, UVWxyz = phaseref_xst(xst, sbobstimes[sb], freqs[sb],
-                                       stnPos, antpos, pointing)
-        accphasedup[sb,...] = xstphasedup
-    return accphasedup
+# def phaseref_accs(acc, sbobstimes, freqs, stnPos, antpos, pointing):
+#     """ """
+#     accphasedup = numpy.zeros(acc.shape, dtype=complex)
+#     print("sb", end='')
+#     for sb in range(acc.shape[0]):
+#         print(sb, end='')
+#         xst = acc[sb,...].squeeze()
+#         xstphasedup, UVWxyz = phaseref_xst(xst, sbobstimes[sb], freqs[sb],
+#                                        stnPos, antpos, pointing)
+#         accphasedup[sb,...] = xstphasedup
+#     return accphasedup
 
 
 def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
@@ -117,7 +117,7 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True):
     posU, posV = stn2Dcoord[0,:].squeeze(), stn2Dcoord[1,:].squeeze()
     lambda0 = c / freq
     k = 2 * numpy.pi / lambda0;
-    
+
     lmext = fov(freq)
     nrpix = 101
     l, m = numpy.linspace(-lmext,lmext,nrpix), numpy.linspace(-lmext,lmext,
@@ -211,6 +211,8 @@ def plotskyimage(ll, mm, skyimages, t, freq, stnid):
     #plt.pcolormesh(ll, mm, numpy.log10(skyimages[0]))
     plt.pcolormesh(ll, mm, skyimages[0])
     plt.gca().invert_xaxis()
+    plt.xlabel('E-W direction cosine')
+    plt.ylabel('S-N direction cosine')
     plt.colorbar()
     plt.title('Stokes I')
     plt.subplot(2,2,2)
@@ -230,4 +232,3 @@ def plotskyimage(ll, mm, skyimages, t, freq, stnid):
     plt.title('Stokes v')
     plt.suptitle('Allsky: {} @ {} MHz, UT={}'.format(stnid, freq/1e6, t))
     plt.show()
-
