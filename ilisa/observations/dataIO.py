@@ -21,7 +21,6 @@ import numpy
 import re
 import datetime
 import h5py
-import matplotlib.pyplot as plt
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.observing as observing
 
