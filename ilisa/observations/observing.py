@@ -7,15 +7,10 @@ should not run anything directly on LCU."""
 
 import math
 import time
-import datetime
 import subprocess
 import os
-import sys
-import shutil
-import argparse
 import numpy
 import yaml
-from optparse import OptionParser
 import multiprocessing
 import ilisa.observations.stationcontrol as stationcontrol
 
