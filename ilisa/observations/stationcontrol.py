@@ -628,14 +628,17 @@ class Station(object):
 
 
     def rec_xst(self, sb, integration, duration):
+        rspctl_CMDs=""
         rspctl_CMD=("rspctl --xcsubband="+sb) #Seems like this has to be sent before xstats
         self.execOnLCU(rspctl_CMD)
+        rspctl_CMDs +=  rspctl_CMD + "\n"
         rspctl_CMD=( "rspctl --xcstatistics"
                     +" --integration="+str(integration)
                     +" --duration="+str(duration)
                     +" --directory="+self.lcuDumpDir)
         self.execOnLCU(rspctl_CMD)
-        return rspctl_CMD
+        rspctl_CMDs += rspctl_CMD
+        return rspctl_CMDs
 ###Basic station "statistic" datataking END
 
 ### TBB control BEGIN
