@@ -550,11 +550,12 @@ class Session(object):
         observer = "TobiaC"
         project = "LOCAL"
         observationID = "Null"
-        # Start a beam
+        # Start a dummy beam
         pointing = stdPointings('Z')
         freqBand = stationcontrol.band2freqrange(band)
+        freqmid = (freqBand[0]+freqBand[1])/2.0
         antset = stationcontrol.band2antset(band)
-        self.stationcontroller.streambeam(freqBand, pointing)
+        self.stationcontroller.streambeam(freqmid, pointing)
 
         print "Set up TBBs"
         self.stationcontroller.setupTBBs()
@@ -566,7 +567,7 @@ class Session(object):
             multiprocessing.Process(target=capture_data_DAL1,
                                     args=(self.tbbraw2h5cmd, self.tbbh5dumpdir,
                                           observer, antset, project,
-                                          observationID,))
+                                          observationID,False))
         dalcap.start()
         time.sleep(20)  # Arbitrary time to trigger
         print "Send trigger to TBBs"

@@ -80,7 +80,7 @@ def rcumode2freqrange(rcumode):
 
 
 def band2freqrange(band):
-    return tuple(map(int, band.split('_')))
+    return tuple(1e6*f for f in map(int, band.split('_')))
 
 
 def rcumode2antset(rcumode):
@@ -552,7 +552,10 @@ class Station(object):
                 MultiBeamctl = True
             else:
                 # Nominally:
-                beamletIDs = '0'
+                # (beamctl does not allow allocation of only one beamlet,
+                # so we add one more above)
+                beamletIDs = '0:1' 
+                subbands += ':'+ str(int(subbands)+1) 
                 # (special test used):
                 # nrBLs = 61*4*16/bits
                 # beamletIDs=','.join([str(b) for b in range(nrBLs)])
