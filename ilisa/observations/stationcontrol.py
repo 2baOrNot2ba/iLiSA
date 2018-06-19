@@ -552,10 +552,7 @@ class Station(object):
                 MultiBeamctl = True
             else:
                 # Nominally:
-                # (beamctl does not allow allocation of only one beamlet,
-                # so we add one more above)
-                beamletIDs = '0:1' 
-                subbands += ':'+ str(int(subbands)+1) 
+                beamletIDs = '0'
                 # (special test used):
                 # nrBLs = 61*4*16/bits
                 # beamletIDs=','.join([str(b) for b in range(nrBLs)])
