@@ -8,6 +8,7 @@ import casacore.quanta.quantity
 import numpy
 from scipy.constants import speed_of_light
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
 import ilisa.observations.stationcontrol as stationcontrol
@@ -211,8 +212,9 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
 def plotskyimage(ll, mm, skyimages, t, freq, stnid):
     """Generic plot of images."""
     plt.subplot(2,2,1)
-    #plt.pcolormesh(ll, mm, numpy.log10(skyimages[0]))
-    plt.pcolormesh(ll, mm, skyimages[0])
+    #norm=colors.LogNorm()
+    norm=None
+    plt.pcolormesh(ll, mm, skyimages[0], norm=norm)
     plt.gca().invert_xaxis()
     plt.xlabel('E-W direction cosine')
     plt.ylabel('S-N direction cosine')
