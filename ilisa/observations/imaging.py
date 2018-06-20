@@ -216,8 +216,8 @@ def plotskyimage(ll, mm, skyimages, t, freq, stnid):
     norm=None
     plt.pcolormesh(ll, mm, skyimages[0], norm=norm)
     plt.gca().invert_xaxis()
-    plt.xlabel('E-W direction cosine')
-    plt.ylabel('S-N direction cosine')
+    plt.xlabel('E<-W direction cosine')
+    plt.ylabel('S->N direction cosine')
     plt.colorbar()
     plt.title('Stokes I')
     plt.subplot(2,2,2)
@@ -236,4 +236,5 @@ def plotskyimage(ll, mm, skyimages, t, freq, stnid):
     plt.colorbar()
     plt.title('Stokes v')
     plt.suptitle('Allsky: {} @ {} MHz, UT={}'.format(stnid, freq/1e6, t))
+    plt.tight_layout(rect=[0, 0.0, 1, 0.95])
     plt.show()
