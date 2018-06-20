@@ -138,8 +138,13 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True):
     return (skyimageSI, skyimageSQ, skyimageSU, skyimageSV), ll, mm
 
 
-def cvcimage(cvctype, cvcpath, cubeslice, req_calsrc, docalibrate = True):
+def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
     """Image a CVC file"""
+    cvcpath = cvcpath.rstrip('/')
+    if '_acc' in cvcpath:
+        cvctype = 'acc'
+    else:
+        cvctype = 'xst'
     if cvctype == 'acc':
         cvcdata_unc, ts = dataIO.readacc(cvcpath)
         t0, rcumode, calsrc, totnrsb, nrrcu0, nrrcu1, stnid =\
