@@ -328,7 +328,7 @@ def readacc2bst(anacc2bstfilepath, datformat = 'hdf'):
     anacc2bstfilename = os.path.basename(anacc2bstfilepath)
     (stnid, beginUTCstr, rcuarg, calsrc, durarg, caltabdate, acc2bst
      ) = anacc2bstfilename.split('_')
-    beginUTC = datetime.datetime.strptime(beginUTCstr, "%Y-%m-%dT%H:%M:%S")
+    beginUTC = datetime.datetime.strptime(beginUTCstr, "%Y%m%dT%H%M%S")
     rcumode = rcuarg[3]
     dur = durarg[3:]
     acc2bstvarstr = ['XX', 'YY', 'XY', 'times']
