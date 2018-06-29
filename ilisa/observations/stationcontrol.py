@@ -24,6 +24,7 @@ maxNrSubbands = 4*NrBeamletsPerLane
 elementsInTile = 16
 nrTiles = 96
 beamboottime = 12.0  # Time it takes for beams to settle, depends on LBA or HBA
+bandnames = ['10_90', '30_90', '110_190', '170_230', '210_250']
 
 
 def band2antset(band):
