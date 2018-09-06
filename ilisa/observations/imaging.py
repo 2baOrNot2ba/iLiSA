@@ -155,7 +155,7 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
         cubeslice = sb
         t = ts[cubeslice]
     else:
-        cvcdata_unc, obsfileinfo= dataIO.readxst(cvcpath)
+        cvcdata_unc, obsfileinfo= dataIO.XSTdata().readxst(cvcpath)
         starttime, stnid, beamctl_cmd = dataIO.parse_bsxST_header(cvcpath)
         t0, sb, rcumode = obsfileinfo['datetime'], obsfileinfo['subband']\
                           , obsfileinfo['rcumode']

@@ -68,7 +68,7 @@ def plotsst(sstff, freqreq):
 
 
 def plotxst(xstff):
-    XSTdata, obsfileinfo = dataIO.readxst(xstff)
+    XSTdata, obsfileinfo = dataIO.XSTdata().readxst(xstff)
     sb = obsfileinfo['subband']
     intg = int(obsfileinfo['integration'])
     dur = int(obsfileinfo['duration'])

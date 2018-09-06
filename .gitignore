@@ -71,3 +71,4 @@ target/
 
 #project specific
 apps/**
+docs/**

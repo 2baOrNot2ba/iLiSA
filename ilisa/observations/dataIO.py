@@ -187,63 +187,66 @@ def readsstfolder(SSTfolder):
     return SSTdatarcu, obsfolderinfo
 # END SST related code
 
-# BEGIN XST related code
-def parse_xstfolder(XSTfilepath):
-    XSTfilename = os.path.basename(XSTfilepath)
-    obsfileinfo = {}
-    try:
-        (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, xstextstr
-        ) = XSTfilename.split('_')
-        obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd+'T'+HMS,'%Y%m%dT%H%M%S')
-        obsfileinfo['rcumode'] =     rcustr[3:]
-        obsfileinfo['subband'] =     int(sbstr[2:])
-        obsfileinfo['integration'] = float(intstr[3:])
-        obsfileinfo['duration'] =    float(durstr[3:])
-        obsfileinfo['pointing'] =    dirstr[3:].split(',')
-    except:
-        raise ValueError, "Filename not in xst_ext format."
-    return obsfileinfo
+class XSTdata(object):
+    def __init__(self):
+        pass
+
+    def parse_xstfolder(self, XSTfilepath):
+        XSTfilename = os.path.basename(XSTfilepath)
+        obsfileinfo = {}
+        try:
+            (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, xstextstr
+            ) = XSTfilename.split('_')
+            obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd+'T'+HMS,'%Y%m%dT%H%M%S')
+            obsfileinfo['rcumode'] =     rcustr[3:]
+            obsfileinfo['subband'] =     int(sbstr[2:])
+            obsfileinfo['integration'] = float(intstr[3:])
+            obsfileinfo['duration'] =    float(durstr[3:])
+            obsfileinfo['pointing'] =    dirstr[3:].split(',')
+        except:
+            raise ValueError, "Filename not in xst_ext format."
+        return obsfileinfo
 
 
-def readxst(XSTfilefolder):
-    """Readin and XST datafile.
-    Parameters
-    ----------
-    SSTfolder : str
-        The name of the XST folder.
+    def readxst(self, XSTfilefolder):
+        """Readin and XST datafile.
+        Parameters
+        ----------
+        SSTfolder : str
+            The name of the XST folder.
 
-    Returns
-    -------
-    XSTdata : (192, 192, N)
-        The XST data, where N is the number of time samples.
-    """
-    obsfileinfo = parse_xstfolder(XSTfilefolder)
-    XSTdirls = os.listdir(XSTfilefolder)
-    XSTfiles = [ f for f in XSTdirls if f.endswith('.dat')]
-    XSTfile = XSTfiles[0]    # FIX probably should warn if more than 1 xst file
-    # Now read the XST data
-    XST_dtype = numpy.dtype(('c16', (192,192)))
-    with open(os.path.join(XSTfilefolder,XSTfile), "rb") as fin:
-        XSTdata = numpy.fromfile(fin, dtype=XST_dtype)
-    return XSTdata, obsfileinfo
+        Returns
+        -------
+        XSTdata : (192, 192, N)
+            The XST data, where N is the number of time samples.
+        """
+        obsfileinfo = self.parse_xstfolder(XSTfilefolder)
+        XSTdirls = os.listdir(XSTfilefolder)
+        XSTfiles = [ f for f in XSTdirls if f.endswith('.dat')]
+        XSTfile = XSTfiles[0]    # FIX probably should warn if more than 1 xst file
+        # Now read the XST data
+        XST_dtype = numpy.dtype(('c16', (192,192)))
+        with open(os.path.join(XSTfilefolder,XSTfile), "rb") as fin:
+            XSTdata = numpy.fromfile(fin, dtype=XST_dtype)
+        return XSTdata, obsfileinfo
 
 
-def xst2XY(xst):
-    """Return polarized components of flat XST data.
+    def xst2XY(self, xst):
+        """Return polarized components of flat XST data.
 
-    Parameters
-    ----------
-    xst : (N,M) array of complex
+        Parameters
+        ----------
+        xst : (N,M) array of complex
 
-    Returns
-    -------
-    XX, YY, XY, YX: (N/2,M/2) array of complex
-    """
-    XX = xst[::2, ::2]
-    YY = xst[1::2,1::2]
-    XY = xst[::2,1::2]
-    YX = xst[1::2, ::2]
-    return XX, YY, XY, YX
+        Returns
+        -------
+        XX, YY, XY, YX: (N/2,M/2) array of complex
+        """
+        XX = xst[::2, ::2]
+        YY = xst[1::2,1::2]
+        XY = xst[::2,1::2]
+        YX = xst[1::2, ::2]
+        return XX, YY, XY, YX
 # END XST related code
 
 # BEGIN ACC related code
