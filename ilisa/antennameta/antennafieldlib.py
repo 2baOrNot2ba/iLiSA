@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 """A module to read LOFAR antenna field files.
-   The ROTATION_MATRIX field is the rotation matrix of the station;
-   it maps the the local station coordinates to the ITRF coordinates
-   such that
-     r_ITRF = ROTATION_MATRIX * r_stn where r are 3-element column vectors.
-   
-  
+The ROTATION_MATRIX field is the rotation matrix of the station;
+it maps the the local station coordinates to the ITRF coordinates
+such that
+
+    r_ITRF = ROTATION_MATRIX * r_stn where r are 3-element column vectors.
 """
 
 import sys

@@ -21,6 +21,7 @@ import numpy
 import re
 import datetime
 import h5py
+import yaml
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.observing as observing
 
@@ -51,26 +52,37 @@ def parse_bsxST_header(headerpath):
     stnid = None
     starttime = None
     with open(headerfile,'r') as hf:
-        for line in hf:
-            if "StationID" in line:
-                label, stnid = line.split('=')
-                stnid = stnid.strip()
-            if "StartTime" in line:
-                label, starttime = line.split('=')
-                starttime = starttime.strip()
-            if "beamctl" in line:
-                # HACK
-                multishellcmds = line.split('&')
-                beamctl_cmd = multishellcmds[0]
-                (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir)\
-                 = stationcontrol.parse_beamctl_args(beamctl_cmd)
-                beamctl = {'antennaset': antennaset,
-                               'rcus': rcus,
-                               'rcumode': rcumode,
-                               'beamlets': beamlets,
-                               'subbands': subbands,
-                               'anadir': anadir,
-                               'digdir': digdir}
+        for hline in hf:
+            if "Header version" in hline:
+                headerversion = hline.split()[-1]
+    with open(headerfile, 'r') as hf:
+        if headerversion == '1':
+            for line in hf:
+                if "StationID" in line:
+                    label, stnid = line.split('=')
+                    stnid = stnid.strip()
+                if "StartTime" in line:
+                    label, starttime = line.split('=')
+                    starttime = starttime.strip()
+                if "beamctl" in line:
+                    # HACK
+                    beamctl_line = line
+        else:
+            contents = yaml.load(hf)
+            stnid = contents['StationID']
+            starttime = contents['StartTime']
+            beamctl_line = contents['BeamctlCmds']
+    multishellcmds = beamctl_line.split('&')
+    beamctl_cmd = multishellcmds[0]
+    (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
+        = stationcontrol.parse_beamctl_args(beamctl_cmd)
+    beamctl = {'antennaset': antennaset,
+               'rcus': rcus,
+               'rcumode': rcumode,
+               'beamlets': beamlets,
+               'subbands': subbands,
+               'anadir': anadir,
+               'digdir': digdir}
     return starttime, stnid, beamctl
 
 

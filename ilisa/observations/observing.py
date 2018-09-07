@@ -583,28 +583,33 @@ class Session(object):
                               rspsetup_CMD, beamctl_CMD, rspctl_CMD,
                               caltableInfo=""):
         """Create a header file for LOFAR standalone observation."""
-        headerversion = "1"
+        def indenttext(txt):
+            indentstr = "  "
+            return indentstr+txt.replace("\n","\n"+indentstr)
+        headerversion = "2"
         if (LOFARstTYPE != 'bst' and LOFARstTYPE != 'sst'
                 and LOFARstTYPE != 'xst' and LOFARstTYPE != 'bf'):
             raise ValueError, "Unknown LOFAR statistic type {}.\
                               ".format(LOFARstTYPE)
         LOFARstHeaderFile = LOFARstObsEpoch+"_"+LOFARstTYPE+".h"
         f = open(os.path.join(datapath, LOFARstHeaderFile), "w")
-        f.write("# Created by iLiSA\n")
+        f.write("# HeaderType: bsxSTdata (YAML)\n")
         f.write("# Header version {}\n".format(headerversion))
-        f.write("Observer = {}\n".format(self.observer))
-        f.write("Project = {}\n".format(self.project))
-        f.write("DataType = {}\n".format(LOFARstTYPE))
-        f.write("StationID = "+self.stationcontroller.stnid+"\n")
+        f.write("Observer: {}\n".format(self.observer))
+        f.write("Project: {}\n".format(self.project))
+        f.write("DataType: {}\n".format(LOFARstTYPE))
+        f.write("StationID: "+self.stationcontroller.stnid+"\n")
         starttime = LOFARstObsEpoch[0:4]+'-'+LOFARstObsEpoch[4:6]+'-'\
                         + LOFARstObsEpoch[6:8]+'T'+LOFARstObsEpoch[9:11]+':'\
                         + LOFARstObsEpoch[11:13]+':'+LOFARstObsEpoch[13:15]
-        f.write("StartTime = "+starttime+"\n")
-        f.write(beamctl_CMD+"\n")
+        f.write("StartTime: "+starttime+"\n")
+        f.write("BeamctlCmds: |-\n")
+        f.write(indenttext(beamctl_CMD)+"\n")
         # f.write(rspsetup_CMD+"\n")
         # FIX separation of beamctl and rspsetup
         # (Currently rspsetup is in beamctl)
-        f.write(rspctl_CMD+"\n")
+        f.write("RspctlCmds: |-\n")
+        f.write(indenttext(rspctl_CMD)+"\n")
         if LOFARstTYPE == 'bst':
             f.write(caltableInfo)
         f.close()
