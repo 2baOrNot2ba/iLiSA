@@ -17,7 +17,11 @@ if __name__ == "__main__":
     args = parser.parse_args()
     duration = int(eval(args.duration))
     myobs = observing.Session()
-    myobs.halt_observingstate_when_finished = False
+    # Norminally when the Session is over (i.e. when this script exits), the
+    # LCU observing state is stopped. If you want to do further observations
+    # you might not want to do this (to avoid the time it takes to boot to
+    # an observing state). In this case you should uncomment next line:
+    #myobs.halt_observingstate_when_finished = False
     myobs.bits = 16
     myobs.bsxST(args.statistic, args.frequency, args.integration, duration,
          args.pointSrc)
