@@ -200,8 +200,15 @@ def readsstfolder(SSTfolder):
 # END SST related code
 
 class XSTdata(object):
-    def __init__(self):
-        pass
+    """Provides functionality for XST data."""
+    def __init__(self, datapath):
+        if os.path.isdir(datapath):
+            print "hej"
+            self.readxstfolder(datapath)
+        elif os.path.isfile(datapath):
+            pass
+        else:
+            raise ValueError('Path does not exist')
 
     def parse_xstfolder(self, XSTfilepath):
         XSTfilename = os.path.basename(XSTfilepath)
@@ -219,8 +226,7 @@ class XSTdata(object):
             raise ValueError, "Filename not in xst_ext format."
         return obsfileinfo
 
-
-    def readxst(self, XSTfilefolder):
+    def readxstfolder(self, XSTfilefolder):
         """Readin and XST datafile.
         Parameters
         ----------
@@ -232,16 +238,20 @@ class XSTdata(object):
         XSTdata : (192, 192, N)
             The XST data, where N is the number of time samples.
         """
-        obsfileinfo = self.parse_xstfolder(XSTfilefolder)
+        self.obsfileinfo = self.parse_xstfolder(XSTfilefolder)
         XSTdirls = os.listdir(XSTfilefolder)
         XSTfiles = [ f for f in XSTdirls if f.endswith('.dat')]
         XSTfile = XSTfiles[0]    # FIX probably should warn if more than 1 xst file
         # Now read the XST data
         XST_dtype = numpy.dtype(('c16', (192,192)))
         with open(os.path.join(XSTfilefolder,XSTfile), "rb") as fin:
-            XSTdata = numpy.fromfile(fin, dtype=XST_dtype)
-        return XSTdata, obsfileinfo
+            self.XSTdata = numpy.fromfile(fin, dtype=XST_dtype)
 
+    def getdata(self):
+        return self.XSTdata
+
+    def getobsfileinfo(self):
+        return self.obsfileinfo
 
     def xst2XY(self, xst):
         """Return polarized components of flat XST data.
