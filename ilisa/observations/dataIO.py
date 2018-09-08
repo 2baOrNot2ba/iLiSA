@@ -203,14 +203,21 @@ class XSTdata(object):
     """Provides functionality for XST data."""
     def __init__(self, datapath):
         if os.path.isdir(datapath):
-            print "hej"
             self.readxstfolder(datapath)
         elif os.path.isfile(datapath):
-            pass
+            self.readxstfile(datapath)
         else:
             raise ValueError('Path does not exist')
 
     def parse_xstfolder(self, XSTfilepath):
+        """Parse the xst filefolder.
+
+        The filefolder should have the format:
+            Ymd_HMS_rcumode_subband_integration_duration_pointing_xst
+
+        :param XSTfilepath: str
+        :return: obsfileinfo
+        """
         XSTfilename = os.path.basename(XSTfilepath)
         obsfileinfo = {}
         try:
@@ -227,24 +234,37 @@ class XSTdata(object):
         return obsfileinfo
 
     def readxstfolder(self, XSTfilefolder):
-        """Readin and XST datafile.
+        """Read in XST data from an filefolder.
+
+        The filefolder name should have the format as specified in the parse_xstfolder() method.
+        The contents of the data file is stored in the class attribute:
+           XSTdata : (N,192,192)
+        where N is the number of time samples.
+
         Parameters
         ----------
-        SSTfolder : str
-            The name of the XST folder.
-
-        Returns
-        -------
-        XSTdata : (192, 192, N)
-            The XST data, where N is the number of time samples.
+        XSTfilefolder : str
+            The name of the XST filefolder.
         """
         self.obsfileinfo = self.parse_xstfolder(XSTfilefolder)
         XSTdirls = os.listdir(XSTfilefolder)
         XSTfiles = [ f for f in XSTdirls if f.endswith('.dat')]
         XSTfile = XSTfiles[0]    # FIX probably should warn if more than 1 xst file
-        # Now read the XST data
+        self.readxstfile(os.path.join(XSTfilefolder,XSTfile))
+
+    def readxstfile(self, XSTfilepath):
+        """Reads in a single xst data file by filepath.
+
+        The contents of the data file is stored in the class attribute:
+           XSTdata : (N,192,192)
+        where N is the number of time samples.
+
+        Parameters
+        ----------
+        XSTfilepath : str
+        """
         XST_dtype = numpy.dtype(('c16', (192,192)))
-        with open(os.path.join(XSTfilefolder,XSTfile), "rb") as fin:
+        with open(XSTfilepath, "rb") as fin:
             self.XSTdata = numpy.fromfile(fin, dtype=XST_dtype)
 
     def getdata(self):
@@ -269,7 +289,7 @@ class XSTdata(object):
         XY = xst[::2,1::2]
         YX = xst[1::2, ::2]
         return XX, YY, XY, YX
-# END XST related code
+
 
 # BEGIN ACC related code
 def parse_accfolder(caldumpdir):
