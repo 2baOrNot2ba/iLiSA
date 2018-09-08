@@ -776,24 +776,32 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
 ## Special commands START
     def getCalTableInfo(self, rcumode):
         """Fetch and return the caltable info from the LCU."""
-        # TODO Consider use of "beamctl --calinfo"
         if self.usescriptonlcu:
-            caltableInfo = subprocess.check_output("ssh "
+            calinfo = subprocess.check_output("ssh "
                                                    + self.lcuURL
                                                    + " "+"infoCalTable.sh"+" "
                                                    + str(rcumode),
                                                    shell=True)
         else:
-            caltableInfo = ""
-            for line in subprocess.check_output("ssh "+self.lcuURL
-                                                + " "
-                                                + "cat /opt/lofar/etc/CalTable_mode"
-                                                + str(rcumode)+".dat",
-                                                shell=True).split('\n'):
-                if line == "HeaderStop": break
-                if line == "HeaderStart": continue
-                caltableInfo += line + '\n'
-        return caltableInfo
+            calinfoout =self._stdoutLCU("beamctl --calinfo")
+            # Convert output into a list of dict per antset
+            calinfolist = []
+            # Strip off first initial lines and split on blank lines
+            calinfooutlist = (''.join(calinfoout.splitlines(1)[2:])).split('\n\n')
+            for calinfooutlistitem in calinfooutlist:
+                calinfolistitem = {}
+                for calinfolistitemline in calinfooutlistitem.split('\n'):
+                    calkey, calval = calinfolistitemline.split(':', 1)
+                    calkey = calkey.rstrip()
+                    calval = calval.lstrip()
+                    calinfolistitem[calkey] = calval
+                calinfolist.append(calinfolistitem)
+            band = rcumode2band(rcumode)
+            for calinfolistitem in calinfolist:
+                if calinfolistitem['Band'] == band:
+                    calinfo = calinfolistitem
+                    break
+        return calinfo
 
     def selectCalTable(self, which):
         """This is specific to an lcu which has the script SelectCalTable.sh

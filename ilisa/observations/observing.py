@@ -612,7 +612,8 @@ class Session(object):
         f.write(indenttext(rspctl_CMD)+"\n")
         if LOFARstTYPE == 'bst':
             f.write("CalTabInfo: |-\n")
-            f.write(indenttext(caltableInfo))
+            #f.write(indenttext(caltableInfo))
+            f.write(str(caltableInfo))
         f.close()
 
 
