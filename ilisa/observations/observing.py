@@ -221,6 +221,8 @@ class Session(object):
         # Check whether the station is being used by someone else:
         if self.checkobservingallowed() and goto_observingstate_when_starting:
             self.stationcontroller.bootToObservationState()
+            # TODO: Figure out what should happen when goto_observingstate_when_starting==False
+            # but later user wants to observe (but station might not be in observation state)
 
     def haltobservingstate(self):
         """Halt observing state on station."""

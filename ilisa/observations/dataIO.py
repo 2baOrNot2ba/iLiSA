@@ -202,6 +202,7 @@ def readsstfolder(SSTfolder):
 class XSTdata(object):
     """Provides functionality for XST data."""
     def __init__(self, datapath):
+        self.data = []
         if os.path.isdir(datapath):
             self.readxstfolder(datapath)
         elif os.path.isfile(datapath):
@@ -249,8 +250,9 @@ class XSTdata(object):
         self.obsfileinfo = self.parse_xstfolder(XSTfilefolder)
         XSTdirls = os.listdir(XSTfilefolder)
         XSTfiles = [ f for f in XSTdirls if f.endswith('.dat')]
-        XSTfile = XSTfiles[0]    # FIX probably should warn if more than 1 xst file
-        self.readxstfile(os.path.join(XSTfilefolder,XSTfile))
+        for XSTfile in XSTfiles:
+            # TODO think about how interprete more than 1 xst file in filefolder
+            self.readxstfile(os.path.join(XSTfilefolder,XSTfile))
 
     def readxstfile(self, XSTfilepath):
         """Reads in a single xst data file by filepath.
@@ -265,10 +267,11 @@ class XSTdata(object):
         """
         XST_dtype = numpy.dtype(('c16', (192,192)))
         with open(XSTfilepath, "rb") as fin:
-            self.XSTdata = numpy.fromfile(fin, dtype=XST_dtype)
+            datafromfile = numpy.fromfile(fin, dtype=XST_dtype)
+        self.data.append(datafromfile)
 
-    def getdata(self):
-        return self.XSTdata
+    def getdata(self, fileno=0):
+        return self.data[fileno]
 
     def getobsfileinfo(self):
         return self.obsfileinfo
