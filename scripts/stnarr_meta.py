@@ -9,7 +9,7 @@ def main(stnid, bandarr, quantity='all', output='default'):
     if quantity=='cfg' or quantity=='all':
         print("Quantity: Array configuration:")
         export.output_arrcfg_station(stnid, bandarr, output=output)
-        #export.plot_arrayconfiguration(stnid, bandarr)
+        # export.plot_arrayconfiguration(stnid, bandarr, "local")
     if quantity=='rot' or quantity=='all':
         print("Quantity: Array rotation matrix:")
         export.output_rotmat_station(stnid, bandarr, output=output)
