@@ -147,17 +147,26 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
     else:
         cvctype = 'xst'
     if cvctype == 'acc':
-        cvcdata_unc, ts = dataIO.readacc(cvcpath)
-        t0, rcumode, calsrc, totnrsb, nrrcu0, nrrcu1, stnid =\
-                                               dataIO.parse_accfilename(cvcpath)
+        #cvcdata_unc, ts = dataIO.readacc(cvcpath)
+        #t0, rcumode, calsrc, totnrsb, nrrcu0, nrrcu1, stnid =\
+        #                                       dataIO.parse_accfilename(cvcpath)
+        cvcobj = dataIO.CVCfiles(cvcpath)
+        cvcdata_unc = cvcobj.getdata(0)  # FIXME allow imaging other than index 0
+
+        ts = cvcobj.samptimes[0]
+        obsfolderinfo = cvcobj.getobsfolderinfo()
+        t0 = obsfolderinfo['datetime']
+        rcumode = obsfolderinfo['rcumode']
+        calsrc = obsfolderinfo['calsrc']
+        stnid = obsfolderinfo['stnid']
         sb, nz = stationcontrol.freq2sb(float(cubeslice))
         #req_rcumode = stationcontrol.NyquistZone2rcumode(nz)
         cubeslice = sb
         t = ts[cubeslice]
     else:
-        xstobj = dataIO.XSTdata(cvcpath)
+        xstobj = dataIO.CVCfiles(cvcpath)
         cvcdata_unc = xstobj.getdata()
-        obsfileinfo = xstobj.getobsfileinfo()
+        obsfileinfo = xstobj.getobsfolderinfo()
         starttime, stnid, beamctl_cmd = dataIO.parse_bsxST_header(cvcpath)
         t0, sb, rcumode = obsfileinfo['datetime'], obsfileinfo['subband']\
                           , obsfileinfo['rcumode']

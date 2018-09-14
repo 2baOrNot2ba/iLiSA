@@ -13,20 +13,26 @@ import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.observing as observing
 
 
-def main(calrunfolder, desiredsrc):
+def main(accrunfolder, desiredsrc):
     """Convert the ACC folder into a hdf or numpy file.
 
     The output file will be created in the current working path.
 
     Parameters
     ----------
-    calrunfolder : str
+    accrunfolder : str
         Path to the folder that contains a set of temporally contiguous ACC files.
 
     stnid : str
         Station id. e.g. SE607.
     """
-    obsdate, rcumode, calsrc, dur, stnid = dataIO.parse_accfolder(calrunfolder)
+    accffobj = dataIO.CVCfiles(accrunfolder)
+    obsfolderinfo = accffobj.getobsfolderinfo()
+    obsdate = obsfolderinfo['datetime']
+    rcumode = obsfolderinfo['rcumode']
+    calsrc  = obsfolderinfo['calsrc']
+    dur = obsfolderinfo['duration']
+    stnid = obsfolderinfo['stnid']
     if calsrc == None and desiredsrc == None:
         raise ValueError, "No calibration source specified"
     elif int(rcumode) == 3 and desiredsrc is not None:
@@ -38,12 +44,11 @@ def main(calrunfolder, desiredsrc):
     bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
     stnPos, stnRot, antpos, stnIntilePos = antennafieldlib.getArrayBandParams(stnid, bandarr)
     freqs = stationcontrol.rcumode2sbfreqs(rcumode)
-    calrundatestr = obsdate.strftime("%Y%m%d") + "T120000" # FIX put appropriate time
+    accfolderdatestr = obsdate.strftime("%Y%m%d") + "T120000" # FIX put appropriate time
     (nrant, comp) = antpos.shape
-    ACCfiles = os.listdir(calrunfolder)
-    ACCfiles.sort() #Alphabetical sort equivalent to chronological order
+    ACCfiles = accffobj.filenames
     nrACCfiles = len(ACCfiles)
-    (caltab, ctheader) = calibrationtables.getcaltab(rcumode, stnid, calrundatestr)
+    (caltab, ctheader) = calibrationtables.getcaltab(rcumode, stnid, accfolderdatestr)
 
     sb = None
     if sb == None:
@@ -56,8 +61,10 @@ def main(calrunfolder, desiredsrc):
                                         numpy.zeros((nrACCfiles, ), dtype=complex),
                                         numpy.zeros((nrACCfiles, )))
     filestarttimes = numpy.zeros((nrACCfiles,), dtype='datetime64[s]')
+
     for tidx, ACCfile in enumerate(ACCfiles):
-        accunc, sbobstimes = dataIO.readacc(os.path.join(calrunfolder,ACCfile))
+        accunc = accffobj.getdata(tidx)
+        sbobstimes = accffobj.samptimes[tidx]
         filestarttimes[tidx] = numpy.datetime64(sbobstimes[0])
         if tidx == 0:
             calrunstarttime = sbobstimes[0]
@@ -90,8 +97,8 @@ def main(calrunfolder, desiredsrc):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("calrunfolder")
+    parser.add_argument("accrunfolder")
     #parser.add_argument("stnid",type=str)
     parser.add_argument("desiredsrc", type=str, nargs='?', default=None)
     args = parser.parse_args()
-    main(args.calrunfolder, args.desiredsrc)
+    main(args.accrunfolder, args.desiredsrc)

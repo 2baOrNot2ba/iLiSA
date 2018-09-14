@@ -68,7 +68,7 @@ def plotsst(sstff, freqreq):
 
 
 def plotxst(xstff):
-    xstobj = dataIO.XSTdata(xstff)
+    xstobj = dataIO.CVCfiles(xstff)
     XSTdata = xstobj.getdata()
     obsfileinfo = xstobj.getobsfileinfo()
     sb = obsfileinfo['subband']

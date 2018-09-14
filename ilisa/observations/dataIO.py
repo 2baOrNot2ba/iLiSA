@@ -199,174 +199,192 @@ def readsstfolder(SSTfolder):
     return SSTdatarcu, obsfolderinfo
 # END SST related code
 
-class XSTdata(object):
-    """Provides functionality for XST data."""
+class CVCfiles(object):
+    """Provides functionality for covariance cube (CVC) files.
+    CVC files from a LOFAR station includes ACC and XST files.
+    """
     def __init__(self, datapath):
         self.data = []
+        self.fileobstimes = []
+        self.samptimes = []
+        datapath = os.path.abspath(datapath)
         if os.path.isdir(datapath):
-            self.readxstfolder(datapath)
+            self.filefolder = datapath
+            self._readcvcfolder()
         elif os.path.isfile(datapath):
-            self.readxstfile(datapath)
+            self._readcvcfile(datapath)
         else:
             raise ValueError('Path does not exist')
 
-    def parse_xstfolder(self, XSTfilepath):
-        """Parse the xst filefolder.
+    def _parse_cvcfile(self, cvcfilepath):
+        """Parse the cvc file name.
+
+        The file name should have the format:
+            Ymd_HMS_xst.dat for xst file
+            Ymd_HMS_acc_nrsbsxnrrcus0xnrrcus1.dat for acc file
+
+        :param cvcfilepath: str
+        :return: obsfolderinfo
+        """
+        cvcfilename = os.path.basename(cvcfilepath)
+        (Ymd, HMS, cvcextrest) = cvcfilename.split('_',2)
+        cvcext, restdat = cvcextrest[0:3], cvcextrest[3:]
+        (rest, datstr) = restdat.split('.')
+        if cvcext == 'acc':
+            rest = rest.lstrip('_')
+            (nrsbs, nrrcus0, nrrcus1) = map(int, rest.split('x'))
+            self.cvcdim0=nrsbs
+        else:
+            self.cvcdim0 = 0
+            nrrcus0 = 192
+            nrrcus1 = 192
+        self.cvcdim1 = nrrcus0
+        self.cvcdim2 = nrrcus1
+        filenamedatetime = datetime.datetime.strptime(Ymd + 'T' + HMS, '%Y%m%dT%H%M%S')
+        # Save the observation datetime of file and the cvc dims.
+        self.fileobstimes.append(filenamedatetime)
+        return filenamedatetime, self.cvcdim0, self.cvcdim1, self.cvcdim2
+
+    def _parse_cvcfolder(self, cvcfolderpath):
+        """Parse the cvc filefolder.
 
         The filefolder should have the format:
-            Ymd_HMS_rcumode_subband_integration_duration_pointing_xst
+            stnid_Ymd_HMS_rcumode_subband_integration_duration_pointing_cvc
 
-        :param XSTfilepath: str
-        :return: obsfileinfo
+        :param cvcfilepath: str
+        :return: obsfolderinfo
         """
-        XSTfilename = os.path.basename(XSTfilepath)
-        obsfileinfo = {}
-        try:
-            (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, xstextstr
-            ) = XSTfilename.split('_')
-            obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd+'T'+HMS,'%Y%m%dT%H%M%S')
-            obsfileinfo['rcumode'] =     rcustr[3:]
-            obsfileinfo['subband'] =     int(sbstr[2:])
-            obsfileinfo['integration'] = float(intstr[3:])
-            obsfileinfo['duration'] =    float(durstr[3:])
-            obsfileinfo['pointing'] =    dirstr[3:].split(',')
-        except:
-            raise ValueError, "Filename not in xst_ext format."
-        return obsfileinfo
+        cvcfoldername = os.path.basename(os.path.abspath(cvcfolderpath))
+        obsfolderinfo = {}
+        cvcextstr = cvcfoldername.split('_')[-1]
+        if cvcextstr == 'xst':
+            try:
+                (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, cvcextstr
+                ) = cvcfoldername.split('_')
+                obsfolderinfo['datetime'] = datetime.datetime.strptime(
+                                                Ymd+'T'+HMS, '%Y%m%dT%H%M%S')
+                obsfolderinfo['rcumode'] =     rcustr[3:]
+                obsfolderinfo['subband'] =     int(sbstr[2:])
+                obsfolderinfo['integration'] = float(intstr[3:])
+                obsfolderinfo['duration'] =    float(durstr[3:])
+                obsfolderinfo['pointing'] =    dirstr[3:].split(',')
+                if cvcextstr is "xst" or cvcextstr is "acc":
+                    obsfolderinfo['cvc-type'] = cvcextstr
+            except:
+                raise ValueError, "Foldername not in xst_ext format."
+        elif cvcextstr == 'acc':
+            dirpat = re.compile(regex_ACCfolder)
+            obsdirinfo_m = dirpat.match(cvcfoldername)
+            if obsdirinfo_m is None:
+                raise ValueError, "Calibration directory does not have correct syntax."
+            obsdirinfo = obsdirinfo_m.groupdict()
+            d0 = datetime.datetime(int(obsdirinfo['year']),
+                                   int(obsdirinfo['month']),
+                                   int(obsdirinfo['day']),
+                                   int(obsdirinfo['hour']),
+                                   int(obsdirinfo['minute']),
+                                   int(obsdirinfo['second']))
+            obsfolderinfo['datetime'] = d0
+            obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
+            obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
+            obsfolderinfo['duration'] = int(obsdirinfo['duration'])
+            obsfolderinfo['stnid'] = obsdirinfo['stnid']
+        return obsfolderinfo
 
-    def readxstfolder(self, XSTfilefolder):
-        """Read in XST data from an filefolder.
+    def _readcvcfolder(self):
+        """Read in CVC data from the filefolder.
 
-        The filefolder name should have the format as specified in the parse_xstfolder() method.
+        The filefolder name should have the format as specified in the parse_cvcfolder() method.
         The contents of the data file is stored in the class attribute:
-           XSTdata : (N,192,192)
+           data : [(N,192,192)]
         where N is the number of time samples.
 
         Parameters
         ----------
-        XSTfilefolder : str
-            The name of the XST filefolder.
+        cvcfilefolder : str
+            The name of the CVC filefolder.
         """
-        self.obsfileinfo = self.parse_xstfolder(XSTfilefolder)
-        XSTdirls = os.listdir(XSTfilefolder)
-        XSTfiles = [ f for f in XSTdirls if f.endswith('.dat')]
-        for XSTfile in XSTfiles:
-            # TODO think about how interprete more than 1 xst file in filefolder
-            self.readxstfile(os.path.join(XSTfilefolder,XSTfile))
+        self.obsfolderinfo = self._parse_cvcfolder(self.filefolder)
+        cvcdirls = os.listdir(self.filefolder)
+        # Select only data files in folder
+        cvcfiles = [ f for f in cvcdirls if f.endswith('.dat')]
+        cvcfiles.sort() # This enforces chronological order
+        self.filenames = []
+        for cvcfile in cvcfiles:
+            self.filenames.append(cvcfile)
+            # TODO think about howto use more than 1 xst file in filefolder
+            self._readcvcfile(os.path.join(self.filefolder,cvcfile))
 
-    def readxstfile(self, XSTfilepath):
+    def _readcvcfile(self, cvcfilepath):
         """Reads in a single xst data file by filepath.
 
         The contents of the data file is stored in the class attribute:
-           XSTdata : (N,192,192)
+           data : (N,192,192)
         where N is the number of time samples.
 
         Parameters
         ----------
-        XSTfilepath : str
+        cvcfilepath : str
         """
-        XST_dtype = numpy.dtype(('c16', (192,192)))
-        with open(XSTfilepath, "rb") as fin:
-            datafromfile = numpy.fromfile(fin, dtype=XST_dtype)
+        filenamedatetime, cvcdim0, cvcdim1, cvcdim2 = self._parse_cvcfile(cvcfilepath)
+        integtime = 1.0  # FIXME Get proper integtime from file folder. This is default
+        t_end = filenamedatetime
+        # Get cvc data from file.
+        cvc_dtype = numpy.dtype(('c16', (192,192)))
+        with open(cvcfilepath, "rb") as fin:
+            datafromfile = numpy.fromfile(fin, dtype=cvc_dtype)
         self.data.append(datafromfile)
 
-    def getdata(self, fileno=0):
-        return self.data[fileno]
-
-    def getobsfileinfo(self):
-        return self.obsfileinfo
-
-    def xst2XY(self, xst):
-        """Return polarized components of flat XST data.
-
-        Parameters
-        ----------
-        xst : (N,M) array of complex
-
-        Returns
-        -------
-        XX, YY, XY, YX: (N/2,M/2) array of complex
-        """
-        XX = xst[::2, ::2]
-        YY = xst[1::2,1::2]
-        XY = xst[::2,1::2]
-        YX = xst[1::2, ::2]
-        return XX, YY, XY, YX
+        # Compute time of each autocovariance matrix sample per subband
+        obsaccdates = [None] * cvcdim0
+        for sb in range(cvcdim0):
+            # Previously forgot to add 1 in this formula:
+            sbobstimedelta = datetime.timedelta(
+                seconds=(sb - cvcdim0 + 1) * integtime
+            )
+            obsaccdates[sb] = t_end + sbobstimedelta
+        self.samptimes.append(obsaccdates)
 
 
-# BEGIN ACC related code
-def parse_accfolder(caldumpdir):
-    """Parse an ACC calibration folder name for obs parameters."""
-    caldumpdir = os.path.basename(os.path.abspath(caldumpdir))
-    dirpat = re.compile(regex_ACCfolder)
-    obsdirinfo_m = dirpat.match(caldumpdir)
-    if obsdirinfo_m is None:
-        raise ValueError, "Calibration directory does not have correct syntax."
-    obsdirinfo = obsdirinfo_m.groupdict()
-    d0 = datetime.datetime(int(obsdirinfo['year']),
-                           int(obsdirinfo['month']),
-                           int(obsdirinfo['day']),
-                           int(obsdirinfo['hour']),
-                           int(obsdirinfo['minute']),
-                           int(obsdirinfo['second']))
-    return d0, obsdirinfo['rcumode'], obsdirinfo['calsrc'], \
-           int(obsdirinfo['duration']), obsdirinfo['stnid']
+    def getnrfiles(self):
+        """Return number of data files in this filefolder."""
+        return len(self.data)
 
+    def getdata(self, filenr=-1):
+        """Return the data payload of the filefolder. For ACC each file is a sweep through
+        512 frequency. For XST they represent another observation."""
+        if self.getnrfiles() == 1:
+            return self.data[0]
+        elif filenr == -1:
+            return self.data
+        else:
+            return self.data[filenr]
 
-def parse_accfilename(filepath):
-    filename = os.path.basename(filepath)
-    caldumpdir = os.path.dirname(os.path.abspath(filepath))
-    d0, rcumode, calsrc, duration, stnid = parse_accfolder(caldumpdir)
-    accextpat = re.compile(regex_ACCfilename)
-    obsfileinfo_m = accextpat.match(filename)
-    if obsfileinfo_m is None:
-        raise ValueError, "Filename not in nominal ACC format."
-    obsfileinfo = obsfileinfo_m.groupdict()
-    t_end = datetime.datetime(int(obsfileinfo['year']),
-                           int(obsfileinfo['month']),
-                           int(obsfileinfo['day']),
-                           int(obsfileinfo['hour']),
-                           int(obsfileinfo['minute']),
-                           int(obsfileinfo['second']))
-    return t_end, rcumode, calsrc, int(obsfileinfo['totnrsb']), \
-           int(obsfileinfo['nrrcu0']), int(obsfileinfo['nrrcu1']), stnid
+    def getobsfolderinfo(self):
+        return self.obsfolderinfo
 
+def cvc2cvpol(cvc):
+    """Convert a covariance cube into an array indexed by polarization channels.
 
-def readacc(ACCfilepath):
-    """Read an ACC data file."""
-    integtime = 1 # integration time of an ACC sb is 1second.
-    # Parse the ACC filename for datetime of observation.
-    t_end, rcumode, calsrc, totnrsb, nrrcu0, nrrcu1, stnid =\
-                                                  parse_accfilename(ACCfilepath)
-    # Now read the ACC data
-    ACC_dtype = numpy.dtype(('c16',
-                      (nrrcu0,nrrcu1)))
-    fin = open(ACCfilepath, "rb")
-    ACCdata = numpy.fromfile(fin, dtype=ACC_dtype, count=totnrsb)
-    fin.close()
+    Parameters
+    ----------
+    cvc: (M,N,N) array (usually M=512 & N=196)
+        The Covariance Cube array produced by an International LOFAR
+        station when it is in calibration mode. It is the covariance matrices
+        of the 196 rcus (98 X-polarized & 98 Y-polarized interleaved) over 512
+        subbands.
 
-    # Compute time of each autocovariance matrix sample per subband
-    obsaccdates = [None] * totnrsb
-    for sb in range(totnrsb):
-        # Previously forgot to add 1 in this formula:
-        sbobstimedelta = datetime.timedelta(
-                           seconds=(sb-totnrsb+1)*integtime
-                         )
-        obsaccdates[sb] = t_end+sbobstimedelta
-    return ACCdata, obsaccdates
-
-
-def readaccfolder(ACCfolderpath):
-    """Read an ACC folder."""
-    obsfolderinfo = parse_accfolder(ACCfolderpath)
-    ACCfiles = os.listdir(ACCfolderpath)
-    ACCfiles.sort()
-    nrACCfiles = len(ACCfiles)
-    ACCdata = [None]*nrACCfiles
-    obsaccdates = [None]*nrACCfiles
-    for n, accfile in enumerate(ACCfiles):
-        ACCdata[n], obsaccdates[n] = readacc(os.path.join(ACCfolderpath, accfile))
-    return ACCdata, obsaccdates, obsfolderinfo
+    Returns
+    -------
+    cvpol: (2,2,M,N/2,N/2) array
+        The same data but indexed into X & Y polarizations. X,Y is index 0,1 resp.
+    """
+    XX=cvc[:, ::2, ::2]
+    YY=cvc[:,1::2,1::2]
+    XY=cvc[:, ::2,1::2]
+    YX=cvc[:,1::2, ::2]
+    cvpol=numpy.array([[XX, XY],[YX,YY]])
+    return cvpol
 
 
 def readacc2bst(anacc2bstfilepath, datformat = 'hdf'):
@@ -454,34 +472,3 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
         numpy.save(acc2bstbase+'_XY', bstXY)
         numpy.save(acc2bstbase+'_YY', bstYY)
     return acc2bstbase + "." + saveformat
-
-
-def cvc2cvpol(cvc):
-    """Convert a covariance cube into an array indexed by polarization channels.
-
-    Parameters
-    ----------
-    cvc: (M,N,N) array (usually M=512 & N=196)
-        The Covariance Cube array produced by an International LOFAR
-        station when it is in calibration mode. It is the covariance matrices
-        of the 196 rcus (98 X-polarized & 98 Y-polarized interleaved) over 512
-        subbands.
-
-    Returns
-    -------
-    cvpol: (2,2,M,N/2,N/2) array
-        The same data but indexed into X & Y polarizations. X,Y is index 0,1 resp.
-    """
-    XX=cvc[:, ::2, ::2]
-    YY=cvc[:,1::2,1::2]
-    XY=cvc[:, ::2,1::2]
-    YX=cvc[:,1::2, ::2]
-    cvpol=numpy.array([[XX, XY],[YX,YY]])
-    return cvpol
-# END ACC related code
-
-
-
-
-if __name__=="__main__":
-    ACCdata = readacc(sys.argv[1])
