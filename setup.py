@@ -26,7 +26,10 @@ setup(name='iLiSA',
       install_requires=[
           'numpy>=1.10',
           'python-casacore',
-          'matplotlib>=1.5'
+          'matplotlib>=1.5',
+          'PyYAML>=3.01'
       ],
-      scripts=['scripts/']
+      scripts=['scripts/acc2bst.py', 'scripts/do_acc.py', 'scripts/do_bfs.py',
+               'scripts/do_bsxST.py', 'scripts/do_tbb.py', 'scripts/image.py',
+               'scripts/plotbsxst.py']
       )
