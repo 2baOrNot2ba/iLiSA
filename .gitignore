@@ -69,6 +69,10 @@ target/
 .pydevproject
 .project
 
+#pycharm
+.idea
+venv
+
 #project specific
 apps/**
 docs/**

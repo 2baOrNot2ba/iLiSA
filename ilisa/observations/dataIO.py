@@ -43,47 +43,116 @@ regex_xstfilename=(
 "_xst.dat$")
 
 
-def parse_bsxST_header(headerpath):
-    """Parse a bsxST header file. Contains stnid and starttime."""
-    # TODO extract beam_ctl commands and CalTable info.
-    files = os.listdir(headerpath)
-    headerfiles = [f for f in files if f.endswith('.h')]
-    headerfile = os.path.join(headerpath,headerfiles.pop())
-    stnid = None
-    starttime = None
-    with open(headerfile,'r') as hf:
-        for hline in hf:
-            if "Header version" in hline:
-                headerversion = hline.split()[-1]
-    with open(headerfile, 'r') as hf:
-        if headerversion == '1':
-            for line in hf:
-                if "StationID" in line:
-                    label, stnid = line.split('=')
-                    stnid = stnid.strip()
-                if "StartTime" in line:
-                    label, starttime = line.split('=')
-                    starttime = starttime.strip()
-                if "beamctl" in line:
-                    # HACK
-                    beamctl_line = line
-        else:
-            contents = yaml.load(hf)
-            stnid = contents['StationID']
-            starttime = contents['StartTime']
-            beamctl_line = contents['BeamctlCmds']
-    multishellcmds = beamctl_line.split('&')
-    beamctl_cmd = multishellcmds[0]
-    (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
-        = stationcontrol.parse_beamctl_args(beamctl_cmd)
-    beamctl = {'antennaset': antennaset,
-               'rcus': rcus,
-               'rcumode': rcumode,
-               'beamlets': beamlets,
-               'subbands': subbands,
-               'anadir': anadir,
-               'digdir': digdir}
-    return starttime, stnid, beamctl
+class ObsInfo(object):
+    """Contains most import technical information of on an observation."""
+    def __init__(self):
+        pass
+
+    def setobsinfo(self, LOFARdatTYPE, datetime, rcumode, sb,
+                         integration, duration, pointing):
+        self.LOFARdatTYPE = LOFARdatTYPE
+        self.datetime = datetime
+        self.rcumode = str(rcumode)
+        self.sb = int(sb)
+        self.integration = float(integration)
+        self.duration = float(duration)
+        self.pointing = pointing
+
+    def setobsinfo_fromname(self, obsdatapath):
+        foldername = os.path.basename(os.path.abspath(obsdatapath))
+        obsfolderinfo = {}
+        dataextstr = foldername.split('_')[-1]
+        if dataextstr == 'xst':
+            try:
+                (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, cvcextstr
+                ) = foldername.split('_')
+                obsfolderinfo['datetime'] = datetime.datetime.strptime(
+                                                Ymd+'T'+HMS, '%Y%m%dT%H%M%S')
+                obsfolderinfo['rcumode'] =     rcustr[3:]
+                obsfolderinfo['subband'] =     int(sbstr[2:])
+                obsfolderinfo['integration'] = float(intstr[3:])
+                obsfolderinfo['duration'] =    float(durstr[3:])
+                obsfolderinfo['pointing'] =    dirstr[3:].split(',')
+                obsfolderinfo['LOFARdatType'] = dataextstr
+            except:
+                raise ValueError, "Foldername not in correct format."
+        elif dataextstr == 'acc':
+            dirpat = re.compile(regex_ACCfolder)
+            obsdirinfo_m = dirpat.match(foldername)
+            if obsdirinfo_m is None:
+                raise ValueError, "Calibration directory does not have correct syntax."
+            obsdirinfo = obsdirinfo_m.groupdict()
+            d0 = datetime.datetime(int(obsdirinfo['year']),
+                                   int(obsdirinfo['month']),
+                                   int(obsdirinfo['day']),
+                                   int(obsdirinfo['hour']),
+                                   int(obsdirinfo['minute']),
+                                   int(obsdirinfo['second']))
+            obsfolderinfo['datetime'] = d0
+            obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
+            obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
+            obsfolderinfo['duration'] = int(obsdirinfo['duration'])
+            obsfolderinfo['stnid'] = obsdirinfo['stnid']
+        return obsfolderinfo
+
+    def getobsdatapath(self, LOFARdataArchive):
+        """Create name and destination path for folders (on the DPU) in
+        which to save the various LOFAR data products.
+        """
+        stDataArchive = os.path.join(LOFARdataArchive, self.LOFARdatTYPE)
+        stObsEpoch = self.datetime_stamp
+        st_extName = stObsEpoch+"_rcu"+str(self.rcumode)
+        if str(self.sb) != "":
+            st_extName += "_sb"+str(sb)
+        st_extName += "_int"+str(self.integration)+"_dur"+str(self.duration)
+        if str(self.pointing) != "":
+            st_extName += "_dir"+str(self.pointing)
+        st_extName += "_"+self.LOFARdatTYPE
+        datapath = os.path.join(stDataArchive, st_extName)
+        return stObsEpoch, datapath
+
+
+    def parse_bsxST_header(self, headerpath):
+        """Parse a bsxST header file. Contains stnid and starttime."""
+        # TODO extract beam_ctl commands and CalTable info.
+        files = os.listdir(headerpath)
+        headerfiles = [f for f in files if f.endswith('.h')]
+        headerfile = os.path.join(headerpath,headerfiles.pop())
+        stnid = None
+        starttime = None
+        with open(headerfile,'r') as hf:
+            for hline in hf:
+                if "Header version" in hline:
+                    headerversion = hline.split()[-1]
+        with open(headerfile, 'r') as hf:
+            if headerversion == '1':
+                for line in hf:
+                    if "StationID" in line:
+                        label, stnid = line.split('=')
+                        stnid = stnid.strip()
+                    if "StartTime" in line:
+                        label, starttime = line.split('=')
+                        starttime = starttime.strip()
+                    if "beamctl" in line:
+                        # HACK
+                        beamctl_line = line
+            else:
+                contents = yaml.load(hf)
+                stnid = contents['StationID']
+                starttime = contents['StartTime']
+                beamctl_line = contents['BeamctlCmds']
+        multishellcmds = beamctl_line.split('&')
+        beamctl_cmd = multishellcmds[0]
+        (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
+            = stationcontrol.parse_beamctl_args(beamctl_cmd)
+        beamctl = {'antennaset': antennaset,
+                   'rcus': rcus,
+                   'rcumode': rcumode,
+                   'beamlets': beamlets,
+                   'subbands': subbands,
+                   'anadir': anadir,
+                   'digdir': digdir}
+        return starttime, stnid, beamctl
 
 
 # BEGIN BST related code
