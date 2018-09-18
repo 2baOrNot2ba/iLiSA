@@ -26,9 +26,9 @@ def findcaltabpath(rcumode, stnid, obsdatestr=None):
     caltabdirroot = CALTABDIRROOT
     caltabdirstn = os.path.join(caltabdirroot, stnid)
     caltabfilename = 'CalTable_'+stnid[2:]+'_mode'+rcumode+'.dat'
-    if obsdatestr is not None:
+    caltabarchive = os.path.join(caltabdirstn, 'old_data/')
+    if obsdatestr is not None and os.path.isdir(caltabarchive):
         # Need to determine most appropriate caltab to use
-        caltabarchive = os.path.join(caltabdirstn, 'old_data/')
         caltabstndatestr = os.listdir(caltabarchive)
         cthist = {}
         for ctdir in caltabstndatestr:
