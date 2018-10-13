@@ -23,7 +23,6 @@ import datetime
 import h5py
 import yaml
 import ilisa.observations.stationcontrol as stationcontrol
-import ilisa.observations.observing as observing
 
 
 regex_ACCfolder=(
@@ -45,8 +44,10 @@ regex_xstfilename=(
 
 class ObsInfo(object):
     """Contains most import technical information of on an observation."""
-    def __init__(self):
-        pass
+    def __init__(self, stnid="", project="", observer=""):
+        self.stnid = stnid
+        self.project = project
+        self.observer = observer
 
     def setobsinfo(self, LOFARdatTYPE, datetime, rcumode, sb,
                          integration, duration, pointing):
@@ -100,11 +101,13 @@ class ObsInfo(object):
         which to save the various LOFAR data products.
         """
         stDataArchive = os.path.join(LOFARdataArchive, self.LOFARdatTYPE)
-        stObsEpoch = self.datetime_stamp
+        stObsEpoch = self.datetime
         st_extName = stObsEpoch+"_rcu"+str(self.rcumode)
         if str(self.sb) != "":
-            st_extName += "_sb"+str(sb)
+            st_extName += "_sb"+str(self.sb)
         st_extName += "_int"+str(self.integration)+"_dur"+str(self.duration)
+        if self.LOFARdatTYPE == "xst-SEPTON":
+            pass
         if str(self.pointing) != "":
             st_extName += "_dir"+str(self.pointing)
         st_extName += "_"+self.LOFARdatTYPE
@@ -153,6 +156,44 @@ class ObsInfo(object):
                    'anadir': anadir,
                    'digdir': digdir}
         return starttime, stnid, beamctl
+
+    def create_LOFARst_header(self, LOFARstTYPE, datapath, LOFARstObsEpoch, rspsetup_CMD,
+                              beamctl_CMD, rspctl_CMD, caltableInfo="", septonconfig=""):
+        """Create a header file for LOFAR standalone observation."""
+        def indenttext(txt):
+            indentstr = "  "
+            return indentstr+txt.replace("\n","\n"+indentstr)
+        headerversion = "2"
+        if (LOFARstTYPE != 'bst' and LOFARstTYPE != 'sst'
+                and LOFARstTYPE != 'xst' and LOFARstTYPE != 'bf'):
+            raise ValueError, "Unknown LOFAR statistic type {}.\
+                              ".format(LOFARstTYPE)
+        LOFARstHeaderFile = LOFARstObsEpoch+"_"+LOFARstTYPE+".h"
+        f = open(os.path.join(datapath, LOFARstHeaderFile), "w")
+        f.write("# HeaderType: bsxSTdata (YAML)\n")
+        f.write("# Header version {}\n".format(headerversion))
+        f.write("Observer: {}\n".format(self.observer))
+        f.write("Project: {}\n".format(self.project))
+        f.write("DataType: {}\n".format(LOFARstTYPE))
+        f.write("StationID: {}\n".format(self.stnid))
+        starttime = LOFARstObsEpoch[0:4]+'-'+LOFARstObsEpoch[4:6]+'-'\
+                        + LOFARstObsEpoch[6:8]+'T'+LOFARstObsEpoch[9:11]+':'\
+                        + LOFARstObsEpoch[11:13]+':'+LOFARstObsEpoch[13:15]
+        f.write("StartTime: "+starttime+"\n")
+        if septonconfig is not "":
+            f.write("SEPTONconfig: {}\n".format(septonconfig))
+        f.write("BeamctlCmds: |-\n")
+        f.write(indenttext(beamctl_CMD)+"\n")
+        # f.write(rspsetup_CMD+"\n")
+        # FIX separation of beamctl and rspsetup
+        # (Currently rspsetup is in beamctl)
+        f.write("RspctlCmds: |-\n")
+        f.write(indenttext(rspctl_CMD)+"\n")
+        if LOFARstTYPE == 'bst':
+            f.write("CalTabInfo: |-\n")
+            #f.write(indenttext(caltableInfo))
+            f.write(str(caltableInfo))
+        f.close()
 
 
 # BEGIN BST related code
@@ -497,7 +538,8 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
                   +'_rcu'+rcumode +'_'+calsrc+'_dur'+calrundurationstr\
                   +'_ct'+caltabID+'_'+dtlabel
     #acc2bstsuffix = '.dat'
-    pntstr = observing.stdPointings(calsrc)
+    from ilisa.observations.observing import stdPointings
+    pntstr = stdPointings(calsrc)
     # Write out the data.
     if saveformat == 'hdf5':
         hf = h5py.File(acc2bstbase+".hdf5", "w")

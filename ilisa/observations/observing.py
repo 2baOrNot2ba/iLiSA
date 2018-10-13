@@ -12,6 +12,7 @@ import numpy
 import yaml
 import multiprocessing
 import ilisa.observations.stationcontrol as stationcontrol
+import ilisa.observations.dataIO as dataIO
 
 
 # SEPTON configurations:
@@ -542,6 +543,39 @@ class Session(object):
         self.stationcontroller.bootToObservationState(2)
         # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
         self.stationcontroller.turnoffElinTile_byEl(elemsOn)
+
+    def do_SEPTON(self, subband, integration, duration, elemsOn=elOn_gILT, statistic='xst'):
+        """Record xst or sst data in SEPTON mode."""
+        rcumode = 5
+        pointing = ""
+        rcusetup_CMD =""
+        rspctl_SET = ""
+        beamctl_CMD = ""
+        self.setupSEPTON(elemsOn)
+        caltabinfo = ""  # No need for caltab info
+        # Record data
+        if statistic == 'xst':
+            rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
+                                                    duration)
+        elif statistic == 'sst':
+            rspctl_CMD = self.stationcontroller.rec_sst(integration, duration)
+        else:
+            raise ValueError("Only xst or sst data allowed.")
+        LOFARdatTYPE = statistic + "-SEPTON"
+        # Collect observational metadata
+        obsdatetime_stamp = self.get_data_timestamp()
+
+        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
+        obsinfo.setobsinfo(LOFARdatTYPE, obsdatetime_stamp, rcumode, subband, integration,
+                           duration, pointing
+                           )
+        # Move data to archive
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
+        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
+        obsinfo.create_LOFARst_header(statistic, datapath, bsxSTobsEpoch, rcusetup_CMD,
+                                      beamctl_CMD, rspctl_CMD, caltabinfo,
+                                      septonconfig=elementMap2str(elemsOn))
+        return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
 
     #####################
     # BEGIN: TBB services

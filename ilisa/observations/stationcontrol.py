@@ -627,7 +627,7 @@ class Station(object):
     def rec_xst(self, sb, integration, duration):
         rspctl_CMDs = ""
         # NOTE:  Seems like this has to be sent before xstats
-        rspctl_CMD = ("rspctl --xcsubband="+sb)
+        rspctl_CMD = ("rspctl --xcsubband="+str(sb))
         self.execOnLCU(rspctl_CMD)
         rspctl_CMDs += rspctl_CMD + "\n"
         rspctl_CMD = ("rspctl --xcstatistics"
