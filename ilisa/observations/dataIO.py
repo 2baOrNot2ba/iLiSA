@@ -110,6 +110,8 @@ class ObsInfo(object):
             pass
         if str(self.pointing) != "":
             st_extName += "_dir"+str(self.pointing)
+        else:
+            st_extName += "_dir,,"
         st_extName += "_"+self.LOFARdatTYPE
         datapath = os.path.join(stDataArchive, st_extName)
         return stObsEpoch, datapath
