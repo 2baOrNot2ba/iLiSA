@@ -146,15 +146,23 @@ class ObsInfo(object):
                 beamctl_line = contents['BeamctlCmds']
         multishellcmds = beamctl_line.split('&')
         beamctl_cmd = multishellcmds[0]
-        (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
-            = stationcontrol.parse_beamctl_args(beamctl_cmd)
-        beamctl = {'antennaset': antennaset,
-                   'rcus': rcus,
-                   'rcumode': rcumode,
-                   'beamlets': beamlets,
-                   'subbands': subbands,
-                   'anadir': anadir,
-                   'digdir': digdir}
+        if beamctl_cmd is not "":
+            (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
+             = stationcontrol.parse_beamctl_args(beamctl_cmd)
+            beamctl = {'antennaset': antennaset,
+                       'rcus': rcus,
+                       'rcumode': rcumode,
+                       'beamlets': beamlets,
+                       'subbands': subbands,
+                       'anadir': anadir,
+                       'digdir': digdir}
+            self.septonconf = None
+        elif 'SEPTONconfig' in contents:
+            beamctl = ""
+            self.septonconf = contents['SEPTONconfig']
+        self.starttime = starttime
+        self.stnid = stnid
+        self.beamctl = beamctl
         return starttime, stnid, beamctl
 
     def create_LOFARst_header(self, LOFARstTYPE, datapath, LOFARstObsEpoch, rspsetup_CMD,
@@ -367,7 +375,7 @@ class CVCfiles(object):
         cvcfoldername = os.path.basename(os.path.abspath(cvcfolderpath))
         obsfolderinfo = {}
         cvcextstr = cvcfoldername.split('_')[-1]
-        if cvcextstr == 'xst':
+        if cvcextstr == 'xst' or cvcextstr == 'xst-SEPTON':
             try:
                 (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, cvcextstr
                 ) = cvcfoldername.split('_')
@@ -378,8 +386,7 @@ class CVCfiles(object):
                 obsfolderinfo['integration'] = float(intstr[3:])
                 obsfolderinfo['duration'] =    float(durstr[3:])
                 obsfolderinfo['pointing'] =    dirstr[3:].split(',')
-                if cvcextstr is "xst" or cvcextstr is "acc":
-                    obsfolderinfo['cvc-type'] = cvcextstr
+                obsfolderinfo['cvc-type'] =    cvcextstr
             except:
                 raise ValueError, "Foldername not in xst_ext format."
         elif cvcextstr == 'acc':
@@ -399,6 +406,8 @@ class CVCfiles(object):
             obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
             obsfolderinfo['duration'] = int(obsdirinfo['duration'])
             obsfolderinfo['stnid'] = obsdirinfo['stnid']
+        else:
+            raise(ValueError, "Folder not expected xst or acc format.")
         return obsfolderinfo
 
     def _readcvcfolder(self):

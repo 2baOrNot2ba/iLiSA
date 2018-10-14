@@ -108,7 +108,7 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     return accphasedup
 
 
-def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True):
+def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=False):
 
     if not include_autocorr:
         for indi in range(2):
@@ -117,8 +117,10 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True):
     posU, posV = stn2Dcoord[0,:].squeeze(), stn2Dcoord[1,:].squeeze()
     lambda0 = c / freq
     k = 2 * numpy.pi / lambda0;
-
-    lmext = fov(freq)
+    if not allsky:
+        lmext = fov(freq)
+    else:
+        lmext = 1.0
     nrpix = 101
     l, m = numpy.linspace(-lmext,lmext,nrpix), numpy.linspace(-lmext,lmext,
                                                                           nrpix)
@@ -167,7 +169,8 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
         xstobj = dataIO.CVCfiles(cvcpath)
         cvcdata_unc = xstobj.getdata()
         obsfileinfo = xstobj.getobsfolderinfo()
-        starttime, stnid, beamctl_cmd = dataIO.ObsInfo().parse_bsxST_header(cvcpath)
+        obsinfo = dataIO.ObsInfo()
+        starttime, stnid, beamctl_cmd = obsinfo.parse_bsxST_header(cvcpath)
         t0, sb, rcumode = obsfileinfo['datetime'], obsfileinfo['subband']\
                           , obsfileinfo['rcumode']
         t = t0 + datetime.timedelta(seconds=float(cubeslice))
@@ -177,6 +180,16 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
     bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
     stnPos, stnRot, antpos, stnIntilePos \
                             = antennafieldlib.getArrayBandParams(stnid, bandarr)
+    if obsinfo.septonconf is not None:
+        elmap = observing.str2elementMap2(obsinfo.septonconf)
+        for elem in elmap:
+            # print("b",antpos[elem])
+            antpos[elem] = antpos[elem] + stnIntilePos[elem]
+            # print("o", stnIntilePos[elem])
+            # print("e",antpos[elem])
+        allsky = True
+    else:
+        allsky = False
     freqs = stationcontrol.rcumode2sbfreqs(rcumode)
     # stn2Dcoord = stnRot.T * antpos.T
     # Apply calibration
@@ -189,7 +202,7 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
     cvpol = dataIO.cvc2cvpol(cvcdata)
     cvpu, UVWxyz = phaseref_xstpol(cvpol[:,:,cubeslice,...].squeeze(),
                                    t, freqs[sb], stnPos, antpos, pointing)
-    skyimages, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freqs[sb], False)
+    skyimages, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freqs[sb], False, allsky)
     plotskyimage(ll, mm, skyimages, t, freqs[sb], stnid)
 
 # Conversion between datatypes

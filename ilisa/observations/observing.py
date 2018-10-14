@@ -42,6 +42,11 @@ def elementMap2str(elmap):
         elmapStr = elmapStr+hex(el).lstrip('0').lstrip('x')
     return elmapStr
 
+def str2elementMap2(elmapstr):
+    elmap = []
+    for el in elmapstr:
+        elmap.append(int(el, 16))
+    return elmap
 
 #######################################
 # Begin Direction related code
