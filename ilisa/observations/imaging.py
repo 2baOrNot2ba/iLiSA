@@ -182,11 +182,8 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
                             = antennafieldlib.getArrayBandParams(stnid, bandarr)
     if obsinfo.septonconf is not None:
         elmap = observing.str2elementMap2(obsinfo.septonconf)
-        for elem in elmap:
-            # print("b",antpos[elem])
-            antpos[elem] = antpos[elem] + stnIntilePos[elem]
-            # print("o", stnIntilePos[elem])
-            # print("e",antpos[elem])
+        for tile, elem in enumerate(elmap):
+            antpos[tile] = antpos[tile] + stnIntilePos[elem]
         allsky = True
     else:
         allsky = False
