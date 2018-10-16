@@ -237,9 +237,11 @@ def parse_beamctl_args(beamctl_str):
 class Station(object):
     """This class manages an International LOFAR station."""
     lofarroot = "/opt/lofar_local/"
+    lofarbin = "/opt/lofar/bin"
+    lofaroperationsbin = "/opt/operations/bin"
     lofarstationtestdir = "/localhome/stationtest/"
     # ACCsrcDir is set in CalServer.conf and used when CalServer is running.
-    ACCsrcDir = "/localhome/data/ACCdata/"
+    ACCsrcDir = "/localhome/data/ACCdata/0"
     CalServer_conf = lofarroot + "/etc/CalServer.conf"
 
     def setupaccess(self, accessconf):
@@ -261,7 +263,27 @@ class Station(object):
         self.verbose = True  # Write out LCU commands
         if self.checkaccess() and self.verbose:
             print "Established access to LCU."
+        pathOK, datadirsOK = self.checkLCUenv()
+        assert pathOK, "Check $PATH on LCU. Needs to have {} and {}."\
+            .format(self.lofarbin, self.lofaroperationsbin)
+        assert datadirsOK, "Check that data folders {} and {} on LCU."\
+            .format(self.lcuDumpDir, self.ACCsrcDir)
 
+    def checkLCUenv(self):
+        """Check the LCU environment, especially for datataking assumptions."""
+        envpath = self._stdoutLCU("env | grep '^PATH'")
+        envpath = envpath.split("=")[1].split(":")
+        if self.lofarbin in envpath and self.lofaroperationsbin in envpath:
+            pathOK = True
+        else:
+            pathOK = False
+        try:
+            ls_lcuDumpDir, ls_ACCsrcDir = self.getdatalist()
+        except OSError as err:
+            datadirsOK = False
+        else:
+            datadirsOK = True
+        return pathOK, datadirsOK
 
     def checkaccess(self):
         """Check that this object has access to LCU.
@@ -334,7 +356,8 @@ class Station(object):
                 output = subprocess.check_output(shellinvoc+" '"+cmdline+"'",
                                                  shell=True).rstrip()
             except subprocess.CalledProcessError, e:
-                raise Exception('Access LCU error: {}'.format(e))
+                #raise Exception('Access LCU error: {}'.format(e))
+                raise OSError()
         else:
             output = "None"
         return output
