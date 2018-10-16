@@ -26,6 +26,6 @@ if __name__ == "__main__":
     myobs.bits = 16
     if not args.allsky:
         myobs.bsxST(args.statistic, args.frequency, args.integration, duration,
-                    args.pointSrc, allsky=True)
+                    args.pointSrc)
     else:
         myobs.do_SEPTON(args.statistic, args.frequency, args.integration, duration)
