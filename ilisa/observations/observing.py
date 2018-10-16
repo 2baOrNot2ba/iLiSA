@@ -442,9 +442,9 @@ class Session(object):
             (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo,
              datapath) = self.do_xst(frequency, integration, duration, pointing
                                      )
-        self.create_LOFARst_header(statistic, datapath, bsxSTobsEpoch,
-                                   rcusetup_CMD, beamctl_CMD, rspctl_CMD,
-                                   caltabinfo)
+        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
+        obsinfo.create_LOFARst_header(statistic, datapath, bsxSTobsEpoch, rcusetup_CMD,
+                              beamctl_CMD, rspctl_CMD, caltableInfo=caltabinfo)
         self.stationcontroller.stopBeam()
         return datapath
 
@@ -509,10 +509,10 @@ class Session(object):
             ACCdestDir += "_"+pointSrc
         ACCdestDir += "_acc"
         if os.path.isdir(ACCdestDir):
-            print "Appropriate directory exists already (will put data here)"
+            print("Appropriate directory exists already (will put data here)")
         else:
-            print "Creating directory "+ACCdestDir+" for ACC "+str(duration)\
-                  + " s rcumode="+rcumode+" calibration"
+            print("Creating directory "+ACCdestDir+" for ACC "+str(duration)\
+                  + " s rcumode="+rcumode+" calibration")
             os.mkdir(ACCdestDir)
 
         # Move ACC dumps to storage
@@ -525,8 +525,9 @@ class Session(object):
                                   rcumode, "", sst_integration, duration, "")
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", datapath,
                          recursive=True)
-        self.create_LOFARst_header('sst', datapath, bsxSTobsEpoch, "",
-                                   beamctl_CMD, rspctl_CMD, "")
+        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
+        obsinfo.create_LOFARst_header('sst', datapath, bsxSTobsEpoch, "",
+                                      beamctl_CMD, rspctl_CMD, "")
         self.stationcontroller.cleanup()
 
         # Postprocess?
@@ -621,44 +622,6 @@ class Session(object):
 
     # END: TBB services
     ###################
-
-    def create_LOFARst_header(self, LOFARstTYPE, datapath, LOFARstObsEpoch,
-                              rspsetup_CMD, beamctl_CMD, rspctl_CMD,
-                              caltableInfo=""):
-        """Create a header file for LOFAR standalone observation."""
-        def indenttext(txt):
-            indentstr = "  "
-            return indentstr+txt.replace("\n","\n"+indentstr)
-        headerversion = "2"
-        if (LOFARstTYPE != 'bst' and LOFARstTYPE != 'sst'
-                and LOFARstTYPE != 'xst' and LOFARstTYPE != 'bf'):
-            raise ValueError, "Unknown LOFAR statistic type {}.\
-                              ".format(LOFARstTYPE)
-        LOFARstHeaderFile = LOFARstObsEpoch+"_"+LOFARstTYPE+".h"
-        f = open(os.path.join(datapath, LOFARstHeaderFile), "w")
-        f.write("# HeaderType: bsxSTdata (YAML)\n")
-        f.write("# Header version {}\n".format(headerversion))
-        f.write("Observer: {}\n".format(self.observer))
-        f.write("Project: {}\n".format(self.project))
-        f.write("DataType: {}\n".format(LOFARstTYPE))
-        f.write("StationID: "+self.stationcontroller.stnid+"\n")
-        starttime = LOFARstObsEpoch[0:4]+'-'+LOFARstObsEpoch[4:6]+'-'\
-                        + LOFARstObsEpoch[6:8]+'T'+LOFARstObsEpoch[9:11]+':'\
-                        + LOFARstObsEpoch[11:13]+':'+LOFARstObsEpoch[13:15]
-        f.write("StartTime: "+starttime+"\n")
-        f.write("BeamctlCmds: |-\n")
-        f.write(indenttext(beamctl_CMD)+"\n")
-        # f.write(rspsetup_CMD+"\n")
-        # FIX separation of beamctl and rspsetup
-        # (Currently rspsetup is in beamctl)
-        f.write("RspctlCmds: |-\n")
-        f.write(indenttext(rspctl_CMD)+"\n")
-        if LOFARstTYPE == 'bst':
-            f.write("CalTabInfo: |-\n")
-            #f.write(indenttext(caltableInfo))
-            f.write(str(caltableInfo))
-        f.close()
-
 
 # END: Session
 ##############
