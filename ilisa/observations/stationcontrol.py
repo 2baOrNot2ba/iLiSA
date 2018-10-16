@@ -241,7 +241,7 @@ class Station(object):
     lofaroperationsbin = "/opt/operations/bin"
     lofarstationtestdir = "/localhome/stationtest/"
     # ACCsrcDir is set in CalServer.conf and used when CalServer is running.
-    ACCsrcDir = "/localhome/data/ACCdata/0"
+    ACCsrcDir = "/localhome/data/ACCdata/"
     CalServer_conf = lofarroot + "/etc/CalServer.conf"
 
     def setupaccess(self, accessconf):

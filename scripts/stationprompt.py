@@ -10,5 +10,5 @@ The myobs object then provides interactive interface the local LOFAR station.
 import ilisa.observations.observing as observing
 import ilisa.observations.dataIO as dataIO
 
-myObsSes = observing.Session(goto_observingstate_when_starting=True)
-#myObsSes.halt_observingstate_when_finished = False
+myObsSes = observing.Session(goto_observingstate_when_starting=False)
+myObsSes.halt_observingstate_when_finished = False
