@@ -549,9 +549,11 @@ class Session(object):
         # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
         self.stationcontroller.turnoffElinTile_byEl(elemsOn)
 
-    def do_SEPTON(self, subband, integration, duration, elemsOn=elOn_gILT, statistic='xst'):
+    def do_SEPTON(self, statistic,  frequency, integration, duration,
+                  elemsOn=elOn_gILT):
         """Record xst or sst data in SEPTON mode."""
-        rcumode = 5
+        subband, NqZone = stationcontrol.freq2sb(frequency)
+        rcumode = stationcontrol.NyquistZone2rcumode(NqZone)
         pointing = ""
         rcusetup_CMD =""
         rspctl_SET = ""

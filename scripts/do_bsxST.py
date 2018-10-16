@@ -9,6 +9,7 @@ import ilisa.observations.observing as observing
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument("-a", "--allsky", help="Set allsky FoV", action="store_true")
     parser.add_argument("statistic")
     parser.add_argument("frequency", type=float)
     parser.add_argument("integration",type=int)
@@ -21,8 +22,10 @@ if __name__ == "__main__":
     # LCU observing state is stopped. If you want to do further observations
     # you might not want to do this (to avoid the time it takes to boot to
     # an observing state). In this case you should uncomment next line:
-    #myobs.halt_observingstate_when_finished = False
+    myobs.halt_observingstate_when_finished = False
     myobs.bits = 16
-    myobs.bsxST(args.statistic, args.frequency, args.integration, duration,
-         args.pointSrc)
-
+    if not args.allsky:
+        myobs.bsxST(args.statistic, args.frequency, args.integration, duration,
+                    args.pointSrc, allsky=True)
+    else:
+        myobs.do_SEPTON(args.statistic, args.frequency, args.integration, duration)

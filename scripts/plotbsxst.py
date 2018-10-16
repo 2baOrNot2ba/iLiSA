@@ -70,7 +70,7 @@ def plotsst(sstff, freqreq):
 def plotxst(xstff):
     xstobj = dataIO.CVCfiles(xstff)
     XSTdata = xstobj.getdata()
-    obsfileinfo = xstobj.getobsfileinfo()
+    obsfileinfo = xstobj.getobsfolderinfo()
     sb = obsfileinfo['subband']
     intg = int(obsfileinfo['integration'])
     dur = int(obsfileinfo['duration'])
