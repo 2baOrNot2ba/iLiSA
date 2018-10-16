@@ -103,7 +103,7 @@ if __name__ == "__main__":
         plotbst(bsxff)
     elif suf=='sst':
         plotsst(bsxff, args.freq)
-    elif suf=='xst':
+    elif suf=='xst' or suf=='xst-SEPTON':
         plotxst(bsxff)
     else:
         raise RuntimeError, "Not a bst, sst, or xst filefolder"
