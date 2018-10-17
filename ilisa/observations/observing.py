@@ -521,24 +521,20 @@ class Session(object):
                       ".format(ACCdestDir, self.stationcontroller.stnid))
         return ACCdestDir
 
-    def setupSEPTON(self, elemsOn=elOn_gILT):
-        """Setup Single Element per Tile ON mode. This only valid for HBA and
+    def do_SEPTON(self, statistic,  frequency, integration, duration, elemsOn=elOn_gILT):
+        """Record xst or sst data in SEPTON mode.
+        Setup Single Element per Tile ON mode. This only valid for HBA and
         currently only rcumode=5."""
-        # NOTE: LCU must be in swlevel=2 to run SEPTON!
-        self.stationcontroller.bootToObservationState(2)
-        # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
-        self.stationcontroller.turnoffElinTile_byEl(elemsOn)
-
-    def do_SEPTON(self, statistic,  frequency, integration, duration,
-                  elemsOn=elOn_gILT):
-        """Record xst or sst data in SEPTON mode."""
         subband, NqZone = stationcontrol.freq2sb(frequency)
         rcumode = stationcontrol.NyquistZone2rcumode(NqZone)
         pointing = ""
         rcusetup_CMD =""
         rspctl_SET = ""
         beamctl_CMD = ""
-        self.setupSEPTON(elemsOn)
+        # NOTE: LCU must be in swlevel=2 to run SEPTON!
+        self.stationcontroller.bootToObservationState(2)
+        # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
+        self.stationcontroller.turnoffElinTile_byEl(elemsOn)
         caltabinfo = ""  # No need for caltab info
         # Record data
         if statistic == 'xst':
