@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 
 setup(name='iLiSA',
-      version='3.1',
+      version='3.2',
       description="""Package for handling international LOFAR station in
                   stand-alone mode""",
       author='Tobia D. Carozzi',
