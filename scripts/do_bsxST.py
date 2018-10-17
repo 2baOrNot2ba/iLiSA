@@ -24,8 +24,8 @@ if __name__ == "__main__":
     # an observing state). In this case you should uncomment next line:
     myobs.halt_observingstate_when_finished = False
     myobs.bits = 16
-    if not args.allsky:
+    if args.allsky and args.frequency > 100.0e6 :
+        myobs.do_SEPTON(args.statistic, args.frequency, args.integration, duration)
+    else:
         myobs.bsxST(args.statistic, args.frequency, args.integration, duration,
                     args.pointSrc)
-    else:
-        myobs.do_SEPTON(args.statistic, args.frequency, args.integration, duration)
