@@ -563,8 +563,8 @@ class Session(object):
     def do_tbb(self, duration, band):
         """Record duration seconds of TBB data from rcumode."""
 
-        observer = "TobiaC"
-        project = "LOCAL"
+        observer = self.observer
+        project = self.project
         observationID = "Null"
         # Start a dummy beam
         pointing = stdPointings('Z')
