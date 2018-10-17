@@ -20,6 +20,11 @@ observations such as:
 * TBB - Transient Buffer Board (Direct sampling of each receiving unit)
 * BFS - Beam-formed streams (Streamed complex voltages of beamlets)
 
+The package also features special observational modes:
+
+* SEPTON - Gives HBA an allsky field-of-view. Data taken in this mode is either
+  SST or XST
+
 Observation using iLiSA are made with science-level python functions which issue
 the hardware-level commands to the station's Monitoring And Control interface.
 
