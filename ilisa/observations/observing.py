@@ -502,8 +502,7 @@ class Session(object):
 
         # Move concurrent data to storage
         obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
-                                      "")
+        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_CMD, rspctl_CMD)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", datapath,
                          recursive=True)
@@ -554,15 +553,12 @@ class Session(object):
         obsdatetime_stamp = self.get_data_timestamp()
 
         obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.setobsinfo(LOFARdatTYPE, obsdatetime_stamp, rcumode, subband, integration,
-                           duration, pointing
-                           )
+        obsinfo.setobsinfo_fromparams(LOFARdatTYPE, obsdatetime_stamp, beamctl_CMD, rspctl_CMD,
+                                      caltabinfo, septonconf=elementMap2str(elemsOn))
         # Move data to archive
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
-        obsinfo.create_LOFARst_header(statistic, datapath, bsxSTobsEpoch, rcusetup_CMD,
-                                      beamctl_CMD, rspctl_CMD, caltabinfo,
-                                      septonconfig=elementMap2str(elemsOn))
+        obsinfo.create_LOFARst_header(datapath)
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
 
     #####################

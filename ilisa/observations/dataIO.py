@@ -96,25 +96,32 @@ class ObsInfo(object):
         return obsfolderinfo
 
     def setobsinfo_fromparams(self, lofardatatype, obsdatetime_stamp, beamctl_cmd,
-                              rspctl_cmd, septonconf="", caltabinfo=""):
+                              rspctl_cmd, caltabinfo="", septonconf=""):
         """Set observation info from parameters"""
         self.LOFARdatTYPE = lofardatatype
         self.datetime = obsdatetime_stamp
         self.beamctl_cmd = beamctl_cmd
-        (antset, rcus, rcumode, beamlets, subbands, anadir, digdir
-         ) = stationcontrol.parse_beamctl_args(self.beamctl_cmd)
-        self.rcumode = str(rcumode)
-        if self.LOFARdatTYPE == 'sst':
-            self.sb = ""
+        if self.beamctl_cmd != "" and self.beamctl_cmd is not None:
+            (antset, rcus, rcumode, beamlets, subbands, anadir, digdir
+             ) = stationcontrol.parse_beamctl_args(self.beamctl_cmd)
+            self.rcumode = str(rcumode)
+            self.pointing = digdir
         else:
-            self.sb = subbands
-        self.pointing = digdir
+            self.pointing = ""
         self.rspctl_cmd = rspctl_cmd
         rspctl_args = stationcontrol.parse_rspctl_args(self.rspctl_cmd)
         self.integration = float(rspctl_args['integration'])
         self.duration = float(rspctl_args['duration'])
+        if self.LOFARdatTYPE == 'sst':
+            self.sb = ""
+        elif self.LOFARdatTYPE.startswith('xst'):
+            self.sb = str(rspctl_args['xcsubband'])
+        elif self.LOFARdatTYPE == 'bst':
+            self.sb = subbands
         self.caltabinfo = caltabinfo
         self.septonconf = septonconf
+        if self.septonconf != "":
+            self.rcumode = 5
 
     def getobsdatapath(self, LOFARdataArchive):
         """Create name and destination path for folders (on the DPU) in
@@ -188,14 +195,25 @@ class ObsInfo(object):
         self.beamctl = beamctl
         return starttime, stnid, beamctl
 
- #   def create_LOFARst_header(self, LOFARstTYPE, datapath, LOFARstObsEpoch, rspsetup_CMD,
- #                             beamctl_CMD, rspctl_CMD, caltableInfo="", septonconfig=""):
+    def isLOFARdatatype(self, obsdatatype):
+        """Test if a string 'obsdatatype' is one of iLiSA's recognized LOFAR data types"""
+        if (obsdatatype == 'bst' or
+            obsdatatype == 'sst' or
+            obsdatatype == 'xst' or
+            obsdatatype == 'xst-SEPTON' or
+            obsdatatype == 'bf'):
+            return True
+        else:
+            return False
+
     def create_LOFARst_header(self, datapath):
         """Create a header file for LOFAR standalone observation."""
         LOFARstTYPE = self.LOFARdatTYPE
         LOFARstObsEpoch = self.datetime
-        rspsetup_CMD = ""
-        beamctl_CMD = self.beamctl_cmd
+        try:
+            beamctl_CMD = self.beamctl_cmd
+        except AttributeError:
+            beamctl_CMD = ""
         rspctl_CMD = self.rspctl_cmd
         caltableInfo = self.caltabinfo
         septonconfig = self.septonconf
@@ -203,8 +221,7 @@ class ObsInfo(object):
             indentstr = "  "
             return indentstr+txt.replace("\n","\n"+indentstr)
         headerversion = "2"
-        if (LOFARstTYPE != 'bst' and LOFARstTYPE != 'sst'
-                and LOFARstTYPE != 'xst' and LOFARstTYPE != 'bf'):
+        if not self.isLOFARdatatype(LOFARstTYPE):
             raise ValueError, "Unknown LOFAR statistic type {}.\
                               ".format(LOFARstTYPE)
         LOFARstHeaderFile = LOFARstObsEpoch+"_"+LOFARstTYPE+".h"
