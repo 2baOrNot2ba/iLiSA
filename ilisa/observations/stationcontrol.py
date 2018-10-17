@@ -909,6 +909,34 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
             self.execOnLCU(lcucmd)
 
+# mode 357 i.e. broadband mode
+    def run_mode357(self, integration, duration, pointing):
+        lcucmds = []
+        lcucmd = "rspctl --rcumode=3 --select=0:31"
+        self.execOnLCU(lcucmd)
+        lcucmds.append(lcucmd)
+        lcucmd = "rspctl --rcumode=5 --select=32:63"
+        self.execOnLCU(lcucmd)
+        lcucmds.append(lcucmd)
+        lcucmd = "rspctl --rcumode=7 --select=64:95"
+        self.execOnLCU(lcucmd)
+        lcucmds.append(lcucmd)
+        lcucmd = "rspctl --rcumode=3 --select=96:127"
+        self.execOnLCU(lcucmd)
+        lcucmds.append(lcucmd)
+        lcucmd = "rspctl --rcumode=5 --select=128:159"
+        self.execOnLCU(lcucmd)
+        lcucmds.append(lcucmd)
+        lcucmd = "rspctl --rcumode=7 --select=160:191"
+        self.execOnLCU(lcucmd)
+        lcucmds.append(lcucmd)
+        beamctl_CMDlst = []
+        beamctl_CMDlst.append(self.runbeamctl(   '0:99', '200:299', '3', pointing, '0:31'))
+        beamctl_CMDlst.append(self.runbeamctl('100:199', '200:299', '5', pointing, '32:63'))
+        beamctl_CMDlst.append(self.runbeamctl('200:243', '200:243', '7', pointing, '64:95'))
+        # return '\n'.join(beamctl_CMDlst)
+        return beamctl_CMDlst
+
 ## Special commands END
 
 # Basic station control END

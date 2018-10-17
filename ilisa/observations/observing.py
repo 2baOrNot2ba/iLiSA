@@ -557,6 +557,26 @@ class Session(object):
         obsinfo.create_LOFARst_header(datapath)
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
 
+    def do_mode357(self, integration, duration, pointingsrc):
+        self.stationcontroller.bootToObservationState(3)
+        pointing = stdPointings(pointingsrc)
+        beamctl_cmds = self.stationcontroller.run_mode357(integration, duration, pointing)
+        rspctl_CMD = self.stationcontroller.rec_bst(integration, duration)
+
+        LOFARdatTYPE = "bst-357"
+        # Collect observational metadata
+        obsdatetime_stamp = self.get_data_timestamp()
+
+        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
+        obsinfo.setobsinfo_fromparams(LOFARdatTYPE, obsdatetime_stamp, beamctl_cmds,
+                                      rspctl_CMD)
+        # Move data to archive
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
+        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat", datapath)
+        # beamlet statistics also generate empty *01[XY].dat so remove:
+        self.stationcontroller.rm(self.stationcontroller.lcuDumpDir+"/*01[XY].dat")
+        obsinfo.create_LOFARst_header(datapath)
+
     #####################
     # BEGIN: TBB services
 

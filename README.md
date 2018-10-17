@@ -22,6 +22,7 @@ observations such as:
 
 The package also features special observational modes:
 
+* BST-357 - A special BST that allows bands over LBA, HBA-lo and HBA-hi
 * SEPTON - Gives HBA an allsky field-of-view. Data taken in this mode is either
   SST or XST
 

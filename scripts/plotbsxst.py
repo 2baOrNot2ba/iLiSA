@@ -11,12 +11,15 @@ import ilisa.observations.dataIO as dataIO
 
 def plotbst(bstff):
     BSTdata, obsfileinfo = dataIO.readbstfolder(bstff)
-    sbs = obsfileinfo['subbands']
+    #sbs = obsfileinfo['subbands']
     intg = obsfileinfo['integration']
     dur = obsfileinfo['duration']
-    freqinband = stationcontrol.rcumode2sbfreqs(obsfileinfo['rcumode'])
-    freqs = freqinband[obsfileinfo['sblo']:(obsfileinfo['sbhi']+1)]
+    #freqinband = stationcontrol.rcumode2sbfreqs(obsfileinfo['rcumode'])
+    #freqs = freqinband[obsfileinfo['sblo']:(obsfileinfo['sbhi']+1)]
+    freqs = obsfileinfo['frequencies']
     ts = numpy.arange(0., dur, intg)
+    print len(freqs), len(ts)
+    print BSTdata['X'].shape
     plt.subplot(211)
     plt.pcolormesh(freqs/1e6, ts/3600, BSTdata['X'],
                    norm=colors.LogNorm())
@@ -99,7 +102,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     bsxff = os.path.normpath(args.bsxff)
     suf = whichst(bsxff)
-    if suf=='bst':
+    if suf=='bst' or suf=='bst-357':
         plotbst(bsxff)
     elif suf=='sst':
         plotsst(bsxff, args.freq)
