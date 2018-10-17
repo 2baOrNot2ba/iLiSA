@@ -15,7 +15,6 @@ the corresponding datatype.
 """
 
 
-import sys
 import os
 import numpy
 import re
@@ -96,6 +95,27 @@ class ObsInfo(object):
             obsfolderinfo['stnid'] = obsdirinfo['stnid']
         return obsfolderinfo
 
+    def setobsinfo_fromparams(self, lofardatatype, obsdatetime_stamp, beamctl_cmd,
+                              rspctl_cmd, septonconf="", caltabinfo=""):
+        """Set observation info from parameters"""
+        self.LOFARdatTYPE = lofardatatype
+        self.datetime = obsdatetime_stamp
+        self.beamctl_cmd = beamctl_cmd
+        (antset, rcus, rcumode, beamlets, subbands, anadir, digdir
+         ) = stationcontrol.parse_beamctl_args(self.beamctl_cmd)
+        self.rcumode = str(rcumode)
+        if self.LOFARdatTYPE == 'sst':
+            self.sb = ""
+        else:
+            self.sb = subbands
+        self.pointing = digdir
+        self.rspctl_cmd = rspctl_cmd
+        rspctl_args = stationcontrol.parse_rspctl_args(self.rspctl_cmd)
+        self.integration = float(rspctl_args['integration'])
+        self.duration = float(rspctl_args['duration'])
+        self.caltabinfo = caltabinfo
+        self.septonconf = septonconf
+
     def getobsdatapath(self, LOFARdataArchive):
         """Create name and destination path for folders (on the DPU) in
         which to save the various LOFAR data products.
@@ -105,13 +125,14 @@ class ObsInfo(object):
         st_extName = stObsEpoch+"_rcu"+str(self.rcumode)
         if str(self.sb) != "":
             st_extName += "_sb"+str(self.sb)
-        st_extName += "_int"+str(self.integration)+"_dur"+str(self.duration)
+        st_extName += "_int"+str(int(self.integration))+"_dur"+str(int(self.duration))
         if self.LOFARdatTYPE == "xst-SEPTON":
             pass
-        if str(self.pointing) != "":
-            st_extName += "_dir"+str(self.pointing)
-        else:
-            st_extName += "_dir,,"
+        if self.LOFARdatTYPE != 'sst':
+            if str(self.pointing) != "":
+                st_extName += "_dir"+str(self.pointing)
+            else:
+                st_extName += "_dir,,"
         st_extName += "_"+self.LOFARdatTYPE
         datapath = os.path.join(stDataArchive, st_extName)
         return stObsEpoch, datapath
@@ -167,9 +188,17 @@ class ObsInfo(object):
         self.beamctl = beamctl
         return starttime, stnid, beamctl
 
-    def create_LOFARst_header(self, LOFARstTYPE, datapath, LOFARstObsEpoch, rspsetup_CMD,
-                              beamctl_CMD, rspctl_CMD, caltableInfo="", septonconfig=""):
+ #   def create_LOFARst_header(self, LOFARstTYPE, datapath, LOFARstObsEpoch, rspsetup_CMD,
+ #                             beamctl_CMD, rspctl_CMD, caltableInfo="", septonconfig=""):
+    def create_LOFARst_header(self, datapath):
         """Create a header file for LOFAR standalone observation."""
+        LOFARstTYPE = self.LOFARdatTYPE
+        LOFARstObsEpoch = self.datetime
+        rspsetup_CMD = ""
+        beamctl_CMD = self.beamctl_cmd
+        rspctl_CMD = self.rspctl_cmd
+        caltableInfo = self.caltabinfo
+        septonconfig = self.septonconf
         def indenttext(txt):
             indentstr = "  "
             return indentstr+txt.replace("\n","\n"+indentstr)

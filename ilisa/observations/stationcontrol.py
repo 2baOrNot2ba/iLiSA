@@ -230,6 +230,26 @@ def parse_beamctl_args(beamctl_str):
             args.subbands, args.anadir, args.digdir)
 
 
+def parse_rspctl_args(rspctl_strs):
+    """Parse rspctl command arguments.
+    Note that rspctl has persistent flags, i.e. multiple rspctl calls add up flags."""
+    # TODO: Add the rest of the arguments
+    rspctl_args ={}
+    rspctl_parser = argparse.ArgumentParser()
+    rspctl_parser.add_argument('--statistics')
+    rspctl_parser.add_argument('--xcstatistics', action='store_true')
+    rspctl_parser.add_argument('--integration')
+    rspctl_parser.add_argument('--duration')
+    rspctl_parser.add_argument('--xcsubband')
+    rspctl_parser.add_argument('--directory')
+    for rspctl_str in rspctl_strs.split('\n'):
+        rspctl_str_normalized = rspctl_str.replace('=', ' ')
+        argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
+        argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
+        rspctl_args.update(argsdict)
+    return rspctl_args
+
+
 #######################################
 # Basic station control START
 

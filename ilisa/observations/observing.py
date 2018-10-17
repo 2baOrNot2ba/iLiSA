@@ -278,24 +278,8 @@ class Session(object):
 
 #######################################
 # Begin: Basic obs modes
-    def getbsxstdatapath(self, LOFARdatTYPE, datetime_stamp, rcumode, sb,
-                         integration, duration, pointing):
-            """Create name and destination path for folders (on the DPU) in
-            which to save the various LOFAR data products.
-            """
-            stDataArchive = os.path.join(self.LOFARdataArchive, LOFARdatTYPE)
-            stObsEpoch = datetime_stamp
-            st_extName = stObsEpoch+"_rcu"+str(rcumode)
-            if str(sb) != "":
-                st_extName += "_sb"+str(sb)
-            st_extName += "_int"+str(integration)+"_dur"+str(duration)
-            if str(pointing) != "":
-                st_extName += "_dir"+str(pointing)
-            st_extName += "_"+LOFARdatTYPE
-            datapath = os.path.join(stDataArchive, st_extName)
-            return stObsEpoch, datapath
 
-    def do_bst(self, frequency, integration, duration, pointing):
+    def do_bst(self, frequency, integration, duration, pointing, obsinfo):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
         """
         if not self.checkobservingallowed():
@@ -315,8 +299,7 @@ class Session(object):
         rcusetup_CMD = ""
         # rcusetup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
         # Get some metadata about operational settings:
-        (antset, rcus, rcumode, beamlets, subband, anadir, digdir
-         ) = stationcontrol.parse_beamctl_args(beamctl_main)
+        rcumode = stationcontrol.freq2beamParam(frequency)[1]
         caltabinfo = self.stationcontroller.getCalTableInfo(rcumode)
         # Record data
         # waittime = 0
@@ -325,9 +308,9 @@ class Session(object):
         rspctl_CMD = self.stationcontroller.rec_bst(integration, duration)
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
-        bsxSTobsEpoch, datapath = \
-            self.getbsxstdatapath('bst', obsdatetime_stamp, rcumode, subband,
-                                  integration, duration, pointing)
+        obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
+                                      caltabinfo)
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat",
                          datapath)
         # beamlet statistics also generate empty *01[XY].dat so remove:
@@ -336,7 +319,7 @@ class Session(object):
         return (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD,
                 caltabinfo, datapath)
 
-    def do_sst(self, frequency, integration, duration, pointing):
+    def do_sst(self, frequency, integration, duration, pointing, obsinfo):
         """Run an sst static."""
 
         if not self.checkobservingallowed():
@@ -355,22 +338,20 @@ class Session(object):
         # rcusetup_CMD=""
         # rcusetup_CMD=self.stationcontroller.rcusetup(bits, attenuation)
         # Get some metadata about operational settings:
-        (antset, rcus, rcumode, beamlets, subband, anadir, digdir
-         ) = stationcontrol.parse_beamctl_args(beamctl_main)
         caltabinfo = ""    # No need for caltab info
         # Record data
         rspctl_CMD = self.stationcontroller.rec_sst(integration, duration)
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
-        bsxSTobsEpoch, datapath = \
-            self.getbsxstdatapath('sst', obsdatetime_stamp, rcumode, "",
-                                  integration, duration, "")
+        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
+                                      caltabinfo)
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath,
                          recursive=True)
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo,
                 datapath)
 
-    def do_xst(self, frequency, integration, duration, pointing):
+    def do_xst(self, frequency, integration, duration, pointing, obsinfo):
         """Run an xst statistic towards the given pointing. This corresponds to
         a crosscorrelation of all elements at the given frequency and
         integration repeated for a duration of seconds."""
@@ -384,17 +365,16 @@ class Session(object):
         # FIX: Include rcusetup into streambeam call.
         # rcusetup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
         # Get some metadata about operational settings:
-        (antset, rcus, rcumode, beamlets, subband, anadir, digdir
-         ) = stationcontrol.parse_beamctl_args(beamctl_main)
+        subband = stationcontrol.freq2beamParam(frequency)[2]
         caltabinfo = ""  # No need for caltab info
         # Record data
         rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
                                                     duration)
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
-        bsxSTobsEpoch, datapath = \
-            self.getbsxstdatapath('xst', obsdatetime_stamp, rcumode, subband,
-                                  integration, duration, pointing)
+        obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
+                                      caltabinfo)
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
 
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMDs, rspctl_CMD,
@@ -430,21 +410,22 @@ class Session(object):
             raise ValueError, "Integration {} is longer than duration {}.\
                                ".format(integration, duration)
 
+        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
+
         if statistic == 'bst':
             (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo,
-             datapath) = self.do_bst(frequency, integration, duration, pointing
-                                     )
+             datapath) = self.do_bst(frequency, integration, duration, pointing,
+                                     obsinfo)
         elif statistic == 'sst':
             (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo,
-             datapath) = self.do_sst(frequency, integration, duration, pointing
-                                     )
+             datapath) = self.do_sst(frequency, integration, duration, pointing,
+                                     obsinfo)
         elif statistic == 'xst':
             (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo,
-             datapath) = self.do_xst(frequency, integration, duration, pointing
-                                     )
-        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.create_LOFARst_header(statistic, datapath, bsxSTobsEpoch, rcusetup_CMD,
-                              beamctl_CMD, rspctl_CMD, caltableInfo=caltabinfo)
+             datapath) = self.do_xst(frequency, integration, duration, pointing,
+                                     obsinfo)
+
+        obsinfo.create_LOFARst_header(datapath)
         self.stationcontroller.stopBeam()
         return datapath
 
@@ -520,14 +501,13 @@ class Session(object):
         self.movefromlcu(ACCsrcFiles, ACCdestDir)
 
         # Move concurrent data to storage
-        bsxSTobsEpoch, datapath = \
-            self.getbsxstdatapath('sst', obsdatetime_stamp,
-                                  rcumode, "", sst_integration, duration, "")
+        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
+        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
+                                      "")
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", datapath,
                          recursive=True)
-        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.create_LOFARst_header('sst', datapath, bsxSTobsEpoch, "",
-                                      beamctl_CMD, rspctl_CMD, "")
+        obsinfo.create_LOFARst_header(datapath)
         self.stationcontroller.cleanup()
 
         # Postprocess?
