@@ -910,32 +910,29 @@ r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalSer
             self.execOnLCU(lcucmd)
 
 # mode 357 i.e. broadband mode
-    def run_mode357(self, integration, duration, pointing):
-        lcucmds = []
-        lcucmd = "rspctl --rcumode=3 --select=0:31"
-        self.execOnLCU(lcucmd)
-        lcucmds.append(lcucmd)
-        lcucmd = "rspctl --rcumode=5 --select=32:63"
-        self.execOnLCU(lcucmd)
-        lcucmds.append(lcucmd)
-        lcucmd = "rspctl --rcumode=7 --select=64:95"
-        self.execOnLCU(lcucmd)
-        lcucmds.append(lcucmd)
-        lcucmd = "rspctl --rcumode=3 --select=96:127"
-        self.execOnLCU(lcucmd)
-        lcucmds.append(lcucmd)
-        lcucmd = "rspctl --rcumode=5 --select=128:159"
-        self.execOnLCU(lcucmd)
-        lcucmds.append(lcucmd)
-        lcucmd = "rspctl --rcumode=7 --select=160:191"
-        self.execOnLCU(lcucmd)
-        lcucmds.append(lcucmd)
+    def run_mode357(self, pointing):
+        rspctl_cmds = []
+        mode357rcu2ant = {'3' :  '0:31,96:127',
+                          '5' : '32:63,128:159',
+                          '7' : '64:95,160:191'}
+        mode357bl2sb =   {'3' : '200:299',
+                          '5' : '200:299',
+                          '7' : '200:243'}
+        for rcumode, rcusel in mode357rcu2ant.items():
+            rspctl_cmd = "rspctl --rcumode={} --select={}".format(rcumode, rcusel)
+            self.execOnLCU(rspctl_cmd)
+            rspctl_cmds.append(rspctl_cmd)
         beamctl_CMDlst = []
-        beamctl_CMDlst.append(self.runbeamctl(   '0:99', '200:299', '3', pointing, '0:31'))
-        beamctl_CMDlst.append(self.runbeamctl('100:199', '200:299', '5', pointing, '32:63'))
-        beamctl_CMDlst.append(self.runbeamctl('200:243', '200:243', '7', pointing, '64:95'))
-        # return '\n'.join(beamctl_CMDlst)
-        return beamctl_CMDlst
+        totnrsbs = 0
+        for rcumode, sbs in mode357bl2sb.items():
+            # Compute bls (beamlets spec) corresponding to given sbs
+            sblo, sbhi = sbs.split(':')
+            nrsbs = sbhi - sblo + 1
+            bls = '{}:{}'.format(totnrsbs, totnrsbs+nrsbs-1)
+            beamctl_CMDlst.append(self.runbeamctl(bls, sbs, rcumode, pointing,
+                                                  mode357rcu2ant[rcumode]))
+            totnrsbs +=  nrsbs
+        return rspctl_cmds, beamctl_CMDlst
 
 ## Special commands END
 

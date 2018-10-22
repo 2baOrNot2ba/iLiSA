@@ -558,9 +558,11 @@ class Session(object):
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
 
     def do_mode357(self, integration, duration, pointingsrc):
+        """Record bst data in mode357."""
+        # TODO Add 8 bit support and make subbands selectable by user
         self.stationcontroller.bootToObservationState(3)
         pointing = stdPointings(pointingsrc)
-        beamctl_cmds = self.stationcontroller.run_mode357(integration, duration, pointing)
+        rspctl_set, beamctl_cmds = self.stationcontroller.run_mode357(pointing)
         rspctl_CMD = self.stationcontroller.rec_bst(integration, duration)
 
         LOFARdatTYPE = "bst-357"
