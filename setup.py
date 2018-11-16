@@ -32,5 +32,5 @@ setup(name='iLiSA',
           'h5py'
       ],
       scripts=['scripts/acc2bst.py', 'scripts/do_bfs.py', 'scripts/ilisa_rec.py'
-               'scripts/image.py', 'scripts/plotbsxst.py']
+               'scripts/ilisa_view.py']
       )

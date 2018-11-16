@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.dataIO as dataIO
+import ilisa.observations.imaging as imaging
 
 
 def plotbst(bstff):
@@ -95,13 +96,27 @@ def whichst(bsxff):
     return suf
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('bsxff', help="bst, sst or xst filefolder")
-    parser.add_argument("freq", type=float, nargs='?', default=None)
-    args = parser.parse_args()
-    bsxff = os.path.normpath(args.bsxff)
+def plotacc(args):
+    accff = os.path.normpath(args.dataff)
+    freq = args.freq
+    dataobj = dataIO.CVCfiles(accff)
+    data = dataobj.getdata()
+    nrfiles = dataobj.getnrfiles()
+    if nrfiles>1:
+        data = data[0]
+    sb, nqzone = stationcontrol.freq2sb(freq)
+    while sb<512:
+        print(sb,stationcontrol.sb2freq(sb,nqzone)/1e6)
+        plt.pcolormesh(numpy.abs(data[sb]))
+        plt.show()
+        sb += 1
+
+
+def plot_bsxst(args):
+    bsxff = os.path.normpath(args.dataff)
     suf = whichst(bsxff)
+    if suf=='acc':
+        plotacc(args)
     if suf=='bst' or suf=='bst-357':
         plotbst(bsxff)
     elif suf=='sst':
@@ -111,3 +126,25 @@ if __name__ == "__main__":
     else:
         raise RuntimeError, "Not a bst, sst, or xst filefolder"
 
+def image(args):
+    """Image visibility-type data."""
+    imaging.cvcimage(args.cvcpath, args.cubeindex, args.phaseref)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(help='sub-command help')
+
+    parser_plot = subparsers.add_parser('plot', help='plot help')
+    parser_plot.set_defaults(func=plot_bsxst)
+    parser_plot.add_argument('dataff', help="acc, bst, sst or xst filefolder")
+    parser_plot.add_argument('freq', type=float, nargs='?', default=None)
+
+    parser_image = subparsers.add_parser('image', help='image help')
+    parser_image.set_defaults(func=image)
+    parser_image.add_argument('cvcpath', help="acc or xst filefolder")
+    parser_image.add_argument('cubeindex', type=float, default=None)
+    parser_image.add_argument('phaseref', type=str, default='Z')
+
+    args = parser.parse_args()
+    args.func(args)

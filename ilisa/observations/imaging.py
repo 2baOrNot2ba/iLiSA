@@ -199,7 +199,7 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
     cvpol = dataIO.cvc2cvpol(cvcdata)
     cvpu, UVWxyz = phaseref_xstpol(cvpol[:,:,cubeslice,...].squeeze(),
                                    t, freqs[sb], stnPos, antpos, pointing)
-    skyimages, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freqs[sb], False, allsky)
+    skyimages, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freqs[sb], True, allsky)
     plotskyimage(ll, mm, skyimages, t, freqs[sb], stnid)
 
 # Conversion between datatypes
@@ -252,7 +252,7 @@ def plotskyimage(ll, mm, skyimages, t, freq, stnid):
     plt.colorbar()
     plt.title('Stokes u')
     plt.subplot(2,2,4)
-    plt.pcolormesh(ll, mm, skyimages[3]/skyimages[0], vmin=-1, vmax=1)
+    plt.pcolormesh(ll, mm, skyimages[3]/skyimages[0]) #, vmin=-1, vmax=1)
     plt.gca().invert_xaxis()
     plt.colorbar()
     plt.title('Stokes v')
