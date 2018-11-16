@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 from setuptools import setup, find_packages
+import ilisa
 
 setup(name='iLiSA',
-      version='3.2',
+      version=ilisa.__version__,
       description="""Package for handling international LOFAR station in
                   stand-alone mode""",
       author='Tobia D. Carozzi',
