@@ -462,21 +462,18 @@ class Session(object):
         # Also duration of ACC sweep since each sb is 1 second.
         nrACCsbs = stationcontrol.TotNrOfsb
         # Time between end of one ACC sweep and beginning of next one.
-        timeintervalbetweenACCs = 7
-        ACCcadence = float(nrACCsbs+timeintervalbetweenACCs)
-        endbuftime = timeintervalbetweenACCs
+        timebetweenACCs = 7
+        ACCcadence = float(nrACCsbs+timebetweenACCs)
         duration = int(math.ceil((duration_req-nrACCsbs)/ACCcadence)
-                       * (ACCcadence)+nrACCsbs+endbuftime)
+                       * (ACCcadence)+nrACCsbs+timebetweenACCs)
         if duration != duration_req:
-            print("Warning: will use longer duration {}s to fit with ACC\
-                  cadence.".format(duration))
+            print("""Warning: using longer duration {}s to fit with ACC \
+                  cadence.""".format(duration))
         obsStartDate = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
 
         # Run ACC mode
-        sst_integration = 600
-        beamctl_CMD, rspctl_CMD = \
-            self.stationcontroller.runACC(rcumode, duration, pointing,
-                                          sst_integration)
+        beamctl_CMD, rspctl_SET, rspctl_CMD, beamctl_main = \
+            self.stationcontroller.runACC(rcumode, duration, pointing)
         if exit_obsstate:
             self.stationcontroller.bootToObservationState(0)
 
@@ -502,7 +499,7 @@ class Session(object):
 
         # Move concurrent data to storage
         obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_CMD, rspctl_CMD)
+        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_main, rspctl_CMD)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", datapath,
                          recursive=True)

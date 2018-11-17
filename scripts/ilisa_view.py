@@ -49,11 +49,18 @@ def plotsst(sstff, freqreq):
     if show == 'mean':
         meandynspec = numpy.mean(SSTdata, axis=0)
         res = meandynspec
-        plt.pcolormesh(freqs/1e6, ts/3600, res, norm=colors.LogNorm())
-        plt.colorbar()
-        plt.title('Mean (over RCUs) dynamicspectrum')
-        plt.xlabel('frequency [MHz]')
-        plt.ylabel('Time [h]')
+        if res.shape[0] > 1:
+            plt.pcolormesh(freqs/1e6, ts/3600, res, norm=colors.LogNorm())
+            plt.colorbar()
+            plt.title('Mean (over RCUs) dynamicspectrum')
+            plt.xlabel('Frequency [MHz]')
+            plt.ylabel('Time [h]')
+        else:
+            # Only one integration so show it as 2D spectrum
+            plt.plot(freqs/1e6, res[0,:])
+            plt.yscale('log')
+            plt.xlabel('Frequency [MHz]')
+            plt.ylabel('Power [arb. unit]')
     elif show == 'persb':
         res = SSTdata[:,:,sbreq]
         resX = res[0::2,:]

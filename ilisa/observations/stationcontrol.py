@@ -764,7 +764,9 @@ class Station(object):
 
 ### TBB control END
 ### ACC control BEGIN
-    def runACC(self, rcumode, duration, pointing, sst_integration=600):
+    acc_cadence = 519  # =512+7 seconds is time between two consecutive ACCs.
+
+    def runACC(self, rcumode, duration, pointing, sst_integration=acc_cadence):
         """Perform ACC calibration observation on station.
 
         ACC files are autocovariance-cubes: the covariance of all array
@@ -773,7 +775,6 @@ class Station(object):
         configured in the file lofar/etc/CalServer.conf. Note subband
         integration is always 1s, so ACC file is dumped after 512 seconds.
         """
-
         # Make dump data directory for concurrent SST data
         self.execOnLCU(
           'if [ ! -d "'+self.lcuDumpDir+'" ]; then mkdir '
@@ -811,7 +812,7 @@ r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^
 r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}".format(self.CalServer_conf)
             , quotes='"')
 
-        return beamctl_CMD, rspctl_CMD
+        return beamctl_CMD, rspctl_SET, rspctl_CMD, beamctl_main
 
 ### ACC control END
 ##Basic station data taking commands END
