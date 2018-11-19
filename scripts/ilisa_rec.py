@@ -28,10 +28,19 @@ def _do_bsx(statistic, args):
     """
     duration = int(math.ceil(eval(args.duration)))
     myobs.bits = 16
-    if args.allsky and args.freqlo > 100.0e6 :
-        myobs.do_SEPTON(statistic, args.freqlo, args.integration, duration)
+    # TODO the freqbnd is not fully functional yet. Implement it.
+    if statistic == 'sst':
+        if args.band == '10_90' or  args.band == '30_90':
+            args.freqbnd = '50e6'
+        elif args.band == '110_190' or  args.band == '170_230':
+            args.freqbnd = '150e6'
+        elif args.band == '210_250':
+            args.freqbnd = '250e6'
+    freqlo = float(args.freqbnd)
+    if args.allsky and freqlo > 100.0e6 :
+        myobs.do_SEPTON(statistic, freqlo, args.integration, duration)
     else:
-        myobs.bsxST(statistic, args.freqlo, args.integration, duration,
+        myobs.bsxST(statistic, freqlo, args.integration, duration,
                     args.pointsrc)
 
 
@@ -71,10 +80,14 @@ if __name__ == "__main__":
                                        help='Type of datataking:')
 
     # Specify common parameter args:
-    arg_band_kwargs = {'type': str,
-                       'help': "Band to use: 10_90, 110_190, or 210_250."}
-    arg_freqlo_kwargs = {'type': float,
-                         'help': "Frequency in Hz (lower edge)"}
+    arg_rcuband_kwargs = {'type': str,
+                       'help': """(RCU) Band to use: 10_90, 30_90, 110_190, \
+                               170_230 or 210_250."""}
+    arg_freqband_kwargs = {'type': str,
+                           'help': """\
+                            Frequency band spec in Hz.\
+                            Format: freqct | freqlo:freqhi | freqlo:freqstp:freqhi\
+                            """}
     arg_integration_kwargs ={'type': int,
                              'help': "Integration time in s"}
     arg_duration_kwargs = {'type': str,
@@ -89,7 +102,7 @@ if __name__ == "__main__":
     parser_acc = subparsers.add_parser('acc',
                                        help="Make an ACC observation.")
     parser_acc.set_defaults(func=do_acc)
-    parser_acc.add_argument('band', **arg_band_kwargs)
+    parser_acc.add_argument('band', **arg_rcuband_kwargs)
     parser_acc.add_argument('duration', **arg_duration_kwargs)
     parser_acc.add_argument("pointsrc", **arg_pointsrc_kwargs)
 
@@ -97,7 +110,7 @@ if __name__ == "__main__":
     parser_bst = subparsers.add_parser('bst',
                                        help="Make a BST observation")
     parser_bst.set_defaults(func=do_bst)
-    parser_bst.add_argument('freqlo', **arg_freqlo_kwargs)
+    parser_bst.add_argument('freqbnd', **arg_freqband_kwargs)
     parser_bst.add_argument('integration', **arg_integration_kwargs)
     parser_bst.add_argument('duration',**arg_duration_kwargs)
     parser_bst.add_argument('pointsrc', **arg_pointsrc_kwargs)
@@ -106,7 +119,7 @@ if __name__ == "__main__":
     parser_sst = subparsers.add_parser('sst',
                                        help="Make a SST observation")
     parser_sst.set_defaults(func=do_sst)
-    parser_sst.add_argument('freqlo', **arg_freqlo_kwargs)
+    parser_sst.add_argument('band', **arg_rcuband_kwargs)
     parser_sst.add_argument('integration',**arg_integration_kwargs)
     parser_sst.add_argument('duration',**arg_duration_kwargs)
     parser_sst.add_argument('pointsrc', **arg_pointsrc_kwargs)
@@ -115,7 +128,7 @@ if __name__ == "__main__":
     parser_xst = subparsers.add_parser('xst',
                                        help="Make a XST observation")
     parser_xst.set_defaults(func=do_xst)
-    parser_xst.add_argument('freqlo', **arg_freqlo_kwargs)
+    parser_xst.add_argument('freqbnd', **arg_freqband_kwargs)
     parser_xst.add_argument('integration',**arg_integration_kwargs)
     parser_xst.add_argument('duration',**arg_duration_kwargs)
     parser_xst.add_argument('pointsrc', **arg_pointsrc_kwargs)
@@ -124,7 +137,7 @@ if __name__ == "__main__":
     parser_tbb = subparsers.add_parser('tbb',
                                        help="Make a TBB observation")
     parser_tbb.set_defaults(func=do_tbb)
-    parser_tbb.add_argument('band', **arg_band_kwargs)
+    parser_tbb.add_argument('band', **arg_rcuband_kwargs)
     parser_tbb.add_argument('duration', **arg_duration_kwargs)
 
     args = parser.parse_args()
