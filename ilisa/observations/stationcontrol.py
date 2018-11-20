@@ -531,26 +531,26 @@ class Station(object):
 
 ##Basic station data taking commands BEGIN
 
-    def rspctl_cmd(self, bits=16, attenuation=None):
-        """Return rspctl command to setup RCUs: bits is 8 or 16, and
-        attenuation is 0 to 31.
-        (Nothing is executed on LCU)"""
-        # TODO should maybe check if bit mode is already correct...
-        # NOTE Looks like bitmode and rcuattenuation have to be set in separate
-        #      commands.
-        rspctl_CMDs = ""
-        rspctl_CMDs += "rspctl --bitmode="+str(bits)+" ; "
-        if attenuation:
-            # NOTE attenuation only set when beamctl is runnning.
-            rspctl_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "
-        return rspctl_CMDs
+    def runrspctl(self, rcumode, select):
+        """Run rspctl command to setup RCUs: rcumode, select.
+        """
+        rspctl_cmd = "rspctl --rcumode={} --select={}".format(rcumode, select)
+        self.execOnLCU(rspctl_cmd)
+        return rspctl_cmd
 
     def rcusetup(self, bits, attenuation):
         """Setup basic RCU setting: bits is 8 or 16, and attenuation is 0 to 31
         (0 means no attenuation & increasing number means more attenutation)"""
-        rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
-        self.execOnLCU(rcu_setup_CMD)
-        return rcu_setup_CMD
+        rcu_setup_CMDs = ""
+        rcu_setup_CMDs += "rspctl --bitmode="+str(bits)+" ; "
+        # NOTE Looks like bitmode and rcuattenuation have to be set in separate
+        #      commands.
+        if attenuation:
+            # NOTE attenuation only set when beamctl is runnning.
+            rcu_setup_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "
+        #rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
+        self.execOnLCU(rcu_setup_CMDs)
+        return rcu_setup_CMDs
 
     def setupbeamlets(self, beamletIDs, subbandNrs, band, pointing,
                       RCUSflag=ALLRCUs, beamletDurStr=""):
@@ -583,75 +583,6 @@ class Station(object):
         print "Waiting "+str(waittime)+" seconds"
         time.sleep(waittime)  # Wait for beam to settle
         return beamctl_CMD
-
-    def streambeam(self, freqBand, pointings, recDuration=float('inf'),
-                   bits=16, attenuation=0, DUMMYWARMUP=False):
-        # Multiple sbs with same pointing
-        # or one sb with pointing
-        beamctl_CMDs = ""
-        MultiBeamctl = False
-
-        if type(freqBand) is tuple:
-            antset, rcumode, beamletIDs, subbands = freqBand2sb(freqBand, bits)
-        elif type(freqBand) is float:
-            antset, rcumode, subbands = freq2beamParam(freqBand)
-            if type(pointings) is tuple:
-                MultiBeamctl = True
-            else:
-                # Nominally:
-                beamletIDs = '0'
-                # (special test used):
-                # nrBLs = 61*4*16/bits
-                # beamletIDs=','.join([str(b) for b in range(nrBLs)])
-                # #subbands = ((subbands+',')*nrBLs).rstrip(',')
-
-        # Select good rcus
-        enabledrcus = ALLRCUs
-        # enabledrcus = self.selectrcustr(rcumode)
-
-        if MultiBeamctl:
-            for beamletNr in range(0, len(pointings)):
-                beamctl_CMDs = (beamctl_CMDs
-                                + self.setupbeamlets(str(beamletNr), subbands,
-                                                     rcumode,
-                                                     pointings[beamletNr])
-                                + " & \\"+"\n"
-                                )
-            # beamctl_CMDs=beamctl_CMDs[:-2] #Trim off trailing "; "
-        else:
-            beamctl_main = self.setupbeamlets(beamletIDs, subbands, rcumode,
-                                              pointings, RCUSflag=enabledrcus)
-            backgroundJOB = True
-            beamctl_CMDs = beamctl_main
-            # beamctl_CMDs="(("+beamctl_CMDs+") & )"
-        # print "(About to stream beams)"
-        # recStop_CMD=":" #bash no-op
-        if backgroundJOB is True:
-            beamctl_CMDs += " & "
-        # Setup rspctl settings
-        rspctl_SET = self.rspctl_cmd(bits, attenuation)
-        # beamctl_CMDs = rspctl_SET + beamctl_CMDs # rspctl cmd before beamctl
-        beamctl_CMDs = beamctl_CMDs + rspctl_SET  # rspctl cmd *after* beamctl
-        if recDuration != float('inf'):
-            recDuration_CMD = " sleep "+str(recDuration+beamboottime)+"; "
-            recStop_CMD = "killall beamctl"
-            # Start beam streaming and stop after recDuration seconds
-            # beamctl_CMD_BG="(("+beamctl_CMDs+") &)" #Put beamctl in bg
-            beamctl_CMDs += recDuration_CMD
-            beamctl_CMDs += recStop_CMD
-            backgroundJOB = True  # FIX this
-        if DUMMYWARMUP:
-            print "Warm-up with dummy beam"
-            self.execOnLCU(beamctl_CMDs+" sleep "+str(1)
-                           + "; killall beamctl", False)
-        self.execOnLCU(beamctl_CMDs, backgroundJOB)
-        if backgroundJOB:
-            beamSettleTime = 6.0    # Time in seconds before beam settles.
-                                    # Can be only 5s if bitmode unchanged
-            print "Waiting "+str(beamSettleTime)+"s for beam to settle"
-            time.sleep(beamSettleTime)
-        # FIX separation between beamctl_CMDs & _main
-        return beamctl_CMDs, rspctl_SET, beamctl_main
 
 ### Basic station "statistic" datataking BEGIN
     def rec_bst(self, integration, duration):
@@ -876,31 +807,6 @@ class Station(object):
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
             self.execOnLCU(lcucmd)
-
-# mode 357 i.e. broadband mode
-    def run_mode357(self, pointing):
-        rspctl_cmds = []
-        mode357rcu2ant = {'3' :  '0:31,96:127',
-                          '5' : '32:63,128:159',
-                          '7' : '64:95,160:191'}
-        mode357bl2sb =   {'3' : '200:299',
-                          '5' : '200:299',
-                          '7' : '200:243'}
-        for rcumode, rcusel in mode357rcu2ant.items():
-            rspctl_cmd = "rspctl --rcumode={} --select={}".format(rcumode, rcusel)
-            self.execOnLCU(rspctl_cmd)
-            rspctl_cmds.append(rspctl_cmd)
-        beamctl_CMDlst = []
-        totnrsbs = 0
-        for rcumode, sbs in mode357bl2sb.items():
-            # Compute bls (beamlets spec) corresponding to given sbs
-            sblo, sbhi = sbs.split(':')
-            nrsbs = sbhi - sblo + 1
-            bls = '{}:{}'.format(totnrsbs, totnrsbs+nrsbs-1)
-            beamctl_CMDlst.append(self.runbeamctl(bls, sbs, rcumode, pointing,
-                                                  mode357rcu2ant[rcumode]))
-            totnrsbs +=  nrsbs
-        return rspctl_cmds, beamctl_CMDlst
 
 ## Special commands END
 

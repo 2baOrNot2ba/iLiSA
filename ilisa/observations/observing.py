@@ -279,6 +279,23 @@ class Session(object):
 #######################################
 # Begin: Basic obs modes
 
+    def streambeam(self, freqBand, pointings, recDuration=float('inf'),
+                   bits=16, attenuation=0, DUMMYWARMUP=False):
+        """Form beams with station."""
+        if type(freqBand) is tuple:
+            antset, rcumode, beamletIDs, subbands \
+                = stationcontrol.freqBand2sb(freqBand, bits)
+        elif type(freqBand) is float:
+            antset, rcumode, subbands = stationcontrol.freq2beamParam(freqBand)
+            beamletIDs = '0'
+        if DUMMYWARMUP:
+            print("Warning warnup not currently implemented")
+        beamctl_main = self.stationcontroller.runbeamctl(beamletIDs, subbands, rcumode,
+                                       pointings)
+        rcu_setup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
+        return "", rcu_setup_CMD, beamctl_main
+
+
     def do_bst(self, frequency, integration, duration, pointing, obsinfo):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
         """
@@ -293,9 +310,7 @@ class Session(object):
         self.stationcontroller.selectCalTable(CALTABLESRC)
         # Start beamforming
         (beamctl_CMD, rspctl_SET, beamctl_main
-         ) = self.stationcontroller.streambeam((freqLo,),
-                                               pointing, bits=self.bits,
-                                               DUMMYWARMUP=True)
+         ) = self.streambeam((freqLo,), pointing, bits=self.bits, DUMMYWARMUP=True)
         rcusetup_CMD = ""
         # rcusetup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
         # Get some metadata about operational settings:
@@ -331,7 +346,7 @@ class Session(object):
         freqLo = frequency
         # Start beamforming
         (beamctl_CMD, rspctl_SET, beamctl_main) = \
-            self.stationcontroller.streambeam((freqLo,), pointing)
+            self.streambeam((freqLo,), pointing)
         if SYS_TEMP_MEAS:
             lbbalnaoff_CMD = self.stationcontroller.turnoffLBA_LNAs()
             beamctl_CMD += "\n"+lbbalnaoff_CMD
@@ -361,7 +376,7 @@ class Session(object):
 
         # Start beamforming
         beamctl_CMDs, rspctl_SET, beamctl_main = \
-            self.stationcontroller.streambeam(frequency, pointing)
+            self.streambeam(frequency, pointing)
         # FIX: Include rcusetup into streambeam call.
         # rcusetup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
         # Get some metadata about operational settings:
@@ -589,7 +604,29 @@ class Session(object):
         # TODO Add 8 bit support and make subbands selectable by user
         self.stationcontroller.bootToObservationState(3)
         pointing = stdPointings(pointingsrc)
-        rspctl_set, beamctl_cmds = self.stationcontroller.run_mode357(pointing)
+        rspctl_set, beamctl_cmds = self.run_mode357(pointing)
+
+        rspctl_cmds = []
+        mode357rcu2ant = {'3': '0:31,96:127',
+                          '5': '32:63,128:159',
+                          '7': '64:95,160:191'}
+        mode357bl2sb = {'3': '200:299',
+                        '5': '200:299',
+                        '7': '200:243'}
+        for rcumode, rcusel in mode357rcu2ant.items():
+            rspctl_cmd = self.stationcontroller.runrspctl(rcumode, rcusel)
+            rspctl_cmds.append(rspctl_cmd)
+        beamctl_CMDlst = []
+        totnrsbs = 0
+        for rcumode, sbs in mode357bl2sb.items():
+            # Compute bls (beamlets spec) corresponding to given sbs
+            sblo, sbhi = sbs.split(':')
+            nrsbs = sbhi - sblo + 1
+            bls = '{}:{}'.format(totnrsbs, totnrsbs + nrsbs - 1)
+            beamctl_CMDlst.append(self.stationcontroller.runbeamctl(bls, sbs,
+                                rcumode, pointing, mode357rcu2ant[rcumode]))
+            totnrsbs += nrsbs
+
         rspctl_CMD = self.stationcontroller.rec_bst(integration, duration)
 
         LOFARdatTYPE = "bst-357"
@@ -620,7 +657,7 @@ class Session(object):
         freqBand = stationcontrol.band2freqrange(band)
         freqmid = (freqBand[0]+freqBand[1])/2.0
         antset = stationcontrol.band2antset(band)
-        self.stationcontroller.streambeam(freqmid, pointing)
+        self.streambeam(freqmid, pointing)
 
         print "Set up TBBs"
         self.stationcontroller.setupTBBs()
@@ -643,6 +680,8 @@ class Session(object):
 
     # END: TBB services
     ###################
+
+
 
 # END: Session
 ##############
