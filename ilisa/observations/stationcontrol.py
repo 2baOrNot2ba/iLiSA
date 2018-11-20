@@ -797,13 +797,12 @@ r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^
         # Boot to swlevel 3 so the calserver service starts (
         self.bootToObservationState()
 
-        freqs = rcumode2sbfreqs(rcumode)
+        #freqs = rcumode2sbfreqs(rcumode)
 
-        midfreq = float(freqs[len(freqs)/2])
-        #beamctl_CMD, rspctl_SET, beamctl_main = self.streambeam(midfreq, pointing)
+        #midfreq = float(freqs[len(freqs)/2])
         # Beamlet & Subband allocation does not matter here
         # since niether ACC or SST cares
-        beamctl_CMD = self.runbeamctl('0', '255', pointing)
+        beamctl_CMD = self.runbeamctl('0', '255', rcumode, pointing)
 
         # Run for $duration seconds
         rspctl_CMD = self.rec_sst(sst_integration, duration)
@@ -817,7 +816,6 @@ r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^
 r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}".format(self.CalServer_conf)
             , quotes='"')
 
-        #return beamctl_CMD, rspctl_SET, rspctl_CMD, beamctl_main
         return beamctl_CMD, rspctl_CMD
 
 ### ACC control END
