@@ -174,7 +174,7 @@ def do_bfs(args):
     print "Putting header in", datapath
     #obsinfo.create_LOFARst_header('bf', '.', headertime, "", beamctl_CMD, rcu_setup_CMD, "")
     obsinfo.create_LOFARst_header(datapath)
-    myobs.halt_observingstate_when_finished = args.halt
+    myobs.halt_observingstate_when_finished = args.shutdown  # Necessary due to forking
 
 
 def do_acc(args):
@@ -238,6 +238,7 @@ def do_tbb(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--allsky', help="Set allsky FoV", action='store_true')
+    parser.add_argument('-s', '--shutdown', help="Shutdown observing state when finished", action='store_true')
     subparsers = parser.add_subparsers(title='Observation mode',
                                        description='Select a type of data to record.',
                                        help='Type of datataking:')
@@ -267,19 +268,17 @@ if __name__ == "__main__":
     parser_acc.set_defaults(func=do_acc)
     parser_acc.add_argument('band', **arg_rcuband_kwargs)
     parser_acc.add_argument('duration', **arg_duration_kwargs)
-    parser_acc.add_argument("pointsrc", **arg_pointsrc_kwargs)
+    parser_acc.add_argument('pointsrc', **arg_pointsrc_kwargs)
 
     # BFS data
     parser_bfs = subparsers.add_parser('bfs',
                                        help="Make an BFS observation.")
     parser_bfs.set_defaults(func=do_bfs)
-    parser_bfs.add_argument("starttimestr",
-                 help='Start-time (format: YYYY-mm-ddTHH:MM:SS)')
-    parser_bfs.add_argument("duration",**arg_duration_kwargs)
-    parser_bfs.add_argument("band", **arg_rcuband_kwargs)
-    parser_bfs.add_argument("pointsrc", **arg_pointsrc_kwargs)
-    parser_bfs.add_argument("--halt", action="store_true",
-                        help="Halt observing state on completion")
+    parser_bfs.add_argument('starttimestr',
+                 help="Start-time (format: YYYY-mm-ddTHH:MM:SS)")
+    parser_bfs.add_argument('band', **arg_rcuband_kwargs)
+    parser_bfs.add_argument('duration',**arg_duration_kwargs)
+    parser_bfs.add_argument('pointsrc', **arg_pointsrc_kwargs)
 
     # BST data
     parser_bst = subparsers.add_parser('bst',
@@ -318,10 +317,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     myobs = observing.Session()
-    # Norminally when the Session is over (i.e. when this script exits), the
-    # LCU observing state is stopped. If you want to do further observations
-    # you might not want to do this (to avoid the time it takes to boot to
-    # an observing state). In this case you should uncomment next line:
-    myobs.halt_observingstate_when_finished = False
+    myobs.halt_observingstate_when_finished = args.shutdown
 
     args.func(args)
