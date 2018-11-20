@@ -767,6 +767,20 @@ class Station(object):
 
 ### TBB control END
 ### ACC control BEGIN
+    def enable_acc_mode(self, enableacc=True):
+        """Enable or disable ACC mode.
+        If enableacc=True, ACC files will be written to file when CalServer is running
+        (swlevel>=2). If enableacc=False, ACC files will not be written.
+        """
+        if enableacc:
+            self.execOnLCU(
+        r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/ ; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}"\
+            .format(self.ACCsrcDir, self.CalServer_conf), quotes='"')
+        else:
+            self.execOnLCU(
+        r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}"\
+            .format(self.CalServer_conf), quotes='"')
+
     acc_cadence = 519  # =512+7 seconds is time between two consecutive ACCs.
 
     def runACC(self, rcumode, duration, pointing, sst_integration=acc_cadence):
@@ -790,16 +804,14 @@ class Station(object):
         if self.usescriptonlcu:
             self.execOnLCU(self.scriptsDir+'/CalServDump.sh 1')
         else:
-            self.execOnLCU(
-r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/ ; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}".format(self.ACCsrcDir, self.CalServer_conf)
-            , quotes='"')
+#             self.execOnLCU(
+# r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/ ; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}".format(self.ACCsrcDir, self.CalServer_conf)
+#             , quotes='"')
+            self.enable_acc_mode(enableacc=True)
 
         # Boot to swlevel 3 so the calserver service starts (
         self.bootToObservationState()
 
-        #freqs = rcumode2sbfreqs(rcumode)
-
-        #midfreq = float(freqs[len(freqs)/2])
         # Beamlet & Subband allocation does not matter here
         # since niether ACC or SST cares
         beamctl_CMD = self.runbeamctl('0', '255', rcumode, pointing)
@@ -812,9 +824,10 @@ r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^
         if self.usescriptonlcu:
             self.execOnLCU(self.scriptsDir+'/CalServDump.sh 0')
         else:
-            self.execOnLCU(
-r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}".format(self.CalServer_conf)
-            , quotes='"')
+#             self.execOnLCU(
+# r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}".format(self.CalServer_conf)
+#             , quotes='"')
+            self.enable_acc_mode(enableacc=False)
 
         return beamctl_CMD, rspctl_CMD
 
