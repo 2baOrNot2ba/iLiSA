@@ -750,11 +750,15 @@ class Station(object):
         with which a user can switch between different caltables. se607c has
         this at /opt/lofar_local/bin/
         """
-        if which == 'default':
-            SelCalTabArg = "0"
-        elif which == 'local':
-            SelCalTabArg = "1"
-        self.execOnLCU("SelectCalTable.sh"+" "+SelCalTabArg)
+        if self.usescriptonlcu:
+            if which == 'default':
+                SelCalTabArg = "0"
+            elif which == 'local':
+                SelCalTabArg = "1"
+            self.execOnLCU("SelectCalTable.sh"+" "+SelCalTabArg)
+        else:
+            # TODO Implement select CalTable without using script on lcu
+            pass
 
     def turnoffLBA_LNAs(self,):
         """Turn-off the LNAs on LBA. (Used as an indication of system
