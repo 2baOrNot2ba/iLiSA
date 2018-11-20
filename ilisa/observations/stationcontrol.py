@@ -767,12 +767,12 @@ class Station(object):
 
 ### TBB control END
 ### ACC control BEGIN
-    def enable_acc_mode(self, enableacc=True):
+    def acc_mode(self, enable=True):
         """Enable or disable ACC mode.
         If enableacc=True, ACC files will be written to file when CalServer is running
         (swlevel>=2). If enableacc=False, ACC files will not be written.
         """
-        if enableacc:
+        if enable:
             self.execOnLCU(
         r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/ ; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}"\
             .format(self.ACCsrcDir, self.CalServer_conf), quotes='"')
@@ -780,56 +780,6 @@ class Station(object):
             self.execOnLCU(
         r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}"\
             .format(self.CalServer_conf), quotes='"')
-
-    acc_cadence = 519  # =512+7 seconds is time between two consecutive ACCs.
-
-    def runACC(self, rcumode, duration, pointing, sst_integration=acc_cadence):
-        """Perform ACC calibration observation on station.
-
-        ACC files are autocovariance-cubes: the covariance of all array
-        elements with each as a function of subband. These files are generated
-        by the MAC service called CalServer. It run at swlevel 3 and is
-        configured in the file lofar/etc/CalServer.conf. Note subband
-        integration is always 1s, so ACC file is dumped after 512 seconds.
-        """
-        # Make dump data directory for concurrent SST data
-        self.execOnLCU(
-          'if [ ! -d "'+self.lcuDumpDir+'" ]; then mkdir '
-          + self.lcuDumpDir+'; fi', quotes="'")
-
-        # Make sure swlevel=<2
-        self.bootToObservationState(2)
-
-        # Set CalServ.conf to dump ACCs:
-        if self.usescriptonlcu:
-            self.execOnLCU(self.scriptsDir+'/CalServDump.sh 1')
-        else:
-#             self.execOnLCU(
-# r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/ ; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}".format(self.ACCsrcDir, self.CalServer_conf)
-#             , quotes='"')
-            self.enable_acc_mode(enableacc=True)
-
-        # Boot to swlevel 3 so the calserver service starts (
-        self.bootToObservationState()
-
-        # Beamlet & Subband allocation does not matter here
-        # since niether ACC or SST cares
-        beamctl_CMD = self.runbeamctl('0', '255', rcumode, pointing)
-
-        # Run for $duration seconds
-        rspctl_CMD = self.rec_sst(sst_integration, duration)
-        self.stopBeam()
-
-        # Switch back to normal state i.e. turn-off ACC dumping:
-        if self.usescriptonlcu:
-            self.execOnLCU(self.scriptsDir+'/CalServDump.sh 0')
-        else:
-#             self.execOnLCU(
-# r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}".format(self.CalServer_conf)
-#             , quotes='"')
-            self.enable_acc_mode(enableacc=False)
-
-        return beamctl_CMD, rspctl_CMD
 
 ### ACC control END
 ##Basic station data taking commands END

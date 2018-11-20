@@ -18,7 +18,7 @@ def do_acc(args):
     """Record acc data for one of the LOFAR bands over a duration.
     """
     duration = int(eval(args.duration))
-    accdestdir = myobs.do_acc(args.band, duration, args.pointsrc, exit_obsstate=False)
+    accdestdir = myobs.do_acc(args.band, duration, args.pointsrc)
     print("Saved ACC data in folder: {}".format(accdestdir))
 
 

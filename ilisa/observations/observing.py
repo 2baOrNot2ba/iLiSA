@@ -432,11 +432,19 @@ class Session(object):
 # End: Basic obs modes
 #######################################
 
-    def do_acc(self, band, duration_req, pointSrc='Z', exit_obsstate=False):
+    def do_acc(self, band, duration_req, pointSrc='Z', exit_obsstate=True):
         """Perform calibration observation mode on station. Also known as ACC
         mode. The duration may be longer than requested so as to fit within the
         cadence of whole ACC aquisitions (512+7=519 seconds). swlevel needs to
-        cycle down to 2 (or less) and then to 3.
+        cycle down to 2 (or less) and then to 3. If swlevel is kept at 3
+        (i.e. exit_obsstate=False), then ACC will continue to be produced, until
+        swlevel goes below 2.
+
+        ACC files are autocovariance-cubes: the covariance of all array
+        elements with each as a function of subband. These files are generated
+        by the MAC service called CalServer. It run at swlevel 3 and is
+        configured in the file lofar/etc/CalServer.conf. Note subband
+        integration is always 1s, so ACC file is dumped after 512 seconds.
 
         Parameters
         ----------
@@ -463,17 +471,39 @@ class Session(object):
         nrACCsbs = stationcontrol.TotNrOfsb
         # Time between end of one ACC sweep and beginning of next one.
         timebetweenACCs = 7
-        ACCcadence = float(nrACCsbs+timebetweenACCs)
+        ACCcadence = float(nrACCsbs+timebetweenACCs) # =519s time between two ACCs
         duration = int(math.ceil((duration_req-nrACCsbs)/ACCcadence)
                        * (ACCcadence)+nrACCsbs+timebetweenACCs)
         if duration != duration_req:
-            print("""Warning: using longer duration {}s to fit with ACC \
+            print("""Warning: using longer duration {}s to fit with ACC
                   cadence.""".format(duration))
         obsStartDate = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
+        sst_integration = int(ACCcadence)
 
         # Run ACC mode
-        beamctl_CMD, rspctl_CMD = \
-            self.stationcontroller.runACC(rcumode, duration, pointing)
+        #beamctl_CMD, rspctl_CMD = \
+        #    self.stationcontroller.runACC(rcumode, duration, pointing)
+
+        # Make sure swlevel=<2
+        self.stationcontroller.bootToObservationState(2)
+
+        # Set CalServ.conf to dump ACCs:
+        self.stationcontroller.acc_mode(enable=True)
+
+        # Boot to swlevel 3 so the calserver service starts (
+        self.stationcontroller.bootToObservationState()
+
+        # Beamlet & Subband allocation does not matter here
+        # since niether ACC or SST cares
+        beamctl_CMD = self.stationcontroller.runbeamctl('0', '255', rcumode, pointing)
+
+        # Run for $duration seconds
+        rspctl_CMD = self.stationcontroller.rec_sst(sst_integration, duration)
+        self.stationcontroller.stopBeam()
+
+        # Switch back to normal state i.e. turn-off ACC dumping:
+        self.stationcontroller.acc_mode(enable=False)
+
         if exit_obsstate:
             self.stationcontroller.bootToObservationState(0)
 
