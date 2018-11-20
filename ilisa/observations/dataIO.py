@@ -127,8 +127,9 @@ class ObsInfo(object):
             self.pointing = ""
         self.rspctl_cmd = rspctl_cmd
         rspctl_args = stationcontrol.parse_rspctl_args(self.rspctl_cmd)
-        self.integration = float(rspctl_args['integration'])
-        self.duration = float(rspctl_args['duration'])
+        if self.LOFARdatTYPE != 'bfs':
+            self.integration = float(rspctl_args['integration'])
+            self.duration = float(rspctl_args['duration'])
         if self.LOFARdatTYPE == 'sst':
             self.sb = ""
         elif self.LOFARdatTYPE.startswith('xst'):
@@ -147,6 +148,8 @@ class ObsInfo(object):
         stDataArchive = os.path.join(LOFARdataArchive, self.LOFARdatTYPE)
         stObsEpoch = self.datetime
         st_extName = stObsEpoch
+        if self.LOFARdatTYPE == 'bfs':
+            return stObsEpoch, stDataArchive
         if self.LOFARdatTYPE == "bst-357":
             st_extName += "_rcu357"
         else:
@@ -221,7 +224,7 @@ class ObsInfo(object):
             obsdatatype == 'sst' or
             obsdatatype == 'xst' or
             obsdatatype == 'xst-SEPTON' or
-            obsdatatype == 'bf'):
+            obsdatatype == 'bfs'):
             return True
         else:
             return False

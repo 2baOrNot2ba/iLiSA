@@ -11,6 +11,7 @@ import argparse
 import ilisa.observations.beamformedstreams
 import ilisa.observations.observing as observing
 import ilisa.observations.stationcontrol as stationcontrol
+import ilisa.observations.dataIO as dataIO
 
 # BLOCK = False
 dumpername = 'dump_udp_ow_4'
@@ -63,7 +64,8 @@ def setuprecording(starttimestr, duration, lanes, band, bf_data_dir, port0, stni
 
 
 def waittoboot(starttimestr, pause):
-    """Before booting, wait until time given by starttimestr."""
+    """Before booting, wait until time given by starttimestr. This includes
+     a dummy beam warmup."""
     nw = datetime.datetime.utcnow()
     st = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S")
 
@@ -158,8 +160,14 @@ def do_bfs(args):
     myObsSes.stationcontroller.stopBeam()
     headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                             ).strftime("%Y%m%d_%H%M%S")
-    myObsSes.create_LOFARst_header('bf', '.', headertime, "", beamctl_CMD,
-                                   rcu_setup_CMD, "")
+
+    obsinfo = dataIO.ObsInfo(myObsSes.stationcontroller.stnid,
+                             myObsSes.project, myObsSes.observer)
+    obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD, "")
+    bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(myObsSes.LOFARdataArchive)
+    print "Putting header in", datapath
+    #obsinfo.create_LOFARst_header('bf', '.', headertime, "", beamctl_CMD, rcu_setup_CMD, "")
+    obsinfo.create_LOFARst_header(datapath)
     myObsSes.halt_observingstate_when_finished = args.halt
 
 

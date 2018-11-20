@@ -242,11 +242,14 @@ def parse_rspctl_args(rspctl_strs):
     rspctl_parser.add_argument('--duration')
     rspctl_parser.add_argument('--xcsubband')
     rspctl_parser.add_argument('--directory')
-    for rspctl_str in rspctl_strs.split('\n'):
-        rspctl_str_normalized = rspctl_str.replace('=', ' ')
-        argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
-        argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
-        rspctl_args.update(argsdict)
+    rspctl_parser.add_argument('--bitmode')
+    rspctl_strs = rspctl_strs.lstrip('; ')
+    for rspctl_line in rspctl_strs.split('\n'):
+        for rspctl_str in rspctl_line.split(';'):
+            rspctl_str_normalized = rspctl_str.replace('=', ' ')
+            argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
+            argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
+            rspctl_args.update(argsdict)
     return rspctl_args
 
 
@@ -797,8 +800,10 @@ r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^
         freqs = rcumode2sbfreqs(rcumode)
 
         midfreq = float(freqs[len(freqs)/2])
-        beamctl_CMD, rspctl_SET, beamctl_main = self.streambeam(midfreq,
-                                                                pointing)
+        #beamctl_CMD, rspctl_SET, beamctl_main = self.streambeam(midfreq, pointing)
+        # Beamlet & Subband allocation does not matter here
+        # since niether ACC or SST cares
+        beamctl_CMD = self.runbeamctl('0', '255', pointing)
 
         # Run for $duration seconds
         rspctl_CMD = self.rec_sst(sst_integration, duration)
@@ -812,7 +817,8 @@ r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^
 r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}".format(self.CalServer_conf)
             , quotes='"')
 
-        return beamctl_CMD, rspctl_SET, rspctl_CMD, beamctl_main
+        #return beamctl_CMD, rspctl_SET, rspctl_CMD, beamctl_main
+        return beamctl_CMD, rspctl_CMD
 
 ### ACC control END
 ##Basic station data taking commands END

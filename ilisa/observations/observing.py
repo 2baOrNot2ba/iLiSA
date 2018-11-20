@@ -472,7 +472,7 @@ class Session(object):
         obsStartDate = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
 
         # Run ACC mode
-        beamctl_CMD, rspctl_SET, rspctl_CMD, beamctl_main = \
+        beamctl_CMD, rspctl_CMD = \
             self.stationcontroller.runACC(rcumode, duration, pointing)
         if exit_obsstate:
             self.stationcontroller.bootToObservationState(0)
@@ -499,7 +499,7 @@ class Session(object):
 
         # Move concurrent data to storage
         obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_main, rspctl_CMD)
+        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_CMD, rspctl_CMD)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", datapath,
                          recursive=True)
