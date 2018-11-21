@@ -169,6 +169,277 @@ def normalizebeamctldir(gendirstr):
 # End Direction related code
 #######################################
 
+class FrequencyBand(object):
+    """Class that handles frequency bands and all things related to them.
+
+    Examples:
+        Set using RCU band name:
+    >>> from ilisa.observations.observing import FrequencyBand
+    >>> fbb=FrequencyBand('10_90')
+    >>> fbb.__dict__
+    {'antsets': ['LBA_INNER'],
+     'beamlets': ['0:410'],
+     'bits': 8,
+     'rcubands': ['10_90'],
+     'rcumodes': [3],
+     'sb_range': ['51:461']}
+
+    Set using single frequency, either string or float:
+    >>> fb1=FrequencyBand('180e6')
+    >>> fb1.__dict__
+    {'antsets': ['HBA_JOINED'],
+     'beamlets': ['0'],
+     'bits': 16,
+     'rcubands': ['110_190'],
+     'rcumodes': [5],
+     'sb_range': ['410']}
+
+    Set using a tuple given by (freqlo, freqhi):
+    >>> fbt2=FrequencyBand((40e6,120e6))
+    >>> fbt2.__dict__
+    {'antsets': ['LBA_INNER', 'HBA_JOINED'],
+     'beamlets': ['0:256', '257:308'],
+     'bits': 8,
+     'rcubands': ['30_90', '110_190'],
+     'rcumodes': [4, 5],
+     'sb_range': ['205:461', '51:102']}
+
+    Set using a tuple given by (freqlo, freqstep, freqhi):
+    >>> fbt3=FrequencyBand((150e6,5.0e6,220e6))
+    >>> fbt3.__dict__
+    {'antsets': ['HBA_JOINED', 'HBA_JOINED'],
+     'beamlets': ['0:8', '9:11'],
+     'bits': 8,
+     'rcubands': ['110_190', '210_250'],
+     'rcumodes': [5, 7],
+     'sb_range': ['256,281,306,331,356,381,406,431,456', '51,76,101']}
+
+    Set using slice style index string given by 'freqlo:freqstep:freqhi':
+    >>> fbs3=FrequencyBand('35e6:1e6:210e6')
+    >>> fbs3.__dict__
+
+
+     Set using slice style index string given by 'freqlo:freqhi':
+     >>> fbs2=FrequencyBand('80e6:10.0e6:220e6')
+     >>> fbs2.__dict__
+    {'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'],
+     'beamlets': ['0:1', '2:10', '11:12'],
+     'bits': 16,
+     'rcubands': ['30_90', '110_190', '210_250'],
+     'rcumodes': [4, 5, 7],
+     'sb_range': ['410,461', '51,102,153,204,255,306,357,408,459', '51,102']}
+
+    """
+    # rcumode mappings (rcumode 1,2 not considered here)
+    rcumode_smpfrqs = {3: 200e6,
+                       4: 200e6,
+                       5: 200e6,
+                       6: 160e6,
+                       7: 200e6}
+    rcumode_passbands = {3: ( 10e6,  90e6),
+                         4: ( 30e6,  90e6),
+                         5: (110e6, 190e6),
+                         6: (170e6, 230e6),
+                         7: (210e6, 250e6)}
+    rcumode_bandnames = {3: '10_90',
+                         4: '30_90',
+                         5: '110_190',
+                         6: '170_230',
+                         7: '210_250'}
+    rcumode_antsets = {3: 'LBA_INNER',
+                       4: 'LBA_INNER',
+                       5: 'HBA_JOINED',
+                       6: 'HBA_JOINED',
+                       7: 'HBA_JOINED'}
+    rcumode_nqzones = {3: 0,
+                       4: 0,
+                       5: 1,
+                       6: 2,
+                       7: 2}
+    combos = [[4],[3],[5],[7],[6],[4,5],[3,5],[5,7],[4,5,7],[3,5,7]]
+
+    nrffts = 1024
+    nrbeamletsbybits = {16: 244, 8: 488, 4: 976}
+
+    def __init__(self, arg):
+        if arg is not None:
+            if type(arg) is not tuple:
+                freqrange = self._freqbandarg2tuple(arg)
+            else:
+                freqrange = arg
+            self.rcumodes, self.rcubands, self.antsets, self.sb_range, \
+                self.bits, self.beamlets = self.find_obsctlparams(freqrange)
+
+    def _freqbandarg2tuple(self, freqbandarg):
+        """Convert freqbandarg to a tuple. The tuple is either (freqlo, freqstep, freqhi)
+        or (freqlo, freqhi) or (freqcntr,)."""
+        if type(freqbandarg) is str:
+            # Check if freqbandarg has a rcuband format 'rcubandlo_rcubandhi'
+            if '_' in freqbandarg:
+                band = None
+                for rcumode in self.rcumode_bandnames.keys():
+                    if freqbandarg == self.rcumode_bandnames[rcumode]:
+                        band = freqbandarg
+                        freqlo, freqhi = self.rcumode_passbands[rcumode]
+                        break
+                if band is None:
+                    raise ValueError("Unknown rcu band name: {}.".format(freqbandarg))
+                return (freqlo, freqhi)
+            # Check if freqbandarg has format:
+            #   'freqlo:freqstep:freqhi'|'freqlo:freqhi'|'freqcntr'
+            try:
+                freqrange = eval('({},)'.format(freqbandarg.replace(':',',')))
+            except:
+                raise ValueError("Wrong frequency band slice format.")
+            return freqrange
+        elif type(freqbandarg) is float:
+            freqcntr = freqbandarg
+            return (freqcntr,)
+        else:
+            raise ValueError("Wrong frequency band format.")
+
+    def find_obsctlparams(self, freqrange):
+        """Find and set observation ctrl parameters related to freqband."""
+        nrfrqbndterms = len(freqrange)
+        if nrfrqbndterms == 3:
+            freqlo, freqstep, freqhi = freqrange
+        elif nrfrqbndterms == 2:
+            freqlo, freqhi = freqrange
+        elif nrfrqbndterms == 1:
+            (freqcntr,) = freqrange
+            freqlo, freqhi = (freqcntr, freqcntr)
+
+        # Determine which rcumodes would support desired freqband:
+        rcumodes = self.supportrcumodes(freqlo, freqhi)
+        rcubands = []
+        antsets = []
+        if not rcumodes:
+            return None, None, None, None, None, None
+        sampfreq, sampres = self.getsampinfo(rcumodes[0])
+
+        for rcumode in rcumodes:
+            rcubands.append(self.rcumode_bandnames[rcumode])
+            antsets.append(self.rcumode_antsets[rcumode])
+        if nrfrqbndterms == 1:
+            sb_lo = self.freq2sb(freqcntr, sampfreq)
+            sb_hi = sb_lo
+            sbstep = 0
+        else:
+            sb_lo = self.freq2sb(freqlo, sampfreq)
+            sb_hi = self.freq2sb(freqhi, sampfreq)
+            if nrfrqbndterms == 3:
+                sbstep = self.freqstep2sbstep(freqstep, sampres)
+            else:
+                sbstep = 1
+
+        # Compute subband ranges
+        if sbstep == 0:
+            sb_range = ["{}".format(sb_lo)]
+            beamlets = ['0']
+        else:
+            nrrcumodes = len(rcumodes)
+            if nrrcumodes == 1:
+                if sbstep == 1:
+                    sb_range = ["{}:{}".format(sb_lo, sb_hi)]
+                    nrsbs0 = sb_hi - sb_lo + 1
+                else:
+                    sb_list = range(sb_lo, sb_hi + 1, sbstep)
+                    sb_range = [','.join(sb_list)]
+                    nrsbs0 =  len(sb_list)
+                beamlets = ["0:{}".format(nrsbs0-1)]
+            elif nrrcumodes == 2:
+                sb_hi0 = self.freq2sb(self.rcumode_passbands[rcumodes[0]][1],
+                                      sampfreq)
+                sb_lo1 = self.freq2sb(self.rcumode_passbands[rcumodes[1]][0],
+                                      sampfreq)
+                if sbstep == 1:
+                    sb_range = ["{}:{}".format(sb_lo, sb_hi0)]
+                    nrsbs0 = sb_hi0 - sb_lo + 1
+                    sb_range.append("{}:{}".format(sb_lo1, sb_hi))
+                    nrsbs1 = sb_hi - sb_lo1 + 1
+                else:
+                    sb_list = range(sb_lo, sb_hi0 + 1, sbstep)
+                    sb_range = [','.join([str(el) for el in sb_list])]
+                    nrsbs0 = len(sb_list)
+                    sb_list = range(sb_lo1, sb_hi + 1, sbstep)
+                    sb_range.append(','.join([str(el) for el in sb_list]))
+                    nrsbs1 = len(sb_list)
+                beamlets = ["0:{}".format(nrsbs0 - 1)]
+                beamlets.append("{}:{}".format(nrsbs0, nrsbs0 + nrsbs1 - 1))
+            elif nrrcumodes == 3:
+                sb_hi0 = self.freq2sb(self.rcumode_passbands[rcumodes[0]][1],
+                                      sampfreq)
+                sb_lo1 = self.freq2sb(self.rcumode_passbands[rcumodes[1]][0],
+                                      sampfreq)
+                sb_hi1 = self.freq2sb(self.rcumode_passbands[rcumodes[1]][1],
+                                      sampfreq)
+                sb_lo2 = self.freq2sb(self.rcumode_passbands[rcumodes[2]][0],
+                                      sampfreq)
+                if sbstep == 1:
+                    sb_range = ["{}:{}".format(sb_lo, sb_hi0)]
+                    nrsbs0 = sb_hi0 - sb_lo + 1
+                    sb_range.append("{}:{}".format(sb_lo1, sb_hi1))
+                    nrsbs1 = sb_hi1 - sb_lo1 + 1
+                    sb_range.append("{}:{}".format(sb_lo2, sb_hi))
+                    nrsbs2 = sb_hi - sb_lo2 + 1
+                else:
+                    sb_list = range(sb_lo, sb_hi0 + 1, sbstep)
+                    sb_range = [','.join([str(el) for el in sb_list])]
+                    nrsbs0 = len(sb_list)
+                    sb_list = range(sb_lo1, sb_hi1 + 1, sbstep)
+                    sb_range.append(','.join([str(el) for el in sb_list]))
+                    nrsbs1 = len(sb_list)
+                    sb_list = range(sb_lo2, sb_hi + 1, sbstep)
+                    sb_range.append(','.join([str(el) for el in sb_list]))
+                    nrsbs2 = len(sb_list)
+                beamlets = ["0:{}".format(nrsbs0 - 1)]
+                beamlets.append("{}:{}".format(nrsbs0, nrsbs0 + nrsbs1 - 1))
+                beamlets.append("{}:{}".format(nrsbs0+nrsbs1, nrsbs0+nrsbs1+nrsbs2-1))
+        nrbeamlets = 0
+        for rcumode_beamlet in beamlets:
+            if ":" in rcumode_beamlet:
+                bl_lo, bl_hi = rcumode_beamlet.split(':')
+                nrbeamlets += int(bl_hi) -int(bl_lo) + 1
+            else:
+                nrbeamlets += len(rcumode_beamlet.split(','))
+        if nrbeamlets > self.nrbeamletsbybits[4]:
+            raise ValueError("Requires too many beamlets.")
+        for bits in self.nrbeamletsbybits.keys():
+            # Choose largest bit size that fulfills nrbeamlets
+            if nrbeamlets <= self.nrbeamletsbybits[bits]:
+                break
+
+        return rcumodes, rcubands, antsets, sb_range, bits, beamlets
+
+    def getsampinfo(self,rcumode):
+        sampfreq = self.rcumode_smpfrqs[rcumode]
+        sampres = sampfreq/self.nrffts
+        return sampfreq, sampres
+
+    def freq2sb(self, freq, sampfreq):
+        # Using round() but could have other truncation strategy...
+        abs_sb = int(round(freq / sampfreq * self.nrffts))
+        sb = abs_sb % (self.nrffts/2)
+        return sb
+
+    def rcumode_sb2freq(self, rcumode, sb):
+        abs_sb = self.rcumode_nqzones[rcumode]*self.nrffts/2+sb
+        return abs_sb*self.rcumode_smpfrqs[rcumode]/float(self.nrffts)
+
+    def freqstep2sbstep(self,freqstep, sbwidth):
+        return int(math.floor(freqstep/sbwidth))
+
+    def supportrcumodes(self,freqlo,freqhi):
+        for combo in self.combos:
+            if self.rcumode_passbands[combo[0]][0] <= freqlo \
+               and freqhi <= self.rcumode_passbands[combo[-1]][1]:
+                return combo
+        return None
+
+    def getrcubandnames(self):
+        """Return list of rcu band names."""
+        return list(self.rcumode_passbands.values())
+
 
 class Session(object):
     """observing.Session class is a client type class typically running on the
@@ -220,7 +491,6 @@ class Session(object):
         self.tbbh5dumpdir =     dpuaccessconf['TBBh5dumpDir']
 
         self.DryRun = lcuaccessconf['DryRun']
-        self.bits = 16  # Default to 16
         self.exit_check = True
         self.halt_observingstate_when_finished = True
         self.cleanup()
@@ -279,15 +549,12 @@ class Session(object):
 #######################################
 # Begin: Basic obs modes
 
-    def streambeam(self, freqBand, pointings, recDuration=float('inf'),
-                   bits=16, attenuation=0, DUMMYWARMUP=False):
+    def streambeam(self, freqbndobj, pointings, recDuration=float('inf'),
+                   attenuation=0, DUMMYWARMUP=False):
         """Form beams with station."""
-        if type(freqBand) is tuple:
-            antset, rcumode, beamletIDs, subbands \
-                = stationcontrol.freqBand2sb(freqBand, bits)
-        elif type(freqBand) is float:
-            antset, rcumode, subbands = stationcontrol.freq2beamParam(freqBand)
-            beamletIDs = '0'
+        antset, rcumode, beamletIDs, subbands = freqbndobj.antsets[0], \
+                freqbndobj.rcumodes[0], freqbndobj.beamlets[0], freqbndobj.sb_range[0]
+        bits = freqbndobj.bits
         if DUMMYWARMUP:
             print("Warning warnup not currently implemented")
         beamctl_main = self.stationcontroller.runbeamctl(beamletIDs, subbands, rcumode,
@@ -296,25 +563,24 @@ class Session(object):
         return "", rcu_setup_CMD, beamctl_main
 
 
-    def do_bst(self, frequency, integration, duration, pointing, obsinfo):
+    def do_bst(self, freqbndobj, integration, duration, pointing, obsinfo):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
         """
         if not self.checkobservingallowed():
             raise RuntimeError
 
         CALTABLESRC = 'default'   # FIXME put this in args
-        freqLo = frequency
+
         # Setup Calibration:
         ## (Only BST uses calibration tables)
         # Choose between 'default' or 'local'
         self.stationcontroller.selectCalTable(CALTABLESRC)
         # Start beamforming
-        (beamctl_CMD, rspctl_SET, beamctl_main
-         ) = self.streambeam((freqLo,), pointing, bits=self.bits, DUMMYWARMUP=True)
-        rcusetup_CMD = ""
-        # rcusetup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
+        (beamctl_CMD, rcu_setup_CMD, beamctl_main
+         ) = self.streambeam(freqbndobj, pointing)
+
         # Get some metadata about operational settings:
-        rcumode = stationcontrol.freq2beamParam(frequency)[1]
+        rcumode = freqbndobj.rcumodes[0]
         caltabinfo = self.stationcontroller.getCalTableInfo(rcumode)
         # Record data
         # waittime = 0
@@ -331,10 +597,10 @@ class Session(object):
         # beamlet statistics also generate empty *01[XY].dat so remove:
         self.stationcontroller.rm(
                               self.stationcontroller.lcuDumpDir+"/*01[XY].dat")
-        return (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD,
+        return (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD,
                 caltabinfo, datapath)
 
-    def do_sst(self, frequency, integration, duration, pointing, obsinfo):
+    def do_sst(self, freqbndobj, integration, duration, pointing, obsinfo):
         """Run an sst static."""
 
         if not self.checkobservingallowed():
@@ -342,20 +608,19 @@ class Session(object):
         # Use this to do a system temperature measurement.
         SYS_TEMP_MEAS = False
 
-        # Specify freq range
-        freqLo = frequency
         # Start beamforming
-        (beamctl_CMD, rspctl_SET, beamctl_main) = \
-            self.streambeam((freqLo,), pointing)
+        (beamctl_CMD, rcu_setup_CMD, beamctl_main) = \
+            self.streambeam(freqbndobj, pointing)
         if SYS_TEMP_MEAS:
             lbbalnaoff_CMD = self.stationcontroller.turnoffLBA_LNAs()
             beamctl_CMD += "\n"+lbbalnaoff_CMD
-        # rcusetup_CMD=""
-        # rcusetup_CMD=self.stationcontroller.rcusetup(bits, attenuation)
+
         # Get some metadata about operational settings:
         caltabinfo = ""    # No need for caltab info
+
         # Record data
         rspctl_CMD = self.stationcontroller.rec_sst(integration, duration)
+
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
         obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
@@ -363,10 +628,10 @@ class Session(object):
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath,
                          recursive=True)
-        return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo,
+        return (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD, caltabinfo,
                 datapath)
 
-    def do_xst(self, frequency, integration, duration, pointing, obsinfo):
+    def do_xst(self, freqbndobj, integration, duration, pointing, obsinfo):
         """Run an xst statistic towards the given pointing. This corresponds to
         a crosscorrelation of all elements at the given frequency and
         integration repeated for a duration of seconds."""
@@ -375,12 +640,10 @@ class Session(object):
             raise RuntimeError
 
         # Start beamforming
-        beamctl_CMDs, rspctl_SET, beamctl_main = \
-            self.streambeam(frequency, pointing)
-        # FIX: Include rcusetup into streambeam call.
-        # rcusetup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
-        # Get some metadata about operational settings:
-        subband = stationcontrol.freq2beamParam(frequency)[2]
+        beamctl_CMD, rcu_setup_CMD, beamctl_main = \
+            self.streambeam(freqbndobj, pointing)
+
+        subband = freqbndobj.sb_range[0]
         caltabinfo = ""  # No need for caltab info
         # Record data
         rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
@@ -392,10 +655,10 @@ class Session(object):
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
 
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
-        return (bsxSTobsEpoch, rspctl_SET, beamctl_CMDs, rspctl_CMD,
+        return (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD,
                 caltabinfo, datapath)
 
-    def bsxST(self, statistic, frequency, integration, duration, pointSrc):
+    def bsxST(self, statistic, freqbndobj, integration, duration, pointSrc):
         """Run a statisics observation.
 
         Parameters
@@ -428,16 +691,16 @@ class Session(object):
         obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
 
         if statistic == 'bst':
-            (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo,
-             datapath) = self.do_bst(frequency, integration, duration, pointing,
+            (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD, caltabinfo,
+             datapath) = self.do_bst(freqbndobj, integration, duration, pointing,
                                      obsinfo)
         elif statistic == 'sst':
-            (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo,
-             datapath) = self.do_sst(frequency, integration, duration, pointing,
+            (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD, caltabinfo,
+             datapath) = self.do_sst(freqbndobj, integration, duration, pointing,
                                      obsinfo)
         elif statistic == 'xst':
-            (bsxSTobsEpoch, rcusetup_CMD, beamctl_CMD, rspctl_CMD, caltabinfo,
-             datapath) = self.do_xst(frequency, integration, duration, pointing,
+            (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD, caltabinfo,
+             datapath) = self.do_xst(freqbndobj, integration, duration, pointing,
                                      obsinfo)
 
         obsinfo.create_LOFARst_header(datapath)
@@ -563,12 +826,14 @@ class Session(object):
                       ".format(ACCdestDir, self.stationcontroller.stnid))
         return ACCdestDir
 
-    def do_SEPTON(self, statistic,  frequency, integration, duration, elemsOn=elOn_gILT):
+    def do_SEPTON(self, statistic,  frqbndobj, integration, duration, elemsOn=elOn_gILT):
         """Record xst or sst data in SEPTON mode.
         Setup Single Element per Tile ON mode. This only valid for HBA and
         currently only rcumode=5."""
-        subband, NqZone = stationcontrol.freq2sb(frequency)
-        rcumode = stationcontrol.NyquistZone2rcumode(NqZone)
+        #subband, NqZone = stationcontrol.freq2sb(frequency)
+        #rcumode = stationcontrol.NyquistZone2rcumode(NqZone)
+        subband = frqbndobj.sb_range[0]
+        rcumode = frqbndobj.rcumodes[0]
         pointing = ""
         rcusetup_CMD =""
         rspctl_SET = ""
@@ -599,12 +864,11 @@ class Session(object):
         obsinfo.create_LOFARst_header(datapath)
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
 
-    def do_mode357(self, integration, duration, pointingsrc):
+    def do_mode357(self, integration, duration, pointing_or_src):
         """Record bst data in mode357."""
         # TODO Add 8 bit support and make subbands selectable by user
         self.stationcontroller.bootToObservationState(3)
-        pointing = stdPointings(pointingsrc)
-        rspctl_set, beamctl_cmds = self.run_mode357(pointing)
+        pointing = stdPointings(pointing_or_src)
 
         rspctl_cmds = []
         mode357rcu2ant = {'3': '0:31,96:127',
@@ -634,7 +898,7 @@ class Session(object):
         obsdatetime_stamp = self.get_data_timestamp()
 
         obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.setobsinfo_fromparams(LOFARdatTYPE, obsdatetime_stamp, beamctl_cmds,
+        obsinfo.setobsinfo_fromparams(LOFARdatTYPE, obsdatetime_stamp, beamctl_CMDlst,
                                       rspctl_CMD)
         # Move data to archive
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)

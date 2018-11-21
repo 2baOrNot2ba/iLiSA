@@ -171,8 +171,6 @@ def do_bfs(args):
                              myobs.project, myobs.observer)
     obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD, "")
     bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(myobs.LOFARdataArchive)
-    print "Putting header in", datapath
-    #obsinfo.create_LOFARst_header('bf', '.', headertime, "", beamctl_CMD, rcu_setup_CMD, "")
     obsinfo.create_LOFARst_header(datapath)
     myobs.halt_observingstate_when_finished = args.shutdown  # Necessary due to forking
 
@@ -190,20 +188,12 @@ def _do_bsx(statistic, args):
     with observational settings.
     """
     duration = int(math.ceil(eval(args.duration)))
-    myobs.bits = 16
-    # TODO the freqbnd is not fully functional yet. Implement it.
-    if statistic == 'sst':
-        if args.band == '10_90' or  args.band == '30_90':
-            args.freqbnd = '50e6'
-        elif args.band == '110_190' or  args.band == '170_230':
-            args.freqbnd = '150e6'
-        elif args.band == '210_250':
-            args.freqbnd = '250e6'
-    freqlo = float(args.freqbnd)
-    if args.allsky and freqlo > 100.0e6 :
-        myobs.do_SEPTON(statistic, freqlo, args.integration, duration)
+    frqbndobj = observing.FrequencyBand(args.freqbnd)
+
+    if args.allsky and 'HBA' in frqbndobj.antsets[0]:
+        myobs.do_SEPTON(statistic, frqbndobj, args.integration, duration)
     else:
-        myobs.bsxST(statistic, freqlo, args.integration, duration,
+        myobs.bsxST(statistic, frqbndobj, args.integration, duration,
                     args.pointsrc)
 
 
