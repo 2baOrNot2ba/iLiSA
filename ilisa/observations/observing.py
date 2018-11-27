@@ -256,6 +256,13 @@ class FrequencyBand(object):
                        5: 1,
                        6: 2,
                        7: 2}
+    subarr1rcusel = {0: '0:191'}
+    subarr2rcusel = {0: '0:47,96:143',
+                     1: '48:95,144:191'}
+    subarr3rcusel = {0: '0:31,96:127',
+                     1: '32:63,128:159',
+                     2: '64:95,160:191'}
+
     combos = [[4],[3],[5],[7],[6],[4,5],[3,5],[5,7],[4,5,7],[3,5,7]]
 
     nrffts = 1024
@@ -268,7 +275,8 @@ class FrequencyBand(object):
             else:
                 freqrange = arg
             self.rcumodes, self.rcubands, self.antsets, self.sb_range, \
-                self.bits, self.beamlets = self.find_obsctlparams(freqrange)
+                self.bits, self.beamlets, self.rcusel \
+                = self.find_obsctlparams(freqrange)
 
     def _freqbandarg2tuple(self, freqbandarg):
         """Convert freqbandarg to a tuple. The tuple is either (freqlo, freqstep, freqhi)
@@ -333,11 +341,11 @@ class FrequencyBand(object):
                 sbstep = 1
 
         # Compute subband ranges
+        nrrcumodes = len(rcumodes)
         if sbstep == 0:
             sb_range = ["{}".format(sb_lo)]
             beamlets = ['0']
         else:
-            nrrcumodes = len(rcumodes)
             if nrrcumodes == 1:
                 if sbstep == 1:
                     sb_range = ["{}:{}".format(sb_lo, sb_hi)]
@@ -408,8 +416,9 @@ class FrequencyBand(object):
             # Choose largest bit size that fulfills nrbeamlets
             if nrbeamlets <= self.nrbeamletsbybits[bits]:
                 break
+        rcusel = [self.subarr2rcusel[idx] for idx in range(nrrcumodes)]
 
-        return rcumodes, rcubands, antsets, sb_range, bits, beamlets
+        return rcumodes, rcubands, antsets, sb_range, bits, beamlets, rcusel
 
     def getsampinfo(self,rcumode):
         sampfreq = self.rcumode_smpfrqs[rcumode]
@@ -549,18 +558,23 @@ class Session(object):
 #######################################
 # Begin: Basic obs modes
 
-    def streambeam(self, freqbndobj, pointings, recDuration=float('inf'),
-                   attenuation=0, DUMMYWARMUP=False):
+    def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
+                    attenuation=0, DUMMYWARMUP=False):
         """Form beams with station."""
-        antset, rcumode, beamletIDs, subbands = freqbndobj.antsets[0], \
-                freqbndobj.rcumodes[0], freqbndobj.beamlets[0], freqbndobj.sb_range[0]
         bits = freqbndobj.bits
         if DUMMYWARMUP:
             print("Warning warnup not currently implemented")
-        beamctl_main = self.stationcontroller.runbeamctl(beamletIDs, subbands, rcumode,
-                                       pointings)
+        beamctl_cmds = []
+        for bandbeamidx in range(len(freqbndobj.rcumodes)):
+            antset = freqbndobj.antsets[bandbeamidx]
+            rcumode = freqbndobj.rcumodes[bandbeamidx]
+            beamletIDs = freqbndobj.beamlets[bandbeamidx]
+            subbands =  freqbndobj.sb_range[bandbeamidx]
+            beamctl_main = self.stationcontroller.runbeamctl(beamletIDs,
+                                                   subbands, rcumode, pointing)
+            beamctl_cmds.append(beamctl_main)
         rcu_setup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
-        return "", rcu_setup_CMD, beamctl_main
+        return rcu_setup_CMD, beamctl_cmds
 
 
     def do_bst(self, freqbndobj, integration, duration, pointing, obsinfo):
@@ -576,12 +590,15 @@ class Session(object):
         # Choose between 'default' or 'local'
         self.stationcontroller.selectCalTable(CALTABLESRC)
         # Start beamforming
-        (beamctl_CMD, rcu_setup_CMD, beamctl_main
-         ) = self.streambeam(freqbndobj, pointing)
+        (rcu_setup_CMD, beamctl_cmds) = self.streambeams(freqbndobj, pointing)
 
         # Get some metadata about operational settings:
-        rcumode = freqbndobj.rcumodes[0]
-        caltabinfo = self.stationcontroller.getCalTableInfo(rcumode)
+        if len(freqbndobj.rcumodes) == 1:
+            caltabinfo = self.stationcontroller.getCalTableInfo(freqbndobj.rcumodes[0])
+        else:
+            # TODO implement storing of multiband caltab
+            caltabinfo = ''
+
         # Record data
         # waittime = 0
         # print "Waiting extra", str(waittime) +" seconds" #Seems necessary
@@ -589,7 +606,7 @@ class Session(object):
         rspctl_CMD = self.stationcontroller.rec_bst(integration, duration)
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
-        obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
+        obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp, beamctl_cmds, rspctl_CMD,
                                       caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat",
@@ -597,8 +614,7 @@ class Session(object):
         # beamlet statistics also generate empty *01[XY].dat so remove:
         self.stationcontroller.rm(
                               self.stationcontroller.lcuDumpDir+"/*01[XY].dat")
-        return (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD,
-                caltabinfo, datapath)
+        return datapath
 
     def do_sst(self, freqbndobj, integration, duration, pointing, obsinfo):
         """Run an sst static."""
@@ -609,11 +625,11 @@ class Session(object):
         SYS_TEMP_MEAS = False
 
         # Start beamforming
-        (beamctl_CMD, rcu_setup_CMD, beamctl_main) = \
-            self.streambeam(freqbndobj, pointing)
+        rcu_setup_CMD, beamctl_cmds = \
+            self.streambeams(freqbndobj, pointing)
         if SYS_TEMP_MEAS:
             lbbalnaoff_CMD = self.stationcontroller.turnoffLBA_LNAs()
-            beamctl_CMD += "\n"+lbbalnaoff_CMD
+            #beamctl_CMD += "\n"+lbbalnaoff_CMD
 
         # Get some metadata about operational settings:
         caltabinfo = ""    # No need for caltab info
@@ -623,13 +639,12 @@ class Session(object):
 
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
-        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
+        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_cmds, rspctl_CMD,
                                       caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath,
                          recursive=True)
-        return (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD, caltabinfo,
-                datapath)
+        return datapath
 
     def do_xst(self, freqbndobj, integration, duration, pointing, obsinfo):
         """Run an xst statistic towards the given pointing. This corresponds to
@@ -640,8 +655,7 @@ class Session(object):
             raise RuntimeError
 
         # Start beamforming
-        beamctl_CMD, rcu_setup_CMD, beamctl_main = \
-            self.streambeam(freqbndobj, pointing)
+        rcu_setup_CMD, beamctl_cmds = self.streambeams(freqbndobj, pointing)
 
         subband = freqbndobj.sb_range[0]
         caltabinfo = ""  # No need for caltab info
@@ -650,13 +664,12 @@ class Session(object):
                                                     duration)
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
-        obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_main, rspctl_CMD,
+        obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds, rspctl_CMD,
                                       caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
 
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
-        return (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD,
-                caltabinfo, datapath)
+        return datapath
 
     def bsxST(self, statistic, freqbndobj, integration, duration, pointSrc):
         """Run a statisics observation.
@@ -688,20 +701,18 @@ class Session(object):
             raise ValueError, "Integration {} is longer than duration {}.\
                                ".format(integration, duration)
 
-        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-
+        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project,
+                                 self.observer)
+        datapath = None
         if statistic == 'bst':
-            (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD, caltabinfo,
-             datapath) = self.do_bst(freqbndobj, integration, duration, pointing,
-                                     obsinfo)
+             datapath = self.do_bst(freqbndobj, integration, duration, pointing,
+                                    obsinfo)
         elif statistic == 'sst':
-            (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD, caltabinfo,
-             datapath) = self.do_sst(freqbndobj, integration, duration, pointing,
-                                     obsinfo)
+             datapath = self.do_sst(freqbndobj, integration, duration, pointing,
+                                    obsinfo)
         elif statistic == 'xst':
-            (bsxSTobsEpoch, rcu_setup_CMD, beamctl_main, rspctl_CMD, caltabinfo,
-             datapath) = self.do_xst(freqbndobj, integration, duration, pointing,
-                                     obsinfo)
+             datapath = self.do_xst(freqbndobj, integration, duration, pointing,
+                                    obsinfo)
 
         obsinfo.create_LOFARst_header(datapath)
         self.stationcontroller.stopBeam()
@@ -921,7 +932,7 @@ class Session(object):
         freqBand = stationcontrol.band2freqrange(band)
         freqmid = (freqBand[0]+freqBand[1])/2.0
         antset = stationcontrol.band2antset(band)
-        self.streambeam(freqmid, pointing)
+        self.streambeams(freqmid, pointing)
 
         print "Set up TBBs"
         self.stationcontroller.setupTBBs()

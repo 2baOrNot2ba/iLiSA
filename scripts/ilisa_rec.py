@@ -283,7 +283,7 @@ if __name__ == "__main__":
     parser_sst = subparsers.add_parser('sst',
                                        help="Make a SST observation")
     parser_sst.set_defaults(func=do_sst)
-    parser_sst.add_argument('band', **arg_rcuband_kwargs)
+    parser_sst.add_argument('freqbnd', **arg_freqband_kwargs)
     parser_sst.add_argument('integration',**arg_integration_kwargs)
     parser_sst.add_argument('duration',**arg_duration_kwargs)
     parser_sst.add_argument('pointsrc', **arg_pointsrc_kwargs)
