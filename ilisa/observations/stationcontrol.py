@@ -414,6 +414,11 @@ class Station(object):
                     count += 1
 
     def getdatalist(self):
+        """Get list of data recorded on LCU. Returns a separate list for data dumps
+        and ACC data. Note that because data dumps are named by date and time
+        (uses YYYYmmdd_HHMMSS) and because default 'ls' sorts names in alphabetical
+        order, the list of files will be ordered such that oldest data is first.
+        """
         ls_lcuDumpDir = self._stdoutLCU("ls "+self.lcuDumpDir).split('\n')
         ls_ACCsrcDir = self._stdoutLCU("ls "+self.ACCsrcDir).split('\n')
         return ls_lcuDumpDir, ls_ACCsrcDir

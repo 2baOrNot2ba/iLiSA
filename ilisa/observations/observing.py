@@ -11,6 +11,7 @@ import os
 import numpy
 import yaml
 import multiprocessing
+import copy
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.dataIO as dataIO
 
@@ -545,12 +546,14 @@ class Session(object):
             subprocess.call(fullcmd, shell=True)
             self.stationcontroller.rm(source)
 
-    def get_data_timestamp(self):
-        """Get timestamp of datafiles on LCU."""
+    def get_data_timestamp(self, order=0):
+        """Get timestamp of datafiles on LCU. order is the temporal order of the data
+        file, order=0 is oldest, order=-1 is newest."""
         dd_dir, acc_dir = self.stationcontroller.getdatalist()
         # Assumes only one file in datadump dir with
         # format YYYYmmdd_HHMMSS_[bsx]st.dat
-        obsdate, obstime, obssuff = dd_dir[0].split('_', 2)
+        # FIXME handle ACC datafiles too
+        obsdate, obstime, obssuff = dd_dir[order].split('_', 2)
         obsdatetime_stamp = obsdate+'_'+obstime
         return obsdatetime_stamp
 
@@ -580,8 +583,6 @@ class Session(object):
     def do_bst(self, freqbndobj, integration, duration, pointing, obsinfo):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
         """
-        if not self.checkobservingallowed():
-            raise RuntimeError
 
         CALTABLESRC = 'default'   # FIXME put this in args
 
@@ -615,13 +616,12 @@ class Session(object):
         # beamlet statistics also generate empty *01[XY].dat so remove:
         self.stationcontroller.rm(
                               self.stationcontroller.lcuDumpDir+"/*01[XY].dat")
+        obsinfo.create_LOFARst_header(datapath)
         return datapath
 
     def do_sst(self, freqbndobj, integration, duration, pointing, obsinfo):
         """Run an sst static."""
 
-        if not self.checkobservingallowed():
-            raise RuntimeError
         # Use this to do a system temperature measurement.
         SYS_TEMP_MEAS = False
 
@@ -645,6 +645,7 @@ class Session(object):
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath,
                          recursive=True)
+        obsinfo.create_LOFARst_header(datapath)
         return datapath
 
     def do_xst(self, freqbndobj, integration, duration, pointing, obsinfo):
@@ -652,11 +653,8 @@ class Session(object):
         a crosscorrelation of all elements at the given frequency and
         integration repeated for a duration of seconds."""
 
-        if not self.checkobservingallowed():
-            raise RuntimeError
-
         caltabinfo = ""  # No need for caltab info for xst data
-
+        obsinfolist = []
         # Get subbands to do
         for sb_rcumode in freqbndobj.sb_range:
             # Start beamforming
@@ -670,14 +668,20 @@ class Session(object):
                 # Record data
                 rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
                                                             duration)
+                obsdatetime_stamp = self.get_data_timestamp(-1)
+                curr_obsinfo = copy.copy(obsinfo)
+                curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds,
+                                                  rspctl_CMD, caltabinfo)
+                obsinfolist.append(curr_obsinfo)
             self.stationcontroller.stopBeam()
         # Move data to archive
-        obsdatetime_stamp = self.get_data_timestamp()
-        obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds, rspctl_CMD,
-                                      caltabinfo)
+        obsinfo = copy.copy(obsinfolist[0])
+        obsinfo.sb = sb_rcumode
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
 
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
+        for curr_obsinfo in obsinfolist:
+            curr_obsinfo.create_LOFARst_header(datapath)
         return datapath
 
     def bsxST(self, statistic, freqbndobj, integration, duration, pointSrc):
@@ -697,6 +701,9 @@ class Session(object):
         pointSrc : str
             point direction as a beamctl triplet.
         """
+        if not self.checkobservingallowed():
+            raise RuntimeError, "Station is being used by someone else."
+
         try:
             pointing = stdPointings(pointSrc)
         except KeyError:
@@ -723,7 +730,6 @@ class Session(object):
              datapath = self.do_xst(freqbndobj, integration, duration, pointing,
                                     obsinfo)
 
-        obsinfo.create_LOFARst_header(datapath)
         self.stationcontroller.stopBeam()
         return datapath
 
