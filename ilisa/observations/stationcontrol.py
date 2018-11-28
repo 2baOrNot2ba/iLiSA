@@ -90,10 +90,11 @@ def rcumode2antset(rcumode):
     possible. (This function may soon be deprecated.)
     """
     # NOTE new/more antennasets are now available.
-    if rcumode == "3":
-        antset = "LBA_INNER"
-    elif rcumode == "5" or rcumode == "7":
-        antset = "HBA_JOINED"
+    rcumode = int(rcumode)
+    if rcumode == 3 or rcumode == 4:
+        antset = 'LBA_INNER'
+    elif rcumode == 5 or rcumode == 6 or rcumode == 7:
+        antset = 'HBA_JOINED'
     else:
         raise ValueError("Undefined rcumode: {}.".format(rcumode))
     return antset

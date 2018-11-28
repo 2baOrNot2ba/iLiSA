@@ -25,6 +25,15 @@ def findcaltabpath(rcumode, stnid, obsdatestr=None):
         cthist[datestr] = ctfilename
     caltabdirroot = CALTABDIRROOT
     caltabdirstn = os.path.join(caltabdirroot, stnid)
+    # In practice rcumode 4 uses rcumode 3's caltab
+    # while rcumode 6 uses rcumode 5's caltab.
+    # So map accordingly
+    if rcumode == '4':
+        rcumode = '3'
+        print("Warning: using caltab for rcumode 3 instead.")
+    if rcumode == '6':
+        rcumode = '5'
+        print("Warning: using caltab for rcumode 5 instead.")
     caltabfilename = 'CalTable_'+stnid[2:]+'_mode'+rcumode+'.dat'
     caltabarchive = os.path.join(caltabdirstn, 'old_data/')
     if obsdatestr is not None and os.path.isdir(caltabarchive):

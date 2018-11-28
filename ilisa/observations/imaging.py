@@ -148,31 +148,28 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
         cvctype = 'acc'
     else:
         cvctype = 'xst'
+    cvcobj = dataIO.CVCfiles(cvcpath)
+    obsfolderinfo = cvcobj.getobsfolderinfo()
+    if type(obsfolderinfo) is list and type(obsfolderinfo[0]) is dataIO.ObsInfo:
+        obsinfos = obsfolderinfo
+        obsinfo = obsinfos[0]
+        t0, rcumode = obsinfo.starttime, obsinfo.beamctl_cmd['rcumode']
+    else:
+        t0, rcumode = obsfolderinfo['datetime'], obsfolderinfo['rcumode']
     if cvctype == 'acc':
-        #cvcdata_unc, ts = dataIO.readacc(cvcpath)
-        #t0, rcumode, calsrc, totnrsb, nrrcu0, nrrcu1, stnid =\
-        #                                       dataIO.parse_accfilename(cvcpath)
-        cvcobj = dataIO.CVCfiles(cvcpath)
         cvcdata_unc = cvcobj.getdata(0)  # FIXME allow imaging other than index 0
-
         ts = cvcobj.samptimes[0]
-        obsfolderinfo = cvcobj.getobsfolderinfo()
-        t0 = obsfolderinfo['datetime']
-        rcumode = obsfolderinfo['rcumode']
         calsrc = obsfolderinfo['calsrc']
         stnid = obsfolderinfo['stnid']
         sb, nz = stationcontrol.freq2sb(float(cubeslice))
-        #req_rcumode = stationcontrol.NyquistZone2rcumode(nz)
         cubeslice = sb
         t = ts[cubeslice]
     else:
-        xstobj = dataIO.CVCfiles(cvcpath)
-        cvcdata_unc = xstobj.getdata()
-        obsfileinfo = xstobj.getobsfolderinfo()
-        obsinfo = dataIO.ObsInfo()
-        starttime, stnid, beamctl_cmd = obsinfo.parse_bsxST_header(cvcpath)
-        t0, sb, rcumode = obsfileinfo['datetime'], obsfileinfo['subband']\
-                          , obsfileinfo['rcumode']
+        cvcdata_unc = cvcobj.getdata(0)
+        starttime = obsinfo.starttime
+        stnid = obsinfo.stnid
+        beamctl_cmd = obsinfo.beamctl_cmd
+        sb = int(obsinfo.rspctl_cmd['xcsubband'])
         t = t0 + datetime.timedelta(seconds=float(cubeslice))
         cubeslice = int(cubeslice)
     pntstr = observing.stdPointings(req_calsrc)
@@ -180,6 +177,10 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
     bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
     stnPos, stnRot, antpos, stnIntilePos \
                             = antennafieldlib.getArrayBandParams(stnid, bandarr)
+    try:
+        obsinfo.septonconf
+    except AttributeError:
+        obsinfo.septonconf = None
     if obsinfo.septonconf is not None:
         elmap = observing.str2elementMap2(obsinfo.septonconf)
         for tile, elem in enumerate(elmap):

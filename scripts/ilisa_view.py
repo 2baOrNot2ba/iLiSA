@@ -77,22 +77,25 @@ def plotsst(sstff, freqreq):
 
 def plotxst(xstff):
     xstobj = dataIO.CVCfiles(xstff)
-    XSTdata = xstobj.getdata()
-    obsfileinfo = xstobj.getobsfolderinfo()
-    sb = obsfileinfo['subband']
-    intg = int(obsfileinfo['integration'])
-    dur = int(obsfileinfo['duration'])
-    
-    freq = stationcontrol.sb2freq(sb,stationcontrol.rcumode2NyquistZone(obsfileinfo['rcumode']))
-    ts = numpy.arange(0., dur, intg)
-    
-    for tidx in range(XSTdata.shape[0]):
-      print "Kill plot window for next plot..."
-      plt.imshow(numpy.abs(XSTdata[tidx,...]), norm=colors.LogNorm(), interpolation='none')
-      plt.title("Time (from start) {}s".format(ts[tidx]))
-      plt.xlabel('RCU [#]')
-      plt.ylabel('RCU [#]')
-      plt.show()
+    XSTdataset = xstobj.getdata()
+    for sbstepidx in range(len(XSTdataset)):
+        obsinfo = xstobj.obsinfos[sbstepidx]
+        sb = obsinfo.rspctl_cmd['xcsubband']
+        intg = int(obsinfo.rspctl_cmd['integration'])
+        dur = int(obsinfo.rspctl_cmd['duration'])
+        freq = stationcontrol.sb2freq(sb, stationcontrol.rcumode2NyquistZone(
+            obsinfo.beamctl_cmd['rcumode']))
+        ts = numpy.arange(0., dur, intg)
+        XSTdata = XSTdataset[sbstepidx]
+        for tidx in range(XSTdata.shape[0]):
+            print "Kill plot window for next plot..."
+            plt.imshow(numpy.abs(XSTdata[tidx,...]), norm=colors.LogNorm(),
+                       interpolation='none')
+            plt.title("Time (from start {}) {}s @ freq={} MHz".format(obsinfo.starttime,
+                                                                      ts[tidx], freq/1e6))
+            plt.xlabel('RCU [#]')
+            plt.ylabel('RCU [#]')
+            plt.show()
 
 
 def whichst(bsxff):

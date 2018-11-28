@@ -185,10 +185,13 @@ class ObsInfo(object):
 
     def parse_bsxST_header(self, headerpath):
         """Parse a bsxST header file. Contains stnid and starttime."""
-        # TODO extract beam_ctl commands and CalTable info.
-        files = os.listdir(headerpath)
-        headerfiles = [f for f in files if f.endswith('.h')]
-        headerfile = os.path.join(headerpath,headerfiles.pop())
+        # TODO extract CalTable info.
+        if os.path.isdir(headerpath):
+            files = os.listdir(headerpath)
+            headerfiles = [f for f in files if f.endswith('.h')]
+            headerfile = os.path.join(headerpath,headerfiles.pop())
+        else:
+            headerfile = headerpath
         stnid = None
         starttime = None
         with open(headerfile,'r') as hf:
@@ -209,29 +212,44 @@ class ObsInfo(object):
                         beamctl_line = line
             else:
                 contents = yaml.load(hf)
+                observer = contents['Observer']
+                project = contents['Project']
+                datatype = contents['DataType']
                 stnid = contents['StationID']
                 starttime = contents['StartTime']
                 beamctl_line = contents['BeamctlCmds']
+                rspctl_lines = contents['RspctlCmds'].split('\n')
         multishellcmds = beamctl_line.split('&')
         beamctl_cmd = multishellcmds[0]
         if beamctl_cmd is not "":
             (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
              = stationcontrol.parse_beamctl_args(beamctl_cmd)
-            beamctl = {'antennaset': antennaset,
+            beamctl_cmd = {'antennaset': antennaset,
                        'rcus': rcus,
                        'rcumode': rcumode,
                        'beamlets': beamlets,
                        'subbands': subbands,
                        'anadir': anadir,
                        'digdir': digdir}
-            self.septonconf = None
+            septonconf = None
         elif 'SEPTONconfig' in contents:
-            beamctl = ""
-            self.septonconf = contents['SEPTONconfig']
-        self.starttime = starttime
+            beamctl_cmd = ""
+            septonconf = contents['SEPTONconfig']
+        rspctl_cmd = {}
+        if rspctl_lines is not "":
+            for rspctl_line in rspctl_lines:
+                rspctl_args = stationcontrol.parse_rspctl_args(rspctl_line)
+                rspctl_cmd.update(rspctl_args)
+        # Allocate object attributes
+        self.observer = observer
+        self.project = project
+        self.datatype = datatype
         self.stnid = stnid
-        self.beamctl = beamctl
-        return starttime, stnid, beamctl
+        self.starttime = starttime
+        self.beamctl_cmd = beamctl_cmd
+        self.rspctl_cmd = rspctl_cmd
+        self.septonconf = septonconf
+        return starttime, stnid, beamctl_cmd
 
     def isLOFARdatatype(self, obsdatatype):
         """Test if a string 'obsdatatype' is one of iLiSA's recognized LOFAR data types"""
@@ -533,33 +551,44 @@ class CVCfiles(object):
     def _readcvcfolder(self):
         """Read in CVC data from the filefolder.
 
-        The filefolder name should have the format as specified in the parse_cvcfolder() method.
-        The contents of the data file is stored in the class attribute:
-           data : [(N,192,192)]
-        where N is the number of time samples.
-
-        Parameters
-        ----------
-        cvcfilefolder : str
-            The name of the CVC filefolder.
+        The filefolder name may have the format as specified in the
+        parse_cvcfolder() method. The contents of the data file is stored in
+        the object attribute:
+           data : [(N,192,192), ... , (N,192,192)]
+        where N is nominally the number of time samples and the len of data is
+        the number of files in the folder.
         """
-        self.obsfolderinfo = self._parse_cvcfolder(self.filefolder)
+        self.obsinfos = []
+        try:
+            self.obsfolderinfo = self._parse_cvcfolder(self.filefolder)
+        except ValueError:
+            self.obsfolderinfo = None
         cvcdirls = os.listdir(self.filefolder)
         # Select only data files in folder
-        cvcfiles = [ f for f in cvcdirls if f.endswith('.dat')]
-        cvcfiles.sort() # This enforces chronological order
+        cvcfiles = [f for f in cvcdirls if f.endswith('.dat')]
+        cvcfiles.sort()  # This enforces chronological order
         self.filenames = []
         for cvcfile in cvcfiles:
             self.filenames.append(cvcfile)
             # TODO think about howto use more than 1 xst file in filefolder
+            print("Reading cvcfile: {}".format(cvcfile))
             self._readcvcfile(os.path.join(self.filefolder,cvcfile))
+            try:
+                (d,t, _rest) = cvcfile.split('_', 2)
+                hfilename = '{}_{}_xst.h'.format(d,t)
+                hfilepath = os.path.join(self.filefolder, hfilename)
+                obsinfo = ObsInfo()
+                obsinfo.parse_bsxST_header(hfilepath)
+                self.obsinfos.append(obsinfo)
+            except:
+                print("Couldn't find a header file for {}".format(cvcfile))
 
     def _readcvcfile(self, cvcfilepath):
-        """Reads in a single xst data file by filepath.
+        """Reads in a single acc or xst data file by filepath and creates
+        corresponding sample times.
 
-        The contents of the data file is stored in the class attribute:
-           data : (N,192,192)
-        where N is the number of time samples.
+        The contents of the data file is appended to the object attribute list
+        `data`.
 
         Parameters
         ----------
@@ -584,7 +613,6 @@ class CVCfiles(object):
             obsaccdates[sb] = t_end + sbobstimedelta
         self.samptimes.append(obsaccdates)
 
-
     def getnrfiles(self):
         """Return number of data files in this filefolder."""
         return len(self.data)
@@ -600,7 +628,13 @@ class CVCfiles(object):
             return self.data[filenr]
 
     def getobsfolderinfo(self):
-        return self.obsfolderinfo
+        if self.obsinfos:
+            return self.obsinfos
+        elif self.obsfolderinfo:
+            return self.obsfolderinfo
+        else:
+            raise RuntimeError("No metadata available")
+
 
 def cvc2cvpol(cvc):
     """Convert a covariance cube into an array indexed by polarization channels.
