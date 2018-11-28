@@ -665,7 +665,7 @@ class Session(object):
                 sblo, sbhi = sb_rcumode.split(':')
                 subbands = range(int(sblo),int(sbhi)+1)
             else:
-                subbands = eval(sb_rcumode)
+                subbands = [int(sb) for sb in sb_rcumode.split(',')]
             for subband in subbands:
                 # Record data
                 rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
