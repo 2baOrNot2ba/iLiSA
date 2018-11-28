@@ -718,6 +718,10 @@ class Station(object):
 ## Special commands START
     def getCalTableInfo(self, rcumode):
         """Fetch and return the caltable info from the LCU."""
+        if int(rcumode) == 4:
+            # Band 30_90 not correctly implemented in "beamctl --calinfo".
+            # It uses the 10_90 caltab anyways so:
+            rcumode = 3
         if self.usescriptonlcu:
             calinfo = subprocess.check_output("ssh "
                                                    + self.lcuURL

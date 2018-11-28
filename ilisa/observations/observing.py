@@ -256,12 +256,12 @@ class FrequencyBand(object):
                        5: 1,
                        6: 2,
                        7: 2}
-    subarr1rcusel = {0: '0:191'}
-    subarr2rcusel = {0: '0:47,96:143',
-                     1: '48:95,144:191'}
-    subarr3rcusel = {0: '0:31,96:127',
-                     1: '32:63,128:159',
-                     2: '64:95,160:191'}
+    subarr_rcusel = [{0: '0:191'},
+                     {0: '0:47,96:143',
+                      1: '48:95,144:191'},
+                     {0: '0:31,96:127',
+                      1: '32:63,128:159',
+                      2: '64:95,160:191'}]
 
     combos = [[4],[3],[5],[7],[6],[4,5],[3,5],[5,7],[4,5,7],[3,5,7]]
 
@@ -352,7 +352,7 @@ class FrequencyBand(object):
                     nrsbs0 = sb_hi - sb_lo + 1
                 else:
                     sb_list = range(sb_lo, sb_hi + 1, sbstep)
-                    sb_range = [','.join(sb_list)]
+                    sb_range = [','.join([str(el) for el in sb_list])]
                     nrsbs0 =  len(sb_list)
                 beamlets = ["0:{}".format(nrsbs0-1)]
             elif nrrcumodes == 2:
@@ -416,8 +416,7 @@ class FrequencyBand(object):
             # Choose largest bit size that fulfills nrbeamlets
             if nrbeamlets <= self.nrbeamletsbybits[bits]:
                 break
-        rcusel = [self.subarr2rcusel[idx] for idx in range(nrrcumodes)]
-
+        rcusel = [self.subarr_rcusel[nrrcumodes-1][idx] for idx in range(nrrcumodes)]
         return rcumodes, rcubands, antsets, sb_range, bits, beamlets, rcusel
 
     def getsampinfo(self,rcumode):
@@ -570,8 +569,9 @@ class Session(object):
             rcumode = freqbndobj.rcumodes[bandbeamidx]
             beamletIDs = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
-            beamctl_main = self.stationcontroller.runbeamctl(beamletIDs,
-                                                   subbands, rcumode, pointing)
+            rcusel = freqbndobj.rcusel[bandbeamidx]
+            beamctl_main = self.stationcontroller.runbeamctl(beamletIDs, subbands,
+                                                             rcumode, pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
         rcu_setup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
         return rcu_setup_CMD, beamctl_cmds
@@ -594,6 +594,7 @@ class Session(object):
 
         # Get some metadata about operational settings:
         if len(freqbndobj.rcumodes) == 1:
+            print freqbndobj.rcumodes[0]
             caltabinfo = self.stationcontroller.getCalTableInfo(freqbndobj.rcumodes[0])
         else:
             # TODO implement storing of multiband caltab
@@ -654,14 +655,22 @@ class Session(object):
         if not self.checkobservingallowed():
             raise RuntimeError
 
-        # Start beamforming
-        rcu_setup_CMD, beamctl_cmds = self.streambeams(freqbndobj, pointing)
+        caltabinfo = ""  # No need for caltab info for xst data
 
-        subband = freqbndobj.sb_range[0]
-        caltabinfo = ""  # No need for caltab info
-        # Record data
-        rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
-                                                    duration)
+        # Get subbands to do
+        for sb_rcumode in freqbndobj.sb_range:
+            # Start beamforming
+            rcu_setup_CMD, beamctl_cmds = self.streambeams(freqbndobj, pointing)
+            if ':' in sb_rcumode:
+                sblo, sbhi = sb_rcumode.split(':')
+                subbands = range(int(sblo),int(sbhi)+1)
+            else:
+                subbands = eval(sb_rcumode)
+            for subband in subbands:
+                # Record data
+                rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
+                                                            duration)
+            self.stationcontroller.stopBeam()
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
         obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds, rspctl_CMD,
@@ -875,49 +884,6 @@ class Session(object):
         obsinfo.create_LOFARst_header(datapath)
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
 
-    def do_mode357(self, integration, duration, pointing_or_src):
-        """Record bst data in mode357."""
-        # TODO Add 8 bit support and make subbands selectable by user
-        self.stationcontroller.bootToObservationState(3)
-        pointing = stdPointings(pointing_or_src)
-
-        rspctl_cmds = []
-        mode357rcu2ant = {'3': '0:31,96:127',
-                          '5': '32:63,128:159',
-                          '7': '64:95,160:191'}
-        mode357bl2sb = {'3': '200:299',
-                        '5': '200:299',
-                        '7': '200:243'}
-        for rcumode, rcusel in mode357rcu2ant.items():
-            rspctl_cmd = self.stationcontroller.runrspctl(rcumode, rcusel)
-            rspctl_cmds.append(rspctl_cmd)
-        beamctl_CMDlst = []
-        totnrsbs = 0
-        for rcumode, sbs in mode357bl2sb.items():
-            # Compute bls (beamlets spec) corresponding to given sbs
-            sblo, sbhi = sbs.split(':')
-            nrsbs = sbhi - sblo + 1
-            bls = '{}:{}'.format(totnrsbs, totnrsbs + nrsbs - 1)
-            beamctl_CMDlst.append(self.stationcontroller.runbeamctl(bls, sbs,
-                                rcumode, pointing, mode357rcu2ant[rcumode]))
-            totnrsbs += nrsbs
-
-        rspctl_CMD = self.stationcontroller.rec_bst(integration, duration)
-
-        LOFARdatTYPE = "bst-357"
-        # Collect observational metadata
-        obsdatetime_stamp = self.get_data_timestamp()
-
-        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.setobsinfo_fromparams(LOFARdatTYPE, obsdatetime_stamp, beamctl_CMDlst,
-                                      rspctl_CMD)
-        # Move data to archive
-        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
-        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat", datapath)
-        # beamlet statistics also generate empty *01[XY].dat so remove:
-        self.stationcontroller.rm(self.stationcontroller.lcuDumpDir+"/*01[XY].dat")
-        obsinfo.create_LOFARst_header(datapath)
-
     #####################
     # BEGIN: TBB services
 
@@ -955,8 +921,6 @@ class Session(object):
 
     # END: TBB services
     ###################
-
-
 
 # END: Session
 ##############

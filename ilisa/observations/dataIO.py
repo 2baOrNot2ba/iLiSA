@@ -40,6 +40,22 @@ regex_xstfilename=(
 "_dir(?P<RAint>\d+).(?P<RAdecimal>\d+),(?P<DECint>\d+).(?P<DECdecimal>\d+),(?P<ref>\s+)"
 "_xst.dat$")
 
+folder_name_beamctl_type = True
+rcusbsep = "+"
+
+
+def parse_sbarg(sbarg):
+    """Parse beamctl's subband arguement. Returns list of explicit subbands,
+    i.e. it expands sblo:sbhi constructs."""
+    sblist = []
+    for sbargel in sbarg.split(','):
+        if ':' in sbargel:
+            sblo, sbhi = sbargel.split(':')
+            sblist.extend(range(int(sblo), int(sbhi)+1))
+        else:
+            sblist.append(int(sbargel))
+    return sblist
+
 
 class ObsInfo(object):
     """Contains most import technical information of on an observation."""
@@ -114,7 +130,7 @@ class ObsInfo(object):
                     self.sb.append(subbands)
                     self.bl.append(beamlets)
                 self.rcumode = ''.join(self.rcumode)
-                self.sb = ','.join(self.sb)
+                self.sb = rcusbsep.join(self.sb)
                 self.bl = ','.join(self.bl)
                 self.beamctl_cmd = '\n'.join(self.beamctl_cmd)
             else:
@@ -148,24 +164,24 @@ class ObsInfo(object):
         stDataArchive = os.path.join(LOFARdataArchive, self.LOFARdatTYPE)
         stObsEpoch = self.datetime
         st_extName = stObsEpoch
-        if self.LOFARdatTYPE == 'bfs':
-            return stObsEpoch, stDataArchive
-        if self.LOFARdatTYPE == "bst-357":
-            st_extName += "_rcu357"
-        else:
-            st_extName += "_rcu"+str(self.rcumode)
-        if str(self.sb) != "":
-            st_extName += "_sb"+str(self.sb)
-        st_extName += "_int"+str(int(self.integration))+"_dur"+str(int(self.duration))
-        if self.LOFARdatTYPE != 'sst':
-            if str(self.pointing) != "":
-                st_extName += "_dir"+str(self.pointing)
+        if folder_name_beamctl_type:
+            if self.LOFARdatTYPE == 'bfs':
+                return stObsEpoch, stDataArchive
+            if self.LOFARdatTYPE == "bst-357":
+                st_extName += "_rcu357"
             else:
-                st_extName += "_dir,,"
+                st_extName += "_rcu"+str(self.rcumode)
+            if str(self.sb) != "":
+                st_extName += "_sb"+str(self.sb)
+            st_extName += "_int"+str(int(self.integration))+"_dur"+str(int(self.duration))
+            if self.LOFARdatTYPE != 'sst':
+                if str(self.pointing) != "":
+                    st_extName += "_dir"+str(self.pointing)
+                else:
+                    st_extName += "_dir,,"
         st_extName += "_"+self.LOFARdatTYPE
         datapath = os.path.join(stDataArchive, st_extName)
         return stObsEpoch, datapath
-
 
     def parse_bsxST_header(self, headerpath):
         """Parse a bsxST header file. Contains stnid and starttime."""
@@ -281,7 +297,6 @@ def parse_bstfolder(BSTfilepath):
     BSTfilename = os.path.basename(BSTfilepath)
     obsfileinfo = {}
     try:
-        print BSTfilename
         (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, bststr
         ) = BSTfilename.split('_')
         obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd+'T'+HMS,'%Y%m%dT%H%M%S')
@@ -296,8 +311,8 @@ def parse_bstfolder(BSTfilepath):
         raise ValueError, "Filename not in bst_ext format."
     if len(obsfileinfo['rcumode']) > 1:
         obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
-    if ',' in obsfileinfo['subbands']:
-        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(',')
+    if rcusbsep in obsfileinfo['subbands']:
+        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(rcusbsep)
     return obsfileinfo
 
 
@@ -307,17 +322,33 @@ def readbstfolder(BSTfilefolder):
         obsfileinfo['rcumode'] = [obsfileinfo['rcumode']]
     if type(obsfileinfo['subbands']) is not list:
         obsfileinfo['subbands'] = [obsfileinfo['subbands']]
-    obsfileinfo['frequencies'] = []
+    obsfileinfo['frequencies'] = numpy.empty(0)
     totnrsbs = 0
     for spw, rcumode in enumerate(obsfileinfo['rcumode']):
-        (sblo,sbhi) = obsfileinfo['subbands'][spw].split(':')
-        (sblo, sbhi) = (int(sblo), int(sbhi))
-        nrsbs = sbhi-sblo+1
+        sblist = parse_sbarg(obsfileinfo['subbands'][spw])
+        nrsbs = len(sblist)
+        sblo = sblist[0]
+        sbhi = sblist[-1]
         nz = stationcontrol.rcumode2NyquistZone(rcumode)
+        freqlo = stationcontrol.sb2freq(sblo, nz)
+        freqhi = stationcontrol.sb2freq(sbhi, nz)
+        obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
+                                                  numpy.linspace(freqlo, freqhi, nrsbs))
+        totnrsbs += nrsbs
+
+    # When the beamlets allocated is less than the maximum (given by bit depth) the
+    # RSPs fill the remaining ones regardless. Hence we have to account for them:
+    if totnrsbs > 244:
+        maxnrsbs = 2*244
+    else:
+        maxnrsbs = 244
+    missing_sbs = maxnrsbs - totnrsbs
+    if  missing_sbs > 0:
+        nrsbs = missing_sbs
+        sblo = sbhi + 1
+        sbhi = sblo + nrsbs
         freqlo = stationcontrol.sb2freq(sblo,nz)
         freqhi = stationcontrol.sb2freq(sbhi,nz)
-        # obsfileinfo['sblo'] = sblo
-        # obsfileinfo['sbhi'] = sbhi
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
                                                   numpy.linspace(freqlo, freqhi, nrsbs))
         totnrsbs += nrsbs
@@ -325,7 +356,7 @@ def readbstfolder(BSTfilefolder):
     BSTfiles = [ f for f in BSTdirls if f.endswith('.dat')]
 
     # Now read the BST pol data
-    BST_dtype = numpy.dtype(('f8', (totnrsbs,)))
+    BST_dtype = numpy.dtype(('f8', (maxnrsbs,)))
     BSTdata = {}
     for BSTpolfile in BSTfiles:
         pol = BSTpolfile[-5]

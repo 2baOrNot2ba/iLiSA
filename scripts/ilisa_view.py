@@ -12,15 +12,12 @@ import ilisa.observations.imaging as imaging
 
 def plotbst(bstff):
     BSTdata, obsfileinfo = dataIO.readbstfolder(bstff)
-    #sbs = obsfileinfo['subbands']
+
     intg = obsfileinfo['integration']
     dur = obsfileinfo['duration']
-    #freqinband = stationcontrol.rcumode2sbfreqs(obsfileinfo['rcumode'])
-    #freqs = freqinband[obsfileinfo['sblo']:(obsfileinfo['sbhi']+1)]
     freqs = obsfileinfo['frequencies']
     ts = numpy.arange(0., dur, intg)
-    print len(freqs), len(ts)
-    print BSTdata['X'].shape
+
     plt.subplot(211)
     plt.pcolormesh(freqs/1e6, ts/3600, BSTdata['X'],
                    norm=colors.LogNorm())
