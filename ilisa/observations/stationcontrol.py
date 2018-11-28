@@ -531,11 +531,20 @@ class Station(object):
 
 ##Basic station data taking commands BEGIN
 
-    def runrspctl(self, rcumode, select):
+    def runrspctl(self, mode='', select=''):
         """Run rspctl command to setup RCUs: rcumode, select.
         """
-        rspctl_cmd = "rspctl --rcumode={} --select={}".format(rcumode, select)
-        self.execOnLCU(rspctl_cmd)
+        argsdict = {'mode': mode, 'select': select}
+        # Form commandline argument string ignoring blank arguments:
+        argsstr = ''
+        for arg in argsdict.keys():
+            if argsdict[arg] != '':
+                argsstr += " --{}={}".format(arg, argsdict[arg])
+        if argsstr != '':
+            rspctl_cmd = "rspctl"+argsstr
+            self.execOnLCU(rspctl_cmd)
+        else:
+            rspctl_cmd = ''
         return rspctl_cmd
 
     def rcusetup(self, bits, attenuation):
@@ -775,12 +784,6 @@ class Station(object):
         time.sleep(30)
         return rspctl_CMD
 
-    def setrcumode(self, rcumode):
-        """Set the rcumode."""
-        self.execOnLCU("rspctl --mode={}".format(rcumode))
-        time.sleep(2.0)
-
-
 # SEPTON
     setElem_ON = 128
     setElem_OFF = 2
@@ -788,7 +791,7 @@ class Station(object):
     def turnoffElinTile_byTile(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by tile, which is more intuitive but slower."""
-        self.setrcumode(5)
+        self.runrspctl(mode='5')
         for tileNr in range(nrTiles):
             # Start with all elements in tile off
             # (2 is OFF)
@@ -803,7 +806,7 @@ class Station(object):
     def turnoffElinTile_byEl(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by element, which is less intuitive but faster."""
-        self.setrcumode(5)
+        self.runrspctl(mode='5')
         for elNr in range(elementsInTile):
             tiles = [ind for ind in range(nrTiles) if elNr == elemsOn[ind]]
             if len(tiles) == 0:
