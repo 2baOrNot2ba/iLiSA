@@ -258,12 +258,13 @@ class Session(object):
                 obsdatetime_stamp = self.get_data_timestamp(-1)
                 curr_obsinfo = copy.copy(obsinfo)
                 curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds,
-                                                  rspctl_CMD, caltabinfo)
+                                                   rspctl_CMD, caltabinfo)
                 obsinfolist.append(curr_obsinfo)
             self.stationcontroller.stopBeam()
-        # Move data to archive
+
         obsinfo = copy.copy(obsinfolist[0])
-        obsinfo.sb = sb_rcumode
+        obsinfo.sb = freqbndobj.sb_range[0]
+        # Move data to archive
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
 
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
