@@ -172,7 +172,21 @@ class ObsInfo(object):
             else:
                 st_extName += "_rcu"+str(self.rcumode)
             if str(self.sb) != "":
-                st_extName += "_sb"+str(self.sb)
+                st_extName += "_sb"
+                if "," in self.sb:
+                    # Instead of comma separated list format (e.g. 202,204,206),
+                    # try to construct subband slice syntax (e.g. 202:2:206), if
+                    # possible, to avoid file names that are potentially longer than 255
+                    # (not allowed in linux filesyst)
+                    sblist = [int(el) for el in self.sb.split(',')]
+                    sbsteps = set(numpy.diff(sblist))
+                    if len(sbsteps) > 1:
+                        raise RuntimeError('Subband spec too complicated.')
+                    else:
+                        sbstep = sbsteps.pop()
+                        sbstepstr = str(sbstep)+':' if sbsteps >1 else ''
+                        sbstr = "{}:{}{}".format(sblist[0], sbstepstr, sblist[-1])
+                st_extName += sbstr
             st_extName += "_int"+str(int(self.integration))+"_dur"+str(int(self.duration))
             if self.LOFARdatTYPE != 'sst':
                 if str(self.pointing) != "":
