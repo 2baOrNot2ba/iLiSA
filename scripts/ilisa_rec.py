@@ -17,6 +17,7 @@ import time
 import datetime
 import argparse
 import ilisa.observations.beamformedstreams
+import ilisa.observations.modeparms
 import ilisa.observations.observing as observing
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.dataIO as dataIO
@@ -116,7 +117,7 @@ def do_bfs(args):
     else:
         raise ValueError, \
             "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi)."
-    pointing = observing.normalizebeamctldir(args.pointsrc)
+    pointing = ilisa.observations.modeparms.normalizebeamctldir(args.pointsrc)
 
     # Wait until it is time to start
     pause = 5  # Sufficient?
@@ -188,7 +189,7 @@ def _do_bsx(statistic, args):
     with observational settings.
     """
     duration = int(math.ceil(eval(args.duration)))
-    frqbndobj = observing.FrequencyBand(args.freqbnd)
+    frqbndobj = ilisa.observations.modeparms.FrequencyBand(args.freqbnd)
 
     if args.allsky and 'HBA' in frqbndobj.antsets[0]:
         myobs.do_SEPTON(statistic, frqbndobj, args.integration, duration)

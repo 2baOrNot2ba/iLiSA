@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
+import ilisa.observations.modeparms
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.observing as observing
 import ilisa.observations.dataIO as dataIO
@@ -172,7 +173,7 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
         sb = int(obsinfo.rspctl_cmd['xcsubband'])
         t = t0 + datetime.timedelta(seconds=float(cubeslice))
         cubeslice = int(cubeslice)
-    pntstr = observing.stdPointings(req_calsrc)
+    pntstr = ilisa.observations.modeparms.stdPointings(req_calsrc)
     pointing = pntstr.split(',')
     bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
     stnPos, stnRot, antpos, stnIntilePos \
@@ -182,7 +183,7 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
     except AttributeError:
         obsinfo.septonconf = None
     if obsinfo.septonconf is not None:
-        elmap = observing.str2elementMap2(obsinfo.septonconf)
+        elmap = ilisa.observations.modeparms.str2elementMap2(obsinfo.septonconf)
         for tile, elem in enumerate(elmap):
             antpos[tile] = antpos[tile] + stnIntilePos[elem]
         allsky = True

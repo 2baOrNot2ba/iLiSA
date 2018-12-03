@@ -701,7 +701,7 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
                   +'_rcu'+rcumode +'_'+calsrc+'_dur'+calrundurationstr\
                   +'_ct'+caltabID+'_'+dtlabel
     #acc2bstsuffix = '.dat'
-    from ilisa.observations.observing import stdPointings
+    from ilisa.observations.modeparms import stdPointings
     pntstr = stdPointings(calsrc)
     # Write out the data.
     if saveformat == 'hdf5':

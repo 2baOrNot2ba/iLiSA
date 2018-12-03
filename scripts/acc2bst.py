@@ -9,6 +9,7 @@ import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
+import ilisa.observations.modeparms
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.observing as observing
 
@@ -39,7 +40,7 @@ def main(accrunfolder, desiredsrc):
         calsrc = desiredsrc
     elif desiredsrc != calsrc:
         print("Warning: calibration source {} is not the desired one {}.".format(calsrc,desiredsrc))
-    pntstr = observing.stdPointings(calsrc)
+    pntstr = ilisa.observations.modeparms.stdPointings(calsrc)
     pointing = pntstr.split(',')
     bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
     stnPos, stnRot, antpos, stnIntilePos = antennafieldlib.getArrayBandParams(stnid, bandarr)
