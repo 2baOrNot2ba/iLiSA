@@ -68,10 +68,6 @@ def rcumode2band(rcumode):
     return band
 
 
-def rcumode2freqrange(rcumode):
-    return rcumode2band(rcumode).split('_')
-
-
 def band2freqrange(band):
     return tuple(1e6*f for f in map(int, band.split('_')))
 
@@ -125,40 +121,6 @@ def sb2freq(sb, NqZone):
     return freq
 
 
-def freq2beamParam(freq):
-    """Get beam parameters antset, rcumode and subband for with frequency (Hz).
-    """
-    sb, sbNZ = freq2sb(freq)
-    rcumode = NyquistZone2rcumode(sbNZ)
-    antset = rcumode2antset(rcumode)
-    return (antset, rcumode, str(sb))
-
-
-def freqBand2sb(freqBand, wordsize_bits=16):
-    """Convert a frequency band to subbands."""
-    maxsbs = maxNrOfBeamlets(wordsize_bits)
-    freqLo = freqBand[0]
-    sbLo, sbLoNZ = freq2sb(freqLo)
-    if len(freqBand) == 2:
-        freqHi = freqBand[1]
-        sbHi, sbHiNZ = freq2sb(freqHi)
-    else:
-        sbHi = sbLo+min(maxsbs, TotNrOfsb-sbLo)-1
-        sbHiNZ = sbLoNZ
-    NrSBs = sbHi-sbLo+1
-    if NrSBs > maxsbs:
-        print "Frequency range not permitted: too many subbands"
-        raise ValueError
-    if sbLoNZ != sbHiNZ:
-        print "Frequency range not permitted: different Nyquist zones"
-        raise ValueError
-    rcumode = NyquistZone2rcumode(sbLoNZ)
-    antset = rcumode2antset(rcumode)
-    beamlets = "0:"+str(NrSBs-1)
-    subbands = str(sbLo)+":"+str(sbHi)
-    return (antset, rcumode, beamlets, subbands)
-
-
 def maxNrOfBeamlets(wordsize_bits):
     """Return maximum number of subbands, depending on word size of ADC
     samples: 16-bit, 8-bit modes."""
@@ -168,8 +130,7 @@ def maxNrOfBeamlets(wordsize_bits):
     elif wordsize_bits == 8:
         maxNrOfSBs = 2*maxNrOfSBs_16
     else:
-        print "Unknown wordsize: ", str(wordsize_bits)
-        raise('ValueError')
+        raise ValueError("Unknown wordsize: ".format(wordsize_bits))
     return maxNrOfSBs
 
 
@@ -178,29 +139,6 @@ def tiles2rcus(tiles):
     for tile in tiles:
         rcus.extend([2*tile, 2*tile+1])  # Set same delay for both X&Y pol rcu
     return rcus
-
-
-def parse_multibeamctl_args(beamctl_strs):
-    antennaset_list = []
-    rcus_list = []
-    rcumode_list = []
-    beamlets_list = []
-    subbands_list = []
-    anadir_list = []
-    digdir_list = []
-    beamctl_str_lst = beamctl_strs.split("; ")
-    for beamctl_str in beamctl_str_lst:
-        (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir
-         ) = parse_beamctl_args(beamctl_str)
-        antennaset_list.append(antennaset)
-        rcus_list.append(rcus)
-        rcumode_list.append(rcumode)
-        beamlets_list.append(beamlets)
-        subbands_list.append(subbands)
-        anadir_list.append(anadir)
-        digdir_list.append(digdir)
-    return (antennaset_list, rcus_list, rcumode_list, beamlets_list,
-            subbands_list, anadir_list, digdir_list)
 
 
 def parse_beamctl_args(beamctl_str):
