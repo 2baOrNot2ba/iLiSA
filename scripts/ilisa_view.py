@@ -133,9 +133,20 @@ def plot_bsxst(args):
     else:
         raise RuntimeError, "Not a bst, sst, or xst filefolder"
 
+
 def image(args):
     """Image visibility-type data."""
-    imaging.cvcimage(args.cvcpath, args.cubeindex, args.phaseref)
+    xstobj = dataIO.CVCfiles(args.cvcpath)
+
+    XSTdataset = xstobj.getdata()
+    for sbstepidx in range(args.cubeindex, len(XSTdataset)):
+        obsinfo = xstobj.obsinfos[sbstepidx]
+        integration = int(obsinfo.rspctl_cmd['integration'])
+        XSTdata = XSTdataset[sbstepidx]
+        for tidx in range(XSTdata.shape[0]):
+            ll, mm, skyimages, t, freq, stnid, phaseref = imaging.cvcimage(xstobj,
+                                                        sbstepidx, tidx, args.phaseref)
+            imaging.plotskyimage(ll, mm, skyimages, t, freq, stnid, phaseref, integration)
 
 
 if __name__ == "__main__":
@@ -150,8 +161,8 @@ if __name__ == "__main__":
     parser_image = subparsers.add_parser('image', help='image help')
     parser_image.set_defaults(func=image)
     parser_image.add_argument('cvcpath', help="acc or xst filefolder")
-    parser_image.add_argument('cubeindex', type=float, default=None)
-    parser_image.add_argument('phaseref', type=str, default='Z')
+    parser_image.add_argument('-p','--phaseref', type=str, default=None)
+    parser_image.add_argument('-c','--cubeindex', type=int, default=0)
 
     args = parser.parse_args()
     args.func(args)

@@ -142,23 +142,22 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky
     return (skyimageSI, skyimageSQ, skyimageSU, skyimageSV), ll, mm
 
 
-def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
-    """Image a CVC file"""
-    cvcpath = cvcpath.rstrip('/')
-    if '_acc' in cvcpath:
-        cvctype = 'acc'
-    else:
-        cvctype = 'xst'
-    cvcobj = dataIO.CVCfiles(cvcpath)
+def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
+    """Image a CVC object"""
     obsfolderinfo = cvcobj.getobsfolderinfo()
+
     if type(obsfolderinfo) is list and type(obsfolderinfo[0]) is dataIO.ObsInfo:
         obsinfos = obsfolderinfo
-        obsinfo = obsinfos[0]
+        obsinfo = obsinfos[filestep]
         t0, rcumode = obsinfo.starttime, obsinfo.beamctl_cmd['rcumode']
+        pointingstr = obsinfo.beamctl_cmd['anadir']
+        cvctype = obsinfo.datatype
     else:
         t0, rcumode = obsfolderinfo['datetime'], obsfolderinfo['rcumode']
+        pointingstr = obsfolderinfo['pointing']
+        cvctype = obsfolderinfo['cvc-type']
     if cvctype == 'acc':
-        cvcdata_unc = cvcobj.getdata(0)  # FIXME allow imaging other than index 0
+        cvcdata_unc = cvcobj.getdata(filestep)  # FIXME allow imaging other than index 0
         ts = cvcobj.samptimes[0]
         calsrc = obsfolderinfo['calsrc']
         stnid = obsfolderinfo['stnid']
@@ -166,15 +165,13 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
         cubeslice = sb
         t = ts[cubeslice]
     else:
-        cvcdata_unc = cvcobj.getdata(0)
+        cvcdata_unc = cvcobj.getdata(filestep)
         starttime = obsinfo.starttime
         stnid = obsinfo.stnid
         beamctl_cmd = obsinfo.beamctl_cmd
         sb = int(obsinfo.rspctl_cmd['xcsubband'])
         t = t0 + datetime.timedelta(seconds=float(cubeslice))
         cubeslice = int(cubeslice)
-    pntstr = ilisa.observations.modeparms.stdPointings(req_calsrc)
-    pointing = pntstr.split(',')
     bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
     stnPos, stnRot, antpos, stnIntilePos \
                             = antennafieldlib.getArrayBandParams(stnid, bandarr)
@@ -186,10 +183,9 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
         elmap = ilisa.observations.modeparms.str2elementMap2(obsinfo.septonconf)
         for tile, elem in enumerate(elmap):
             antpos[tile] = antpos[tile] + stnIntilePos[elem]
-        allsky = True
-    else:
-        allsky = False
+
     freqs = stationcontrol.rcumode2sbfreqs(rcumode)
+
     # stn2Dcoord = stnRot.T * antpos.T
     # Apply calibration
     if cvctype == 'acc':
@@ -199,10 +195,31 @@ def cvcimage(cvcpath, cubeslice, req_calsrc, docalibrate = True):
         cvcdata, caltabhead = calibrationtables.calibrateXST(cvcdata_unc, sb,
                                                 rcumode, stnid, t0, docalibrate)
     cvpol = dataIO.cvc2cvpol(cvcdata)
+
+    # Determine if allsky FoV
+    if bandarr == '10_90' or bandarr == '30_90' or (obsinfo.septonconf is not None):
+        allsky = True
+    else:
+        allsky = False
+
+    # Determine phaseref
+    if req_calsrc is not None:
+        pntstr = ilisa.observations.modeparms.stdPointings(req_calsrc)
+    elif allsky:
+        pntstr = ilisa.observations.modeparms.stdPointings('Z')
+    else:
+        pntstr = pointingstr
+    phaseref = pntstr.split(',')
+
+    # Phase up visibilities
     cvpu, UVWxyz = phaseref_xstpol(cvpol[:,:,cubeslice,...].squeeze(),
-                                   t, freqs[sb], stnPos, antpos, pointing)
+                                   t, freqs[sb], stnPos, antpos, phaseref)
+
+    # Make image on phased up visibilities
     skyimages, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freqs[sb], True, allsky)
-    plotskyimage(ll, mm, skyimages, t, freqs[sb], stnid)
+
+    return ll, mm, skyimages, t, freqs[sb], stnid, phaseref
+
 
 # Conversion between datatypes
 def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
@@ -232,7 +249,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     return bstXX, bstXY, bstYY #, bstYX
 
 
-def plotskyimage(ll, mm, skyimages, t, freq, stnid):
+def plotskyimage(ll, mm, skyimages, t, freq, stnid, phaseref, integration):
     """Generic plot of images."""
     plt.subplot(2,2,1)
     #norm=colors.LogNorm()
@@ -258,6 +275,7 @@ def plotskyimage(ll, mm, skyimages, t, freq, stnid):
     plt.gca().invert_xaxis()
     plt.colorbar()
     plt.title('Stokes v')
-    plt.suptitle('Allsky: {} @ {} MHz, UT={}'.format(stnid, freq/1e6, t))
+    plt.suptitle('Image: PhaseRef={} @ {} MHz\nStation {}, int={}s, UT={}'.format(
+        ','.join(phaseref), freq/1e6, stnid, integration, t))
     plt.tight_layout(rect=[0, 0.0, 1, 0.95])
     plt.show()
