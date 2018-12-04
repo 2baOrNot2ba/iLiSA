@@ -22,10 +22,13 @@ observations such as:
 
 The package also features special observational modes:
 
-* BST-357 - A special BST that allows bands over LBA, HBA-lo and HBA-hi
-* SEPTON - Gives HBA an allsky field-of-view. Data taken in this mode is either
-  SST or XST
-
+* **Multi-band BST**:
+  BST data recorded over multiple bands, i.e. LBA, HBA-lo and HBA-hi
+* **SEPTON**:
+  Gives HBA an allsky field-of-view. Data taken in this mode is either SST or XST
+* **Multi-subband XST**:
+  Records XST data in over a sequence of subbands 
+ 
 Observation using iLiSA are made with science-level python functions which issue
 the hardware-level commands to the station's Monitoring And Control interface.
 
