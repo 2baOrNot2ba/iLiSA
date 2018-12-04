@@ -22,6 +22,7 @@ import datetime
 import h5py
 import yaml
 import ilisa.observations.stationcontrol as stationcontrol
+import ilisa.observations.modeparms as modeparms
 
 
 regex_ACCfolder=(
@@ -536,17 +537,17 @@ class CVCfiles(object):
                 obsfolderinfo['datetime'] = datetime.datetime.strptime(
                                                 Ymd+'T'+HMS, '%Y%m%dT%H%M%S')
                 obsfolderinfo['rcumode'] =     rcustr[3:]
-                obsfolderinfo['subband'] =     int(sbstr[2:])
+                obsfolderinfo['subband'] =     sbstr[2:]
                 obsfolderinfo['integration'] = float(intstr[3:])
                 obsfolderinfo['duration'] =    float(durstr[3:])
                 obsfolderinfo['pointing'] =    dirstr[3:].split(',')
-                obsfolderinfo['cvc-type'] =    cvcextstr
             except:
                 raise ValueError, "Foldername not in xst_ext format."
         elif cvcextstr == 'acc':
             dirpat = re.compile(regex_ACCfolder)
             obsdirinfo_m = dirpat.match(cvcfoldername)
             if obsdirinfo_m is None:
+                print "Cal error"
                 raise ValueError, "Calibration directory does not have correct syntax."
             obsdirinfo = obsdirinfo_m.groupdict()
             d0 = datetime.datetime(int(obsdirinfo['year']),
@@ -558,10 +559,12 @@ class CVCfiles(object):
             obsfolderinfo['datetime'] = d0
             obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
             obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
+            obsfolderinfo['pointing'] = modeparms.stdPointings(obsdirinfo['calsrc'])
             obsfolderinfo['duration'] = int(obsdirinfo['duration'])
             obsfolderinfo['stnid'] = obsdirinfo['stnid']
         else:
             raise(ValueError, "Folder not expected xst or acc format.")
+        obsfolderinfo['cvc-type'] = cvcextstr
         return obsfolderinfo
 
     def _readcvcfolder(self):
@@ -586,18 +589,18 @@ class CVCfiles(object):
         self.filenames = []
         for cvcfile in cvcfiles:
             self.filenames.append(cvcfile)
-            # TODO think about howto use more than 1 xst file in filefolder
             print("Reading cvcfile: {}".format(cvcfile))
             self._readcvcfile(os.path.join(self.filefolder,cvcfile))
-            try:
-                (d,t, _rest) = cvcfile.split('_', 2)
-                hfilename = '{}_{}_xst.h'.format(d,t)
-                hfilepath = os.path.join(self.filefolder, hfilename)
-                obsinfo = ObsInfo()
-                obsinfo.parse_bsxST_header(hfilepath)
-                self.obsinfos.append(obsinfo)
-            except:
-                print("Couldn't find a header file for {}".format(cvcfile))
+            if self.obsfolderinfo['cvc-type'] != 'acc':
+                try:
+                    (d,t, _rest) = cvcfile.split('_', 2)
+                    hfilename = '{}_{}_xst.h'.format(d,t)
+                    hfilepath = os.path.join(self.filefolder, hfilename)
+                    obsinfo = ObsInfo()
+                    obsinfo.parse_bsxST_header(hfilepath)
+                    self.obsinfos.append(obsinfo)
+                except:
+                    print("Couldn't find a header file for {}".format(cvcfile))
 
     def _readcvcfile(self, cvcfilepath):
         """Reads in a single acc or xst data file by filepath and creates
@@ -631,7 +634,7 @@ class CVCfiles(object):
 
     def getnrfiles(self):
         """Return number of data files in this filefolder."""
-        return len(self.data)
+        return len(self.filenames)
 
     def getdata(self, filenr=-1):
         """Return the data payload of the filefolder. For ACC each file is a sweep through

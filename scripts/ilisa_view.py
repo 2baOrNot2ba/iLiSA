@@ -105,13 +105,14 @@ def whichst(bsxff):
 
 def plotacc(args):
     accff = os.path.normpath(args.dataff)
-    freq = args.freq
     dataobj = dataIO.CVCfiles(accff)
     data = dataobj.getdata()
     nrfiles = dataobj.getnrfiles()
     if nrfiles>1:
         data = data[0]
-    sb, nqzone = stationcontrol.freq2sb(freq)
+    if args.freq is None:
+        args.freq = 0.0
+    sb, nqzone = stationcontrol.freq2sb(args.freq)
     while sb<512:
         print(sb,stationcontrol.sb2freq(sb,nqzone)/1e6)
         plt.pcolormesh(numpy.abs(data[sb]))
@@ -136,16 +137,22 @@ def plot_bsxst(args):
 
 def image(args):
     """Image visibility-type data."""
-    xstobj = dataIO.CVCfiles(args.cvcpath)
-
-    XSTdataset = xstobj.getdata()
-    for sbstepidx in range(args.cubeindex, len(XSTdataset)):
-        obsinfo = xstobj.obsinfos[sbstepidx]
-        integration = int(obsinfo.rspctl_cmd['integration'])
-        XSTdata = XSTdataset[sbstepidx]
-        for tidx in range(XSTdata.shape[0]):
-            ll, mm, skyimages, t, freq, stnid, phaseref = imaging.cvcimage(xstobj,
-                                                        sbstepidx, tidx, args.phaseref)
+    cvcobj = dataIO.CVCfiles(args.cvcpath)
+    CVCdataset = cvcobj.getdata()
+    for fileidx in range(args.filenr, cvcobj.getnrfiles()):
+        if cvcobj.obsfolderinfo['cvc-type'] == 'acc':
+            integration = 1.0
+        else:
+            obsinfo = cvcobj.obsinfos[fileidx]
+            integration = int(obsinfo.rspctl_cmd['integration'])
+        CVCdata = CVCdataset[fileidx]
+        if CVCdata.ndim == 2:
+            intgs = 1
+        else:
+            intgs = CVCdata.shape[0]
+        for tidx in range(intgs):
+            ll, mm, skyimages, t, freq, stnid, phaseref = imaging.cvcimage(cvcobj,
+                                                        fileidx, tidx, args.phaseref)
             imaging.plotskyimage(ll, mm, skyimages, t, freq, stnid, phaseref, integration)
 
 
@@ -162,7 +169,7 @@ if __name__ == "__main__":
     parser_image.set_defaults(func=image)
     parser_image.add_argument('cvcpath', help="acc or xst filefolder")
     parser_image.add_argument('-p','--phaseref', type=str, default=None)
-    parser_image.add_argument('-c','--cubeindex', type=int, default=0)
+    parser_image.add_argument('-n','--filenr', type=int, default=0)
 
     args = parser.parse_args()
     args.func(args)

@@ -156,35 +156,45 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
         t0, rcumode = obsfolderinfo['datetime'], obsfolderinfo['rcumode']
         pointingstr = obsfolderinfo['pointing']
         cvctype = obsfolderinfo['cvc-type']
+
+    bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
+    band = stationcontrol.rcumode2band(rcumode)
+    freqs = stationcontrol.rcumode2sbfreqs(rcumode)
+    cvcdata_unc = cvcobj.getdata(filestep)
+
     if cvctype == 'acc':
-        cvcdata_unc = cvcobj.getdata(filestep)  # FIXME allow imaging other than index 0
         ts = cvcobj.samptimes[0]
         calsrc = obsfolderinfo['calsrc']
         stnid = obsfolderinfo['stnid']
-        sb, nz = stationcontrol.freq2sb(float(cubeslice))
-        cubeslice = sb
+        #sb, nz = stationcontrol.freq2sb(float(cubeslice))
+        #cubeslice = sb
+        sb = cubeslice
         t = ts[cubeslice]
+        septon = False  # FIXME
     else:
-        cvcdata_unc = cvcobj.getdata(filestep)
         starttime = obsinfo.starttime
         stnid = obsinfo.stnid
         beamctl_cmd = obsinfo.beamctl_cmd
         sb = int(obsinfo.rspctl_cmd['xcsubband'])
         t = t0 + datetime.timedelta(seconds=float(cubeslice))
         cubeslice = int(cubeslice)
-    bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
+
+    # Get/Compute ant positions
     stnPos, stnRot, antpos, stnIntilePos \
                             = antennafieldlib.getArrayBandParams(stnid, bandarr)
     try:
         obsinfo.septonconf
-    except AttributeError:
-        obsinfo.septonconf = None
-    if obsinfo.septonconf is not None:
+    except (AttributeError, UnboundLocalError) as e:
+        septon = False
+    else:
+        if obsinfo.septonconf:
+            septon = True
+        else:
+            septon = False
+    if septon:
         elmap = ilisa.observations.modeparms.str2elementMap2(obsinfo.septonconf)
         for tile, elem in enumerate(elmap):
             antpos[tile] = antpos[tile] + stnIntilePos[elem]
-
-    freqs = stationcontrol.rcumode2sbfreqs(rcumode)
 
     # stn2Dcoord = stnRot.T * antpos.T
     # Apply calibration
@@ -197,7 +207,7 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
     cvpol = dataIO.cvc2cvpol(cvcdata)
 
     # Determine if allsky FoV
-    if bandarr == '10_90' or bandarr == '30_90' or (obsinfo.septonconf is not None):
+    if band == '10_90' or band == '30_90' or septon:
         allsky = True
     else:
         allsky = False
