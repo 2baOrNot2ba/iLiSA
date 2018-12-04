@@ -186,6 +186,8 @@ class ObsInfo(object):
                         sbstep = sbsteps.pop()
                         sbstepstr = str(sbstep)+':' if sbsteps >1 else ''
                         sbstr = "{}:{}{}".format(sblist[0], sbstepstr, sblist[-1])
+                else:
+                    sbstr = self.sb
                 st_extName += sbstr
             st_extName += "_int"+str(int(self.integration))+"_dur"+str(int(self.duration))
             if self.LOFARdatTYPE != 'sst':
