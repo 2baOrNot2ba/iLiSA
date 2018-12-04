@@ -54,19 +54,6 @@ def phaseref_xstpol(xstpol, obstime0, freq, stnPos, antpos, pointing):
     return xstpupol, UVWxyz
 
 
-# def phaseref_accs(acc, sbobstimes, freqs, stnPos, antpos, pointing):
-#     """ """
-#     accphasedup = numpy.zeros(acc.shape, dtype=complex)
-#     print("sb", end='')
-#     for sb in range(acc.shape[0]):
-#         print(sb, end='')
-#         xst = acc[sb,...].squeeze()
-#         xstphasedup, UVWxyz = phaseref_xst(xst, sbobstimes[sb], freqs[sb],
-#                                        stnPos, antpos, pointing)
-#         accphasedup[sb,...] = xstphasedup
-#     return accphasedup
-
-
 def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     """Phase up a spectral cube of visibilities (ACC) to pointing direction."""
     accphasedup = numpy.zeros(accpol.shape, dtype=complex)

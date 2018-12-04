@@ -108,7 +108,6 @@ def plotacc(args):
     accff = os.path.normpath(args.dataff)
     dataobj = dataIO.CVCfiles(accff)
     obsfolderinfo = dataobj.getobsfolderinfo()
-    print(dict(obsfolderinfo))
     data = dataobj.getdata()
     nrfiles = dataobj.getnrfiles()
     if nrfiles>1:
@@ -117,7 +116,6 @@ def plotacc(args):
         args.freq = 0.0
     sb, nqzone = modeparms.freq2sb(args.freq)
     while sb<512:
-        print(sb, modeparms.sb2freq(sb, nqzone) / 1e6)
         plt.pcolormesh(numpy.abs(data[sb]))
         plt.show()
         sb += 1

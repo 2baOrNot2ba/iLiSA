@@ -330,22 +330,21 @@ def parsebeamctldir(beamctldirarg):
         return None
 
 
-def stdPointings(directionterm):
+def stdPointings(directionterm='?'):
     """Find beamctl direction string based on direction term.
 
     Parameters
     ----------
-    directionterm : str or None
+    directionterm : str, '?', '', or None
         Source name or term for a direction. E.g. 'Z' for Zenith
-        or 'CasA' for Cassiopeia A. If set to None, the function returns the
-        direction terms it knows about.
+        or 'CasA' for Cassiopeia A.
 
     Returns
     -------
     beamctldir : str
         Argument suitable for beamctl direction arguments --anadir and
-        --digdir. If input is None it will return all the direction terms it
-        knows.
+        --digdir. If directionterm is None it will return all the direction terms it
+        knows. If it is '', then it will return an empty direction ',,'.
 
     Raises
     ------
@@ -353,25 +352,28 @@ def stdPointings(directionterm):
         Thrown if directionterm is not understood.
     """
     term2beamstr = {  # 1e-6 rad < 1arcsec
-          'N':    str(0*math.pi/2)+",0.,AZELGEO",
-          'E':    str(1*math.pi/2)+",0.,AZELGEO",
-          'S':    str(2*math.pi/2)+",0.,AZELGEO",
-          'W':    str(3*math.pi/2)+",0.,AZELGEO",
-          'Z':    '0.,'+str(math.pi/2)+',AZELGEO',
-          'CasA': '6.123487,1.026515,J2000',
-          'CygA': '5.233660,0.710940,J2000',
-          'TauA': '1.459672,0.384225,J2000',
-          'VirA': '3.276086,0.216265,J2000',
-          'Sun':  '0.,0.,SUN',
-          'Jupiter': '0.,0.,JUPITER',
-          'Moon': '0.,0.,MOON',
-          'PSR_LGM': '5.0691,0.3819,J2000',
-          'NCP':  '0.,'+str(math.pi/2)+',ITRF'
+        '':     ',,',
+        'N':    str(0*math.pi/2)+',0.,AZELGEO',
+        'E':    str(1*math.pi/2)+',0.,AZELGEO',
+        'S':    str(2*math.pi/2)+',0.,AZELGEO',
+        'W':    str(3*math.pi/2)+',0.,AZELGEO',
+        'Z':    '0.,'+str(math.pi/2)+',AZELGEO',
+        'CasA': '6.123487,1.026515,J2000',
+        'CygA': '5.233660,0.710940,J2000',
+        'TauA': '1.459672,0.384225,J2000',
+        'VirA': '3.276086,0.216265,J2000',
+        'Sun':  '0.,0.,SUN',
+        'Jupiter': '0.,0.,JUPITER',
+        'Moon': '0.,0.,MOON',
+        'PSR_LGM': '5.0691,0.3819,J2000',
+        'NCP':  '0.,'+str(math.pi/2)+',ITRF'
     }
-    if directionterm is None:
+    if directionterm is '?':
         return term2beamstr.keys()
     if directionterm in term2beamstr:
         return term2beamstr[directionterm]
+    elif directionterm is None:
+        return None
     else:
         raise KeyError('Requested source {} unknown.'.format(directionterm))
 

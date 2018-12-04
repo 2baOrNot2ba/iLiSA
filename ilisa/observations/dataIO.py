@@ -559,7 +559,7 @@ class CVCfiles(object):
             obsfolderinfo['datetime'] = d0
             obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
             obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
-            obsfolderinfo['pointing'] = modeparms.stdPointings(obsdirinfo['calsrc'])
+            obsfolderinfo['pointing'] = modeparms.stdPointings(obsfolderinfo['calsrc'])
             obsfolderinfo['duration'] = int(obsdirinfo['duration'])
             obsfolderinfo['stnid'] = obsdirinfo['stnid']
         else:
