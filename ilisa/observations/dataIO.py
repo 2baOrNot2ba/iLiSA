@@ -365,8 +365,8 @@ def readbstfolder(BSTfilefolder):
         sblo = sblist[0]
         sbhi = sblist[-1]
         nz = stationcontrol.rcumode2NyquistZone(rcumode)
-        freqlo = stationcontrol.sb2freq(sblo, nz)
-        freqhi = stationcontrol.sb2freq(sbhi, nz)
+        freqlo = modeparms.sb2freq(sblo, nz)
+        freqhi = modeparms.sb2freq(sbhi, nz)
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
                                                   numpy.linspace(freqlo, freqhi, nrsbs))
         totnrsbs += nrsbs
@@ -382,8 +382,8 @@ def readbstfolder(BSTfilefolder):
         nrsbs = missing_sbs
         sblo = sbhi + 1
         sbhi = sblo + nrsbs
-        freqlo = stationcontrol.sb2freq(sblo,nz)
-        freqhi = stationcontrol.sb2freq(sbhi,nz)
+        freqlo = modeparms.sb2freq(sblo, nz)
+        freqhi = modeparms.sb2freq(sbhi, nz)
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
                                                   numpy.linspace(freqlo, freqhi, nrsbs))
         totnrsbs += nrsbs
@@ -720,8 +720,7 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
                   +'_rcu'+rcumode +'_'+calsrc+'_dur'+calrundurationstr\
                   +'_ct'+caltabID+'_'+dtlabel
     #acc2bstsuffix = '.dat'
-    from ilisa.observations.modeparms import stdPointings
-    pntstr = stdPointings(calsrc)
+    pntstr = modeparms.stdPointings(calsrc)
     # Write out the data.
     if saveformat == 'hdf5':
         hf = h5py.File(acc2bstbase+".hdf5", "w")

@@ -102,25 +102,6 @@ def rcumode2NyquistZone(rcumode):
     return NZ
 
 
-def NyquistZone2rcumode(NZ):
-    rcumode = NZ*2+3
-    return str(rcumode)
-
-
-def freq2sb(freq):
-    """Convert frequency in Hz to subband number and Nyquist zone."""
-    absSB = int(round(freq/Nqfreq*TotNrOfsb))
-    sb = absSB % TotNrOfsb
-    NqZone = absSB / TotNrOfsb
-    return sb, NqZone
-
-
-def sb2freq(sb, NqZone):
-    """Convert subband in a given Nyquist zone to a frequency."""
-    freq = Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
-    return freq
-
-
 def maxNrOfBeamlets(wordsize_bits):
     """Return maximum number of subbands, depending on word size of ADC
     samples: 16-bit, 8-bit modes."""

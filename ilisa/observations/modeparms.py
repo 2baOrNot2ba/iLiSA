@@ -2,6 +2,8 @@
 import math
 import numpy
 
+from ilisa.observations.stationcontrol import Nqfreq, TotNrOfsb
+
 
 class FrequencyBand(object):
     """Class that handles frequency bands and all things related to them.
@@ -411,3 +413,17 @@ def str2elementMap2(elmapstr):
     for el in elmapstr:
         elmap.append(int(el, 16))
     return elmap
+
+
+def freq2sb(freq):
+    """Convert frequency in Hz to subband number and Nyquist zone."""
+    absSB = int(round(freq/Nqfreq*TotNrOfsb))
+    sb = absSB % TotNrOfsb
+    NqZone = absSB / TotNrOfsb
+    return sb, NqZone
+
+
+def sb2freq(sb, NqZone):
+    """Convert subband in a given Nyquist zone to a frequency."""
+    freq = Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
+    return freq

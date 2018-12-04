@@ -8,6 +8,7 @@ import matplotlib.colors as colors
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
+import ilisa.observations.modeparms as modeparms
 
 
 def plotbst(bstff):
@@ -83,7 +84,7 @@ def plotxst(xstff):
         sb = obsinfo.rspctl_cmd['xcsubband']
         intg = int(obsinfo.rspctl_cmd['integration'])
         dur = int(obsinfo.rspctl_cmd['duration'])
-        freq = stationcontrol.sb2freq(sb, stationcontrol.rcumode2NyquistZone(
+        freq = modeparms.sb2freq(sb, stationcontrol.rcumode2NyquistZone(
             obsinfo.beamctl_cmd['rcumode']))
         ts = numpy.arange(0., dur, intg)
         XSTdata = XSTdataset[sbstepidx]
@@ -106,15 +107,17 @@ def whichst(bsxff):
 def plotacc(args):
     accff = os.path.normpath(args.dataff)
     dataobj = dataIO.CVCfiles(accff)
+    obsfolderinfo = dataobj.getobsfolderinfo()
+    print(dict(obsfolderinfo))
     data = dataobj.getdata()
     nrfiles = dataobj.getnrfiles()
     if nrfiles>1:
         data = data[0]
     if args.freq is None:
         args.freq = 0.0
-    sb, nqzone = stationcontrol.freq2sb(args.freq)
+    sb, nqzone = modeparms.freq2sb(args.freq)
     while sb<512:
-        print(sb,stationcontrol.sb2freq(sb,nqzone)/1e6)
+        print(sb, modeparms.sb2freq(sb, nqzone) / 1e6)
         plt.pcolormesh(numpy.abs(data[sb]))
         plt.show()
         sb += 1
