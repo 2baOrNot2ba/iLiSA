@@ -256,7 +256,7 @@ class Station(object):
         else:
             prePrompt = ""
         if self.verbose:
-            print prePrompt+LCUprompt+cmdline
+            print(prePrompt+LCUprompt+cmdline)
         if self.DryRun is False and self.accessible:
             if backgroundJOB == 'locally':
                 # Runs in background locally rather than in background on LCU
@@ -285,20 +285,19 @@ class Station(object):
         else:
             prePrompt = ""
         if self.verbose:
-            print prePrompt+LCUprompt+cmdline
+            print(prePrompt+LCUprompt+cmdline)
         if self.DryRun is False:
             try:
                 output = subprocess.check_output(shellinvoc+" '"+cmdline+"'",
                                                  shell=True).rstrip()
-            except subprocess.CalledProcessError, e:
-                #raise Exception('Access LCU error: {}'.format(e))
-                raise OSError()
+            except subprocess.CalledProcessError as e:
+                raise e
         else:
             output = "None"
         return output
 
     def outfromLCU(self, cmdline, integration, duration):
-        print "LCUo>", cmdline
+        print("LCUo> {}".format(cmdline))
         cmd = subprocess.Popen("ssh "+self.lcuURL+" "+"'"+cmdline+"'",
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, shell=True)
@@ -310,13 +309,11 @@ class Station(object):
             elif outstrname == 'stderr':
                 outstr = cmd.stderr
             else:
-                print "Unknown output name"
-                exit(1)
+                raise ValueError("Unknown output name {}".format(outstrname))
             try:
                 got = cmd.stderr.readline()
             except IOError:
-                print("ioerror")
-                exit(1)
+                raise IOError()
             else:
                 # print got
                 if "shape(stats)=" in got:
@@ -358,7 +355,7 @@ class Station(object):
             getstationmode_out = self._stdoutLCU("getstationmode")
         except:
             # Can happen if no ServiceBroker process running
-            print "Caught"
+            print("Warning: ServiceBroker not running")
             getstationmode_out = ""
         stationmode = getstationmode_out.split()[-1]
         return stationmode
@@ -420,12 +417,12 @@ class Station(object):
         self.execOnLCU("killall beamctl")
 
         if FullReboot is not True:
-            print "Checking swlevel (prior to running observations)"
+            print("Checking swlevel (prior to running observations)")
             if not self.DryRun:
                 swlevel = self.getswlevel()
             else:
                 swlevel = "undefined"
-            print "Found swlevel="+swlevel
+            print("Found swlevel="+swlevel)
             if swlevel != str(swleveltarget):
                 # FullReboot = True
                 self.execOnLCU("swlevel "+str(swleveltarget))
@@ -548,28 +545,28 @@ class Station(object):
         if self.usescriptonlcu:
             self.execOnLCU("scripts/tbb_setup.sh")
         else:
-            print "Freeing TBBs"
+            print("Freeing TBBs")
             self.execOnLCU("tbbctl --free")
-            print "Setting TBB transient mode on rspctl"
+            print("Setting TBB transient mode on rspctl")
             self.execOnLCU("rspctl --tbbmode=transient")
             time.sleep(1)
-            print "Allocating TBBs"
+            print("Allocating TBBs")
             self.execOnLCU("tbbctl --alloc")
             time.sleep(1)
-            print "Setting TBB transient mode on tbbctl"
+            print("Setting TBB transient mode on tbbctl")
             self.execOnLCU("tbbctl --mode=transient")
             time.sleep(1)
-            print "Start TBB recording"
+            print("Start TBB recording")
             self.execOnLCU("tbbctl --record")
-            print "Finished setting up TBBs & started recording"
+            print("Finished setting up TBBs & started recording")
 
     def freezeTBBdata(self):
         if self.usescriptonlcu:
             self.execOnLCU("scripts/tbb_stop.sh")
         else:
-            print "Stopping TBB recording"
+            print("Stopping TBB recording")
             self.execOnLCU("tbbctl --stop")
-            print "Stopping any dummy beam"
+            print("Stopping any dummy beam")
             self.stopBeam()
 
     def startTBBdataStream(self, duration):
@@ -583,7 +580,7 @@ class Station(object):
         if self.usescriptonlcu:
             self.execOnLCU("scripts/tbb_dumpall.sh"+" "+nrpages)
         else:
-            print "Streaming TBB data"
+            print("Streaming TBB data")
             self.execOnLCU("tbbctl --storage=lofarA1 --select=0:15,16:31,32:47"
                            )
             self.execOnLCU("tbbctl --storage=lofarA2 --select=48:63,64:79,80:95"
@@ -697,7 +694,7 @@ class Station(object):
         rspctl_CMD = "rspctl --rcu=0x00034880 --sel=0:191"
         time.sleep(30)
         self.execOnLCU(rspctl_CMD)
-        print "Warning: Turning OFF LBA LNAs."
+        print("Warning: Turning OFF LBA LNAs.")
         time.sleep(30)
         return rspctl_CMD
 
