@@ -135,7 +135,7 @@ def do_bfs(args):
     # TODO: This seems necessary, otherwise beamctl will not start up next time,
     #       although it should not have to necessary.)
     print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
-    myobs.stationcontroller.runbeamctl(beamletIDs, subbandNrs, band, pointing)
+    myobs.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band, pointing)
     myobs.stationcontroller.rcusetup(bits,
                                         attenuation)  # setting bits also seems necessary.
     myobs.stationcontroller.stopBeam()
@@ -146,8 +146,8 @@ def do_bfs(args):
 
     # Real beam start:
     print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-    beamctl_CMD = myobs.stationcontroller.runbeamctl(beamletIDs, subbandNrs,
-                                                        band, pointing)
+    beamctl_CMD = myobs.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band,
+                                                      pointing)
     rcu_setup_CMD = myobs.stationcontroller.rcusetup(bits, attenuation)
     nw = datetime.datetime.utcnow()
     timeleft = st - nw

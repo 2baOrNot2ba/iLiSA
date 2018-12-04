@@ -160,8 +160,8 @@ class Session(object):
             beamletIDs = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
             rcusel = freqbndobj.rcusel[bandbeamidx]
-            beamctl_main = self.stationcontroller.runbeamctl(beamletIDs, subbands,
-                                                             rcumode, pointing, rcusel)
+            beamctl_main = self.stationcontroller.run_beamctl(beamletIDs, subbands,
+                                                              rcumode, pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
         rcu_setup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
         return rcu_setup_CMD, beamctl_cmds
@@ -387,7 +387,7 @@ class Session(object):
 
         # Beamlet & Subband allocation does not matter here
         # since niether ACC or SST cares
-        beamctl_CMD = self.stationcontroller.runbeamctl('0', '255', rcumode, pointing)
+        beamctl_CMD = self.stationcontroller.run_beamctl('0', '255', rcumode, pointing)
 
         # Run for $duration seconds
         rspctl_CMD = self.stationcontroller.rec_sst(sst_integration, duration)

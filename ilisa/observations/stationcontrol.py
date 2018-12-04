@@ -448,7 +448,7 @@ class Station(object):
 
 ##Basic station data taking commands BEGIN
 
-    def runrspctl(self, mode='', select=''):
+    def run_rspctl(self, mode='', select=''):
         """Run rspctl command to setup RCUs: rcumode, select.
         """
         argsdict = {'mode': mode, 'select': select}
@@ -478,13 +478,13 @@ class Station(object):
         self.execOnLCU(rcu_setup_CMDs)
         return rcu_setup_CMDs
 
-    def setupbeamlets(self, beamletIDs, subbandNrs, band, pointing,
-                      RCUSflag=ALLRCUs, beamletDurStr=""):
-        """ """
-        if beamletDurStr != "":
-            beamletDurStr = ","+beamletDurStr
-        anadir = pointing
-        digdir = pointing
+    def _setup_beamctl(self, beamlets, subbands, band, anadigdir, rcus=ALLRCUs,
+                       beamdurstr=''):
+        """Create a beamctl command string from the given arguments."""
+        if beamdurstr != '':
+            beamdurstr = ',' + beamdurstr
+        anadir = anadigdir
+        digdir = anadigdir
 
         try:
             # See if band is actually old rcumode 3,5,7 etc
@@ -492,21 +492,21 @@ class Station(object):
         except ValueError:
             pass    # It's not an rcumode. Assume it's a proper band descriptor
         antset = band2antset(band)
-        beamctl_CMD = ("beamctl --antennaset="+antset+" --rcus="+RCUSflag
-                       + " --band="+band+" --beamlets="+beamletIDs
-                       + " --subbands="+subbandNrs
-                       + " --anadir="+anadir+beamletDurStr
-                       + " --digdir="+digdir+beamletDurStr)
+        beamctl_CMD = ("beamctl --antennaset=" + antset +" --rcus=" + rcus
+                       + " --band=" + band +" --beamlets=" + beamlets
+                       + " --subbands=" + subbands
+                       + " --anadir=" + anadir + beamdurstr
+                       + " --digdir=" + digdir + beamdurstr)
         return beamctl_CMD
 
-    def runbeamctl(self, beamletIDs, subbandNrs, rcumode, pointing,
-                   RCUSflag=ALLRCUs, beamletDurStr="", backgroundJOB=True):
+    def run_beamctl(self, beamlets, subbands, rcumode, anadigdir, rcus=ALLRCUs,
+                    beamdurstr='', backgroundJOB=True):
         """Start a beam using beamctl command. Blocks until ready."""
-        beamctl_CMD = self.setupbeamlets(beamletIDs, subbandNrs, rcumode,
-                                         pointing, RCUSflag, beamletDurStr)
+        beamctl_CMD = self._setup_beamctl(beamlets, subbands, rcumode, anadigdir, rcus,
+                                          beamdurstr)
         self.execOnLCU(beamctl_CMD, backgroundJOB)
         waittime = 10
-        print "Waiting "+str(waittime)+" seconds"
+        print("Waiting {}s for beam to settle...".format(waittime))
         time.sleep(waittime)  # Wait for beam to settle
         return beamctl_CMD
 
@@ -708,7 +708,7 @@ class Station(object):
     def turnoffElinTile_byTile(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by tile, which is more intuitive but slower."""
-        self.runrspctl(mode='5')
+        self.run_rspctl(mode='5')
         for tileNr in range(nrTiles):
             # Start with all elements in tile off
             # (2 is OFF)
@@ -723,7 +723,7 @@ class Station(object):
     def turnoffElinTile_byEl(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by element, which is less intuitive but faster."""
-        self.runrspctl(mode='5')
+        self.run_rspctl(mode='5')
         for elNr in range(elementsInTile):
             tiles = [ind for ind in range(nrTiles) if elNr == elemsOn[ind]]
             if len(tiles) == 0:
