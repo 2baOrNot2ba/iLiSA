@@ -15,16 +15,8 @@ Nqfreq = 100.0e6  # Nyquist frequency in Hz
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
 NrBeamletsPerLane = 61
-baseSB = 0  # Nominally 0.
-beamlets_lane0 = range(0,                   1*NrBeamletsPerLane)
-beamlets_lane1 = range(1*NrBeamletsPerLane, 2*NrBeamletsPerLane)
-beamlets_lane2 = range(2*NrBeamletsPerLane, 3*NrBeamletsPerLane)
-beamlets_lane3 = range(3*NrBeamletsPerLane, 4*NrBeamletsPerLane)
-maxNrSubbands = 4*NrBeamletsPerLane
 elementsInTile = 16
 nrTiles = 96
-beamboottime = 12.0  # Time it takes for beams to settle, depends on LBA or HBA
-bandnames = ['10_90', '30_90', '110_190', '170_230', '210_250']
 
 
 def band2antset(band):
