@@ -445,20 +445,20 @@ class Station(object):
 
 ##Basic station data taking commands BEGIN
 
-    def run_rspctl(self, mode='', select=''):
+    def run_rspctl(self, select=None, mode=None, tbbmode=None):
         """Run rspctl command to setup RCUs: rcumode, select.
         """
-        argsdict = {'mode': mode, 'select': select}
+        argsdict = {'select': select, 'mode': mode, 'tbbmode': tbbmode}
         # Form commandline argument string ignoring blank arguments:
         argsstr = ''
         for arg in argsdict.keys():
-            if argsdict[arg] != '':
+            if argsdict[arg] is not None:
                 argsstr += " --{}={}".format(arg, argsdict[arg])
         if argsstr != '':
             rspctl_cmd = "rspctl"+argsstr
             self.execOnLCU(rspctl_cmd)
         else:
-            rspctl_cmd = ''
+            rspctl_cmd = None
         return rspctl_cmd
 
     def rcusetup(self, bits, attenuation):
@@ -540,84 +540,37 @@ class Station(object):
 ### Basic station "statistic" datataking END
 
 ### TBB control BEGIN
-    def setupTBBs(self):
-        """Setup transient buffer boards for recording."""
-        if self.usescriptonlcu:
-            self.execOnLCU("scripts/tbb_setup.sh")
+    def run_tbbctl(self, select=None, alloc=False, free=False, record=False, stop=False,
+                   mode=None, storage=None, readall=None, cepdelay=None,
+                   backgroundJOB = False):
+        """Run the tbbctl command on the LCU with arguments given."""
+        tbbctl_args = ""
+
+        if alloc:
+            tbbctl_args += " --alloc"
+        if free:
+            tbbctl_args += " --free"
+        if record:
+            tbbctl_args += " --record"
+        if stop:
+            tbbctl_args += " --stop"
+        if mode is not None:
+            tbbctl_args += " --mode={}".format(mode)
+        if storage is not None:
+            tbbctl_args += " --storage={}".format(storage)
+        if readall is not None:
+            tbbctl_args += " --readall={}".format(readall)
+        if cepdelay is not None:
+            tbbctl_args += " --cepdelay={}".format(cepdelay)
+        if select is not None:
+            # `select` needs to come last
+            tbbctl_args += " --select={}".format(select)
+        if tbbctl_args != "":
+            tbbctl_cmd = "tbbctl"+tbbctl_args
+            self.execOnLCU(tbbctl_cmd, backgroundJOB)
         else:
-            print("Freeing TBBs")
-            self.execOnLCU("tbbctl --free")
-            print("Setting TBB transient mode on rspctl")
-            self.execOnLCU("rspctl --tbbmode=transient")
-            time.sleep(1)
-            print("Allocating TBBs")
-            self.execOnLCU("tbbctl --alloc")
-            time.sleep(1)
-            print("Setting TBB transient mode on tbbctl")
-            self.execOnLCU("tbbctl --mode=transient")
-            time.sleep(1)
-            print("Start TBB recording")
-            self.execOnLCU("tbbctl --record")
-            print("Finished setting up TBBs & started recording")
-
-    def freezeTBBdata(self):
-        if self.usescriptonlcu:
-            self.execOnLCU("scripts/tbb_stop.sh")
-        else:
-            print("Stopping TBB recording")
-            self.execOnLCU("tbbctl --stop")
-            print("Stopping any dummy beam")
-            self.stopBeam()
-
-    def startTBBdataStream(self, duration):
-        """Stream duration seconds of TBB data out of the LCU to
-        datataking node."""
-        # Set delay between subsequent frames. One delay unit is 5us.
-        udpdelay = 500  # (Previously 100)
-        nrpages = str(int(duration*2*Nqfreq/1024))  # One page is 1024 samples.
-                                                    # Normal sampling frequency
-                                                    # is 200MHz.
-        if self.usescriptonlcu:
-            self.execOnLCU("scripts/tbb_dumpall.sh"+" "+nrpages)
-        else:
-            print("Streaming TBB data")
-            self.execOnLCU("tbbctl --storage=lofarA1 --select=0:15,16:31,32:47"
-                           )
-            self.execOnLCU("tbbctl --storage=lofarA2 --select=48:63,64:79,80:95"
-                           )
-            self.execOnLCU("tbbctl --storage=lofarA3 --select=96:111,112:127,128:143")
-            self.execOnLCU("tbbctl --storage=lofarA4 --select=144:159,160:175,176:191")
-
-            self.execOnLCU("tbbctl --cepdelay="+str(udpdelay))
-
-            self.execOnLCU("tbbctl --readall="+nrpages+" --select=0:15",
-                           backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=48:63",
-                           backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=96:111",
-                           backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=144:159",
-                           backgroundJOB='locally' )
-
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=16:31",
-                           backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=64:79",
-                           backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=112:127",
-                           backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=160:175",
-                           backgroundJOB='locally')
-
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=32:47",
-                           backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=80:95",
-                           backgroundJOB='locally')
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=128:143",
-                           backgroundJOB='locally')
-            # Last one is not put in background so the parent process blocks
-            # until finished.
-            self.execOnLCU("tbbctl --readall="+nrpages+"  --select=176:191",
-                           backgroundJOB='locally')
+            tbbctl_cmd = None
+        return tbbctl_cmd
 
 ### TBB control END
 ### ACC control BEGIN
