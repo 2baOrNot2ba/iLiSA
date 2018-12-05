@@ -484,26 +484,26 @@ class Session(object):
 
     def _setupTBBs(self):
         """Setup transient buffer boards and start recording."""
-        print("Freeing TBBs")
+        print("In setupTBBs: Freeing TBBs")
         self.stationcontroller.run_tbbctl(free=True)
-        print("Setting TBB transient mode on rspctl")
+        print("In setupTBBs: Setting TBB transient mode on rspctl")
         self.stationcontroller.run_rspctl(tbbmode='transient')
         time.sleep(1)
-        print("Allocating TBBs")
+        print("In setupTBBs: Allocating TBBs")
         self.stationcontroller.run_tbbctl(alloc=True)
         time.sleep(1)
-        print("Setting TBB transient mode on tbbctl")
+        print("In setupTBBs: Setting TBB transient mode on tbbctl")
         self.stationcontroller.run_tbbctl(mode='transient')
         time.sleep(1)
-        print("Start TBB recording")
+        print("In setupTBBs: Start TBB recording")
         self.stationcontroller.run_tbbctl(record=True)
-        print("Finished setting up TBBs & started recording")
+        print("In setupTBBs: Finished setting up TBBs & started recording")
 
     def _freezeTBBdata(self):
         """Stop TBB recording."""
-        print("Stopping TBB recording")
+        print("In freezeTBBdata: Stopping TBB recording")
         self.stationcontroller.run_tbbctl(stop=True)
-        print("Stopping any dummy beam")
+        print("In freezeTBBdata: Stopping any dummy beam")
         self.stationcontroller.stopBeam()
 
     def _startTBBdataStream(self, duration):
@@ -515,8 +515,6 @@ class Session(object):
         nrpages = str(int(duration*2*Nqfreq/1024))  # One page is 1024 samples.
                                                     # Normal sampling frequency
                                                     # is 200MHz.
-        print("Streaming TBB data")
-
         self.stationcontroller.run_tbbctl(select='0:15,16:31,32:47', storage='lofarA1')
         self.stationcontroller.run_tbbctl(select='48:63,64:79,80:95', storage='lofarA2')
         self.stationcontroller.run_tbbctl(select='96:111,112:127,128:143', storage='lofarA3')
@@ -541,7 +539,7 @@ class Session(object):
         # until finished.
         self.stationcontroller.run_tbbctl(select='176:191', readall=nrpages) # backgroundJOB='locally')
 
-    def do_tbb(self, duration, band):
+    def do_tbb(self, duration, band, start_after=0):
         """Record duration seconds of TBB data from rcumode."""
 
         observer = self.observer
@@ -556,15 +554,19 @@ class Session(object):
         freqlo, freqhi = freqband.edgefreqs()
         freq0 = (freqlo+freqhi)/2.0
         actualfb = modeparms.FrequencyBand(freq0)
-        antset = stationcontrol.band2antset(band)
+        antset = actualfb.antsets[0]
         self.streambeams(actualfb, pointing)
 
-        print("Set up TBBs")
+        print("Setting up TBBs")
         self._setupTBBs()
 
-        waittime = 20
-        print("Waiting {}s for TBBs to fill up".format(waittime))
-        time.sleep(waittime)
+        print("Will start TBB recording in {}s".format(start_after))
+        time.sleep(start_after)
+
+        print("Will freeze TBB recording in {}s".format(duration))
+        time.sleep(duration)  # Arbitrary time to trigger
+        print("Sending trigger to TBBs")
+        self._freezeTBBdata()
 
         # Start data capture process locally
         dalcap = \
@@ -573,10 +575,8 @@ class Session(object):
                                           observer, antset, project,
                                           observationID,False))
         dalcap.start()
-        time.sleep(20)  # Arbitrary time to trigger
-        print("Send trigger to TBBs")
-        self._freezeTBBdata()
-        print("Start streaming {}s of TBB data out of LCU".format(duration))
+
+        print("Streaming {}s of TBB data out of LCU".format(duration))
         self._startTBBdataStream(float(duration))
         dalcap.join()
 
