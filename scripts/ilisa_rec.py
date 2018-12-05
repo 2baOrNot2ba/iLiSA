@@ -227,7 +227,8 @@ def do_tbb(args):
     """Record Transient Buffer Board (TBB) data from one of the LOFAR bands for
     duration seconds.
     """
-    myobs.do_tbb(args.duration, args.band)
+    duration = float(eval(args.duration))
+    myobs.do_tbb(duration, args.band)
 
 
 if __name__ == "__main__":
