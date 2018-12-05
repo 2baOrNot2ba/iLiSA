@@ -115,8 +115,8 @@ def do_bfs(args):
         beamletIDs = '0:243'
         subbandNrs = '12:255'
     else:
-        raise ValueError, \
-            "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi)."
+        raise ValueError(
+            "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
     pointing = ilisa.observations.modeparms.normalizebeamctldir(args.pointsrc)
 
     # Wait until it is time to start
@@ -194,8 +194,12 @@ def _do_bsx(statistic, args):
     if args.allsky and 'HBA' in frqbndobj.antsets[0]:
         myobs.do_SEPTON(statistic, frqbndobj, args.integration, duration)
     else:
-        myobs.bsxST(statistic, frqbndobj, args.integration, duration,
-                    args.pointsrc)
+        try:
+            myobs.bsxST(statistic, frqbndobj, args.integration, duration,
+                        args.pointsrc)
+        except RuntimeError as rte:
+            print("Error: {}".format(rte))
+            #myobs.halt_observingstate_when_finished = False
 
 
 def do_bst(args):
