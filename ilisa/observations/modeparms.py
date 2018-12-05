@@ -284,6 +284,22 @@ class FrequencyBand(object):
         """Return list of rcu band names."""
         return list(self.rcumode_passbands.values())
 
+    def sbarg2sbs(self, sbarg):
+        """Return a tuple of subbands from a subband commandline argument."""
+        sbs=[]
+        for sbel in sbarg.split(','):
+            sbels = sbel.split(':')
+            sblo, sbhi  = int(sbels[0]), int(sbels[-1])
+            sbs.extend(range(sblo, sbhi+1))
+        return sbs
+
+    def edgefreqs(self, spw = 0):
+        """Return a tuple of lowest and highest frequency in frequency band of spw."""
+        sbs = self.sbarg2sbs(self.sb_range[spw])
+        freqlo = self.rcumode_sb2freq(self.rcumodes[spw], sbs[0])
+        freqhi = self.rcumode_sb2freq(self.rcumodes[spw], sbs[-1])
+        return freqlo, freqhi
+
 
 def pointingGrid(NrAzDirs=8, NrElDirs=7):
     """Returns a tuple of LOFAR beamctl directions strings of a spherical
