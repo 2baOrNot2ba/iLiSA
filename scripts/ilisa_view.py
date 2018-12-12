@@ -85,8 +85,12 @@ def plotxst(xstff):
         sb = obsinfo.rspctl_cmd['xcsubband']
         intg = int(obsinfo.rspctl_cmd['integration'])
         dur = int(obsinfo.rspctl_cmd['duration'])
-        freq = modeparms.sb2freq(sb, stationcontrol.rcumode2NyquistZone(
-            obsinfo.beamctl_cmd['rcumode']))
+
+        if obsinfo.datatype != "xst-SEPTON":
+            rcumode = obsinfo.beamctl_cmd['rcumode']
+        else:
+            rcumode = 5
+        freq = modeparms.sb2freq(sb, stationcontrol.rcumode2NyquistZone(rcumode))
         ts = numpy.arange(0., dur, intg)
         XSTdata = XSTdataset[sbstepidx]
         for tidx in range(XSTdata.shape[0]):

@@ -564,7 +564,7 @@ class CVCfiles(object):
             if self.obsfolderinfo['cvc-type'] != 'acc':
                 try:
                     (d,t, _rest) = cvcfile.split('_', 2)
-                    hfilename = '{}_{}_xst.h'.format(d,t)
+                    hfilename = '{}_{}_{}.h'.format(d, t, self.obsfolderinfo['cvc-type'])
                     hfilepath = os.path.join(self.filefolder, hfilename)
                     obsinfo = ObsInfo()
                     obsinfo.parse_bsxST_header(hfilepath)

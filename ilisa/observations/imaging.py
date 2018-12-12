@@ -136,9 +136,13 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
     if type(obsfolderinfo) is list and type(obsfolderinfo[0]) is dataIO.ObsInfo:
         obsinfos = obsfolderinfo
         obsinfo = obsinfos[filestep]
-        t0, rcumode = obsinfo.starttime, obsinfo.beamctl_cmd['rcumode']
-        pointingstr = obsinfo.beamctl_cmd['anadir']
         cvctype = obsinfo.datatype
+        t0 = obsinfo.starttime
+        if cvctype != "xst-SEPTON":
+            rcumode =obsinfo.beamctl_cmd['rcumode']
+            pointingstr = obsinfo.beamctl_cmd['anadir']
+        else:
+            rcumode = '5'
     else:
         t0, rcumode = obsfolderinfo['datetime'], obsfolderinfo['rcumode']
         pointingstr = obsfolderinfo['pointing']
