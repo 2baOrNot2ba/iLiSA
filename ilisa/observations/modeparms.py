@@ -468,6 +468,8 @@ def seqlists2slicestr(seqlists):
         seqsteps = set(numpy.diff(seqlistcanon))
         if len(seqsteps) > 1:
             raise ValueError('Subband spec too complicated.')
+        elif len(seqsteps) == 0:
+            slicestr = "{}".format(seqlistcanon[0])
         else:
             seqstep = seqsteps.pop()
             seqstepstr = str(seqstep) + ':' if seqstep > 1 else ''

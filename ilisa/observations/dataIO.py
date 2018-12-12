@@ -153,7 +153,10 @@ class ObsInfo(object):
             if self.LOFARdatTYPE == "bst-357":
                 st_extName += "_rcu357"
             else:
-                rcumodestr = ''.join([str(rcumode) for rcumode in self.rcumode])
+                if type(self.rcumode) is list:
+                    rcumodestr = ''.join([str(rcumode) for rcumode in self.rcumode])
+                else:
+                    rcumodestr = str(self.rcumode)
                 st_extName += "_rcu"+rcumodestr
             if self.sb != []:
                 st_extName += "_sb"
