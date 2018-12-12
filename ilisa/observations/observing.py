@@ -34,7 +34,7 @@ elOn_Generic_Int_201512 = \
               3, 9, 3,13, 7,14, 7,14, 2, 8, 8, 0, 1, 4, 2, 2,12,15, 5, 7, 6,10,12, 3,
               3,12, 7, 4, 6, 0, 5, 9, 1,10,10,11, 5,11, 7, 9, 7, 6, 4, 4,15, 4, 1,15]
 elOn_same_el = 0
-elOn_same = [elOn_same_el for elemNr in range(stationcontrol.nrTiles)]
+# elOn_same = [elOn_same_el for elemNr in range(stationcontrol.nrTiles)]
 elemsOn = elOn_Generic_Int_201512  # elOn_same or elOn_step or elOn_gILT or ...
 
 

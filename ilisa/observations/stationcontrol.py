@@ -8,8 +8,7 @@ import subprocess
 # LOFAR constants
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
-elementsInTile = 16
-nrTiles = 96
+
 
 
 def band2antset(band):
@@ -99,11 +98,7 @@ def maxNrOfBeamlets(wordsize_bits):
     return maxNrOfSBs
 
 
-def tiles2rcus(tiles):
-    rcus = []
-    for tile in tiles:
-        rcus.extend([2*tile, 2*tile+1])  # Set same delay for both X&Y pol rcu
-    return rcus
+
 
 
 #######################################
@@ -595,15 +590,23 @@ class Station(object):
 # SEPTON
     setElem_ON = 128
     setElem_OFF = 2
+    elementsInTile = 16
+    nrTiles = 96
+
+    def _tiles2rcus(self, tiles):
+        rcus = []
+        for tile in tiles:
+            rcus.extend([2 * tile, 2 * tile + 1])  # Set same delay for both X&Y pol rcu
+        return rcus
 
     def turnoffElinTile_byTile(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by tile, which is more intuitive but slower."""
         self.run_rspctl(mode='5')
-        for tileNr in range(nrTiles):
+        for tileNr in range(self.nrTiles):
             # Start with all elements in tile off
             # (2 is OFF)
-            tileMap = [self.setElem_OFF for elemNr in range(elementsInTile)]
+            tileMap = [self.setElem_OFF for elemNr in range(self.elementsInTile)]
             # Turn on the appropriate element
             tileMap[elemsOn[tileNr]] = self.setElem_ON  # 128 is ON
             lcucmd = "rspctl --hbadelay="\
@@ -615,13 +618,13 @@ class Station(object):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by element, which is less intuitive but faster."""
         self.run_rspctl(mode='5')
-        for elNr in range(elementsInTile):
-            tiles = [ind for ind in range(nrTiles) if elNr == elemsOn[ind]]
+        for elNr in range(self.elementsInTile):
+            tiles = [ind for ind in range(self.nrTiles) if elNr == elemsOn[ind]]
             if len(tiles) == 0:
                 continue
-            tileMap = [self.setElem_OFF for elemNr in range(elementsInTile)]
+            tileMap = [self.setElem_OFF for elemNr in range(self.elementsInTile)]
             tileMap[elNr] = self.setElem_ON
-            rcus = tiles2rcus(tiles)
+            rcus = self._tiles2rcus(tiles)
             lcucmd = "rspctl --hbadelay="\
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
