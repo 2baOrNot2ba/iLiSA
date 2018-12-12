@@ -146,7 +146,7 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
 
     bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
     band = stationcontrol.rcumode2band(rcumode)
-    freqs = stationcontrol.rcumode2sbfreqs(rcumode)
+    freqs = ilisa.observations.modeparms.rcumode2sbfreqs(rcumode)
     cvcdata_unc = cvcobj.getdata(filestep)
 
     if cvctype == 'acc':

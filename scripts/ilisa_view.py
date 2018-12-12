@@ -5,6 +5,7 @@ import argparse
 import numpy
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
@@ -35,7 +36,7 @@ def plotbst(bstff):
 def plotsst(sstff, freqreq):
     SSTdata, obsfolderinfo = dataIO.readsstfolder(sstff)
     SSTdata = numpy.array(SSTdata)
-    freqs = stationcontrol.rcumode2sbfreqs(obsfolderinfo['rcumode'])
+    freqs = modeparms.rcumode2sbfreqs(obsfolderinfo['rcumode'])
     if  freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
         show = 'persb'

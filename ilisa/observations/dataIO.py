@@ -19,6 +19,7 @@ import re
 import datetime
 import h5py
 import yaml
+
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.modeparms as modeparms
 
@@ -690,7 +691,7 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
     # Write out the data.
     if saveformat == 'hdf5':
         hf = h5py.File(acc2bstbase+".hdf5", "w")
-        freqs = stationcontrol.rcumode2sbfreqs(rcumode)
+        freqs = modeparms.rcumode2sbfreqs(rcumode)
         hf.attrs['DataDescription'] = 'LOFAR acc2bst data'
         hf.attrs['StationID'] = stnid
         hf.attrs['calibrationSource'] = calsrc

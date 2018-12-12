@@ -2,9 +2,10 @@
 import argparse
 import math
 import numpy
-from ilisa.observations.stationcontrol import Nqfreq, TotNrOfsb, band2rcumode
+from ilisa.observations.stationcontrol import TotNrOfsb, band2rcumode
 
 rcusbsep = "+"
+Nqfreq = 100.0e6  # Nyquist frequency in Hz
 
 class FrequencyBand(object):
     """Class that handles frequency bands and all things related to them.
@@ -525,3 +526,12 @@ def parse_rspctl_args(rspctl_strs):
             argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
             rspctl_args.update(argsdict)
     return rspctl_args
+
+
+def rcumode2sbfreqs(rcumode):
+    """Get the frequencies (in Hz) of the subbands for the given rcumode.
+    Returns an array of frequencies where index is subband number."""
+    NZ = (int(rcumode)-3)/2
+    # Note the endpoint=False here. Before it 2018-03-22 it was missing.
+    freqs = numpy.linspace(NZ*Nqfreq, (NZ+1)*Nqfreq, TotNrOfsb, endpoint=False)
+    return freqs

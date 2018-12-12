@@ -44,7 +44,7 @@ def main(accrunfolder, desiredsrc):
     pointing = pntstr.split(',')
     bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
     stnPos, stnRot, antpos, stnIntilePos = antennafieldlib.getArrayBandParams(stnid, bandarr)
-    freqs = stationcontrol.rcumode2sbfreqs(rcumode)
+    freqs = ilisa.observations.modeparms.rcumode2sbfreqs(rcumode)
     accfolderdatestr = obsdate.strftime("%Y%m%d") + "T120000" # FIX put appropriate time
     (nrant, comp) = antpos.shape
     ACCfiles = accffobj.filenames
