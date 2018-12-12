@@ -13,8 +13,6 @@ such as start-time, rcumode, duration, integration and pointing direction.
 These folders typically contain more than one datafile representing a dataset of
 the corresponding datatype.
 """
-
-
 import os
 import numpy
 import re
@@ -23,7 +21,6 @@ import h5py
 import yaml
 import ilisa.observations.stationcontrol as stationcontrol
 import ilisa.observations.modeparms as modeparms
-
 
 regex_ACCfolder=(
 "^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
@@ -40,22 +37,6 @@ regex_xstfilename=(
 "_rcu(?P<rcumode>\d+)_int(?P<integration>\d+)_dur(?P<duration>\d+)"
 "_dir(?P<RAint>\d+).(?P<RAdecimal>\d+),(?P<DECint>\d+).(?P<DECdecimal>\d+),(?P<ref>\s+)"
 "_xst.dat$")
-
-folder_name_beamctl_type = True
-rcusbsep = "+"
-
-
-def parse_sbarg(sbarg):
-    """Parse beamctl's subband arguement. Returns list of explicit subbands,
-    i.e. it expands sblo:sbhi constructs."""
-    sblist = []
-    for sbargel in sbarg.split(','):
-        if ':' in sbargel:
-            sblo, sbhi = sbargel.split(':')
-            sblist.extend(range(int(sblo), int(sbhi)+1))
-        else:
-            sblist.append(int(sbargel))
-    return sblist
 
 
 class ObsInfo(object):
@@ -126,24 +107,24 @@ class ObsInfo(object):
                 self.bl = []
                 for beamctl_cmd in self.beamctl_cmd:
                     (antset, rcus, rcumode, beamlets, subbands, anadir, digdir
-                     ) = stationcontrol.parse_beamctl_args(beamctl_cmd)
-                    self.rcumode.append(rcumode)
+                     ) = modeparms.parse_beamctl_args(beamctl_cmd)
+                    self.rcumode.append(int(rcumode))
                     self.sb.append(subbands)
                     self.bl.append(beamlets)
-                self.rcumode = ''.join(self.rcumode)
-                self.sb = rcusbsep.join(self.sb)
-                self.bl = ','.join(self.bl)
-                self.beamctl_cmd = '\n'.join(self.beamctl_cmd)
+                #self.rcumode = ''.join(self.rcumode)
+                #self.sb = rcusbsep.join(self.sb)
+                #self.bl = ','.join(self.bl)
+                #self.beamctl_cmd = '\n'.join(self.beamctl_cmd)
             else:
                 (antset, rcus, rcumode, beamlets, subbands, anadir, digdir
-                ) = stationcontrol.parse_beamctl_args(beamctl_cmd)
-                self.rcumode = str(rcumode)
-                self.sb = subbands
+                ) = modeparms.parse_beamctl_args(beamctl_cmd)
+                self.rcumode = [rcumode]
+                self.sb = [subbands]
             self.pointing = digdir
         else:
             self.pointing = ""
         self.rspctl_cmd = rspctl_cmd
-        rspctl_args = stationcontrol.parse_rspctl_args(self.rspctl_cmd)
+        rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmd)
         if self.LOFARdatTYPE != 'bfs':
             self.integration = float(rspctl_args['integration'])
             self.duration = float(rspctl_args['duration'])
@@ -158,7 +139,7 @@ class ObsInfo(object):
         if self.septonconf != "":
             self.rcumode = 5
 
-    def getobsdatapath(self, LOFARdataArchive):
+    def getobsdatapath(self, LOFARdataArchive, folder_name_beamctl_type = True):
         """Create name and destination path for folders (on the DPU) in
         which to save the various LOFAR data products.
         """
@@ -171,25 +152,12 @@ class ObsInfo(object):
             if self.LOFARdatTYPE == "bst-357":
                 st_extName += "_rcu357"
             else:
-                st_extName += "_rcu"+str(self.rcumode)
-            if str(self.sb) != "":
+                rcumodestr = ''.join([str(rcumode) for rcumode in self.rcumode])
+                st_extName += "_rcu"+rcumodestr
+            if self.sb != []:
                 st_extName += "_sb"
-                if "," in self.sb:
-                    # Instead of comma separated list format (e.g. 202,204,206),
-                    # try to construct subband slice syntax (e.g. 202:2:206), if
-                    # possible, to avoid file names that are potentially longer than 255
-                    # (not allowed in linux filesyst)
-                    sblist = [int(el) for el in self.sb.split(',')]
-                    sbsteps = set(numpy.diff(sblist))
-                    if len(sbsteps) > 1:
-                        raise RuntimeError('Subband spec too complicated.')
-                    else:
-                        sbstep = sbsteps.pop()
-                        sbstepstr = str(sbstep)+':' if sbsteps >1 else ''
-                        sbstr = "{}:{}{}".format(sblist[0], sbstepstr, sblist[-1])
-                else:
-                    sbstr = self.sb
-                st_extName += sbstr
+                print("self.sb  {}".format(self.sb))
+                st_extName += modeparms.seqlists2slicestr(self.sb)
             st_extName += "_int"+str(int(self.integration))+"_dur"+str(int(self.duration))
             if self.LOFARdatTYPE != 'sst':
                 if str(self.pointing) != "":
@@ -240,7 +208,7 @@ class ObsInfo(object):
         beamctl_cmd = multishellcmds[0]
         if beamctl_cmd is not "":
             (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
-             = stationcontrol.parse_beamctl_args(beamctl_cmd)
+             = modeparms.parse_beamctl_args(beamctl_cmd)
             beamctl_cmd = {'antennaset': antennaset,
                        'rcus': rcus,
                        'rcumode': rcumode,
@@ -255,7 +223,7 @@ class ObsInfo(object):
         rspctl_cmd = {}
         if rspctl_lines is not "":
             for rspctl_line in rspctl_lines:
-                rspctl_args = stationcontrol.parse_rspctl_args(rspctl_line)
+                rspctl_args = modeparms.parse_rspctl_args(rspctl_line)
                 rspctl_cmd.update(rspctl_args)
         # Allocate object attributes
         self.observer = observer
@@ -285,7 +253,7 @@ class ObsInfo(object):
         LOFARstTYPE = self.LOFARdatTYPE
         LOFARstObsEpoch = self.datetime
         try:
-            beamctl_CMD = self.beamctl_cmd
+            beamctl_CMD = '\n'.join(self.beamctl_cmd)
         except AttributeError:
             beamctl_CMD = ""
         rspctl_CMD = self.rspctl_cmd
@@ -340,14 +308,12 @@ def parse_bstfolder(BSTfilepath):
         obsfileinfo['integration'] = int(intstr[3:])
         obsfileinfo['duration'] =    int(durstr[3:])
         obsfileinfo['pointing'] =    dirstr[3:].split(',')
-        #polextstr
-        #(obsfileinfo['pol'], datext) = polextstr[2:].split('.')
     except:
         raise ValueError, "Filename not in bst_ext format."
     if len(obsfileinfo['rcumode']) > 1:
         obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
-    if rcusbsep in obsfileinfo['subbands']:
-        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(rcusbsep)
+    if modeparms.rcusbsep in obsfileinfo['subbands']:
+        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(modeparms.rcusbsep)
     return obsfileinfo
 
 
@@ -360,7 +326,7 @@ def readbstfolder(BSTfilefolder):
     obsfileinfo['frequencies'] = numpy.empty(0)
     totnrsbs = 0
     for spw, rcumode in enumerate(obsfileinfo['rcumode']):
-        sblist = parse_sbarg(obsfileinfo['subbands'][spw])
+        sblist = modeparms.seqarg2list(obsfileinfo['subbands'][spw])
         nrsbs = len(sblist)
         sblo = sblist[0]
         sbhi = sblist[-1]

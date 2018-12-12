@@ -4,7 +4,6 @@ mode.
 
 import time
 import subprocess
-import argparse
 import numpy
 
 # LOFAR convience
@@ -120,49 +119,6 @@ def tiles2rcus(tiles):
     for tile in tiles:
         rcus.extend([2*tile, 2*tile+1])  # Set same delay for both X&Y pol rcu
     return rcus
-
-
-def parse_beamctl_args(beamctl_str):
-    """Parse beamctl command arguments"""
-    beamctl_str_normalized = beamctl_str.replace('=', ' ')
-    beamctl_parser = argparse.ArgumentParser()
-    beamctl_parser.add_argument('--antennaset')
-    beamctl_parser.add_argument('--rcus')
-    beamctl_parser.add_argument('--rcumode')  # Obsolete
-    beamctl_parser.add_argument('--band')
-    beamctl_parser.add_argument('--beamlets')
-    beamctl_parser.add_argument('--subbands')
-    beamctl_parser.add_argument('--integration')
-    beamctl_parser.add_argument('--duration')
-    beamctl_parser.add_argument('--anadir')
-    beamctl_parser.add_argument('--digdir')
-    args = beamctl_parser.parse_args(beamctl_str_normalized.split()[1:])
-    rcumode = band2rcumode(args.band)
-    return (args.antennaset, args.rcus, rcumode, args.beamlets,
-            args.subbands, args.anadir, args.digdir)
-
-
-def parse_rspctl_args(rspctl_strs):
-    """Parse rspctl command arguments.
-    Note that rspctl has persistent flags, i.e. multiple rspctl calls add up flags."""
-    # TODO: Add the rest of the arguments
-    rspctl_args ={}
-    rspctl_parser = argparse.ArgumentParser()
-    rspctl_parser.add_argument('--statistics')
-    rspctl_parser.add_argument('--xcstatistics', action='store_true')
-    rspctl_parser.add_argument('--integration')
-    rspctl_parser.add_argument('--duration')
-    rspctl_parser.add_argument('--xcsubband')
-    rspctl_parser.add_argument('--directory')
-    rspctl_parser.add_argument('--bitmode')
-    rspctl_strs = rspctl_strs.lstrip('; ')
-    for rspctl_line in rspctl_strs.split('\n'):
-        for rspctl_str in rspctl_line.split(';'):
-            rspctl_str_normalized = rspctl_str.replace('=', ' ')
-            argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
-            argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
-            rspctl_args.update(argsdict)
-    return rspctl_args
 
 
 #######################################

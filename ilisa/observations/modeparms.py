@@ -1,9 +1,10 @@
 """This package is for the parameters involved in observation modes."""
+import argparse
 import math
 import numpy
+from ilisa.observations.stationcontrol import Nqfreq, TotNrOfsb, band2rcumode
 
-from ilisa.observations.stationcontrol import Nqfreq, TotNrOfsb
-
+rcusbsep = "+"
 
 class FrequencyBand(object):
     """Class that handles frequency bands and all things related to them.
@@ -284,18 +285,9 @@ class FrequencyBand(object):
         """Return list of rcu band names."""
         return list(self.rcumode_passbands.values())
 
-    def sbarg2sbs(self, sbarg):
-        """Return a tuple of subbands from a subband commandline argument."""
-        sbs=[]
-        for sbel in sbarg.split(','):
-            sbels = sbel.split(':')
-            sblo, sbhi  = int(sbels[0]), int(sbels[-1])
-            sbs.extend(range(sblo, sbhi+1))
-        return sbs
-
     def edgefreqs(self, spw = 0):
         """Return a tuple of lowest and highest frequency in frequency band of spw."""
-        sbs = self.sbarg2sbs(self.sb_range[spw])
+        sbs = seqarg2list(self.sb_range[spw])
         freqlo = self.rcumode_sb2freq(self.rcumodes[spw], sbs[0])
         freqhi = self.rcumode_sb2freq(self.rcumodes[spw], sbs[-1])
         return freqlo, freqhi
@@ -445,3 +437,91 @@ def sb2freq(sb, NqZone):
     """Convert subband in a given Nyquist zone to a frequency."""
     freq = Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
     return freq
+
+
+def seqarg2list(seqarg):
+    """Return a list that is a sequence of integers corresponding to the sequence given
+    by the (extended) commandline argument string."""
+    arglist=[]
+    for el in seqarg.split(','):
+        els = el.split(':')
+        seqlo, seqhi = int(els[0]), int(els[-1])
+        if len(els) == 3:
+            seqstep = int(els[1])
+        arglist.extend(range(seqlo, seqhi+1,seqstep))
+    return arglist
+
+
+def seqlists2slicestr(seqlists):
+    """Convert a sequence list to slice format"""
+    # Instead of comma separated list format (e.g. 202,204,206),
+    # try to construct subband slice syntax (e.g. 202:2:206), if
+    # possible, to avoid file names that are potentially longer than 255
+    # (not allowed in linux filesyst)
+    def seqlist2slice(seqlist):
+        seqlistcanon = []
+        for seqel in seqlist.split(','):
+            seqel = [int(el) for el in seqel.split(':')]
+            seq = range(seqel[0], seqel[-1]+1)
+            seqlistcanon.extend(seq)
+        seqsteps = set(numpy.diff(seqlistcanon))
+        if len(seqsteps) > 1:
+            raise ValueError('Subband spec too complicated.')
+        else:
+            seqstep = seqsteps.pop()
+            seqstepstr = str(seqstep) + ':' if seqstep > 1 else ''
+            slicestr = "{}:{}{}".format(seqlistcanon[0], seqstepstr, seqlistcanon[-1])
+        return slicestr
+
+    if type(seqlists) is list:
+        slicestrlist = []
+        for seqlist in seqlists:
+            seqstr = seqlist2slice(seqlist)
+            slicestrlist.append(seqstr)
+        slicestr = rcusbsep.join(slicestrlist)
+    else:
+        slicestr = seqlist2slice(seqlists)
+    return slicestr
+
+
+def parse_beamctl_args(beamctl_str):
+    """Parse beamctl command arguments"""
+    beamctl_str_normalized = beamctl_str.replace('=', ' ')
+    beamctl_parser = argparse.ArgumentParser()
+    beamctl_parser.add_argument('--antennaset')
+    beamctl_parser.add_argument('--rcus')
+    beamctl_parser.add_argument('--rcumode')  # Obsolete
+    beamctl_parser.add_argument('--band')
+    beamctl_parser.add_argument('--beamlets')
+    beamctl_parser.add_argument('--subbands')
+    beamctl_parser.add_argument('--integration')
+    beamctl_parser.add_argument('--duration')
+    beamctl_parser.add_argument('--anadir')
+    beamctl_parser.add_argument('--digdir')
+    args = beamctl_parser.parse_args(beamctl_str_normalized.split()[1:])
+    rcumode = band2rcumode(args.band)
+    return (args.antennaset, args.rcus, rcumode, args.beamlets,
+            args.subbands, args.anadir, args.digdir)
+
+
+def parse_rspctl_args(rspctl_strs):
+    """Parse rspctl command arguments.
+    Note that rspctl has persistent flags, i.e. multiple rspctl calls add up flags."""
+    # TODO: Add the rest of the arguments
+    rspctl_args ={}
+    rspctl_parser = argparse.ArgumentParser()
+    rspctl_parser.add_argument('--statistics')
+    rspctl_parser.add_argument('--xcstatistics', action='store_true')
+    rspctl_parser.add_argument('--integration')
+    rspctl_parser.add_argument('--duration')
+    rspctl_parser.add_argument('--xcsubband')
+    rspctl_parser.add_argument('--directory')
+    rspctl_parser.add_argument('--bitmode')
+    rspctl_strs = rspctl_strs.lstrip('; ')
+    for rspctl_line in rspctl_strs.split('\n'):
+        for rspctl_str in rspctl_line.split(';'):
+            rspctl_str_normalized = rspctl_str.replace('=', ' ')
+            argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
+            argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
+            rspctl_args.update(argsdict)
+    return rspctl_args
