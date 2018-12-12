@@ -6,8 +6,6 @@ import time
 import subprocess
 import numpy
 
-# LOFAR convience
-ALLRCUs = "0:191"
 
 # LOFAR constants
 Nqfreq = 100.0e6  # Nyquist frequency in Hz
@@ -349,7 +347,7 @@ class Station(object):
                       + ":"
             enabledrcuflagstr += str(enabledrcus[-1])
         else:
-            enabledrcuflagstr = ALLRCUs
+            enabledrcuflagstr = self.allrcus
         return enabledrcuflagstr
 
     def getMACversion(self):
@@ -431,7 +429,7 @@ class Station(object):
         self.execOnLCU(rcu_setup_CMDs)
         return rcu_setup_CMDs
 
-    def _setup_beamctl(self, beamlets, subbands, band, anadigdir, rcus=ALLRCUs,
+    def _setup_beamctl(self, beamlets, subbands, band, anadigdir, rcus,
                        beamdurstr=''):
         """Create a beamctl command string from the given arguments."""
         if beamdurstr != '':
@@ -452,7 +450,7 @@ class Station(object):
                        + " --digdir=" + digdir + beamdurstr)
         return beamctl_CMD
 
-    def run_beamctl(self, beamlets, subbands, rcumode, anadigdir, rcus=ALLRCUs,
+    def run_beamctl(self, beamlets, subbands, rcumode, anadigdir, rcus='0:191',
                     beamdurstr='', backgroundJOB=True):
         """Start a beam using beamctl command. Blocks until ready."""
         beamctl_CMD = self._setup_beamctl(beamlets, subbands, rcumode, anadigdir, rcus,
