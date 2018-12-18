@@ -18,7 +18,7 @@ import datetime
 import argparse
 import ilisa.observations.beamformedstreams
 import ilisa.observations.modeparms
-import ilisa.observations.observing as observing
+import ilisa.observations.stationdriver as observing
 import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 

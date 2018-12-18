@@ -13,7 +13,7 @@ import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
 import ilisa.observations.modeparms
 import ilisa.observations.stationinterface as stationcontrol
-import ilisa.observations.observing as observing
+import ilisa.observations.stationdriver as observing
 import ilisa.observations.dataIO as dataIO
 
 c = speed_of_light

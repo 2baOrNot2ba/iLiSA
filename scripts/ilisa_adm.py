@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 import argparse
-import ilisa.observations.observing as observing
+import ilisa.observations.stationdriver as observing
 
 def getswlevel(args):
     myobs.halt_observingstate_when_finished = False
