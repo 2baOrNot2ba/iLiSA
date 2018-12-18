@@ -2,7 +2,7 @@
 import argparse
 import math
 import numpy
-from ilisa.observations.stationcontrol import TotNrOfsb, band2rcumode
+from ilisa.observations.stationinterface import TotNrOfsb, band2rcumode
 
 rcusbsep = "+"
 Nqfreq = 100.0e6  # Nyquist frequency in Hz

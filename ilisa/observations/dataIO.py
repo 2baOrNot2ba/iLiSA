@@ -20,7 +20,7 @@ import datetime
 import h5py
 import yaml
 
-import ilisa.observations.stationcontrol as stationcontrol
+import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 
 regex_ACCfolder=(

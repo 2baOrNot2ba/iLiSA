@@ -10,7 +10,7 @@ import ilisa.antennameta.calibrationtables as calibrationtables
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
 import ilisa.observations.modeparms
-import ilisa.observations.stationcontrol as stationcontrol
+import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.observing as observing
 
 

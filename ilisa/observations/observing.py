@@ -11,7 +11,7 @@ import os
 import yaml
 import multiprocessing
 import copy
-import ilisa.observations.stationcontrol as stationcontrol
+import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.modeparms as modeparms
 

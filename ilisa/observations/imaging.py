@@ -12,7 +12,7 @@ import matplotlib.colors as colors
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
 import ilisa.observations.modeparms
-import ilisa.observations.stationcontrol as stationcontrol
+import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.observing as observing
 import ilisa.observations.dataIO as dataIO
 

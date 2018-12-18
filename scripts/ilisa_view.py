@@ -6,7 +6,7 @@ import numpy
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
-import ilisa.observations.stationcontrol as stationcontrol
+import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
 import ilisa.observations.modeparms as modeparms
