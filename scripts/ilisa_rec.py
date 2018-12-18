@@ -312,7 +312,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    myobs = observing.Session()
+    myobs = observing.StationDriver()
     myobs.halt_observingstate_when_finished = args.shutdown
 
     args.func(args)

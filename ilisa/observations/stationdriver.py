@@ -38,7 +38,7 @@ elOn_same_el = 0
 elemsOn = elOn_Generic_Int_201512  # elOn_same or elOn_step or elOn_gILT or ...
 
 
-class Session(object):
+class StationDriver(object):
     """observing.Session class is a client type class typically running on the
     compute node."""
 

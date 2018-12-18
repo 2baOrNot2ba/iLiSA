@@ -25,6 +25,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    myobs = observing.Session(goto_observingstate_when_starting=False)
+    myobs = observing.StationDriver(goto_observingstate_when_starting=False)
 
     args.func(args)
