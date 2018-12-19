@@ -158,9 +158,8 @@ class ObsInfo(object):
                 else:
                     rcumodestr = str(self.rcumode)
                 st_extName += "_rcu"+rcumodestr
-            if self.sb != []:
+            if self.sb != [] and self.sb != '':
                 st_extName += "_sb"
-                print("self.sb  {}".format(self.sb))
                 st_extName += modeparms.seqlists2slicestr(self.sb)
             st_extName += "_int"+str(int(self.integration))+"_dur"+str(int(self.duration))
             if self.LOFARdatTYPE != 'sst':
