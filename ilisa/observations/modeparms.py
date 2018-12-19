@@ -2,10 +2,11 @@
 import argparse
 import math
 import numpy
-from ilisa.observations.stationinterface import TotNrOfsb, band2rcumode
 
 rcusbsep = "+"
 Nqfreq = 100.0e6  # Nyquist frequency in Hz
+TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
+nrofrcus = 192  # Number of RCUs
 
 class FrequencyBand(object):
     """Class that handles frequency bands and all things related to them.
@@ -539,3 +540,73 @@ def rcumode2sbfreqs(rcumode):
     # Note the endpoint=False here. Before it 2018-03-22 it was missing.
     freqs = numpy.linspace(NZ*Nqfreq, (NZ+1)*Nqfreq, TotNrOfsb, endpoint=False)
     return freqs
+
+
+def band2rcumode(band):
+    """Map band to rcumode string (Inverse of rcumode2band())."""
+    if band == "10_90":
+        rcumode = "3"
+    elif band == "30_90":
+        rcumode = "4"
+    elif band == "110_190":
+        rcumode = "5"
+    elif band == "170_230":
+        rcumode = "6"
+    elif band == "210_250":
+        rcumode = "7"
+    else:
+        raise ValueError('Undefined band %{}'.format(band))
+    return rcumode
+
+
+def band2antset(band):
+    """Map band to antennaset, which is used in beamctl arguments.
+    Assumption is that one wants to use as many of antennas in field as
+    possible.
+    """
+    if band == "10_90" or band == "30_90":
+        antset = "LBA_INNER"
+    elif band == "110_190" or band == "170_230" or band == "210_250":
+        antset = "HBA_JOINED"
+    else:
+        raise ValueError("Undefined band: {}.".format(band))
+    return antset
+
+
+def rcumode2band(rcumode):
+    """Map rcumode to band string as used in beamctl arguments."""
+    rcumode = str(rcumode)
+    if rcumode == "3":
+        band = "10_90"
+    elif rcumode == "4":
+        band = "30_90"
+    elif rcumode == "5":
+        band = "110_190"
+    elif rcumode == "6":
+        band = "170_230"
+    elif rcumode == "7":
+        band = "210_250"
+    else:
+        raise ValueError('Undefined rcumode %{}'.format(rcumode))
+    return band
+
+
+def rcumode2antset(rcumode):
+    """Map rcumode to antennaset, which is used in beamctl arguments.
+    Assumption is that one wants to use as many of antennas in field as
+    possible. (This function may soon be deprecated.)
+    """
+    # NOTE new/more antennasets are now available.
+    rcumode = int(rcumode)
+    if rcumode == 3 or rcumode == 4:
+        antset = 'LBA_INNER'
+    elif rcumode == 5 or rcumode == 6 or rcumode == 7:
+        antset = 'HBA_JOINED'
+    else:
+        raise ValueError("Undefined rcumode: {}.".format(rcumode))
+    return antset
+
+
+def rcumode2NyquistZone(rcumode):
+    NZ = int((int(rcumode)-3)/2)
+    return NZ

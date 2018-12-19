@@ -148,8 +148,8 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
         pointingstr = obsfolderinfo['pointing']
         cvctype = obsfolderinfo['cvc-type']
 
-    bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
-    band = stationcontrol.rcumode2band(rcumode)
+    bandarr = ilisa.observations.modeparms.rcumode2antset(rcumode).split("_")[0]
+    band = ilisa.observations.modeparms.rcumode2band(rcumode)
     freqs = ilisa.observations.modeparms.rcumode2sbfreqs(rcumode)
     cvcdata_unc = cvcobj.getdata(filestep)
 

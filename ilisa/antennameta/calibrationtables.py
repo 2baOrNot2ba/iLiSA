@@ -5,6 +5,8 @@ import sys
 import numpy
 import datetime
 import matplotlib.pyplot as plt
+
+import ilisa.observations.modeparms
 import ilisa.observations.stationinterface as stationcontrol
 
 __version__ = '0.1'
@@ -112,8 +114,8 @@ def readcaltab(caltabfile):
                 observation[key] = val
             elif cat == 'Calibration':
                 calibration[key] = val
-    caltab = numpy.fromfile(fin, dtype=('c16', (stationcontrol.nrofrcus,)),
-                                 count=stationcontrol.TotNrOfsb)
+    caltab = numpy.fromfile(fin, dtype=('c16', (ilisa.observations.modeparms.nrofrcus,)),
+                            count=ilisa.observations.modeparms.TotNrOfsb)
     fin.close()
     header = {'Observation': observation,
               'Calibration': calibration,

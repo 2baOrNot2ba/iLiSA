@@ -6,6 +6,7 @@ import numpy
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
+import ilisa.observations.modeparms
 import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
@@ -90,7 +91,7 @@ def plotxst(xstff):
             rcumode = obsinfo.beamctl_cmd['rcumode']
         else:
             rcumode = 5
-        freq = modeparms.sb2freq(sb, stationcontrol.rcumode2NyquistZone(rcumode))
+        freq = modeparms.sb2freq(sb, ilisa.observations.modeparms.rcumode2NyquistZone(rcumode))
         ts = numpy.arange(0., dur, intg)
         XSTdata = XSTdataset[sbstepidx]
         for tidx in range(XSTdata.shape[0]):

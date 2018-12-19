@@ -20,6 +20,7 @@ import datetime
 import h5py
 import yaml
 
+import ilisa.observations.modeparms
 import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 
@@ -333,7 +334,7 @@ def readbstfolder(BSTfilefolder):
         nrsbs = len(sblist)
         sblo = sblist[0]
         sbhi = sblist[-1]
-        nz = stationcontrol.rcumode2NyquistZone(rcumode)
+        nz = ilisa.observations.modeparms.rcumode2NyquistZone(rcumode)
         freqlo = modeparms.sb2freq(sblo, nz)
         freqhi = modeparms.sb2freq(sbhi, nz)
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],

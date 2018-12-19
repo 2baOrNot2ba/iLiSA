@@ -11,6 +11,8 @@ import os
 import yaml
 import multiprocessing
 import copy
+
+import ilisa.observations.modeparms
 import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.modeparms as modeparms
@@ -78,7 +80,7 @@ class StationDriver(object):
         self.project = accessconf['OBSERVING']['project']
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
-        self.stationcontroller = stationcontrol.Station(lcuaccessconf)
+        self.stationcontroller = stationcontrol.StationInterface(lcuaccessconf)
 
         self.LOFARdataArchive = dpuaccessconf['LOFARdataArchive']
         self.bf_data_dir =      dpuaccessconf['BeamFormDataDir']
@@ -348,7 +350,7 @@ class StationDriver(object):
         if not self.checkobservingallowed():
             raise RuntimeError
         try:
-            rcumode = stationcontrol.band2rcumode(band)
+            rcumode = ilisa.observations.modeparms.band2rcumode(band)
         except ValueError:
             raise
         try:
@@ -361,7 +363,7 @@ class StationDriver(object):
             pointing = pointSrc
         # Get timings
         # Also duration of ACC sweep since each sb is 1 second.
-        nrACCsbs = stationcontrol.TotNrOfsb
+        nrACCsbs = ilisa.observations.modeparms.TotNrOfsb
         # Time between end of one ACC sweep and beginning of next one.
         timebetweenACCs = 7
         ACCcadence = float(nrACCsbs+timebetweenACCs) # =519s time between two ACCs

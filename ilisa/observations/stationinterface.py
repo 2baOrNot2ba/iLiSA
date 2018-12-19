@@ -6,106 +6,10 @@ import time
 import subprocess
 
 # LOFAR constants
-TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
-nrofrcus = 192  # Number of RCUs
+from ilisa.observations.modeparms import nrofrcus, band2antset, rcumode2band
 
 
-
-def band2antset(band):
-    """Map band to antennaset, which is used in beamctl arguments.
-    Assumption is that one wants to use as many of antennas in field as
-    possible.
-    """
-    if band == "10_90" or band == "30_90":
-        antset = "LBA_INNER"
-    elif band == "110_190" or band == "170_230" or band == "210_250":
-        antset = "HBA_JOINED"
-    else:
-        raise ValueError("Undefined band: {}.".format(band))
-    return antset
-
-
-def band2rcumode(band):
-    """Map band to rcumode string (Inverse of rcumode2band())."""
-    if band == "10_90":
-        rcumode = "3"
-    elif band == "30_90":
-        rcumode = "4"
-    elif band == "110_190":
-        rcumode = "5"
-    elif band == "170_230":
-        rcumode = "6"
-    elif band == "210_250":
-        rcumode = "7"
-    else:
-        raise ValueError('Undefined band %{}'.format(band))
-    return rcumode
-
-
-def rcumode2band(rcumode):
-    """Map rcumode to band string as used in beamctl arguments."""
-    rcumode = str(rcumode)
-    if rcumode == "3":
-        band = "10_90"
-    elif rcumode == "4":
-        band = "30_90"
-    elif rcumode == "5":
-        band = "110_190"
-    elif rcumode == "6":
-        band = "170_230"
-    elif rcumode == "7":
-        band = "210_250"
-    else:
-        raise ValueError('Undefined rcumode %{}'.format(rcumode))
-    return band
-
-
-def band2freqrange(band):
-    return tuple(1e6*f for f in map(int, band.split('_')))
-
-
-def rcumode2antset(rcumode):
-    """Map rcumode to antennaset, which is used in beamctl arguments.
-    Assumption is that one wants to use as many of antennas in field as
-    possible. (This function may soon be deprecated.)
-    """
-    # NOTE new/more antennasets are now available.
-    rcumode = int(rcumode)
-    if rcumode == 3 or rcumode == 4:
-        antset = 'LBA_INNER'
-    elif rcumode == 5 or rcumode == 6 or rcumode == 7:
-        antset = 'HBA_JOINED'
-    else:
-        raise ValueError("Undefined rcumode: {}.".format(rcumode))
-    return antset
-
-
-def rcumode2NyquistZone(rcumode):
-    NZ = int((int(rcumode)-3)/2)
-    return NZ
-
-
-def maxNrOfBeamlets(wordsize_bits):
-    """Return maximum number of subbands, depending on word size of ADC
-    samples: 16-bit, 8-bit modes."""
-    maxNrOfSBs_16 = 244
-    if wordsize_bits == 16:
-        maxNrOfSBs = maxNrOfSBs_16
-    elif wordsize_bits == 8:
-        maxNrOfSBs = 2*maxNrOfSBs_16
-    else:
-        raise ValueError("Unknown wordsize: ".format(wordsize_bits))
-    return maxNrOfSBs
-
-
-
-
-
-#######################################
-# Basic station control START
-
-
-class Station(object):
+class StationInterface(object):
     """This class manages an International LOFAR station."""
     lofarroot = "/opt/lofar_local/"
     lofarbin = "/opt/lofar/bin"
@@ -329,7 +233,7 @@ class Station(object):
                       + ":"
             enabledrcuflagstr += str(enabledrcus[-1])
         else:
-            enabledrcuflagstr = self.allrcus
+            enabledrcuflagstr = "0:{}".format(nrofrcus-1)
         return enabledrcuflagstr
 
     def getMACversion(self):
@@ -378,8 +282,6 @@ class Station(object):
     def shutdownObservationState(self):
         # Go to swlevel 0. No LOFAR services will be running after this.
         self.execOnLCU('swlevel 0')
-
-##Basic station data taking commands BEGIN
 
     def run_rspctl(self, select=None, mode=None, tbbmode=None):
         """Run rspctl command to setup RCUs: rcumode, select.
@@ -443,7 +345,6 @@ class Station(object):
         time.sleep(waittime)  # Wait for beam to settle
         return beamctl_CMD
 
-### Basic station "statistic" datataking BEGIN
     def rec_bst(self, integration, duration):
         rspctl_CMD = ("rspctl --statistics=beamlet"
                       + " --integration="+str(integration)
@@ -473,9 +374,7 @@ class Station(object):
         self.execOnLCU(rspctl_CMD)
         rspctl_CMDs += rspctl_CMD
         return rspctl_CMDs
-### Basic station "statistic" datataking END
 
-### TBB control BEGIN
     def run_tbbctl(self, select=None, alloc=False, free=False, record=False, stop=False,
                    mode=None, storage=None, readall=None, cepdelay=None,
                    backgroundJOB = False):
@@ -508,8 +407,6 @@ class Station(object):
             tbbctl_cmd = None
         return tbbctl_cmd
 
-### TBB control END
-### ACC control BEGIN
     def acc_mode(self, enable=True):
         """Enable or disable ACC mode.
         If enableacc=True, ACC files will be written to file when CalServer is running
@@ -524,10 +421,6 @@ class Station(object):
         r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}"\
             .format(self.CalServer_conf), quotes='"')
 
-### ACC control END
-##Basic station data taking commands END
-
-## Special commands START
     def getCalTableInfo(self, rcumode):
         """Fetch and return the caltable info from the LCU."""
         if int(rcumode) == 4:
@@ -587,7 +480,7 @@ class Station(object):
         time.sleep(30)
         return rspctl_CMD
 
-# SEPTON
+    # **SEPTON
     setElem_ON = 128
     setElem_OFF = 2
     elementsInTile = 16
@@ -629,8 +522,3 @@ class Station(object):
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
             self.execOnLCU(lcucmd)
-
-## Special commands END
-
-# Basic station control END
-#######################################

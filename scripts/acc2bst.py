@@ -42,7 +42,7 @@ def main(accrunfolder, desiredsrc):
         print("Warning: calibration source {} is not the desired one {}.".format(calsrc,desiredsrc))
     pntstr = ilisa.observations.modeparms.stdPointings(calsrc)
     pointing = pntstr.split(',')
-    bandarr = stationcontrol.rcumode2antset(rcumode).split("_")[0]
+    bandarr = ilisa.observations.modeparms.rcumode2antset(rcumode).split("_")[0]
     stnPos, stnRot, antpos, stnIntilePos = antennafieldlib.getArrayBandParams(stnid, bandarr)
     freqs = ilisa.observations.modeparms.rcumode2sbfreqs(rcumode)
     accfolderdatestr = obsdate.strftime("%Y%m%d") + "T120000" # FIX put appropriate time
@@ -54,9 +54,9 @@ def main(accrunfolder, desiredsrc):
     sb = None
     if sb == None:
         (bstXX, bstXY, bstYY) = (
-             numpy.zeros((nrACCfiles, stationcontrol.TotNrOfsb)),
-             numpy.zeros((nrACCfiles, stationcontrol.TotNrOfsb), dtype=complex),
-             numpy.zeros((nrACCfiles, stationcontrol.TotNrOfsb)))
+             numpy.zeros((nrACCfiles, ilisa.observations.modeparms.TotNrOfsb)),
+             numpy.zeros((nrACCfiles, ilisa.observations.modeparms.TotNrOfsb), dtype=complex),
+             numpy.zeros((nrACCfiles, ilisa.observations.modeparms.TotNrOfsb)))
     else:
         (bstXX, bstXY, bstYY) = (numpy.zeros((nrACCfiles, )),
                                         numpy.zeros((nrACCfiles, ), dtype=complex),
