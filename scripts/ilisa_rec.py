@@ -9,226 +9,45 @@ Types of observation are:
 
 """
 
-import sys
-import os
-import math
-import subprocess
-import time
-import datetime
 import argparse
-import ilisa.observations.beamformedstreams
-import ilisa.observations.modeparms
-import ilisa.observations.stationdriver as observing
-import ilisa.observations.stationinterface as stationcontrol
-import ilisa.observations.dataIO as dataIO
-
-
-dumpername = 'dump_udp_ow_4'
-pathtodumper = os.path.dirname(ilisa.observations.beamformedstreams.__file__)
-dumpercmd = os.path.join(pathtodumper, dumpername)
-#dumpercmd = 'echo'  # For testing purposes
-
-
-def startlanerec(lane, starttimestr, duration, band, bf_data_dir, port0, stnid):
-    """Start recording a lane.
-    """
-    port = port0+lane
-    pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
-    outdumpdir = pre_bf_dir+str(lane)+pst_bf_dir
-    outfilepre = "udp_"+stnid
-    rcumode = stationcontrol.band2rcumode(band)
-    dumplogname=outdumpdir+dumpername \
-                          +'_lane'+str(lane) \
-                          +'_rcu'+rcumode \
-                          +'.log'
-    subprocess.call(dumpercmd+' --ports '+str(port)+' --check '
-                          +' --Start '+starttimestr
-                          +' --duration '+str(duration)
-                          +' --timeout 9999'
-                          +' --out '+outdumpdir+outfilepre
-                          +' > '+dumplogname,
-                         shell=True
-                   )
-    print("dumper log written in {}".format(dumplogname))
-    datafileguess=outdumpdir+outfilepre+'_'+str(port)+'.start.'+starttimestr+'.000'
-    print("Hopefully created dumpfile: ".format(datafileguess))
-#    return datafileguess
-
-
-def setuprecording(starttimestr, duration, lanes, band, bf_data_dir, port0, stnid):
-    """Setup multiple forked processes to record lanes."""
-    child_pids = []
-    child_lanes = []
-    for lane in lanes:
-        newpid = os.fork()
-        if newpid==0:
-            startlanerec(lane, starttimestr, duration, band, bf_data_dir, port0, stnid)
-            sys.exit(0)
-        else:
-            child_pids.append(newpid)
-    for lane in lanes:
-        pid, status = os.waitpid(child_pids[lane], 0)
-        print("lane {} finished with status {}.".format(lane,status))
-
-
-def waittoboot(starttimestr, pause):
-    """Before booting, wait until time given by starttimestr. This includes
-     a dummy beam warmup."""
-    nw = datetime.datetime.utcnow()
-    st = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S")
-
-    maxminsetuptime = datetime.timedelta(seconds=105 + pause)  # Longest minimal time
-    # before observation
-    # start to set up
-    d = (st - maxminsetuptime) - nw
-    timeuntilboot = d.total_seconds()
-    if timeuntilboot < 0.:
-        timeuntilboot = 0
-    print("Will boot to observe state after " + str(timeuntilboot) + " seconds...")
-    time.sleep(timeuntilboot)
-    return st
+import ilisa.observations.session as session
 
 
 def do_bfs(args):
-    """Record BeamFormed Streams (BFS)."""
-    starttimestr = args.starttimestr
-    duration = eval(args.duration)  # Duration in seconds
-    band = args.band  # RCUMODE={LBA : 10_90 3, HBAlo : 110_190 5, HBAhi : 210_250 7}
-
-    ###
-    bits = 8  # 8
-    attenuation = None
-    # Subbands allocation
-    if band == '10_90' or band == '30_90':
-        # LBA
-        lanes = (0, 1)  # (0,1)
-        beamletIDs = '0:243'  # '0:243'
-        subbandNrs = '164:407'  # '164:407'
-    elif band == '110_190':
-        # HBAlo
-        lanes = (0, 1, 2, 3)  # Normally (0,1,2,3) for all 4 lanes.
-        beamletIDs = '0:487'
-        subbandNrs = '12:499'
-    elif band == '210_250':
-        # HBAhi
-        lanes = (0, 1)
-        beamletIDs = '0:243'
-        subbandNrs = '12:255'
-    else:
-        raise ValueError(
-            "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
-    pointing = ilisa.observations.modeparms.normalizebeamctldir(args.pointsrc)
-
-    # Wait until it is time to start
-    pause = 5  # Sufficient?
-    st = waittoboot(starttimestr, pause)
-
-    # From swlevel 0 it takes about 1:30min? to reach swlevel 3
-    print("Booting @ {}".format(datetime.datetime.utcnow()))
-
-    # Necessary since fork creates multiple instances of myobs and each one
-    # will call it's __del__ on completion and __del__ shutdown...
-    myobs.halt_observingstate_when_finished = False
-    myobs.exit_check = False
-
-    # BEGIN Dummy or hot beam start: (takes about 10sec)
-    # TODO: This seems necessary, otherwise beamctl will not start up next time,
-    #       although it should not have to necessary.)
-    print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
-    myobs.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band, pointing)
-    myobs.stationcontroller.rcusetup(bits,
-                                        attenuation)  # setting bits also seems necessary.
-    myobs.stationcontroller.stopBeam()
-    # END Dummy or hot start
-
-    print("Pause {}s after boot.".format(pause))
-    time.sleep(pause)
-
-    # Real beam start:
-    print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-    beamctl_CMD = myobs.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band,
-                                                      pointing)
-    rcu_setup_CMD = myobs.stationcontroller.rcusetup(bits, attenuation)
-    nw = datetime.datetime.utcnow()
-    timeleft = st - nw
-    if timeleft.total_seconds() < 0.:
-        starttimestr = nw.strftime("%Y-%m-%dT%H:%M:%S")
-    print("(Beam started) Time left before recording: {}".format(
-        timeleft.total_seconds()))
-
-    REC = True
-    if REC == True:
-        bf_data_dir, port0, stnid = myobs.bf_data_dir, myobs.bf_port0, \
-                                    myobs.stationcontroller.stnid
-        setuprecording(starttimestr, duration, lanes, band, bf_data_dir, port0, stnid)
-    else:
-        print("Not recording")
-    sys.stdout.flush()
-    myobs.stationcontroller.stopBeam()
-    headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
-                                            ).strftime("%Y%m%d_%H%M%S")
-
-    obsinfo = dataIO.ObsInfo(myobs.stationcontroller.stnid,
-                             myobs.project, myobs.observer)
-    obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD, "")
-    bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(myobs.LOFARdataArchive)
-    obsinfo.create_LOFARst_header(datapath)
-    myobs.halt_observingstate_when_finished = args.shutdown  # Necessary due to forking
+    myses.do_bfs(args.band, args.duration, args.pointsrc, args.starttimestr,
+                 args.shutdown)
 
 
 def do_acc(args):
-    """Record acc data for one of the LOFAR bands over a duration.
-    """
-    duration = int(eval(args.duration))
-    accdestdir = myobs.do_acc(args.band, duration, args.pointsrc)
-    print("Saved ACC data in folder: {}".format(accdestdir))
-
-
-def _do_bsx(statistic, args):
-    """Records bst,sst,xst data in one of the LOFAR bands and creates a header file
-    with observational settings.
-    """
-    duration = int(math.ceil(eval(args.duration)))
-    frqbndobj = ilisa.observations.modeparms.FrequencyBand(args.freqbnd)
-
-    if args.allsky and 'HBA' in frqbndobj.antsets[0]:
-        myobs.do_SEPTON(statistic, frqbndobj, args.integration, duration)
-    else:
-        try:
-            myobs.bsxST(statistic, frqbndobj, args.integration, duration,
-                        args.pointsrc)
-        except RuntimeError as rte:
-            print("Error: {}".format(rte))
-            #myobs.halt_observingstate_when_finished = False
+    myses.do_acc(args.band, args.duration, args.pointsrc)
 
 
 def do_bst(args):
     """Records BST data in one of the LOFAR bands and creates a header file
     with observational settings.
     """
-    _do_bsx('bst', args)
+    myses.do_bsxST('bst', args.freqbnd, args.integration, args.duration, args.pointsrc,
+                   when='NOW', allsky=args.allsky)
 
 
 def do_sst(args):
     """Records SST data in one of the LOFAR bands and creates a header file
     with observational settings.
     """
-    _do_bsx('sst', args)
+    myses.do_bsxST('sst', args.freqbnd, args.integration, args.duration, args.pointsrc,
+                   when='NOW', allsky=args.allsky)
 
 
 def do_xst(args):
     """Records XST data in one of the LOFAR bands and creates a header file
     with observational settings.
     """
-    _do_bsx('xst', args)
+    myses.do_bsxST('xst', args.freqbnd, args.integration, args.duration, args.pointsrc,
+                   when='NOW', allsky=args.allsky)
 
 
 def do_tbb(args):
-    """Record Transient Buffer Board (TBB) data from one of the LOFAR bands for
-    duration seconds.
-    """
-    duration = float(eval(args.duration))
-    myobs.do_tbb(duration, args.band)
+    myses.do_tbb(args.duration, args.band)
 
 
 if __name__ == "__main__":
@@ -312,7 +131,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    myobs = observing.StationDriver()
-    myobs.halt_observingstate_when_finished = args.shutdown
+    myses = session.Session(halt_observingstate_when_finished = args.shutdown)
 
     args.func(args)
