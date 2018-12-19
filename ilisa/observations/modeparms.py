@@ -449,6 +449,8 @@ def seqarg2list(seqarg):
         seqlo, seqhi = int(els[0]), int(els[-1])
         if len(els) == 3:
             seqstep = int(els[1])
+        else:
+            seqstep = 1
         arglist.extend(range(seqlo, seqhi+1,seqstep))
     return arglist
 
