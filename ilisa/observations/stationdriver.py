@@ -57,14 +57,14 @@ class StationDriver(object):
             if stationswitchmode == 'local':
                 return True
             else:
-                print "Warning: Station is not in stand-alone mode."
+                print("Warning: Station is not in stand-alone mode.")
                 return False
         else:
-            print "Warning: Someone else ({}) is using LCU".format(serviceuser)
-            print "         (You are running as {})".format(self.stationcontroller.user)
+            print("Warning: Someone else ({}) is using LCU".format(serviceuser))
+            print("         (You are running as {})".format(self.stationcontroller.user))
             return False
 
-    def __init__(self, accessconffile=None,
+    def __init__(self, accessconffile=None, projectprofile=None,
                  goto_observingstate_when_starting=True):
         """Initialize a Session object, which has access to a station via
         a Station object configured with setting given by accessconfile.
@@ -76,8 +76,16 @@ class StationDriver(object):
             accessconffile = os.path.expanduser('~/.iLiSA/access_config.yml')
         with open(accessconffile) as cfigfilep:
             accessconf = yaml.load(cfigfilep)
-        self.observer = accessconf['OBSERVING']['observer']
-        self.project = accessconf['OBSERVING']['project']
+        if projectprofile is None:
+            userilisadir = os.path.expanduser('~/.iLiSA/')
+            userilisadirfiles = os.listdir(userilisadir)
+            for userilisafile in userilisadirfiles:
+                if userilisafile.endswith('projprof.yml'):
+                    projectprofile = os.path.join(userilisadir, userilisafile)
+        with open(projectprofile) as projectprofilep:
+            projectmeta = yaml.load(projectprofilep)
+        self.observer = projectmeta['PROJECTPROFILE']['observer']
+        self.project = projectmeta['PROJECTPROFILE']['projectname']
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
         self.stationcontroller = stationcontrol.StationInterface(lcuaccessconf)
@@ -117,7 +125,8 @@ class StationDriver(object):
             if self.checkobservingallowed():
                 swlevel = self.stationcontroller.getswlevel()
                 if int(swlevel) != 0:
-                    print "Warning: You are leaving station in swlevel {} != 0".format(swlevel)
+                    print("Warning: You are leaving station in swlevel {} != 0"
+                          .format(swlevel))
 
     def movefromlcu(self, source, dest, recursive=False):
         """Move file(s) off LCU to DPU."""
@@ -131,7 +140,7 @@ class StationDriver(object):
         if self.stationcontroller.DryRun:
             cmdprompt = "(dryrun) "+cmdprompt
         if self.stationcontroller.verbose:
-            print "{} {}".format(cmdprompt, fullcmd)
+            print("{} {}".format(cmdprompt, fullcmd))
         if not self.stationcontroller.DryRun:
             subprocess.call(fullcmd, shell=True)
             self.stationcontroller.rm(source)
@@ -188,7 +197,6 @@ class StationDriver(object):
 
         # Get some metadata about operational settings:
         if len(freqbndobj.rcumodes) == 1:
-            print freqbndobj.rcumodes[0]
             caltabinfo = self.stationcontroller.getCalTableInfo(freqbndobj.rcumodes[0])
         else:
             # TODO implement storing of multiband caltab
@@ -299,7 +307,7 @@ class StationDriver(object):
             point direction as a beamctl triplet.
         """
         if not self.checkobservingallowed():
-            raise RuntimeError, "Station is being used by someone else."
+            raise RuntimeError("Station is being used by someone else.")
 
         try:
             pointing = stdPointings(pointSrc)
@@ -309,10 +317,10 @@ class StationDriver(object):
                 # FIXME:  (not always going to be correct)
                 pointing = pointSrc
             except ValueError:
-                raise ValueError, "Error: %s invalid pointing syntax".format(pointSrc)
+                raise ValueError("Error: %s invalid pointing syntax".format(pointSrc))
         if integration > duration:
-            raise ValueError, "Integration {} is longer than duration {}.\
-                               ".format(integration, duration)
+            raise (ValueError, "Integration {} is longer than duration {}."
+                               .format(integration, duration))
 
         obsinfo = dataIO.ObsInfo()
         datapath = None
@@ -488,13 +496,16 @@ class StationDriver(object):
         # Collect observational metadata
         obsdatetime_stamp = self.get_data_timestamp()
 
-        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
-        obsinfo.setobsinfo_fromparams(LOFARdatTYPE, obsdatetime_stamp, beamctl_CMD, rspctl_CMD,
-                                      caltabinfo, septonconf=elementMap2str(elemsOn))
+        obsinfo = dataIO.ObsInfo()
+        obsinfo.setobsinfo_fromparams(LOFARdatTYPE, obsdatetime_stamp, beamctl_CMD,
+                                      rspctl_CMD, caltabinfo,
+                                      septonconf=elementMap2str(elemsOn))
         # Move data to archive
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
         obsinfo.create_LOFARst_header(datapath)
+        dataIO.write_project_header(datapath, self.statoncontroller.stnid, self.project,
+                                    self.observer)
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
 
     #####################
