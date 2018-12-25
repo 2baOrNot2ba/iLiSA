@@ -1,4 +1,5 @@
 """This package provides Session class that handles observations."""
+import os
 import sys
 import math
 import time
@@ -21,6 +22,23 @@ class Session(object):
         self.project = project
         self.observer = observer
 
+    def _waittostart(self, when):
+        if when != 'NOW':
+            now = datetime.datetime.utcnow()
+            try:
+                st = datetime.datetime.strptime(when, "%Y-%m-%dT%H:%M:%S")
+            except ValueError:
+                raise ValueError('Start time format not understood')
+            maxminsetuptime = datetime.timedelta(
+                seconds=0)
+            d = (st - maxminsetuptime) - now
+            timeuntilboot = d.total_seconds()
+            if timeuntilboot < 0.:
+                timeuntilboot = 0
+            print("Will start after " + str(
+                timeuntilboot) + " seconds...")
+            time.sleep(timeuntilboot)
+
     def waittoboot(self, starttimestr, pause):
         """Before booting, wait until time given by starttimestr. This includes
          a dummy beam warmup."""
@@ -38,7 +56,7 @@ class Session(object):
         time.sleep(timeuntilboot)
         return st
 
-    def do_bfs(self, band, duration, pointsrc, starttimestr, shutdown=True):
+    def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
         """Record BeamFormed Streams (BFS)."""
         stndrv = self.stationdrivers[0]
 
@@ -70,6 +88,10 @@ class Session(object):
 
         # Wait until it is time to start
         pause = 5  # Sufficient?
+        if when != "NOW":
+            starttimestr = when
+        else:
+            starttimestr = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         st = self.waittoboot(starttimestr, pause)
 
         # From swlevel 0 it takes about 1:30min? to reach swlevel 3
@@ -122,6 +144,8 @@ class Session(object):
         obsinfo = dataIO.ObsInfo()
         obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD, "")
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(stndrv.LOFARdataArchive)
+        print("Creating BFS destination folder on DPU:\n{}".format(datapath))
+        os.mkdir(datapath)
         obsinfo.create_LOFARst_header(datapath)
         dataIO.write_project_header(datapath, stndrv.stationcontroller.stnid,
                                     stndrv.project, stndrv.observer)
@@ -142,21 +166,7 @@ class Session(object):
         """
         duration = int(math.ceil(eval(duration)))
         frqbndobj = modeparms.FrequencyBand(freqbnd)
-        if when != 'NOW':
-            now = datetime.datetime.utcnow()
-            try:
-                st = datetime.datetime.strptime(when, "%Y-%m-%dT%H:%M:%S")
-            except ValueError:
-                raise ValueError('Start time format not understood')
-            maxminsetuptime = datetime.timedelta(
-                seconds=0)
-            d = (st - maxminsetuptime) - now
-            timeuntilboot = d.total_seconds()
-            if timeuntilboot < 0.:
-                timeuntilboot = 0
-            print("Will start after " + str(
-                timeuntilboot) + " seconds...")
-            time.sleep(timeuntilboot)
+        self._waittostart(when)
         for stndrv in self.stationdrivers:
             if allsky and 'HBA' in frqbndobj.antsets[0]:
                 stndrv.do_SEPTON(statistic, frqbndobj, integration, duration)

@@ -14,7 +14,7 @@ import ilisa.observations.session as session
 
 
 def do_bfs(args):
-    myses.do_bfs(args.band, args.duration, args.pointsrc, args.starttimestr,
+    myses.do_bfs(args.band, args.duration, args.pointsrc, args.begintime,
                  args.shutdown)
 
 
@@ -27,7 +27,7 @@ def do_bst(args):
     with observational settings.
     """
     myses.do_bsxST('bst', args.freqbnd, args.integration, args.duration, args.pointsrc,
-                   when='NOW', allsky=args.allsky)
+                   when=args.begintime, allsky=args.allsky)
 
 
 def do_sst(args):
@@ -35,7 +35,7 @@ def do_sst(args):
     with observational settings.
     """
     myses.do_bsxST('sst', args.freqbnd, args.integration, args.duration, args.pointsrc,
-                   when='NOW', allsky=args.allsky)
+                   when=args.begintime, allsky=args.allsky)
 
 
 def do_xst(args):
@@ -43,7 +43,7 @@ def do_xst(args):
     with observational settings.
     """
     myses.do_bsxST('xst', args.freqbnd, args.integration, args.duration, args.pointsrc,
-                   when='NOW', allsky=args.allsky)
+                   when=args.begintime, allsky=args.allsky)
 
 
 def do_tbb(args):
@@ -53,7 +53,11 @@ def do_tbb(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--allsky', help="Set allsky FoV", action='store_true')
-    parser.add_argument('-s', '--shutdown', help="Shutdown observing state when finished", action='store_true')
+    parser.add_argument('-s', '--shutdown', help="Shutdown observing state when finished",
+                        action='store_true')
+    parser.add_argument('-b', '--begintime',
+                        help="Begin Time (format: YYYY-mm-ddTHH:MM:SS)",
+                        type=str, default='NOW')
     subparsers = parser.add_subparsers(title='Observation mode',
                                        description='Select a type of data to record.',
                                        help='Type of datataking:')
@@ -89,8 +93,6 @@ if __name__ == "__main__":
     parser_bfs = subparsers.add_parser('bfs',
                                        help="Make an BFS observation.")
     parser_bfs.set_defaults(func=do_bfs)
-    parser_bfs.add_argument('starttimestr',
-                 help="Start-time (format: YYYY-mm-ddTHH:MM:SS)")
     parser_bfs.add_argument('band', **arg_rcuband_kwargs)
     parser_bfs.add_argument('duration',**arg_duration_kwargs)
     parser_bfs.add_argument('pointsrc', **arg_pointsrc_kwargs)

@@ -170,8 +170,6 @@ class ObsInfo(object):
         stObsEpoch = self.datetime
         st_extName = stObsEpoch
         if folder_name_beamctl_type:
-            if self.LOFARdatTYPE == 'bfs':
-                return stObsEpoch, stDataArchive
             if self.LOFARdatTYPE == "bst-357":
                 st_extName += "_rcu357"
             else:
@@ -183,7 +181,10 @@ class ObsInfo(object):
             if self.sb != [] and self.sb != '':
                 st_extName += "_sb"
                 st_extName += modeparms.seqlists2slicestr(self.sb)
-            st_extName += "_int"+str(int(self.integration))+"_dur"+str(int(self.duration))
+            if hasattr(self, 'integration'):
+                st_extName += "_int"+str(int(self.integration))
+            if hasattr(self, 'duration'):
+                st_extName += "_dur"+str(int(self.duration))
             if self.LOFARdatTYPE != 'sst':
                 if str(self.pointing) != "":
                     st_extName += "_dir"+str(self.pointing)
