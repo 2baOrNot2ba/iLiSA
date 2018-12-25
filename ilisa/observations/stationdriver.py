@@ -504,7 +504,7 @@ class StationDriver(object):
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
         obsinfo.create_LOFARst_header(datapath)
-        dataIO.write_project_header(datapath, self.statoncontroller.stnid, self.project,
+        dataIO.write_project_header(datapath, self.stationcontroller.stnid, self.project,
                                     self.observer)
         return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
 
