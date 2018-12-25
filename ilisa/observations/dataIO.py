@@ -41,12 +41,33 @@ regex_xstfilename=(
 "_xst.dat$")
 
 
+def write_acc_header(datapath, starttime, rcuband, pointing):
+    accfolderhdrfile = "{}_acc.h".format(starttime)
+    with open(os.path.join(datapath, accfolderhdrfile), "w") as f:
+        f.write("DataType: acc\n")
+        f.write("StartTime: {}\n".format(starttime))
+        f.write("RcuBand: {}\n".format(rcuband))
+        f.write("Integration: 1.0\n")
+        f.write("Duration: 512.0\n")
+        f.write("RCUs: [192, 192]\n")
+        f.write("Pointing: {}\n".format(pointing))
+
+
+def write_project_header(datapath, stnid, project, observer):
+    projhdrfile = "PROJECT_HEADER.yml"
+    with open(os.path.join(datapath, projhdrfile), "w") as f:
+        f.write("# LOFAR local station project\n")
+        f.write("# Created by {} version {}\n".format("iLiSA", ilisa.__version__))
+        f.write("Telescope: {}\n".format("LOFAR"))
+        f.write("Station: {}\n".format(stnid))
+        f.write("Project: {}\n".format(project))
+        f.write("Observer: {}\n".format(observer))
+
+
 class ObsInfo(object):
     """Contains most import technical information of on an observation."""
-    def __init__(self, stnid="", project="", observer=""):
-        self.stnid = stnid
-        self.project = project
-        self.observer = observer
+    def __init__(self):
+        pass
 
     def setobsinfo(self, LOFARdatTYPE, datetime, rcumode, sb,
                          integration, duration, pointing):
@@ -256,28 +277,26 @@ class ObsInfo(object):
         """Create a header file for LOFAR standalone observation."""
         LOFARstTYPE = self.LOFARdatTYPE
         LOFARstObsEpoch = self.datetime
-        try:
-            beamctl_CMD = '\n'.join(self.beamctl_cmd)
-        except AttributeError:
-            beamctl_CMD = ""
+        if type(self.beamctl_cmd) is not list:
+            beamctl_CMD = [self.beamctl_cmd]
+        else:
+            beamctl_CMD = self.beamctl_cmd
+        beamctl_CMD = '\n'.join(beamctl_CMD)
         rspctl_CMD = self.rspctl_cmd
         caltableInfo = self.caltabinfo
         septonconfig = self.septonconf
         def indenttext(txt):
             indentstr = "  "
             return indentstr+txt.replace("\n","\n"+indentstr)
-        headerversion = "2"
+        headerversion = "3"
         if not self.isLOFARdatatype(LOFARstTYPE):
-            raise ValueError, "Unknown LOFAR statistic type {}.\
-                              ".format(LOFARstTYPE)
+            raise ValueError("Unknown LOFAR statistic type {}.\
+                              ".format(LOFARstTYPE))
         LOFARstHeaderFile = LOFARstObsEpoch+"_"+LOFARstTYPE+".h"
         f = open(os.path.join(datapath, LOFARstHeaderFile), "w")
         f.write("# HeaderType: bsxSTdata (YAML)\n")
         f.write("# Header version {}\n".format(headerversion))
-        f.write("Observer: {}\n".format(self.observer))
-        f.write("Project: {}\n".format(self.project))
         f.write("DataType: {}\n".format(LOFARstTYPE))
-        f.write("StationID: {}\n".format(self.stnid))
         starttime = LOFARstObsEpoch[0:4]+'-'+LOFARstObsEpoch[4:6]+'-'\
                         + LOFARstObsEpoch[6:8]+'T'+LOFARstObsEpoch[9:11]+':'\
                         + LOFARstObsEpoch[11:13]+':'+LOFARstObsEpoch[13:15]

@@ -136,14 +136,17 @@ class StationDriver(object):
             subprocess.call(fullcmd, shell=True)
             self.stationcontroller.rm(source)
 
-    def get_data_timestamp(self, order=0):
+    def get_data_timestamp(self, order=0, ACC=False):
         """Get timestamp of datafiles on LCU. order is the temporal order of the data
         file, order=0 is oldest, order=-1 is newest."""
         dd_dir, acc_dir = self.stationcontroller.getdatalist()
         # Assumes only one file in datadump dir with
         # format YYYYmmdd_HHMMSS_[bsx]st.dat
-        # FIXME handle ACC datafiles too
-        obsdate, obstime, obssuff = dd_dir[order].split('_', 2)
+        if not ACC:
+             the_dir = dd_dir
+        else:
+            the_dir = acc_dir
+        obsdate, obstime, obssuff = the_dir[order].split('_', 2)
         obsdatetime_stamp = obsdate+'_'+obstime
         return obsdatetime_stamp
 
@@ -170,7 +173,7 @@ class StationDriver(object):
         return rcu_setup_CMD, beamctl_cmds
 
 
-    def do_bst(self, freqbndobj, integration, duration, pointing, obsinfo):
+    def do_bst(self, freqbndobj, integration, duration, pointing):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
         """
 
@@ -198,8 +201,10 @@ class StationDriver(object):
         rspctl_CMD = self.stationcontroller.rec_bst(integration, duration)
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
-        obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp, beamctl_cmds, rspctl_CMD,
-                                      caltabinfo)
+        obsinfo = dataIO.ObsInfo()
+        obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp,
+                                                       beamctl_cmds, rspctl_CMD,
+                                                       caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat",
                          datapath)
@@ -209,7 +214,7 @@ class StationDriver(object):
         obsinfo.create_LOFARst_header(datapath)
         return datapath
 
-    def do_sst(self, freqbndobj, integration, duration, pointing, obsinfo):
+    def do_sst(self, freqbndobj, integration, duration, pointing):
         """Run an sst static."""
 
         # Use this to do a system temperature measurement.
@@ -230,6 +235,7 @@ class StationDriver(object):
 
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
+        obsinfo = dataIO.ObsInfo()
         obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_cmds, rspctl_CMD,
                                       caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
@@ -238,7 +244,7 @@ class StationDriver(object):
         obsinfo.create_LOFARst_header(datapath)
         return datapath
 
-    def do_xst(self, freqbndobj, integration, duration, pointing, obsinfo):
+    def do_xst(self, freqbndobj, integration, duration, pointing):
         """Run an xst statistic towards the given pointing. This corresponds to
         a crosscorrelation of all elements at the given frequency and
         integration repeated for a duration of seconds."""
@@ -259,7 +265,7 @@ class StationDriver(object):
                 rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
                                                             duration)
                 obsdatetime_stamp = self.get_data_timestamp(-1)
-                curr_obsinfo = copy.copy(obsinfo)
+                curr_obsinfo = dataIO.ObsInfo()
                 curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds,
                                                    rspctl_CMD, caltabinfo)
                 obsinfolist.append(curr_obsinfo)
@@ -308,19 +314,16 @@ class StationDriver(object):
             raise ValueError, "Integration {} is longer than duration {}.\
                                ".format(integration, duration)
 
-        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project,
-                                 self.observer)
+        obsinfo = dataIO.ObsInfo()
         datapath = None
         if statistic == 'bst':
-             datapath = self.do_bst(freqbndobj, integration, duration, pointing,
-                                    obsinfo)
+             datapath = self.do_bst(freqbndobj, integration, duration, pointing,)
         elif statistic == 'sst':
-             datapath = self.do_sst(freqbndobj, integration, duration, pointing,
-                                    obsinfo)
+             datapath = self.do_sst(freqbndobj, integration, duration, pointing)
         elif statistic == 'xst':
-             datapath = self.do_xst(freqbndobj, integration, duration, pointing,
-                                    obsinfo)
-
+             datapath = self.do_xst(freqbndobj, integration, duration, pointing)
+        dataIO.write_project_header(datapath, self.stationcontroller.stnid, self.project,
+                                    self.observer)
         self.stationcontroller.stopBeam()
         return datapath
 
@@ -403,11 +406,12 @@ class StationDriver(object):
             self.stationcontroller.bootToObservationState(0)
 
         # Transfer data from LCU to DAU
+        obsdatetime_stamp = self.get_data_timestamp(ACC=True)
         ACCsrcFiles = self.stationcontroller.ACCsrcDir+"/*.dat"
         ACCdestDir = \
             os.path.join(self.LOFARdataArchive, 'acc',
                        '{}_{}_rcu{}_dur{}'.format(self.stationcontroller.stnid,
-                         obsStartDate, rcumode, duration))
+                         obsdatetime_stamp, rcumode, duration))
         if int(rcumode) > 3:
             ACCdestDir += "_"+pointSrc
         ACCdestDir += "_acc"
@@ -419,16 +423,28 @@ class StationDriver(object):
             os.mkdir(ACCdestDir)
 
         # Move ACC dumps to storage
-        obsdatetime_stamp = self.get_data_timestamp()
         self.movefromlcu(ACCsrcFiles, ACCdestDir)
+        accdestfiles = os.listdir(ACCdestDir)
+        # - Create project header
+        dataIO.write_project_header(ACCdestDir, self.stationcontroller.stnid,
+                                    self.project, self.observer)
+        # - Create header for each ACC file
+        for destfile in accdestfiles:
+            filedatestr, filetimestr, _ = destfile.split('_', 2)
+            filedtstr = '_'.join([filedatestr, filetimestr])
+            dataIO.write_acc_header(ACCdestDir, filedtstr, rcumode, pointing)
 
         # Move concurrent data to storage
-        obsinfo = dataIO.ObsInfo(self.stationcontroller.stnid, self.project, self.observer)
+        obsinfo = dataIO.ObsInfo()
+        obsdatetime_stamp = self.get_data_timestamp()
         obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_CMD, rspctl_CMD)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", datapath,
                          recursive=True)
         obsinfo.create_LOFARst_header(datapath)
+        dataIO.write_project_header(datapath, self.stationcontroller.stnid,
+                                    self.project,
+                                    self.observer)
         self.stationcontroller.cleanup()
 
         # Postprocess?

@@ -17,6 +17,10 @@ class Session(object):
         stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
         self.stationdrivers.append(stndrv)
 
+    def setproject(self, project="Null", observer="Null"):
+        self.project = project
+        self.observer = observer
+
     def waittoboot(self, starttimestr, pause):
         """Before booting, wait until time given by starttimestr. This includes
          a dummy beam warmup."""
@@ -101,7 +105,7 @@ class Session(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
 
-        REC = False
+        REC = True
         if REC == True:
             bf_data_dir = stndrv.bf_data_dir
             port0 = stndrv.bf_port0
@@ -115,11 +119,12 @@ class Session(object):
         stndrv.stationcontroller.stopBeam()
         headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                 ).strftime("%Y%m%d_%H%M%S")
-        obsinfo = dataIO.ObsInfo(stndrv.stationcontroller.stnid,
-                                 stndrv.project, stndrv.observer)
+        obsinfo = dataIO.ObsInfo()
         obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD, "")
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(stndrv.LOFARdataArchive)
         obsinfo.create_LOFARst_header(datapath)
+        dataIO.write_project_header(datapath, stndrv.stationcontroller.stnid,
+                                    stndrv.project, stndrv.observer)
         stndrv.halt_observingstate_when_finished = shutdown  # Necessary due to forking
 
     def do_acc(self, band, duration, pointsrc):
