@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import sys
-import os
 import numpy
 import datetime
 import argparse
@@ -10,8 +9,6 @@ import ilisa.antennameta.calibrationtables as calibrationtables
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
 import ilisa.observations.modeparms
-import ilisa.observations.stationinterface as stationcontrol
-import ilisa.observations.stationdriver as observing
 
 
 def main(accrunfolder, desiredsrc):
@@ -24,72 +21,74 @@ def main(accrunfolder, desiredsrc):
     accrunfolder : str
         Path to the folder that contains a set of temporally contiguous ACC files.
 
-    stnid : str
-        Station id. e.g. SE607.
+    desiredsrc : str
+        The source to point at.
     """
     accffobj = dataIO.CVCfiles(accrunfolder)
     obsfolderinfo = accffobj.getobsfolderinfo()
     obsdate = obsfolderinfo['datetime']
     rcumode = obsfolderinfo['rcumode']
-    calsrc  = obsfolderinfo['calsrc']
-    dur = obsfolderinfo['duration']
+    calsrc = obsfolderinfo['calsrc']
+    # dur = obsfolderinfo['duration']
     stnid = obsfolderinfo['stnid']
-    if calsrc == None and desiredsrc == None:
-        raise ValueError, "No calibration source specified"
+    if calsrc is None and desiredsrc is None:
+        raise ValueError("No calibration source specified")
     elif int(rcumode) == 3 and desiredsrc is not None:
         calsrc = desiredsrc
     elif desiredsrc != calsrc:
-        print("Warning: calibration source {} is not the desired one {}.".format(calsrc,desiredsrc))
+        print("Warning: calibration source {} is not the desired one {}."
+              .format(calsrc, desiredsrc))
     pntstr = ilisa.observations.modeparms.stdPointings(calsrc)
     pointing = pntstr.split(',')
     bandarr = ilisa.observations.modeparms.rcumode2antset(rcumode).split("_")[0]
-    stnPos, stnRot, antpos, stnIntilePos = antennafieldlib.getArrayBandParams(stnid, bandarr)
+    stn_pos, stn_rot, antpos, stn_intile_pos = antennafieldlib.getArrayBandParams(stnid,
+                                                                                  bandarr)
     freqs = ilisa.observations.modeparms.rcumode2sbfreqs(rcumode)
-    accfolderdatestr = obsdate.strftime("%Y%m%d") + "T120000" # FIX put appropriate time
-    (nrant, comp) = antpos.shape
-    ACCfiles = accffobj.filenames
-    nrACCfiles = len(ACCfiles)
+    accfolderdatestr = obsdate.strftime("%Y%m%d") + "T120000"  # FIX put appropriate time
+    accfiles = accffobj.filenames
+    nraccfiles = len(accfiles)
     (caltab, ctheader) = calibrationtables.getcaltab(rcumode, stnid, accfolderdatestr)
 
     sb = None
-    if sb == None:
+    if sb is None:
         (bstXX, bstXY, bstYY) = (
-             numpy.zeros((nrACCfiles, ilisa.observations.modeparms.TotNrOfsb)),
-             numpy.zeros((nrACCfiles, ilisa.observations.modeparms.TotNrOfsb), dtype=complex),
-             numpy.zeros((nrACCfiles, ilisa.observations.modeparms.TotNrOfsb)))
+            numpy.zeros((nraccfiles, ilisa.observations.modeparms.TotNrOfsb)),
+            numpy.zeros((nraccfiles, ilisa.observations.modeparms.TotNrOfsb),
+                        dtype=complex),
+            numpy.zeros((nraccfiles, ilisa.observations.modeparms.TotNrOfsb)))
     else:
-        (bstXX, bstXY, bstYY) = (numpy.zeros((nrACCfiles, )),
-                                        numpy.zeros((nrACCfiles, ), dtype=complex),
-                                        numpy.zeros((nrACCfiles, )))
-    filestarttimes = numpy.zeros((nrACCfiles,), dtype='datetime64[s]')
+        (bstXX, bstXY, bstYY) = (numpy.zeros((nraccfiles, )),
+                                 numpy.zeros((nraccfiles, ), dtype=complex),
+                                 numpy.zeros((nraccfiles, )))
+    filestarttimes = numpy.zeros((nraccfiles,), dtype='datetime64[s]')
 
-    for tidx, ACCfile in enumerate(ACCfiles):
+    for tidx, ACCfile in enumerate(accfiles):
         accunc = accffobj.getdata(tidx)
         sbobstimes = accffobj.samptimes[tidx]
         filestarttimes[tidx] = numpy.datetime64(sbobstimes[0])
         if tidx == 0:
             calrunstarttime = sbobstimes[0]
         else:
-            ftd = numpy.asscalar((filestarttimes[tidx]-filestarttimes[tidx-1]).astype('int'))
+            ftd = numpy.asscalar((filestarttimes[tidx]-filestarttimes[tidx-1])
+                                 .astype('int'))
             if ftd != 519:
                 print("Time delta between ACC files is {}s.".format(ftd))
                 raise RuntimeError("""Time between ACC files nr {}-{} not the \
-                                   nominal 519s.""".format(tidx,tidx-1))
+                                   nominal 519s.""".format(tidx, tidx-1))
         # Calibrate
         acc = calibrationtables.calibrateACCwithtab(accunc, caltab)
         accpol = dataIO.cvc2cvpol(acc)
-        sys.stdout.write('({}/{})\n'.format(tidx+1, nrACCfiles))
-        if sb == None:
-           (bstXX[tidx,:], bstXY[tidx,:], bstYY[tidx,:]
-            ) = imaging.accpol2bst(accpol, sbobstimes, freqs,
-                                  stnPos, antpos, pointing)
+        sys.stdout.write('({}/{})\n'.format(tidx+1, nraccfiles))
+        if sb is None:
+            (bstXX[tidx, :], bstXY[tidx, :], bstYY[tidx, :]
+             ) = imaging.accpol2bst(accpol, sbobstimes, freqs, stn_pos, antpos, pointing)
         else:
             (bstXX[tidx], bstXY[tidx], bstYY[tidx]
-            ) = imaging.xst2bst(accpol[:,:,sb,...].squeeze(), sbobstimes[sb], freqs[sb],
-                                stnPos, antpos, pointing)
+             ) = imaging.xst2bst(accpol[:, :, sb, ...].squeeze(), sbobstimes[sb],
+                                 freqs[sb], stn_pos, antpos, pointing)
     calrunendtime = sbobstimes[-1]
-    ACCsbsampleduration = datetime.timedelta(seconds=1)
-    calrunduration = calrunendtime - calrunstarttime + ACCsbsampleduration
+    accsbsampleduration = datetime.timedelta(seconds=1)
+    calrunduration = calrunendtime - calrunstarttime + accsbsampleduration
     acc2bstname = dataIO.saveacc2bst((bstXX, bstXY, bstYY), filestarttimes,
                                      calrunstarttime, calrunduration, rcumode,
                                      calsrc, ctheader['Calibration'], stnid)
@@ -99,7 +98,6 @@ def main(accrunfolder, desiredsrc):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("accrunfolder")
-    #parser.add_argument("stnid",type=str)
     parser.add_argument("desiredsrc", type=str, nargs='?', default=None)
     args = parser.parse_args()
     main(args.accrunfolder, args.desiredsrc)
