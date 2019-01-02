@@ -8,7 +8,6 @@ import math
 import time
 import subprocess
 import os
-import yaml
 import multiprocessing
 import copy
 
@@ -64,7 +63,7 @@ class StationDriver(object):
             print("         (You are running as {})".format(self.stationcontroller.user))
             return False
 
-    def __init__(self, accessconffile=None, projectprofile=None,
+    def __init__(self, accessconf, projectmeta,
                  goto_observingstate_when_starting=True):
         """Initialize a Session object, which has access to a station via
         a Station object configured with setting given by accessconfile.
@@ -72,18 +71,6 @@ class StationDriver(object):
         station to swlevel 3, but only if observations are allowed on the
         station.
         """
-        if accessconffile is None:
-            accessconffile = os.path.expanduser('~/.iLiSA/access_config.yml')
-        with open(accessconffile) as cfigfilep:
-            accessconf = yaml.load(cfigfilep)
-        if projectprofile is None:
-            userilisadir = os.path.expanduser('~/.iLiSA/')
-            userilisadirfiles = os.listdir(userilisadir)
-            for userilisafile in userilisadirfiles:
-                if userilisafile.endswith('projprof.yml'):
-                    projectprofile = os.path.join(userilisadir, userilisafile)
-        with open(projectprofile) as projectprofilep:
-            projectmeta = yaml.load(projectprofilep)
         self.observer = projectmeta['PROJECTPROFILE']['observer']
         self.project = projectmeta['PROJECTPROFILE']['projectname']
         lcuaccessconf = accessconf['LCU']

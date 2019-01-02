@@ -9,21 +9,35 @@ import ilisa.observations.modeparms as modeparms
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 import ilisa.observations.dataIO as dataIO
 from functools import wraps
+import yaml
 
 
 class Session(object):
 
-    def __init__(self, halt_observingstate_when_finished=True):
+    obslogfile = "obs.log"
+
+    def __init__(self, accessconffile=None, projectprofile=None,
+                 halt_observingstate_when_finished=True):
+        if accessconffile is None:
+            accessconffile = os.path.expanduser('~/.iLiSA/access_config.yml')
+        with open(accessconffile) as cfigfilep:
+            accessconf = yaml.load(cfigfilep)
+        if projectprofile is None:
+            userilisadir = os.path.expanduser('~/.iLiSA/')
+            userilisadirfiles = os.listdir(userilisadir)
+            for userilisafile in userilisadirfiles:
+                if userilisafile.endswith('projprof.yml'):
+                    projectprofile = os.path.join(userilisadir, userilisafile)
+        with open(projectprofile) as projectprofilep:
+            projectmeta = yaml.load(projectprofilep)
+        self.observer = projectmeta['PROJECTPROFILE']['observer']
+        self.project = projectmeta['PROJECTPROFILE']['projectname']
+        with open(self.obslogfile, 'a') as ologfile:
+            ologfile.write("\nProject: {}\n".format(self.project))
         self.stationdrivers = []
-        stndrv = stationdriver.StationDriver()
+        stndrv = stationdriver.StationDriver(accessconf, projectmeta)
         stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
         self.stationdrivers.append(stndrv)
-
-    def setproject(self, project="Null", observer="Null"):
-        self.project = project
-        self.observer = observer
-
-    obslogfile = "obs.log"
 
     def log_obs(obsf):
         @wraps(obsf)
@@ -189,17 +203,20 @@ class Session(object):
         duration = int(math.ceil(eval(duration)))
         frqbndobj = modeparms.FrequencyBand(freqbnd)
         self._waittostart(when)
-        datapath = []
+        datapaths = []
         for stndrv in self.stationdrivers:
             if allsky and 'HBA' in frqbndobj.antsets[0]:
                 stndrv.do_SEPTON(statistic, frqbndobj, integration, duration)
             else:
                 try:
-                    datapath.append(stndrv.bsxST(statistic, frqbndobj, integration,
-                                                 duration, pointsrc))
+
+                    datapath = stndrv.bsxST(statistic, frqbndobj, integration, duration,
+                                            pointsrc)
+                    dataurl = "{}:{}".format(stndrv.stationcontroller.stnid, datapath)
+                    datapaths.append(dataurl)
                 except RuntimeError as rte:
                     print("Error: {}".format(rte))
-        return datapath
+        return datapaths
 
     @log_obs
     def do_tbb(self, duration, band):
