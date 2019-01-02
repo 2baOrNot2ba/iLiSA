@@ -8,6 +8,7 @@ import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 import ilisa.observations.dataIO as dataIO
+from functools import wraps
 
 
 class Session(object):
@@ -21,6 +22,21 @@ class Session(object):
     def setproject(self, project="Null", observer="Null"):
         self.project = project
         self.observer = observer
+
+    obslogfile = "obs.log"
+
+    def log_obs(obsf):
+        @wraps(obsf)
+        def logit(self, *args, **kwargs):
+            calltime = datetime.datetime.utcnow()
+            retval_obsf = obsf(self, *args, **kwargs)
+            rettime = datetime.datetime.utcnow()
+            with open(self.obslogfile, 'a') as f:
+                f.write("{}; {}; ".format(calltime.isoformat(), rettime - calltime))
+                f.write("{}{}; ".format(obsf.__name__, args, kwargs))
+                f.write("{}\n".format(retval_obsf))
+            return retval_obsf
+        return logit
 
     def _waittostart(self, when):
         if when != 'NOW':
@@ -56,6 +72,7 @@ class Session(object):
         time.sleep(timeuntilboot)
         return st
 
+    @log_obs
     def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
         """Record BeamFormed Streams (BFS)."""
         stndrv = self.stationdrivers[0]
@@ -150,15 +167,20 @@ class Session(object):
         dataIO.write_project_header(datapath, stndrv.stationcontroller.stnid,
                                     stndrv.project, stndrv.observer)
         stndrv.halt_observingstate_when_finished = shutdown  # Necessary due to forking
+        return datapath
 
-    def do_acc(self, band, duration, pointsrc):
+    @log_obs
+    def do_acc(self, band, duration, pointsrc, when='NOW'):
         """Record acc data for one of the LOFAR bands over a duration on all stations.
         """
+        self._waittostart(when)
         duration = int(eval(duration))
         for stndrv in self.stationdrivers:
             accdestdir = stndrv.do_acc(band, duration, pointsrc)
             print("Saved ACC data in folder: {}".format(accdestdir))
+        return accdestdir
 
+    @log_obs
     def do_bsxST(self, statistic, freqbnd, integration, duration, pointsrc,
                  when='NOW', allsky=False):
         """Records bst,sst,xst data in one of the LOFAR bands and creates a header file
@@ -167,15 +189,19 @@ class Session(object):
         duration = int(math.ceil(eval(duration)))
         frqbndobj = modeparms.FrequencyBand(freqbnd)
         self._waittostart(when)
+        datapath = []
         for stndrv in self.stationdrivers:
             if allsky and 'HBA' in frqbndobj.antsets[0]:
                 stndrv.do_SEPTON(statistic, frqbndobj, integration, duration)
             else:
                 try:
-                    stndrv.bsxST(statistic, frqbndobj, integration, duration, pointsrc)
+                    datapath.append(stndrv.bsxST(statistic, frqbndobj, integration,
+                                                 duration, pointsrc))
                 except RuntimeError as rte:
                     print("Error: {}".format(rte))
+        return datapath
 
+    @log_obs
     def do_tbb(self, duration, band):
         """Record Transient Buffer Board (TBB) data from one of the LOFAR bands for
         duration seconds on all stations.
@@ -183,3 +209,4 @@ class Session(object):
         duration = float(eval(duration))
         for stndrv in self.stationdrivers:
             stndrv.do_tbb(duration, band)
+        return "."
