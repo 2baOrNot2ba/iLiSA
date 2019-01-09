@@ -2,10 +2,11 @@
 
 import argparse
 import ilisa.observations.stationdriver as observing
+from ilisa.observations.session import Session
 
 def getswlevel(args):
     myobs.halt_observingstate_when_finished = False
-    current_swl = myobs.stationcontroller.getswlevel()
+    current_swl = myobs.stationcontroller.get_swlevel()
     print("The current swlevel is {}".format(current_swl))
 
 def halt(args):
@@ -25,6 +26,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    myobs = observing.StationDriver(goto_observingstate_when_starting=False)
+    #myobs = observing.StationDriver(goto_observingstate_when_starting=False)
+    myobs = Session(goto_observingstate_when_starting=False)
 
     args.func(args)

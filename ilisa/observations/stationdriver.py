@@ -49,7 +49,7 @@ class StationDriver(object):
     def checkobservingallowed(self):
         """Check whether observations are allowed. This occurs is someone else
         is using the station."""
-        serviceuser = self.stationcontroller.whoServiceBroker()
+        serviceuser = self.stationcontroller.who_servicebroker()
 
         if serviceuser == 'None' or serviceuser == self.stationcontroller.user:
             stationswitchmode = self.stationcontroller.getstationswitchmode()
@@ -90,14 +90,14 @@ class StationDriver(object):
         self.cleanup()
         # Check whether the station is being used by someone else:
         if self.checkobservingallowed() and goto_observingstate_when_starting:
-            self.stationcontroller.bootToObservationState()
+            self.stationcontroller.set_swlevel()
             # TODO: Figure out what should happen when goto_observingstate_when_starting==False
             # but later user wants to observe (but station might not be in observation state)
 
     def haltobservingstate(self):
         """Halt observing state on station."""
         if self.checkobservingallowed():
-            self.stationcontroller.shutdownObservationState()
+            self.stationcontroller.set_swlevel(0)
             self.cleanup()
             # Cleanup any data left on LCU.
             self.stationcontroller.cleanup()
@@ -110,7 +110,7 @@ class StationDriver(object):
             self.haltobservingstate()
         elif self.exit_check:
             if self.checkobservingallowed():
-                swlevel = self.stationcontroller.getswlevel()
+                swlevel = self.stationcontroller.get_swlevel()
                 if int(swlevel) != 0:
                     print("Warning: You are leaving station in swlevel {} != 0"
                           .format(swlevel))
@@ -264,7 +264,7 @@ class StationDriver(object):
                 curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds,
                                                    rspctl_CMD, caltabinfo)
                 obsinfolist.append(curr_obsinfo)
-            self.stationcontroller.stopBeam()
+            self.stationcontroller.stop_beam()
 
         obsinfo = copy.copy(obsinfolist[0])
         obsinfo.sb = freqbndobj.sb_range[0]
@@ -319,7 +319,7 @@ class StationDriver(object):
              datapath = self.do_xst(freqbndobj, integration, duration, pointing)
         dataIO.write_project_header(datapath, self.stationcontroller.stnid, self.project,
                                     self.observer)
-        self.stationcontroller.stopBeam()
+        self.stationcontroller.stop_beam()
         return datapath
 
 # End: Basic obs modes
@@ -378,13 +378,13 @@ class StationDriver(object):
         #    self.stationcontroller.runACC(rcumode, duration, pointing)
 
         # Make sure swlevel=<2
-        self.stationcontroller.bootToObservationState(2)
+        self.stationcontroller.set_swlevel(2)
 
         # Set CalServ.conf to dump ACCs:
         self.stationcontroller.acc_mode(enable=True)
 
         # Boot to swlevel 3 so the calserver service starts (
-        self.stationcontroller.bootToObservationState()
+        self.stationcontroller.set_swlevel()
 
         # Beamlet & Subband allocation does not matter here
         # since niether ACC or SST cares
@@ -392,13 +392,13 @@ class StationDriver(object):
 
         # Run for $duration seconds
         rspctl_CMD = self.stationcontroller.rec_sst(sst_integration, duration)
-        self.stationcontroller.stopBeam()
+        self.stationcontroller.stop_beam()
 
         # Switch back to normal state i.e. turn-off ACC dumping:
         self.stationcontroller.acc_mode(enable=False)
 
         if exit_obsstate:
-            self.stationcontroller.bootToObservationState(0)
+            self.stationcontroller.set_swlevel(0)
 
         # Transfer data from LCU to DAU
         obsdatetime_stamp = self.get_data_timestamp(ACC=True)
@@ -467,7 +467,7 @@ class StationDriver(object):
         rspctl_SET = ""
         beamctl_CMD = ""
         # NOTE: LCU must be in swlevel=2 to run SEPTON!
-        self.stationcontroller.bootToObservationState(2)
+        self.stationcontroller.set_swlevel(2)
         # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
         self.stationcontroller.turnoffElinTile_byEl(elemsOn)
         caltabinfo = ""  # No need for caltab info
@@ -520,7 +520,7 @@ class StationDriver(object):
         print("In freezeTBBdata: Stopping TBB recording")
         self.stationcontroller.run_tbbctl(stop=True)
         print("In freezeTBBdata: Stopping any dummy beam")
-        self.stationcontroller.stopBeam()
+        self.stationcontroller.stop_beam()
 
     def _startTBBdataStream(self, duration):
         """Stream duration seconds of TBB data out of the LCU to

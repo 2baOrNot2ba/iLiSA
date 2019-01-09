@@ -65,7 +65,7 @@ class StationInterface(object):
         Note: It does this by trying to get the MAC version number."""
         self.MACversion = ""
         try:
-            self.MACversion = self.getMACversion()
+            self.MACversion = self.get_mac_version()
         except Exception:
             print("Error: Station object cannot access station with URL: "
                   + self.lcuURL)
@@ -172,7 +172,7 @@ class StationInterface(object):
         ls_ACCsrcDir = self._stdoutLCU("ls "+self.ACCsrcDir).split('\n')
         return ls_lcuDumpDir, ls_ACCsrcDir
 
-    def whoServiceBroker(self):
+    def who_servicebroker(self):
         """Check who is running the Service Broker on the LCU. This is an
         indication of who is currently using the station."""
         try:
@@ -236,14 +236,14 @@ class StationInterface(object):
             enabledrcuflagstr = "0:{}".format(nrofrcus-1)
         return enabledrcuflagstr
 
-    def getMACversion(self):
+    def get_mac_version(self):
         """Get MAC version of station."""
         macversionstr = self._stdoutLCU("swlevel -V")
         if self.DryRun:
             macversionstr = "Mock-version-2.0.0"
         return macversionstr
 
-    def getswlevel(self):
+    def get_swlevel(self):
         """Get current Software Level of station. Returns a string which
         under normal local mode operations is an integer between 0-3."""
         swlevel = self._stdoutLCU("swlevel -S")
@@ -251,7 +251,7 @@ class StationInterface(object):
             swlevel = 'Mock 3'
         return swlevel
 
-    def bootToObservationState(self, swleveltarget=3, FullReboot=False):
+    def set_swlevel(self, swleveltarget=3, FullReboot=False):
         """Get station to observation state."""
         # Stop any beam and remove any data in lcu datadump
         self.execOnLCU("killall beamctl")
@@ -259,7 +259,7 @@ class StationInterface(object):
         if FullReboot is not True:
             print("Checking swlevel (prior to running observations)")
             if not self.DryRun:
-                swlevel = self.getswlevel()
+                swlevel = self.get_swlevel()
             else:
                 swlevel = "undefined"
             print("Found swlevel="+swlevel)
@@ -271,17 +271,13 @@ class StationInterface(object):
             self.execOnLCU("swlevel 0; swlevel "+str(swleveltarget))
         # TODO check if we own the swlevel
 
-    def stopBeam(self):
+    def stop_beam(self):
         """Stop any running beamctl processes."""
         # Stop any beamctl and clean up datadump dir on lcu.
         self.execOnLCU("killall beamctl")
         # Put caltables back to default
         self.selectCalTable('default')
         # print("Beam off at %s"%time.asctime(time.localtime(time.time())))
-
-    def shutdownObservationState(self):
-        # Go to swlevel 0. No LOFAR services will be running after this.
-        self.execOnLCU('swlevel 0')
 
     def run_rspctl(self, select=None, mode=None, tbbmode=None):
         """Run rspctl command to setup RCUs: rcumode, select.

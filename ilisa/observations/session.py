@@ -140,7 +140,7 @@ class Session(object):
         stndrv.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band, pointing)
         stndrv.stationcontroller.rcusetup(bits,
                                          attenuation)  # setting bits also seems necessary
-        stndrv.stationcontroller.stopBeam()
+        stndrv.stationcontroller.stop_beam()
         # END Dummy or hot start
 
         print("Pause {}s after boot.".format(pause))
@@ -169,7 +169,7 @@ class Session(object):
             print("Not recording")
             time.sleep(duration)
         sys.stdout.flush()
-        stndrv.stationcontroller.stopBeam()
+        stndrv.stationcontroller.stop_beam()
         headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                 ).strftime("%Y%m%d_%H%M%S")
         obsinfo = dataIO.ObsInfo()
