@@ -6,11 +6,13 @@ from ilisa.observations.session import Session
 
 def getswlevel(args):
     myobs.halt_observingstate_when_finished = False
-    current_swl = myobs.stationcontroller.get_swlevel()
-    print("The current swlevel is {}".format(current_swl))
+    for stndrv in myobs.stationdrivers:
+        current_swl = stndrv.stationcontroller.get_swlevel()
+        stnid = stndrv.get_stnid()
+        print("The current swlevel of {} is {}".format(stnid, current_swl))
 
 def halt(args):
-    myobs.halt_observingstate_when_finished = True
+    myobs.set_halt_observingstate()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -26,7 +28,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    #myobs = observing.StationDriver(goto_observingstate_when_starting=False)
-    myobs = Session(goto_observingstate_when_starting=False)
+    myobs = Session(halt_observingstate_when_finished=False)
 
     args.func(args)

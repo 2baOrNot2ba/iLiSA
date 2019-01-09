@@ -1,13 +1,10 @@
 """This package provides Session class that handles observations."""
 import os
-import sys
 import math
 import time
 import datetime
 import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.modeparms as modeparms
-import ilisa.observations.beamformedstreams.bfbackend as bfbackend
-import ilisa.observations.dataIO as dataIO
 from functools import wraps
 import yaml
 
@@ -35,7 +32,8 @@ class Session(object):
         self.project = projectmeta['projectname']
         self.logsessionbegin()
         self.stationdrivers = []
-        stndrv = stationdriver.StationDriver(accessconf, projectmeta, goto_observingstate_when_starting=False)
+        stndrv = stationdriver.StationDriver(accessconf, projectmeta,
+                                             goto_observingstate_when_starting=False)
         stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
         self.stationdrivers.append(stndrv)
 
@@ -46,6 +44,10 @@ class Session(object):
             except RuntimeError as e:
                 raise RuntimeError('Could not goto observing state on station: {}'
                                    .format(e))
+
+    def set_halt_observingstate(self):
+        for stndrv in self.stationdrivers:
+            stndrv.halt_observingstate_when_finished = True
 
     def logsessionbegin(self):
         """Log that the observing session is beginning."""
