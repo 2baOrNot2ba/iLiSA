@@ -430,7 +430,7 @@ class StationDriver(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
 
-        REC = False
+        REC = True
         if REC == True:
             bf_data_dir = self.bf_data_dir
             port0 = self.bf_port0
