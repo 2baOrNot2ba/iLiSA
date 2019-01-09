@@ -71,8 +71,8 @@ class StationDriver(object):
         station to swlevel 3, but only if observations are allowed on the
         station.
         """
-        self.observer = projectmeta['PROJECTPROFILE']['observer']
-        self.project = projectmeta['PROJECTPROFILE']['projectname']
+        self.observer = projectmeta['observer']
+        self.project = projectmeta['projectname']
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
         self.stationcontroller = stationcontrol.StationInterface(lcuaccessconf)
