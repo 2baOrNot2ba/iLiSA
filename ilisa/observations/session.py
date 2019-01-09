@@ -29,7 +29,6 @@ class Session(object):
             projectmeta = projectprofile['PROJECTPROFILE']
         self.observer = projectmeta['observer']
         self.project = projectmeta['projectname']
-        self.logsessionbegin()
         self.stationdrivers = []
         stndrv = stationdriver.StationDriver(accessconf, projectmeta,
                                              goto_observingstate_when_starting=False)
@@ -63,16 +62,22 @@ class Session(object):
                  'Command':  sessionentry['Command'],
                  'DataPaths':sessionentry['DataPaths']}
 
+
+    done_logsessionbegin = False
+
     def logsessionbegin(self):
         """Log that the observing session is beginning."""
-        with open(self.obslogfile, 'a') as ologfile:
-            ologfile.write("\n---\n")
-            ologfile.write("ProjectName: {}\n".format(self.project))
-            # ologfile.write("    SessionNr: {}\n".format(calltime.isoformat()))
+        if not self.done_logsessionbegin:
+            with open(self.obslogfile, 'a') as ologfile:
+                ologfile.write("\n---\n")
+                ologfile.write("ProjectName: {}\n".format(self.project))
+                # ologfile.write("    SessionNr: {}\n".format(calltime.isoformat()))
+        self.done_logsessionbegin = True
 
     def log_obs(obsf):
         @wraps(obsf)
         def logit(self, *args, **kwargs):
+            self.logsessionbegin()
             calltime = datetime.datetime.utcnow()
             retval_obsf = obsf(self, *args, **kwargs)
             rettime = datetime.datetime.utcnow()

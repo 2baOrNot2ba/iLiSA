@@ -311,7 +311,7 @@ class ObsInfo(object):
         # (Currently rspsetup is in beamctl)
         f.write("RspctlCmds: |-\n")
         f.write(indenttext(rspctl_CMD)+"\n")
-        if LOFARstTYPE == 'bst':
+        if LOFARstTYPE == 'bst' or LOFARstTYPE == 'bfs':
             f.write("CalTabInfo: |-\n")
             #f.write(indenttext(caltableInfo))
             f.write(str(caltableInfo))

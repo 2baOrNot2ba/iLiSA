@@ -388,6 +388,7 @@ class StationDriver(object):
             raise ValueError(
                 "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
         pointing = modeparms.normalizebeamctldir(pointsrc)
+        caltabinfo = self.stationcontroller.getCalTableInfo(modeparms.band2rcumode(band))
 
         # Wait until it is time to start
         pause = 5  # Sufficient?
@@ -445,7 +446,8 @@ class StationDriver(object):
         headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                 ).strftime("%Y%m%d_%H%M%S")
         obsinfo = dataIO.ObsInfo()
-        obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD, "")
+        obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD,
+                                      caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         print("Creating BFS destination folder on DPU:\n{}".format(datapath))
         os.mkdir(datapath)
