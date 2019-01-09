@@ -6,8 +6,10 @@ should not run anything directly on LCU."""
 
 import math
 import time
+import datetime
 import subprocess
 import os
+import sys
 import multiprocessing
 import copy
 
@@ -15,6 +17,7 @@ import ilisa.observations.modeparms
 import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.modeparms as modeparms
+import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 
 
 # SEPTON configurations:
@@ -89,10 +92,11 @@ class StationDriver(object):
         self.halt_observingstate_when_finished = True
         self.cleanup()
         # Check whether the station is being used by someone else:
-        if self.checkobservingallowed() and goto_observingstate_when_starting:
-            self.stationcontroller.set_swlevel()
-            # TODO: Figure out what should happen when goto_observingstate_when_starting==False
-            # but later user wants to observe (but station might not be in observation state)
+        if goto_observingstate_when_starting:
+            try:
+                self.goto_observingstate()
+            except RuntimeError:
+                raise RuntimeError('Observations not allowed on this station')
 
     def goto_observingstate(self):
         """Put station into the main observing state."""
@@ -303,8 +307,10 @@ class StationDriver(object):
         pointSrc : str
             point direction as a beamctl triplet.
         """
-        if not self.checkobservingallowed():
-            raise RuntimeError("Station is being used by someone else.")
+        try:
+            self.goto_observingstate()
+        except RuntimeError as e:
+            raise RuntimeError(e)
 
         try:
             pointing = stdPointings(pointSrc)
@@ -334,6 +340,120 @@ class StationDriver(object):
 
 # End: Basic obs modes
 #######################################
+    def _waittoboot(self, starttimestr, pause):
+        """Before booting, wait until time given by starttimestr. This includes
+         a dummy beam warmup."""
+        nw = datetime.datetime.utcnow()
+        st = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S")
+
+        maxminsetuptime = datetime.timedelta(seconds=105 + pause)  # Longest minimal time
+        # before observation
+        # start to set up
+        d = (st - maxminsetuptime) - nw
+        timeuntilboot = d.total_seconds()
+        if timeuntilboot < 0.:
+            timeuntilboot = 0
+        print("Will boot to observe state after " + str(timeuntilboot) + " seconds...")
+        time.sleep(timeuntilboot)
+        return st
+
+    def do_bfs_sd(self, band, duration, pointsrc, when='NOW', shutdown=True):
+        """Record BeamFormed Streams (BFS)."""
+        try:
+            self.goto_observingstate()
+        except RuntimeError as e:
+            raise RuntimeError(e)
+        duration = eval(duration)  # Duration in seconds
+
+        ###
+        bits = 8  # 8
+        attenuation = None
+        # Subbands allocation
+        if band == '10_90' or band == '30_90':
+            # LBA
+            lanes = (0, 1)  # (0,1)
+            beamletIDs = '0:243'  # '0:243'
+            subbandNrs = '164:407'  # '164:407'
+        elif band == '110_190':
+            # HBAlo
+            lanes = (0, 1, 2, 3)  # Normally (0,1,2,3) for all 4 lanes.
+            beamletIDs = '0:487'
+            subbandNrs = '12:499'
+        elif band == '210_250':
+            # HBAhi
+            lanes = (0, 1)
+            beamletIDs = '0:243'
+            subbandNrs = '12:255'
+        else:
+            raise ValueError(
+                "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
+        pointing = modeparms.normalizebeamctldir(pointsrc)
+
+        # Wait until it is time to start
+        pause = 5  # Sufficient?
+        if when != "NOW":
+            starttimestr = when
+        else:
+            starttimestr = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        st = self._waittoboot(starttimestr, pause)
+
+        # From swlevel 0 it takes about 1:30min? to reach swlevel 3
+        print("Booting @ {}".format(datetime.datetime.utcnow()))
+
+        # Necessary since fork creates multiple instances of myobs and each one
+        # will call it's __del__ on completion and __del__ shutdown...
+        self.halt_observingstate_when_finished = False
+        self.exit_check = False
+
+        # BEGIN Dummy or hot beam start: (takes about 10sec)
+        # TODO: This seems necessary, otherwise beamctl will not start up next time,
+        #       although it should not have to necessary.)
+        print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
+        self.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band, pointing)
+        self.stationcontroller.rcusetup(bits,
+                                         attenuation)  # setting bits also seems necessary
+        self.stationcontroller.stop_beam()
+        # END Dummy or hot start
+
+        print("Pause {}s after boot.".format(pause))
+        time.sleep(pause)
+
+        # Real beam start:
+        print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+        beamctl_CMD = self.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band,
+                                                          pointing)
+        rcu_setup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
+        nw = datetime.datetime.utcnow()
+        timeleft = st - nw
+        if timeleft.total_seconds() < 0.:
+            starttimestr = nw.strftime("%Y-%m-%dT%H:%M:%S")
+        print("(Beam started) Time left before recording: {}".format(
+            timeleft.total_seconds()))
+
+        REC = True
+        if REC == True:
+            bf_data_dir = self.bf_data_dir
+            port0 = self.bf_port0
+            stnid = self.stationcontroller.stnid
+            bfbackend.rec_bf_streams(starttimestr, duration, lanes, band, bf_data_dir,
+                                     port0, stnid)
+        else:
+            print("Not recording")
+            time.sleep(duration)
+        sys.stdout.flush()
+        self.stationcontroller.stop_beam()
+        headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
+                                                ).strftime("%Y%m%d_%H%M%S")
+        obsinfo = dataIO.ObsInfo()
+        obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD, "")
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
+        print("Creating BFS destination folder on DPU:\n{}".format(datapath))
+        os.mkdir(datapath)
+        obsinfo.create_LOFARst_header(datapath)
+        dataIO.write_project_header(datapath, self.stationcontroller.stnid,
+                                    self.project, self.observer)
+        self.halt_observingstate_when_finished = shutdown  # Necessary due to forking
+        return datapath
 
     def do_acc(self, band, duration_req, pointSrc='Z', exit_obsstate=True):
         """Perform calibration observation mode on station. Also known as ACC
@@ -355,8 +475,10 @@ class StationDriver(object):
             duration_req: int
             pointSrc: str
         """
-        if not self.checkobservingallowed():
-            raise RuntimeError
+        try:
+            self.goto_observingstate()
+        except RuntimeError as e:
+            raise RuntimeError(e)
         try:
             rcumode = ilisa.observations.modeparms.band2rcumode(band)
         except ValueError:
@@ -468,12 +590,12 @@ class StationDriver(object):
         """Record xst or sst data in SEPTON mode.
         Setup Single Element per Tile ON mode. This only valid for HBA and
         currently only rcumode=5."""
-        #subband, NqZone = stationcontrol.freq2sb(frequency)
-        #rcumode = stationcontrol.NyquistZone2rcumode(NqZone)
+        try:
+            self.goto_observingstate()
+        except RuntimeError as e:
+            raise RuntimeError(e)
         subband = frqbndobj.sb_range[0]
         rcumode = frqbndobj.rcumodes[0]
-        pointing = ""
-        rcusetup_CMD =""
         rspctl_SET = ""
         beamctl_CMD = ""
         # NOTE: LCU must be in swlevel=2 to run SEPTON!

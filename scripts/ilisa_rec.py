@@ -14,8 +14,7 @@ import ilisa.observations.session as session
 
 
 def do_bfs(args):
-    myses.do_bfs(args.band, args.duration, args.pointsrc, args.begintime,
-                 args.shutdown)
+    myses.do_bfs(args.band, args.duration, args.pointsrc, args.begintime, args.shutdown)
 
 
 def do_acc(args):
