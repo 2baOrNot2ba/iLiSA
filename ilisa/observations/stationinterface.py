@@ -252,10 +252,8 @@ class StationInterface(object):
         return swlevel
 
     def set_swlevel(self, swleveltarget=3, FullReboot=False):
-        """Get station to observation state."""
-        # Stop any beam and remove any data in lcu datadump
-        self.execOnLCU("killall beamctl")
-
+        """Set station's software level. swleveltarget=3 is the swlevel for which
+        most observations take place."""
         if FullReboot is not True:
             print("Checking swlevel (prior to running observations)")
             if not self.DryRun:
@@ -273,7 +271,7 @@ class StationInterface(object):
 
     def stop_beam(self):
         """Stop any running beamctl processes."""
-        # Stop any beamctl and clean up datadump dir on lcu.
+        # Stop any beamctl on lcu.
         self.execOnLCU("killall beamctl")
         # Put caltables back to default
         self.selectCalTable('default')
