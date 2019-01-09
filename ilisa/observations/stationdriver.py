@@ -146,6 +146,10 @@ class StationDriver(object):
         obsdatetime_stamp = obsdate+'_'+obstime
         return obsdatetime_stamp
 
+    def get_stnid(self):
+        """Return the station id that this StationDriver is managing."""
+        return self.stationcontroller.stnid
+
 #######################################
 # Begin: Basic obs modes
 
