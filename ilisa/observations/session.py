@@ -29,15 +29,20 @@ class Session(object):
                 if userilisafile.endswith('projprof.yml'):
                     projectprofile = os.path.join(userilisadir, userilisafile)
         with open(projectprofile) as projectprofilep:
-            projectmeta = yaml.load(projectprofilep)
-        self.observer = projectmeta['PROJECTPROFILE']['observer']
-        self.project = projectmeta['PROJECTPROFILE']['projectname']
-        with open(self.obslogfile, 'a') as ologfile:
-            ologfile.write("\nProject: {}\n".format(self.project))
+            projectprofile = yaml.load(projectprofilep)
+        projectmeta = projectprofile['PROJECTPROFILE']
+        self.observer = projectmeta['observer']
+        self.project = projectmeta['projectname']
+        self.logsessionbegin()
         self.stationdrivers = []
-        stndrv = stationdriver.StationDriver(accessconf, projectmeta)
+        stndrv = stationdriver.StationDriver(accessconf, projectmeta, goto_observingstate_when_starting=False)
         stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
         self.stationdrivers.append(stndrv)
+
+    def logsessionbegin(self):
+        """Log that the observing session is beginning."""
+        with open(self.obslogfile, 'a') as ologfile:
+            ologfile.write("\nProject: {}\n".format(self.project))
 
     def log_obs(obsf):
         @wraps(obsf)
@@ -200,6 +205,7 @@ class Session(object):
         """Records bst,sst,xst data in one of the LOFAR bands and creates a header file
         with observational settings on all stations.
         """
+
         duration = int(math.ceil(eval(duration)))
         frqbndobj = modeparms.FrequencyBand(freqbnd)
         self._waittostart(when)
