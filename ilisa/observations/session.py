@@ -39,6 +39,10 @@ class Session(object):
         stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
         self.stationdrivers.append(stndrv)
 
+    def goto_observingstate(self):
+        for stndrv in self.stationdrivers:
+            stndrv.goto_observingstate()
+
     def logsessionbegin(self):
         """Log that the observing session is beginning."""
         with open(self.obslogfile, 'a') as ologfile:
@@ -218,7 +222,7 @@ class Session(object):
 
                     datapath = stndrv.bsxST(statistic, frqbndobj, integration, duration,
                                             pointsrc)
-                    dataurl = "{}:{}".format(stndrv.stationcontroller.stnid, datapath)
+                    dataurl = "{}:{}".format(stndrv.get_stnid(), datapath)
                     datapaths.append(dataurl)
                 except RuntimeError as rte:
                     print("Error: {}".format(rte))

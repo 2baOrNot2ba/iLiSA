@@ -94,6 +94,12 @@ class StationDriver(object):
             # TODO: Figure out what should happen when goto_observingstate_when_starting==False
             # but later user wants to observe (but station might not be in observation state)
 
+    def goto_observingstate(self):
+        """Put station into the main observing state."""
+        if not self.checkobservingallowed():
+            raise RuntimeError('Observations not allowed')
+        self.stationcontroller.set_swlevel(3)
+
     def haltobservingstate(self):
         """Halt observing state on station."""
         if self.checkobservingallowed():
