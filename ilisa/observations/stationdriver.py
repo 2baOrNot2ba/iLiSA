@@ -357,7 +357,7 @@ class StationDriver(object):
         time.sleep(timeuntilboot)
         return st
 
-    def do_bfs_sd(self, band, duration, pointsrc, when='NOW', shutdown=True):
+    def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
         """Record BeamFormed Streams (BFS)."""
         try:
             self.goto_observingstate()
@@ -430,7 +430,7 @@ class StationDriver(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
 
-        REC = True
+        REC = False
         if REC == True:
             bf_data_dir = self.bf_data_dir
             port0 = self.bf_port0

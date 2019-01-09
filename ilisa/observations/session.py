@@ -86,8 +86,8 @@ class Session(object):
     def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
 
         for stndrv in self.stationdrivers:
-            datapath = stndrv.do_bfs_sd(band, duration, pointsrc, when=when,
-                                        shutdown=shutdown)
+            datapath = stndrv.do_bfs(band, duration, pointsrc, when=when,
+                                     shutdown=shutdown)
         return datapath
 
     @log_obs
