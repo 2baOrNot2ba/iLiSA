@@ -57,6 +57,9 @@ if __name__ == "__main__":
     parser.add_argument('-b', '--begintime',
                         help="Begin Time (format: YYYY-mm-ddTHH:MM:SS)",
                         type=str, default='NOW')
+    parser.add_argument('-p', '--projectid',
+                        help="Project ID (format: YYYY-mm-ddTHH:MM:SS)",
+                        type=str, default=None)
     subparsers = parser.add_subparsers(title='Observation mode',
                                        description='Select a type of data to record.',
                                        help='Type of datataking:')
@@ -132,6 +135,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    myses = session.Session(halt_observingstate_when_finished = args.shutdown)
+    myses = session.Session(projectid=args.projectid,
+                            halt_observingstate_when_finished = args.shutdown)
 
     args.func(args)

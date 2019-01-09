@@ -1,5 +1,6 @@
 # Example of an observing project profile. It contains info on what project was behind the data recording.
-# Edit it, rename it to access_config.yml and move to your ~/.iLiSA/ directory.
+# Edit it, rename it to projectID_project.yml (where projectID is the unique project ID)
+# and move to your ~/.iLiSA/ directory.
 ---
 PROJECTPROFILE :
     observer : "Mr A. Somebody"               # Name of the observer

@@ -13,21 +13,20 @@ class Session(object):
 
     obslogfile = "obs.log"
 
-    def __init__(self, accessconffile=None, projectprofile=None,
+    def __init__(self, accessconffile=None, projectid=None,
                  halt_observingstate_when_finished=True):
         if accessconffile is None:
             accessconffile = os.path.expanduser('~/.iLiSA/access_config.yml')
         with open(accessconffile) as cfigfilep:
             accessconf = yaml.load(cfigfilep)
-        if projectprofile is None:
-            userilisadir = os.path.expanduser('~/.iLiSA/')
-            userilisadirfiles = os.listdir(userilisadir)
-            for userilisafile in userilisadirfiles:
-                if userilisafile.endswith('projprof.yml'):
-                    projectprofile = os.path.join(userilisadir, userilisafile)
-        with open(projectprofile) as projectprofilep:
-            projectprofile = yaml.load(projectprofilep)
-        projectmeta = projectprofile['PROJECTPROFILE']
+        userilisadir = os.path.expanduser('~/.iLiSA/')
+        projectmeta = {'observer': None, 'projectname': None}
+        if projectid is not None:
+            projectfile = projectid + "_project.yml"
+            projectfile = os.path.join(userilisadir, projectfile)
+            with open(projectfile) as projectfilep:
+                projectprofile = yaml.load(projectfilep)
+            projectmeta = projectprofile['PROJECTPROFILE']
         self.observer = projectmeta['observer']
         self.project = projectmeta['projectname']
         self.logsessionbegin()
@@ -49,10 +48,27 @@ class Session(object):
         for stndrv in self.stationdrivers:
             stndrv.halt_observingstate_when_finished = True
 
+    def readlogfile(self):
+        sessionlogs = []
+        with open(self.obslogfile, 'r') as f:
+            for sessionentry in yaml.load_all(f):
+                sessionlogs.append(sessionentry)
+        projectsessions = {}
+        for sessionentry in sessionlogs:
+            projectsessions[sessionentry['ProjectName']] = {}
+        for sessionentry in sessionlogs:
+            projectsessions[sessionentry['ProjectName']][sessionentry['SessionNr']] = \
+                {'StartTime':sessionentry['StartTime'],
+                 'Duration': sessionentry['Duration'],
+                 'Command':  sessionentry['Command'],
+                 'DataPaths':sessionentry['DataPaths']}
+
     def logsessionbegin(self):
         """Log that the observing session is beginning."""
         with open(self.obslogfile, 'a') as ologfile:
-            ologfile.write("\nProject: {}\n".format(self.project))
+            ologfile.write("\n---\n")
+            ologfile.write("ProjectName: {}\n".format(self.project))
+            # ologfile.write("    SessionNr: {}\n".format(calltime.isoformat()))
 
     def log_obs(obsf):
         @wraps(obsf)
@@ -60,10 +76,16 @@ class Session(object):
             calltime = datetime.datetime.utcnow()
             retval_obsf = obsf(self, *args, **kwargs)
             rettime = datetime.datetime.utcnow()
+            elemind  = "    "
+            listind = "  - "
             with open(self.obslogfile, 'a') as f:
-                f.write("{}; {}; ".format(calltime.isoformat(), rettime - calltime))
-                f.write("{}{}; ".format(obsf.__name__, args, kwargs))
-                f.write("{}\n".format(retval_obsf))
+                f.write(listind+"StartTime: {}\n".format(calltime.isoformat()))
+                f.write(elemind+"Duration: {}\n".format(rettime - calltime))
+                argsstr = ', '.join(map(repr,args))
+                kwargsstr = ', '.join(['{}={!r}'.format(k, v) for k, v in kwargs.items()])
+                cmdargstr = ', '.join([argsstr, kwargsstr])
+                f.write(elemind+"Command: {}({})\n".format(obsf.__name__, cmdargstr))
+                f.write(elemind+"DataPaths: {}\n".format(retval_obsf))
             return retval_obsf
         return logit
 
@@ -86,11 +108,18 @@ class Session(object):
 
     @log_obs
     def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
-
+        """Record bfs data. Beamformed stream is capture with udpcapture on backend."""
+        datapaths = []
         for stndrv in self.stationdrivers:
-            datapath = stndrv.do_bfs(band, duration, pointsrc, when=when,
-                                     shutdown=shutdown)
-        return datapath
+            try:
+                datapath = stndrv.do_bfs(band, duration, pointsrc, when=when,
+                                         shutdown=shutdown)
+            except RuntimeError as rte:
+                print("Error in do_bfs(): {}".format(rte))
+                datapath = None
+            dataurl = "{}:{}".format(stndrv.get_stnid(), datapath)
+            datapaths.append(dataurl)
+        return datapaths
 
     @log_obs
     def do_acc(self, band, duration, pointsrc, when='NOW'):
