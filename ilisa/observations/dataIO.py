@@ -537,8 +537,8 @@ class CVCfiles(object):
             dirpat = re.compile(regex_ACCfolder)
             obsdirinfo_m = dirpat.match(cvcfoldername)
             if obsdirinfo_m is None:
-                print "Cal error"
-                raise ValueError, "Calibration directory does not have correct syntax."
+                print("Cal error")
+                raise ValueError("Calibration directory does not have correct syntax.")
             obsdirinfo = obsdirinfo_m.groupdict()
             d0 = datetime.datetime(int(obsdirinfo['year']),
                                    int(obsdirinfo['month']),
@@ -674,7 +674,7 @@ def readacc2bst(anacc2bstfilepath, datformat = 'hdf'):
     anacc2bstfilepath = os.path.abspath(anacc2bstfilepath)
     acc2bstfiledir = os.path.dirname(anacc2bstfilepath)
     anacc2bstfilename = os.path.basename(anacc2bstfilepath)
-    (stnid, beginUTCstr, rcuarg, calsrc, durarg, caltabdate, acc2bst
+    (stnid, beginUTCstr, rcuarg, calsrc, durarg, caltabdate, acc2bst, version
      ) = anacc2bstfilename.split('_')
     beginUTC = datetime.datetime.strptime(beginUTCstr, "%Y%m%dT%H%M%S")
     rcumode = rcuarg[3]
@@ -698,9 +698,10 @@ def readacc2bst(anacc2bstfilepath, datformat = 'hdf'):
 
 
 def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
-                calrunduration, rcumode, calsrc, calibmeta, stnid,
+                calrunduration, rcumode, calsrc, calibmeta, stnid, used_autocorr,
                 saveformat = "hdf5"):
     """Save acc2bst data to file. Dataformat can be hdf or numpy."""
+    version = '3'  # Version of this dataformat
     calrundurationstr = str(int(calrunduration.total_seconds()))
     caltabID = calibmeta['Date']
     # Calculate start of ACC run.
@@ -708,7 +709,7 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
     dtlabel = 'acc2bst'
     acc2bstbase = stnid+'_'+calrunstarttime.strftime("%Y%m%dT%H%M%S")\
                   +'_rcu'+rcumode +'_'+calsrc+'_dur'+calrundurationstr\
-                  +'_ct'+caltabID+'_'+dtlabel
+                  +'_ct'+caltabID+'_v'+version+'_'+dtlabel
     #acc2bstsuffix = '.dat'
     pntstr = modeparms.stdPointings(calsrc)
     # Write out the data.
@@ -722,7 +723,8 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
         hf.attrs['ObservationStart'] = calrunstarttime.isoformat()
         hf.attrs['ObservationDuration'] = calrundurationstr
         hf.attrs['calibrationTableDate'] = caltabID
-        hf.attrs['version'] = '2.0'
+        hf.attrs['version'] = version
+        hf.attrs['use_ac'] = used_autocorr
         hf['frequency'] = freqs
         hf['frequency'].attrs['unit'] = "Hz"
         hf['timeaccstart'] = filestarttimes.view('<i8')

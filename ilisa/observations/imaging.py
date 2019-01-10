@@ -233,21 +233,30 @@ def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
     bstYY = numpy.sum(xstpu[1,1,...].squeeze(), axis=(0,1))
     return bstXX, bstXY, bstYY #, bstYX
 
-def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
-    """Convert spectral cube of visibilities (ACC) to polarized brightness
-    towards pointing direction. The output is a set of 2 real and 1 complex
-    powers (this is like beamlet statics, bst, data but also has the complex,
+def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr = False):
+    """Convert a polarized spectral cube of visibilities (ACC order by two X,Y indices)
+    to polarized brightness towards pointing direction. The output is a set of 2 real and
+    1 complex powers (this is like beamlet statics, bst, data but also has the complex,
     cross-hand polarization components, which the bst does not have)."""
+    nrelems = accpol.shape[-1]
+    nrbaselinestot = nrelems**2  # i.e. total number of baselines incl. autocorr and
+                                 # conjugate baselines.
+    if not use_autocorr:
+        # Do not use the autocorrelations
+        for idx in range(nrelems):
+            accpol[...,idx,idx]= 0.0
+        nrbaselinestot -= nrelems
     # Phase up ACC towards pointing direction
-    accpu = phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos,
-                                                                       pointing)
-    # Sum up phased up ACCs per polarization component over all baselines
-    bstXX = numpy.sum(numpy.real(accpu[0,0,...].squeeze()), axis=(1,2))
-    bstXY = numpy.sum(accpu[0,1,...].squeeze(), axis=(1,2))
-    # bstYX is redunant: it is conjugate of bstXY.
-    #bstYX = numpy.sum(accpu[1,0,...].squeeze(), axis=(1,2))
-    bstYY = numpy.sum(numpy.real(accpu[1,1,...].squeeze()), axis=(1,2))
-    return bstXX, bstXY, bstYY #, bstYX
+    accpu = phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing)
+    # Average phased up ACCs per pol component over all baselines (Previously sum)
+    bstXX = numpy.sum(numpy.real(accpu[0,0,...].squeeze()), axis=(1,2)) \
+                      / float(nrbaselinestot)
+    bstXY = numpy.sum(accpu[0,1,...].squeeze(), axis=(1,2)) / float(nrbaselinestot)
+    # bstYX is redundant: it is conjugate of bstXY.
+    # bstYX = numpy.sum(accpu[1,0,...].squeeze(), axis=(1,2))
+    bstYY = numpy.sum(numpy.real(accpu[1,1,...].squeeze()), axis=(1,2)) \
+                      / float(nrbaselinestot)
+    return bstXX, bstXY, bstYY  # , bstYX
 
 
 def plotskyimage(ll, mm, skyimages, t, freq, stnid, phaseref, integration):

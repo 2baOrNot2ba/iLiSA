@@ -11,7 +11,7 @@ import ilisa.observations.imaging as imaging
 import ilisa.observations.modeparms
 
 
-def main(accrunfolder, desiredsrc):
+def main(accrunfolder, desiredsrc, use_autocorr=False):
     """Convert the ACC folder into a hdf or numpy file.
 
     The output file will be created in the current working path.
@@ -81,7 +81,8 @@ def main(accrunfolder, desiredsrc):
         sys.stdout.write('({}/{})\n'.format(tidx+1, nraccfiles))
         if sb is None:
             (bstXX[tidx, :], bstXY[tidx, :], bstYY[tidx, :]
-             ) = imaging.accpol2bst(accpol, sbobstimes, freqs, stn_pos, antpos, pointing)
+             ) = imaging.accpol2bst(accpol, sbobstimes, freqs, stn_pos, antpos, pointing,
+                                    use_autocorr=use_autocorr)
         else:
             (bstXX[tidx], bstXY[tidx], bstYY[tidx]
              ) = imaging.xst2bst(accpol[:, :, sb, ...].squeeze(), sbobstimes[sb],
@@ -91,7 +92,8 @@ def main(accrunfolder, desiredsrc):
     calrunduration = calrunendtime - calrunstarttime + accsbsampleduration
     acc2bstname = dataIO.saveacc2bst((bstXX, bstXY, bstYY), filestarttimes,
                                      calrunstarttime, calrunduration, rcumode,
-                                     calsrc, ctheader['Calibration'], stnid)
+                                     calsrc, ctheader['Calibration'], stnid,
+                                     use_autocorr)
     print("Created file: {}".format(acc2bstname))
 
 
