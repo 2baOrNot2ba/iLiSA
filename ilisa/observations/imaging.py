@@ -155,17 +155,11 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
 
     if cvctype == 'acc':
         ts = cvcobj.samptimes[0]
-        calsrc = obsfolderinfo['calsrc']
         stnid = obsfolderinfo['stnid']
-        #sb, nz = stationcontrol.freq2sb(float(cubeslice))
-        #cubeslice = sb
         sb = cubeslice
         t = ts[cubeslice]
-        septon = False  # FIXME
     else:
-        starttime = obsinfo.starttime
         stnid = obsinfo.stnid
-        beamctl_cmd = obsinfo.beamctl_cmd
         sb = int(obsinfo.rspctl_cmd['xcsubband'])
         t = t0 + datetime.timedelta(seconds=float(cubeslice))
         cubeslice = int(cubeslice)
