@@ -211,7 +211,14 @@ class ObsInfo(object):
                     headerversion = hline.split()[-1]
         with open(headerfile, 'r') as hf:
             if headerversion == '1':
+                rspctl_lines = []
                 for line in hf:
+                    if "Observer" in line:
+                        label, observer = line.split('=')
+                    if "Project" in line:
+                        label, project = line.split('=')
+                    if "DataType" in line:
+                        label, datatype = line.split('=')
                     if "StationID" in line:
                         label, stnid = line.split('=')
                         stnid = stnid.strip()
@@ -221,6 +228,8 @@ class ObsInfo(object):
                     if "beamctl" in line:
                         # HACK
                         beamctl_line = line
+                    if "rspctl" in line:
+                        rspctl_lines.append(line)
             else:
                 contents = yaml.load(hf)
                 observer = contents['Observer']
@@ -640,12 +649,10 @@ class CVCfiles(object):
         """Return number of data files in this filefolder."""
         return len(self.filenames)
 
-    def getdata(self, filenr=-1):
+    def getdata(self, filenr=None):
         """Return the data payload of the filefolder. For ACC each file is a sweep through
         512 frequency. For XST they represent another observation."""
-        if self.getnrfiles() == 1:
-            return self.data[0]
-        elif filenr == -1:
+        if filenr is None:
             return self.data
         else:
             return self.data[filenr]
