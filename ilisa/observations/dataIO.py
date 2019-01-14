@@ -463,8 +463,19 @@ def readsstfolder(SSTfolder):
 # END SST related code
 
 class CVCfiles(object):
-    """Provides functionality for covariance cube (CVC) files.
-    CVC files from a LOFAR station includes ACC and XST files.
+    """Provides functionality for covariance cube (CVC) files. (CVC is essentially
+    visiblity cubes.) CVC files from a LOFAR station includes ACC and XST files.
+
+    Attributes
+    ----------
+    data: list of array_like
+        Each item in list corresponds to one CVC file and is the actual covariance matrix
+        cube with shape cvcdim0 x cvcdim1 x cvcdim2.
+    fileobstimes: list of str
+        A list of datetimes as specified by the CVC filename.
+    samptimes: list of datetimes
+        The datetime of the visibility matrix sample.
+
     """
     def __init__(self, datapath):
         self.data = []
@@ -480,14 +491,15 @@ class CVCfiles(object):
             raise ValueError('Path does not exist')
 
     def _parse_cvcfile(self, cvcfilepath):
-        """Parse the cvc file name.
+        """Parse the cvc file name. Sets fileobstimes and sets the dimensions of the
+        visibility cube, which most generally is: dimtimes * dimrcu0 * dimrcu1.
 
         The file name should have the format:
             Ymd_HMS_xst.dat for xst file
             Ymd_HMS_acc_nrsbsxnrrcus0xnrrcus1.dat for acc file
 
         :param cvcfilepath: str
-        :return: obsfolderinfo
+        :return: filenamedatetime, cvcdim0, cvcdim1, cvcdim2
         """
         cvcfilename = os.path.basename(cvcfilepath)
         (Ymd, HMS, cvcextrest) = cvcfilename.split('_',2)
@@ -532,7 +544,7 @@ class CVCfiles(object):
                 obsfolderinfo['duration'] =    float(durstr[3:])
                 obsfolderinfo['pointing'] =    dirstr[3:].split(',')
             except:
-                raise ValueError, "Foldername not in xst_ext format."
+                raise ValueError("Foldername not in xst_ext format.")
         elif cvcextstr == 'acc':
             dirpat = re.compile(regex_ACCfolder)
             obsdirinfo_m = dirpat.match(cvcfoldername)
@@ -548,9 +560,11 @@ class CVCfiles(object):
                                    int(obsdirinfo['second']))
             obsfolderinfo['datetime'] = d0
             obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
+            obsfolderinfo['subband'] = '0:511'
+            obsfolderinfo['integration'] = 1.0
+            obsfolderinfo['duration'] = int(obsdirinfo['duration'])
             obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
             obsfolderinfo['pointing'] = modeparms.stdPointings(obsfolderinfo['calsrc'])
-            obsfolderinfo['duration'] = int(obsdirinfo['duration'])
             obsfolderinfo['stnid'] = obsdirinfo['stnid']
         else:
             raise(ValueError, "Folder not expected xst or acc format.")
@@ -604,7 +618,7 @@ class CVCfiles(object):
         cvcfilepath : str
         """
         filenamedatetime, cvcdim0, cvcdim1, cvcdim2 = self._parse_cvcfile(cvcfilepath)
-        integtime = 1.0  # FIXME Get proper integtime from file folder. This is default
+        integration = self.obsfolderinfo['integration']  # FIXME get this from st header
         t_end = filenamedatetime
         # Get cvc data from file.
         cvc_dtype = numpy.dtype(('c16', (192,192)))
@@ -617,7 +631,7 @@ class CVCfiles(object):
         for sb in range(cvcdim0):
             # Previously forgot to add 1 in this formula:
             sbobstimedelta = datetime.timedelta(
-                seconds=(sb - cvcdim0 + 1) * integtime
+                seconds=(sb - cvcdim0 + 1) * integration
             )
             obsaccdates[sb] = t_end + sbobstimedelta
         self.samptimes.append(obsaccdates)
