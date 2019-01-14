@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import sys
 import os
 import argparse
 import numpy
@@ -7,7 +6,6 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
 import ilisa.observations.modeparms
-import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
 import ilisa.observations.modeparms as modeparms
@@ -95,7 +93,7 @@ def plotxst(xstff):
         ts = numpy.arange(0., dur, intg)
         XSTdata = XSTdataset[sbstepidx]
         for tidx in range(XSTdata.shape[0]):
-            print "Kill plot window for next plot..."
+            print("Kill plot window for next plot...")
             plt.imshow(numpy.abs(XSTdata[tidx,...]), norm=colors.LogNorm(),
                        interpolation='none')
             plt.title("Time (from start {}) {}s @ freq={} MHz".format(obsinfo.starttime,
@@ -139,7 +137,7 @@ def plot_bsxst(args):
     elif suf=='xst' or suf=='xst-SEPTON':
         plotxst(bsxff)
     else:
-        raise RuntimeError, "Not a bst, sst, or xst filefolder"
+        raise RuntimeError("Not a bst, sst, or xst filefolder")
 
 
 def image(args):
