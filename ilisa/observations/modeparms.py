@@ -608,6 +608,6 @@ def rcumode2antset(rcumode):
     return antset
 
 
-def rcumode2NyquistZone(rcumode):
-    NZ = int((int(rcumode)-3)/2)
-    return NZ
+def rcumode2nyquistzone(rcumode):
+    nz = int((int(rcumode)-3)/2)
+    return nz
