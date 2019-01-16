@@ -21,7 +21,6 @@ import h5py
 import yaml
 
 import ilisa.observations.modeparms
-import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 
 regex_ACCfolder=(
@@ -41,28 +40,68 @@ regex_xstfilename=(
 "_xst.dat$")
 
 
-def write_acc_header(datapath, starttime, rcuband, pointing):
-    accfolderhdrfile = "{}_acc.h".format(starttime)
-    with open(os.path.join(datapath, accfolderhdrfile), "w") as f:
-        f.write("DataType: acc\n")
-        f.write("StartTime: {}\n".format(starttime))
-        f.write("RcuBand: {}\n".format(rcuband))
-        f.write("Integration: 1.0\n")
-        f.write("Duration: 512.0\n")
-        f.write("RCUs: [192, 192]\n")
-        f.write("Pointing: {}\n".format(pointing))
+class StationSessionInfo(object):
 
+    stnsesfile = "StationSession.yml"
 
-def write_project_header(datapath, stnid, project, observer):
-    projhdrfile = "PROJECT_HEADER.yml"
-    with open(os.path.join(datapath, projhdrfile), "w") as f:
-        f.write("# LOFAR local station project\n")
-        f.write("# Created by {} version {}\n".format("iLiSA", ilisa.__version__))
-        f.write("Telescope: {}\n".format("LOFAR"))
-        f.write("Station: {}\n".format(stnid))
-        f.write("Project: {}\n".format(project))
-        f.write("Observer: {}\n".format(observer))
+    def __init__(self, projectmeta={}):
+        self.headerversion = 1
+        self.projectmeta = projectmeta
+        self.telescope = "LOFAR"
+        self.obsinfos = []
 
+    def new_obsinfo(self):
+        self.obsinfos.append(ObsInfo())
+
+    def set_stnid(self, stnid):
+        self.stnid = stnid
+
+    def get_datetime(self):
+        sti = self.obsfolderinfo['sessiontimeid']
+        sessiondatetime = datetime.datetime.strptime(sti, '%Y%m%d_%H%M%S')
+        return sessiondatetime
+
+    def set_obsfolderinfo(self, datatype, sessiontimeid, freqband, integration, duration,
+                          pointing="None,None,None"):
+        self.obsfolderinfo = {}
+        self.obsfolderinfo['datatype'] = datatype
+        self.obsfolderinfo['sessiontimeid'] = sessiontimeid
+        self.obsfolderinfo['freqband'] =  freqband
+        self.obsfolderinfo['integration'] = integration
+        self.obsfolderinfo['duration'] = duration
+        self.obsfolderinfo['pointing'] = pointing
+
+    def get_obsfolderinfo(self):
+        return (self.obsfolderinfo['datatype'], self.obsfolderinfo['sessiontimeid'],
+                self.obsfolderinfo['freqband'], self.obsfolderinfo['integration'],
+                self.obsfolderinfo['duration'], self.obsfolderinfo['pointing'])
+
+    def write_session_header(self, datapath):
+        with open(os.path.join(datapath, self.stnsesfile), "w") as f:
+            f.write("# LOFAR local station project\n")
+            f.write("# Created by {} version {}\n".format("iLiSA", ilisa.__version__))
+            f.write("headerversion: {}\n".format(self.headerversion))
+            f.write("telescope: {}\n".format(self.telescope))
+            f.write("stnid: {}\n".format(self.stnid))
+            f.write("projectmeta: {!r}\n".format(self.projectmeta))
+            f.write("sessiontype: {!r}\n".format(self.obsfolderinfo))
+
+    def read_session_header(self, datapath):
+        with open(os.path.join(datapath, self.stnsesfile), 'r') as f:
+            for line in f.readlines():
+                line = line.rstrip()
+                if line.startswith("headerversion: "):
+                    self.headerversion = line.lstrip("headerversion: ")
+                elif line.startswith("telescope: "):
+                    self.telescope = line.lstrip("telescope: ")
+                elif line.startswith("stnid: "):
+                    self.stnid = line.lstrip("stnid: ")
+                elif line.startswith("projectname: "):
+                    self.projectmeta['projectname'] = line.lstrip("projectname: ")
+                elif line.startswith("observer: "):
+                    self.projectmeta['observer'] = line.lstrip("observer: ")
+                elif line.startswith("sessiontype: "):
+                    self.obsfolderinfo = eval(line.lstrip("sessiontype: "))
 
 class ObsInfo(object):
     """Contains most import technical information of on an observation."""
@@ -146,9 +185,11 @@ class ObsInfo(object):
             self.pointing = digdir
         else:
             self.pointing = ""
+        if rspctl_cmd == '':
+            rspctl_cmd = 'rspctl'
         self.rspctl_cmd = rspctl_cmd
         rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmd)
-        if self.LOFARdatTYPE != 'bfs':
+        if self.LOFARdatTYPE != 'bfs' and self.LOFARdatTYPE != 'acc':
             self.integration = float(rspctl_args['integration'])
             self.duration = float(rspctl_args['duration'])
         if self.LOFARdatTYPE == 'sst':
@@ -230,7 +271,7 @@ class ObsInfo(object):
                         beamctl_line = line
                     if "rspctl" in line:
                         rspctl_lines.append(line)
-            else:
+            elif headerversion == '2':
                 contents = yaml.load(hf)
                 observer = contents['Observer']
                 project = contents['Project']
@@ -239,6 +280,12 @@ class ObsInfo(object):
                 starttime = contents['StartTime']
                 beamctl_line = contents['BeamctlCmds']
                 rspctl_lines = contents['RspctlCmds'].split('\n')
+            else:
+                contents = yaml.load(hf)
+                datatype = contents['datatype']
+                starttime = contents['filetime']
+                beamctl_line = contents['beamctl_cmds']
+                rspctl_lines = contents['rspctl_cmds'].split('\n')
         multishellcmds = beamctl_line.split('&')
         beamctl_cmd = multishellcmds[0]
         if beamctl_cmd is not "":
@@ -261,10 +308,19 @@ class ObsInfo(object):
                 rspctl_args = modeparms.parse_rspctl_args(rspctl_line)
                 rspctl_cmd.update(rspctl_args)
         # Allocate object attributes
-        self.observer = observer
-        self.project = project
+        try:
+            self.observer = observer
+        except:
+            pass
+        try:
+            self.project = project
+        except:
+            pass
+        try:
+            self.stnid = stnid
+        except:
+            pass
         self.datatype = datatype
-        self.stnid = stnid
         self.starttime = starttime
         self.beamctl_cmd = beamctl_cmd
         self.rspctl_cmd = rspctl_cmd
@@ -273,7 +329,8 @@ class ObsInfo(object):
 
     def isLOFARdatatype(self, obsdatatype):
         """Test if a string 'obsdatatype' is one of iLiSA's recognized LOFAR data types"""
-        if (obsdatatype == 'bst' or
+        if (obsdatatype == 'acc' or
+            obsdatatype == 'bst' or
             obsdatatype == 'bst-357' or
             obsdatatype == 'sst' or
             obsdatatype == 'xst' or
@@ -293,7 +350,7 @@ class ObsInfo(object):
             beamctl_CMD = self.beamctl_cmd
         beamctl_CMD = '\n'.join(beamctl_CMD)
         rspctl_CMD = self.rspctl_cmd
-        caltableInfo = self.caltabinfo
+        caltabinfo = self.caltabinfo
         septonconfig = self.septonconf
         def indenttext(txt):
             indentstr = "  "
@@ -306,24 +363,25 @@ class ObsInfo(object):
         f = open(os.path.join(datapath, LOFARstHeaderFile), "w")
         f.write("# HeaderType: bsxSTdata (YAML)\n")
         f.write("# Header version {}\n".format(headerversion))
-        f.write("DataType: {}\n".format(LOFARstTYPE))
-        starttime = LOFARstObsEpoch[0:4]+'-'+LOFARstObsEpoch[4:6]+'-'\
+        f.write("datatype: {}\n".format(LOFARstTYPE))
+        filetime = LOFARstObsEpoch[0:4]+'-'+LOFARstObsEpoch[4:6]+'-'\
                         + LOFARstObsEpoch[6:8]+'T'+LOFARstObsEpoch[9:11]+':'\
                         + LOFARstObsEpoch[11:13]+':'+LOFARstObsEpoch[13:15]
-        f.write("StartTime: "+starttime+"\n")
+        f.write("filetime: "+filetime+"\n")
         if septonconfig is not "":
             f.write("SEPTONconfig: {}\n".format(septonconfig))
-        f.write("BeamctlCmds: |-\n")
+        f.write("beamctl_cmds: |-\n")
         f.write(indenttext(beamctl_CMD)+"\n")
         # f.write(rspsetup_CMD+"\n")
         # FIX separation of beamctl and rspsetup
         # (Currently rspsetup is in beamctl)
-        f.write("RspctlCmds: |-\n")
-        f.write(indenttext(rspctl_CMD)+"\n")
+        if rspctl_CMD != "":
+            f.write("rspctl_cmds: |-\n")
+            f.write(indenttext(rspctl_CMD)+"\n")
         if LOFARstTYPE == 'bst' or LOFARstTYPE == 'bfs':
-            f.write("CalTabInfo: |-\n")
+            f.write("caltabinfo: |-\n")
             #f.write(indenttext(caltableInfo))
-            f.write(str(caltableInfo))
+            f.write(str(caltabinfo))
         f.close()
 
 
@@ -577,7 +635,7 @@ class CVCfiles(object):
             obsfolderinfo['stnid'] = obsdirinfo['stnid']
         else:
             raise(ValueError, "Folder not expected xst or acc format.")
-        obsfolderinfo['cvc-type'] = cvcextstr
+        obsfolderinfo['datatype'] = cvcextstr
         return obsfolderinfo
 
     def _readcvcfolder(self):
@@ -590,11 +648,21 @@ class CVCfiles(object):
         where N is nominally the number of time samples and the len of data is
         the number of files in the folder.
         """
+        self.obsfolderinfo = None
         self.obsinfos = []
         try:
-            self.obsfolderinfo = self._parse_cvcfolder(self.filefolder)
-        except ValueError:
-            self.obsfolderinfo = None
+            self.sessionmeta = StationSessionInfo()
+            self.sessionmeta.read_session_header(self.filefolder)
+        except Exception as e:
+            print e.message
+            print e.__doc__
+            print("Warning: Could not read session header. Will try filefolder name...")
+            try:
+                self.obsfolderinfo = self._parse_cvcfolder(self.filefolder)
+            except ValueError:
+                self.obsfolderinfo = None
+        else:
+            self.obsfolderinfo = self.sessionmeta.obsfolderinfo
         cvcdirls = os.listdir(self.filefolder)
         # Select only data files in folder
         cvcfiles = [f for f in cvcdirls if f.endswith('.dat')]
@@ -604,10 +672,10 @@ class CVCfiles(object):
             self.filenames.append(cvcfile)
             print("Reading cvcfile: {}".format(cvcfile))
             self._readcvcfile(os.path.join(self.filefolder,cvcfile))
-            if self.obsfolderinfo['cvc-type'] != 'acc':
+            if self.obsfolderinfo['datatype'] != 'acc':
                 try:
                     (d,t, _rest) = cvcfile.split('_', 2)
-                    hfilename = '{}_{}_{}.h'.format(d, t, self.obsfolderinfo['cvc-type'])
+                    hfilename = '{}_{}_{}.h'.format(d, t, self.obsfolderinfo['datatype'])
                     hfilepath = os.path.join(self.filefolder, hfilename)
                     obsinfo = ObsInfo()
                     obsinfo.parse_bsxST_header(hfilepath)
@@ -658,10 +726,11 @@ class CVCfiles(object):
             return self.data[filenr]
 
     def getobsfolderinfo(self):
-        if self.obsinfos:
-            return self.obsinfos
-        elif self.obsfolderinfo:
+        """Return either the obsfolderinfo or the obsinfos list of obsinfo."""
+        if self.obsfolderinfo:
             return self.obsfolderinfo
+        elif self.obsinfos:
+            return self.obsinfos
         else:
             raise RuntimeError("No metadata available")
 

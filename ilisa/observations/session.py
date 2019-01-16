@@ -5,6 +5,7 @@ import time
 import datetime
 import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.modeparms as modeparms
+import ilisa.observations.dataIO as dataIO
 from functools import wraps
 import yaml
 
@@ -27,10 +28,9 @@ class Session(object):
             with open(projectfile) as projectfilep:
                 projectprofile = yaml.load(projectfilep)
             projectmeta = projectprofile['PROJECTPROFILE']
-        self.observer = projectmeta['observer']
-        self.project = projectmeta['projectname']
+        self.stnsesinfo = dataIO.StationSessionInfo(projectmeta)
         self.stationdrivers = []
-        stndrv = stationdriver.StationDriver(accessconf, projectmeta,
+        stndrv = stationdriver.StationDriver(accessconf, self.stnsesinfo,
                                              goto_observingstate_when_starting=False)
         stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
         self.stationdrivers.append(stndrv)
@@ -54,9 +54,9 @@ class Session(object):
                 sessionlogs.append(sessionentry)
         projectsessions = {}
         for sessionentry in sessionlogs:
-            projectsessions[sessionentry['ProjectName']] = {}
+            projectsessions[sessionentry['projectname']] = {}
         for sessionentry in sessionlogs:
-            projectsessions[sessionentry['ProjectName']][sessionentry['SessionNr']] = \
+            projectsessions[sessionentry['projectname']][sessionentry['sessionnr']] = \
                 {'StartTime':sessionentry['StartTime'],
                  'Duration': sessionentry['Duration'],
                  'Command':  sessionentry['Command'],
@@ -70,7 +70,8 @@ class Session(object):
         if not self.done_logsessionbegin:
             with open(self.obslogfile, 'a') as ologfile:
                 ologfile.write("\n---\n")
-                ologfile.write("ProjectName: {}\n".format(self.project))
+                ologfile.write("projectname: {}\n"
+                               .format(self.stnsesinfo.projectmeta['projectname']))
                 # ologfile.write("    SessionNr: {}\n".format(calltime.isoformat()))
         self.done_logsessionbegin = True
 
@@ -114,17 +115,16 @@ class Session(object):
     @log_obs
     def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
         """Record bfs data. Beamformed stream is capture with udpcapture on backend."""
-        datapaths = []
+        datafolder_urls = []
         for stndrv in self.stationdrivers:
             try:
-                datapath = stndrv.do_bfs(band, duration, pointsrc, when=when,
-                                         shutdown=shutdown)
+                datafolder_url = stndrv.do_bfs(band, duration, pointsrc, when=when,
+                                               shutdown=shutdown)
             except RuntimeError as rte:
                 print("Error in do_bfs(): {}".format(rte))
                 datapath = None
-            dataurl = "{}:{}".format(stndrv.get_stnid(), datapath)
-            datapaths.append(dataurl)
-        return datapaths
+            datafolder_urls.append(datafolder_url)
+        return datafolder_urls
 
     @log_obs
     def do_acc(self, band, duration, pointsrc, when='NOW'):
@@ -133,9 +133,10 @@ class Session(object):
         self._waittostart(when)
         duration = int(eval(duration))
         for stndrv in self.stationdrivers:
-            accdestdir = stndrv.do_acc(band, duration, pointsrc)
-            print("Saved ACC data in folder: {}".format(accdestdir))
-        return accdestdir
+            acc_url, sst_url = stndrv.do_acc(band, duration, pointsrc)
+            print("Saved ACC data in folder: {}".format(acc_url))
+            print("Saved SST data in folder: {}".format(sst_url))
+        return [acc_url, sst_url]
 
     @log_obs
     def do_bsxST(self, statistic, freqbnd, integration, duration, pointsrc,
@@ -147,20 +148,19 @@ class Session(object):
         duration = int(math.ceil(eval(duration)))
         frqbndobj = modeparms.FrequencyBand(freqbnd)
         self._waittostart(when)
-        datapaths = []
+        datafolder_urls = []
         for stndrv in self.stationdrivers:
             if allsky and 'HBA' in frqbndobj.antsets[0]:
-                stndrv.do_SEPTON(statistic, frqbndobj, integration, duration)
+                datafolder_url = stndrv.do_SEPTON(statistic, frqbndobj, integration,
+                                                  duration)
             else:
-                datapath = None
                 try:
-                    datapath = stndrv.bsxST(statistic, frqbndobj, integration, duration,
-                                            pointsrc)
+                    datafolder_url = stndrv.bsxST(statistic, frqbndobj, integration,
+                                                  duration, pointsrc)
                 except RuntimeError as rte:
                     print("Error in do_bsxST(): {}".format(rte))
-                dataurl = "{}:{}".format(stndrv.get_stnid(), datapath)
-                datapaths.append(dataurl)
-        return datapaths
+                datafolder_urls.append(datafolder_url)
+        return datafolder_urls
 
     @log_obs
     def do_tbb(self, duration, band):

@@ -145,7 +145,7 @@ def image(args):
     cvcobj = dataIO.CVCfiles(args.cvcpath)
     CVCdataset = cvcobj.getdata()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
-        if cvcobj.obsfolderinfo['cvc-type'] == 'acc':
+        if cvcobj.obsfolderinfo['datatype'] == 'acc':
             integration = 1.0
         else:
             obsinfo = cvcobj.obsinfos[fileidx]

@@ -108,6 +108,7 @@ class FrequencyBand(object):
     nrbeamletsbybits = {16: 244, 8: 488, 4: 976}
 
     def __init__(self, arg):
+        self.arg = arg
         if arg is not None:
             if type(arg) is not tuple:
                 freqrange = self._freqbandarg2tuple(arg)

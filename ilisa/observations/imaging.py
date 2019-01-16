@@ -143,10 +143,15 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
             pointingstr = obsinfo.beamctl_cmd['anadir']
         else:
             rcumode = '5'
+        stnid = obsfolderinfo.stnid
     else:
-        t0, rcumode = obsfolderinfo['datetime'], obsfolderinfo['rcumode']
+        t0 = cvcobj.sessionmeta.get_datetime()
+        freqbndobj = ilisa.observations.modeparms.FrequencyBand(obsfolderinfo['freqband'])
+        rcumode = str(freqbndobj.rcumodes[0])
         pointingstr = obsfolderinfo['pointing']
-        cvctype = obsfolderinfo['cvc-type']
+        cvctype = obsfolderinfo['datatype']
+        stnid = cvcobj.sessionmeta.stnid
+        obsinfo = cvcobj.obsinfos[filestep]
 
     bandarr = ilisa.observations.modeparms.rcumode2antset(rcumode).split("_")[0]
     band = ilisa.observations.modeparms.rcumode2band(rcumode)
@@ -155,11 +160,9 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
 
     if cvctype == 'acc':
         ts = cvcobj.samptimes[0]
-        stnid = obsfolderinfo['stnid']
         sb = cubeslice
         t = ts[cubeslice]
     else:
-        stnid = obsinfo.stnid
         sb = int(obsinfo.rspctl_cmd['xcsubband'])
         t = t0 + datetime.timedelta(seconds=float(cubeslice))
         cubeslice = int(cubeslice)

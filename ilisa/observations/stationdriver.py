@@ -66,7 +66,7 @@ class StationDriver(object):
             print("         (You are running as {})".format(self.stationcontroller.user))
             return False
 
-    def __init__(self, accessconf, projectmeta,
+    def __init__(self, accessconf, stnsesinfo,
                  goto_observingstate_when_starting=True):
         """Initialize a Session object, which has access to a station via
         a Station object configured with setting given by accessconfile.
@@ -74,11 +74,11 @@ class StationDriver(object):
         station to swlevel 3, but only if observations are allowed on the
         station.
         """
-        self.observer = projectmeta['observer']
-        self.project = projectmeta['projectname']
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
         self.stationcontroller = stationcontrol.StationInterface(lcuaccessconf)
+        self.stnsesinfo = stnsesinfo
+        self.stnsesinfo.set_stnid(self.stationcontroller.stnid)
 
         self.LOFARdataArchive = dpuaccessconf['LOFARdataArchive']
         self.bf_data_dir =      dpuaccessconf['BeamFormDataDir']
@@ -221,7 +221,7 @@ class StationDriver(object):
         self.stationcontroller.rm(
                               self.stationcontroller.lcuDumpDir+"/*01[XY].dat")
         obsinfo.create_LOFARst_header(datapath)
-        return datapath
+        return datapath, bsxSTobsEpoch
 
     def do_sst(self, freqbndobj, integration, duration, pointing):
         """Run an sst static."""
@@ -251,7 +251,7 @@ class StationDriver(object):
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath,
                          recursive=True)
         obsinfo.create_LOFARst_header(datapath)
-        return datapath
+        return datapath, bsxSTobsEpoch
 
     def do_xst(self, freqbndobj, integration, duration, pointing):
         """Run an xst statistic towards the given pointing. This corresponds to
@@ -288,7 +288,7 @@ class StationDriver(object):
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
         for curr_obsinfo in obsinfolist:
             curr_obsinfo.create_LOFARst_header(datapath)
-        return datapath
+        return datapath, bsxSTobsEpoch
 
     def bsxST(self, statistic, freqbndobj, integration, duration, pointSrc):
         """Run a statisics observation.
@@ -324,19 +324,24 @@ class StationDriver(object):
         if integration > duration:
             raise (ValueError, "Integration {} is longer than duration {}."
                                .format(integration, duration))
+        self.stationcontroller.stop_beam()
 
-        obsinfo = dataIO.ObsInfo()
         datapath = None
         if statistic == 'bst':
-             datapath = self.do_bst(freqbndobj, integration, duration, pointing,)
+             datapath, bsxSTobsEpoch = self.do_bst(freqbndobj, integration, duration,
+                                                   pointing)
         elif statistic == 'sst':
-             datapath = self.do_sst(freqbndobj, integration, duration, pointing)
+             datapath, bsxSTobsEpoch = self.do_sst(freqbndobj, integration, duration,
+                                                   pointing)
         elif statistic == 'xst':
-             datapath = self.do_xst(freqbndobj, integration, duration, pointing)
-        dataIO.write_project_header(datapath, self.stationcontroller.stnid, self.project,
-                                    self.observer)
-        self.stationcontroller.stop_beam()
-        return datapath
+             datapath, bsxSTobsEpoch = self.do_xst(freqbndobj, integration, duration,
+                                                   pointing)
+        stnsesinfo = copy.deepcopy(self.stnsesinfo)
+        stnsesinfo.set_obsfolderinfo(statistic, bsxSTobsEpoch, freqbndobj.arg,
+                                     integration, duration, pointing)
+        stnsesinfo.write_session_header(datapath)
+        data_url = "{}:{}".format(self.get_stnid(), datapath)
+        return data_url
 
 # End: Basic obs modes
 #######################################
@@ -445,17 +450,22 @@ class StationDriver(object):
         self.stationcontroller.stop_beam()
         headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                 ).strftime("%Y%m%d_%H%M%S")
-        obsinfo = dataIO.ObsInfo()
-        obsinfo.setobsinfo_fromparams('bfs', headertime, beamctl_CMD, rcu_setup_CMD,
-                                      caltabinfo)
-        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
+        stnsesinfo = copy.deepcopy(self.stnsesinfo)
+        stnsesinfo.new_obsinfo()
+        stnsesinfo.obsinfos[-1].setobsinfo_fromparams('bfs', headertime, beamctl_CMD,
+                                                      rcu_setup_CMD, caltabinfo)
+        bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
+            self.LOFARdataArchive)
         print("Creating BFS destination folder on DPU:\n{}".format(datapath))
         os.mkdir(datapath)
-        obsinfo.create_LOFARst_header(datapath)
-        dataIO.write_project_header(datapath, self.stationcontroller.stnid,
-                                    self.project, self.observer)
+        stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
+        integration = None
+        stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration, duration,
+                                     pointing)
+        stnsesinfo.write_session_header(datapath)
         self.halt_observingstate_when_finished = shutdown  # Necessary due to forking
-        return datapath
+        data_url = "{}:{}".format(self.get_stnid(), datapath)
+        return data_url
 
     def do_acc(self, band, duration_req, pointSrc='Z', exit_obsstate=True):
         """Perform calibration observation mode on station. Also known as ACC
@@ -537,43 +547,54 @@ class StationDriver(object):
         # Transfer data from LCU to DAU
         obsdatetime_stamp = self.get_data_timestamp(ACC=True)
         ACCsrcFiles = self.stationcontroller.ACCsrcDir+"/*.dat"
-        ACCdestDir = \
+        acc_destfolder = \
             os.path.join(self.LOFARdataArchive, 'acc',
                        '{}_{}_rcu{}_dur{}'.format(self.stationcontroller.stnid,
                          obsdatetime_stamp, rcumode, duration))
         if int(rcumode) > 3:
-            ACCdestDir += "_"+pointSrc
-        ACCdestDir += "_acc"
-        if os.path.isdir(ACCdestDir):
+            acc_destfolder += "_"+pointSrc
+        acc_destfolder += "_acc"
+        if os.path.isdir(acc_destfolder):
             print("Appropriate directory exists already (will put data here)")
         else:
-            print("Creating directory "+ACCdestDir+" for ACC "+str(duration)\
+            print("Creating directory "+acc_destfolder+" for ACC "+str(duration)\
                   + " s rcumode="+rcumode+" calibration")
-            os.mkdir(ACCdestDir)
+            os.mkdir(acc_destfolder)
 
         # Move ACC dumps to storage
-        self.movefromlcu(ACCsrcFiles, ACCdestDir)
-        accdestfiles = os.listdir(ACCdestDir)
+        self.movefromlcu(ACCsrcFiles, acc_destfolder)
+        accdestfiles = os.listdir(acc_destfolder)
+
         # - Create project header
-        dataIO.write_project_header(ACCdestDir, self.stationcontroller.stnid,
-                                    self.project, self.observer)
+        sesinfo_acc = copy.deepcopy(self.stnsesinfo)
+        acc_integration = 1.0
+        sesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
+                                     duration_req, pointing)
+        sesinfo_acc.write_session_header(acc_destfolder)
+
         # - Create header for each ACC file
         for destfile in accdestfiles:
             filedatestr, filetimestr, _ = destfile.split('_', 2)
             filedtstr = '_'.join([filedatestr, filetimestr])
-            dataIO.write_acc_header(ACCdestDir, filedtstr, rcumode, pointing)
+            sesinfo_acc.new_obsinfo()
+            sesinfo_acc.obsinfos[-1].setobsinfo_fromparams('acc', filedtstr, beamctl_CMD,
+                                                           "")
+            sesinfo_acc.obsinfos[-1].create_LOFARst_header(acc_destfolder)
 
         # Move concurrent data to storage
-        obsinfo = dataIO.ObsInfo()
+        sesinfo_sst = copy.deepcopy(self.stnsesinfo)
+        sesinfo_sst.new_obsinfo()
         obsdatetime_stamp = self.get_data_timestamp()
-        obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_CMD, rspctl_CMD)
-        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
-        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", datapath,
+        sesinfo_sst.obsinfos[-1].setobsinfo_fromparams('sst', obsdatetime_stamp,
+                                                           beamctl_CMD, rspctl_CMD)
+        bsxSTobsEpoch, sst_destfolder = self.stnsesinfo.\
+            obsinfos[-1].getobsdatapath(self.LOFARdataArchive)
+        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", sst_destfolder,
                          recursive=True)
-        obsinfo.create_LOFARst_header(datapath)
-        dataIO.write_project_header(datapath, self.stationcontroller.stnid,
-                                    self.project,
-                                    self.observer)
+        sesinfo_sst.obsinfos[-1].create_LOFARst_header(sst_destfolder)
+        sesinfo_sst.set_obsfolderinfo('sst', obsdatetime_stamp, band, sst_integration,
+                                          duration_req, pointing)
+        sesinfo_sst.write_session_header(sst_destfolder)
         self.stationcontroller.cleanup()
 
         # Postprocess?
@@ -581,12 +602,14 @@ class StationDriver(object):
             if not self.stationcontroller.DryRun and not rcumode == '3':
                 # Translate the incoming data into hdf or ms:
                 import acc2bst
-                acc2bst.main(ACCdestDir, self.stationcontroller.stnid,
+                acc2bst.main(acc_destfolder, self.stationcontroller.stnid,
                              pointSrc)
             else:
                 print("Not reducing ACCs on DPU in {} (stnid={}) into BSTs...\
-                      ".format(ACCdestDir, self.stationcontroller.stnid))
-        return ACCdestDir
+                      ".format(acc_destfolder, self.stationcontroller.stnid))
+        acc_url = "{}:{}".format(self.get_stnid(), acc_destfolder)
+        sst_url = "{}:{}".format(self.get_stnid(), sst_destfolder)
+        return acc_url, sst_url
 
     def do_SEPTON(self, statistic,  frqbndobj, integration, duration, elemsOn=elOn_gILT):
         """Record xst or sst data in SEPTON mode.
@@ -607,8 +630,7 @@ class StationDriver(object):
         caltabinfo = ""  # No need for caltab info
         # Record data
         if statistic == 'xst':
-            rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
-                                                    duration)
+            rspctl_CMD = self.stationcontroller.rec_xst(subband, integration, duration)
         elif statistic == 'sst':
             rspctl_CMD = self.stationcontroller.rec_sst(integration, duration)
         else:
@@ -617,17 +639,23 @@ class StationDriver(object):
         # Collect observational metadata
         obsdatetime_stamp = self.get_data_timestamp()
 
-        obsinfo = dataIO.ObsInfo()
-        obsinfo.setobsinfo_fromparams(LOFARdatTYPE, obsdatetime_stamp, beamctl_CMD,
-                                      rspctl_CMD, caltabinfo,
-                                      septonconf=elementMap2str(elemsOn))
+        stnsesinfo = copy.deepcopy(self.stnsesinfo)
+        stnsesinfo.new_obsinfo()
+        stnsesinfo.obsinfos[-1].setobsinfo_fromparams(
+            LOFARdatTYPE, obsdatetime_stamp, beamctl_CMD, rspctl_CMD, caltabinfo,
+            septonconf=elementMap2str(elemsOn))
+
         # Move data to archive
-        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
+        bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
+            self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
-        obsinfo.create_LOFARst_header(datapath)
-        dataIO.write_project_header(datapath, self.stationcontroller.stnid, self.project,
-                                    self.observer)
-        return (bsxSTobsEpoch, rspctl_SET, beamctl_CMD, rspctl_CMD, caltabinfo, datapath)
+        stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
+        stnsesinfo.set_obsfolderinfo(statistic, bsxSTobsEpoch,
+                                     modeparms.rcumode2band(rcumode), integration,
+                                     duration)
+        stnsesinfo.write_session_header(datapath)
+        data_url = "{}:{}".format(self.get_stnid(), datapath)
+        return data_url
 
     #####################
     # BEGIN: TBB services
@@ -692,8 +720,8 @@ class StationDriver(object):
     def do_tbb(self, duration, band, start_after=0):
         """Record duration seconds of TBB data from rcumode."""
 
-        observer = self.observer
-        project = self.project
+        observer = self.stnsesinfo.projectmeta['observer']
+        project = self.stnsesinfo.projectmeta['projectname']
         observationID = "Null"
 
         # Start a beam
