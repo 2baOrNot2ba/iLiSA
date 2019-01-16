@@ -89,7 +89,7 @@ def plotxst(xstff):
             rcumode = obsinfo.beamctl_cmd['rcumode']
         else:
             rcumode = 5
-        freq = modeparms.sb2freq(sb, ilisa.observations.modeparms.rcumode2NyquistZone(rcumode))
+        freq = modeparms.sb2freq(sb, ilisa.observations.modeparms.rcumode2nyquistzone(rcumode))
         ts = numpy.arange(0., dur, intg)
         XSTdata = XSTdataset[sbstepidx]
         for tidx in range(XSTdata.shape[0]):
@@ -145,11 +145,7 @@ def image(args):
     cvcobj = dataIO.CVCfiles(args.cvcpath)
     CVCdataset = cvcobj.getdata()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
-        if cvcobj.obsfolderinfo['datatype'] == 'acc':
-            integration = 1.0
-        else:
-            obsinfo = cvcobj.obsinfos[fileidx]
-            integration = int(obsinfo.rspctl_cmd['integration'])
+        integration = cvcobj.stnsesinfo.get_integration()
         CVCdata = CVCdataset[fileidx]
         if CVCdata.ndim == 2:
             intgs = 1

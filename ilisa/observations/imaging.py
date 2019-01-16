@@ -11,9 +11,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
-import ilisa.observations.modeparms
-import ilisa.observations.stationinterface as stationcontrol
-import ilisa.observations.stationdriver as observing
+import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
 
 c = speed_of_light
@@ -131,67 +129,35 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky
 
 def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
     """Image a CVC object"""
-    obsfolderinfo = cvcobj.getobsfolderinfo()
-
-    if type(obsfolderinfo) is list and type(obsfolderinfo[0]) is dataIO.ObsInfo:
-        obsinfos = obsfolderinfo
-        obsinfo = obsinfos[filestep]
-        cvctype = obsinfo.datatype
-        t0 = obsinfo.starttime
-        if cvctype != "xst-SEPTON":
-            rcumode =obsinfo.beamctl_cmd['rcumode']
-            pointingstr = obsinfo.beamctl_cmd['anadir']
-        else:
-            rcumode = '5'
-        stnid = obsfolderinfo.stnid
-    else:
-        t0 = cvcobj.sessionmeta.get_datetime()
-        freqbndobj = ilisa.observations.modeparms.FrequencyBand(obsfolderinfo['freqband'])
-        rcumode = str(freqbndobj.rcumodes[0])
-        pointingstr = obsfolderinfo['pointing']
-        cvctype = obsfolderinfo['datatype']
-        stnid = cvcobj.sessionmeta.stnid
-        obsinfo = cvcobj.obsinfos[filestep]
-
-    bandarr = ilisa.observations.modeparms.rcumode2antset(rcumode).split("_")[0]
-    band = ilisa.observations.modeparms.rcumode2band(rcumode)
-    freqs = ilisa.observations.modeparms.rcumode2sbfreqs(rcumode)
+    t = cvcobj.samptimeset[filestep][cubeslice]
+    freq = cvcobj.freqset[filestep][cubeslice]
     cvcdata_unc = cvcobj.getdata(filestep)
 
-    if cvctype == 'acc':
-        ts = cvcobj.samptimes[0]
-        sb = cubeslice
-        t = ts[cubeslice]
-    else:
-        sb = int(obsinfo.rspctl_cmd['xcsubband'])
-        t = t0 + datetime.timedelta(seconds=float(cubeslice))
-        cubeslice = int(cubeslice)
+    stnid = cvcobj.stnsesinfo.get_stnid()
+    bandarr = cvcobj.stnsesinfo.get_bandarr()
+    band = cvcobj.stnsesinfo.get_band()
+    rcumode = cvcobj.stnsesinfo.get_rcumode()
+    pointingstr = cvcobj.stnsesinfo.get_pointingstr()
 
     # Get/Compute ant positions
     stnPos, stnRot, antpos, stnIntilePos \
                             = antennafieldlib.getArrayBandParams(stnid, bandarr)
-    try:
-        obsinfo.septonconf
-    except (AttributeError, UnboundLocalError) as e:
-        septon = False
-    else:
-        if obsinfo.septonconf:
-            septon = True
-        else:
-            septon = False
+    septon = cvcobj.stnsesinfo.is_septon()
     if septon:
-        elmap = ilisa.observations.modeparms.str2elementMap2(obsinfo.septonconf)
+        elmap = cvcobj.stnsesinfo.get_septon_elmap()
         for tile, elem in enumerate(elmap):
             antpos[tile] = antpos[tile] + stnIntilePos[elem]
 
     # stn2Dcoord = stnRot.T * antpos.T
     # Apply calibration
-    if cvctype == 'acc':
-        cvcdata, caltabhead = calibrationtables.calibrateACC(cvcdata_unc,
-                                                rcumode, stnid, t0, docalibrate)
+    datatype = cvcobj.stnsesinfo.get_datatype()
+    if datatype == 'acc':
+        cvcdata, caltabhead = calibrationtables.calibrateACC(cvcdata_unc, rcumode, stnid,
+                                                             t, docalibrate)
     else:
-        cvcdata, caltabhead = calibrationtables.calibrateXST(cvcdata_unc, sb,
-                                                rcumode, stnid, t0, docalibrate)
+        sb = cubeslice
+        cvcdata, caltabhead = calibrationtables.calibrateXST(cvcdata_unc, sb, rcumode,
+                                                             stnid, t, docalibrate)
     cvpol = dataIO.cvc2cvpol(cvcdata)
 
     # Determine if allsky FoV
@@ -202,21 +168,22 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
 
     # Determine phaseref
     if req_calsrc is not None:
-        pntstr = ilisa.observations.modeparms.stdPointings(req_calsrc)
+        pntstr = modeparms.stdPointings(req_calsrc)
     elif allsky:
-        pntstr = ilisa.observations.modeparms.stdPointings('Z')
+        pntstr = modeparms.stdPointings('Z')
     else:
         pntstr = pointingstr
     phaseref = pntstr.split(',')
 
     # Phase up visibilities
     cvpu, UVWxyz = phaseref_xstpol(cvpol[:,:,cubeslice,...].squeeze(),
-                                   t, freqs[sb], stnPos, antpos, phaseref)
+                                   t, freq, stnPos, antpos, phaseref)
 
     # Make image on phased up visibilities
-    skyimages, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freqs[sb], True, allsky)
+    skyimages, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freq,
+                                             include_autocorr=True, allsky=allsky)
 
-    return ll, mm, skyimages, t, freqs[sb], stnid, phaseref
+    return ll, mm, skyimages, t, freq, stnid, phaseref
 
 
 # Conversion between datatypes

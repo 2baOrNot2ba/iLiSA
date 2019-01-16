@@ -20,7 +20,6 @@ import datetime
 import h5py
 import yaml
 
-import ilisa.observations.modeparms
 import ilisa.observations.modeparms as modeparms
 
 regex_ACCfolder=(
@@ -56,6 +55,15 @@ class StationSessionInfo(object):
     def set_stnid(self, stnid):
         self.stnid = stnid
 
+    def get_stnid(self):
+        try:
+            stnid = self.stnid
+        except:
+            try:
+                stnid = self.obsinfos[0].stnid
+            except:
+                raise RuntimeError('Station id not found.')
+        return stnid
     def get_datetime(self):
         sti = self.obsfolderinfo['sessiontimeid']
         sessiondatetime = datetime.datetime.strptime(sti, '%Y%m%d_%H%M%S')
@@ -102,6 +110,54 @@ class StationSessionInfo(object):
                     self.projectmeta['observer'] = line.lstrip("observer: ")
                 elif line.startswith("sessiontype: "):
                     self.obsfolderinfo = eval(line.lstrip("sessiontype: "))
+
+    def get_datatype(self):
+        return self.obsfolderinfo['datatype']
+
+    def getobsfolderinfo(self):
+        """Return either the obsfolderinfo or the obsinfos list of obsinfo."""
+        if self.obsfolderinfo:
+            return self.obsfolderinfo
+        elif self.obsinfos:
+            return self.obsinfos
+        else:
+            raise RuntimeError("No metadata available")
+
+    def get_rcumode(self,filenr=0):
+        try:
+            rcumode = modeparms.band2rcumode(self.obsfolderinfo['freqband'])
+        except:
+            try:
+                rcumode = self.obsinfos[filenr].beamctl_cmd['rcumode']
+            except:
+                rcumode = self.obsfolderinfo['rcumode']
+        return rcumode
+
+    def get_band(self):
+        return modeparms.rcumode2band(self.get_rcumode())
+
+    def get_bandarr(self):
+        antset = modeparms.rcumode2antset(self.get_rcumode())
+        return antset.split('_')[0]
+
+    def get_xcsubband(self, filenr=0):
+        return int(self.obsinfos[filenr].rspctl_cmd['xcsubband'])
+
+    def get_integration(self):
+        return self.obsfolderinfo['integration']
+
+    def get_pointingstr(self, filenr=0):
+        return self.obsfolderinfo['pointing']
+
+    def is_septon(self, filenr=0):
+        if self.obsinfos[filenr].septonconf:
+            return True
+        else:
+            return False
+
+    def get_septon_elmap(self, filenr=0):
+        elmap = modeparms.str2elementMap2(self.obsinfos[filenr].septonconf)
+        return elmap
 
 class ObsInfo(object):
     """Contains most import technical information of on an observation."""
@@ -334,7 +390,7 @@ class ObsInfo(object):
             obsdatatype == 'bst-357' or
             obsdatatype == 'sst' or
             obsdatatype == 'xst' or
-            obsdatatype == 'xst-SEPTON' or
+            obsdatatype == 'xst-SEO' or
             obsdatatype == 'bfs'):
             return True
         else:
@@ -421,7 +477,7 @@ def readbstfolder(BSTfilefolder):
         nrsbs = len(sblist)
         sblo = sblist[0]
         sbhi = sblist[-1]
-        nz = ilisa.observations.modeparms.rcumode2NyquistZone(rcumode)
+        nz = modeparms.rcumode2nyquistzone(rcumode)
         freqlo = modeparms.sb2freq(sblo, nz)
         freqhi = modeparms.sb2freq(sbhi, nz)
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
@@ -535,7 +591,7 @@ class CVCfiles(object):
 
     Attributes
     ----------
-    data: list of array_like
+    dataset: list of array_like
         Each item in list corresponds to one CVC file and is the actual covariance matrix
         cube with shape cvcdim0 x cvcdim1 x cvcdim2.
     fileobstimes: list of str
@@ -545,9 +601,11 @@ class CVCfiles(object):
 
     """
     def __init__(self, datapath):
-        self.data = []
         self.fileobstimes = []
-        self.samptimes = []
+        self.dataset = []
+        self.samptimeset = []
+        self.freqset = []
+        self.stnsesinfo = StationSessionInfo()
         datapath = os.path.abspath(datapath)
         if os.path.isdir(datapath):
             self.filefolder = datapath
@@ -575,7 +633,7 @@ class CVCfiles(object):
         if cvcext == 'acc':
             rest = rest.lstrip('_')
             (nrsbs, nrrcus0, nrrcus1) = map(int, rest.split('x'))
-            self.cvcdim0=nrsbs
+            self.cvcdim0 = nrsbs
         else:
             self.cvcdim0 = 0
             nrrcus0 = 192
@@ -648,21 +706,19 @@ class CVCfiles(object):
         where N is nominally the number of time samples and the len of data is
         the number of files in the folder.
         """
-        self.obsfolderinfo = None
-        self.obsinfos = []
+        self.stnsesinfo.obsinfos = []
         try:
-            self.sessionmeta = StationSessionInfo()
-            self.sessionmeta.read_session_header(self.filefolder)
+            self.stnsesinfo.read_session_header(self.filefolder)
         except Exception as e:
-            print e.message
-            print e.__doc__
+            print(e.message)
+            print(e.__doc__)
             print("Warning: Could not read session header. Will try filefolder name...")
             try:
-                self.obsfolderinfo = self._parse_cvcfolder(self.filefolder)
+                self.stnsesinfo.obsfolderinfo = self._parse_cvcfolder(self.filefolder)
             except ValueError:
-                self.obsfolderinfo = None
-        else:
-            self.obsfolderinfo = self.sessionmeta.obsfolderinfo
+                self.stnsesinfo.obsfolderinfo = None
+            else:
+                print("Read in filefolder meta.")
         cvcdirls = os.listdir(self.filefolder)
         # Select only data files in folder
         cvcfiles = [f for f in cvcdirls if f.endswith('.dat')]
@@ -670,18 +726,42 @@ class CVCfiles(object):
         self.filenames = []
         for cvcfile in cvcfiles:
             self.filenames.append(cvcfile)
+            # Try to get obsfile header
+            try:
+                (d,t, _rest) = cvcfile.split('_', 2)
+                hfilename = '{}_{}_{}.h'.format(d, t, self.stnsesinfo.get_datatype())
+                hfilepath = os.path.join(self.filefolder, hfilename)
+                obsinfo = ObsInfo()
+                obsinfo.parse_bsxST_header(hfilepath)
+                self.stnsesinfo.obsinfos.append(obsinfo)
+            except:
+                print("Warning: Couldn't find a header file for {}".format(cvcfile))
             print("Reading cvcfile: {}".format(cvcfile))
-            self._readcvcfile(os.path.join(self.filefolder,cvcfile))
-            if self.obsfolderinfo['datatype'] != 'acc':
-                try:
-                    (d,t, _rest) = cvcfile.split('_', 2)
-                    hfilename = '{}_{}_{}.h'.format(d, t, self.obsfolderinfo['datatype'])
-                    hfilepath = os.path.join(self.filefolder, hfilename)
-                    obsinfo = ObsInfo()
-                    obsinfo.parse_bsxST_header(hfilepath)
-                    self.obsinfos.append(obsinfo)
-                except:
-                    print("Couldn't find a header file for {}".format(cvcfile))
+            datafromfile, t_file_end = self._readcvcfile(
+                os.path.join(self.filefolder,cvcfile))
+            cvcdim_t, cvcdim_rcu1, cvcdim_rcu2 = datafromfile.shape
+            self.dataset.append(datafromfile)
+
+            # Compute time of each autocovariance matrix sample per subband
+            integration = self.stnsesinfo.get_integration() #
+            obscvm_datetimes = [None] * cvcdim_t
+            for t_idx in range(cvcdim_t):
+                t_delta = datetime.timedelta(
+                    seconds=(t_idx - cvcdim_t + 1) * integration
+                )
+                obscvm_datetimes[t_idx] = t_file_end + t_delta
+            self.samptimeset.append(obscvm_datetimes)
+
+            # Compute frequency of corresponding time sample
+            rcumode = self.stnsesinfo.get_rcumode()
+            nz = modeparms.rcumode2nyquistzone(rcumode)
+            if self.stnsesinfo.get_datatype() == 'acc':
+                freqs = modeparms.rcumode2sbfreqs(rcumode)
+            else:
+                sb = self.stnsesinfo.get_xcsubband()
+                freq = modeparms.sb2freq(sb, nz)
+                freqs = [freq]*cvcdim_t
+            self.freqset.append(freqs)
 
     def _readcvcfile(self, cvcfilepath):
         """Reads in a single acc or xst data file by filepath and creates
@@ -694,24 +774,15 @@ class CVCfiles(object):
         ----------
         cvcfilepath : str
         """
-        filenamedatetime, cvcdim0, cvcdim1, cvcdim2 = self._parse_cvcfile(cvcfilepath)
-        integration = self.obsfolderinfo['integration']  # FIXME get this from st header
-        t_end = filenamedatetime
+        filenamedatetime, cvcdim_t, cvcdim_rcu1, cvcdim_rcu2 = \
+            self._parse_cvcfile(cvcfilepath)
+        t_file_end = filenamedatetime
         # Get cvc data from file.
-        cvc_dtype = numpy.dtype(('c16', (192,192)))
-        with open(cvcfilepath, "rb") as fin:
+        cvc_dtype = numpy.dtype(('c16', (cvcdim_rcu1, cvcdim_rcu2)))
+        with open(cvcfilepath, 'rb') as fin:
             datafromfile = numpy.fromfile(fin, dtype=cvc_dtype)
-        self.data.append(datafromfile)
+        return datafromfile, t_file_end
 
-        # Compute time of each autocovariance matrix sample per subband
-        obsaccdates = [None] * cvcdim0
-        for sb in range(cvcdim0):
-            # Previously forgot to add 1 in this formula:
-            sbobstimedelta = datetime.timedelta(
-                seconds=(sb - cvcdim0 + 1) * integration
-            )
-            obsaccdates[sb] = t_end + sbobstimedelta
-        self.samptimes.append(obsaccdates)
 
     def getnrfiles(self):
         """Return number of data files in this filefolder."""
@@ -721,18 +792,10 @@ class CVCfiles(object):
         """Return the data payload of the filefolder. For ACC each file is a sweep through
         512 frequency. For XST they represent another observation."""
         if filenr is None:
-            return self.data
+            return self.dataset
         else:
-            return self.data[filenr]
+            return self.dataset[filenr]
 
-    def getobsfolderinfo(self):
-        """Return either the obsfolderinfo or the obsinfos list of obsinfo."""
-        if self.obsfolderinfo:
-            return self.obsfolderinfo
-        elif self.obsinfos:
-            return self.obsinfos
-        else:
-            raise RuntimeError("No metadata available")
 
 
 def cvc2cvpol(cvc):
