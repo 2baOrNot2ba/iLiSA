@@ -650,7 +650,7 @@ class StationDriver(object):
             self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
         stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
-        stnsesinfo.set_obsfolderinfo(statistic, bsxSTobsEpoch,
+        stnsesinfo.set_obsfolderinfo(LOFARdatTYPE, bsxSTobsEpoch,
                                      modeparms.rcumode2band(rcumode), integration,
                                      duration)
         stnsesinfo.write_session_header(datapath)
