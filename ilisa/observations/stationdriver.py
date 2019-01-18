@@ -183,7 +183,7 @@ class StationDriver(object):
         return rcu_setup_CMD, beamctl_cmds
 
 
-    def do_bst(self, freqbndobj, integration, duration, pointing):
+    def do_bst(self, freqbndobj, integration, duration_scan, pointing):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
         """
 
@@ -207,13 +207,12 @@ class StationDriver(object):
         # waittime = 0
         # print "Waiting extra", str(waittime) +" seconds" #Seems necessary
         # time.sleep(waittime)
-        rspctl_CMD = self.stationcontroller.rec_bst(integration, duration)
+        rspctl_CMD = self.stationcontroller.rec_bst(integration, duration_scan)
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
         obsinfo = dataIO.ObsInfo()
         obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp,
-                                                       beamctl_cmds, rspctl_CMD,
-                                                       caltabinfo)
+                                      beamctl_cmds, rspctl_CMD, caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat",
                          datapath)
@@ -223,7 +222,7 @@ class StationDriver(object):
         obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
 
-    def do_sst(self, freqbndobj, integration, duration, pointing):
+    def do_sst(self, freqbndobj, integration, duration_scan, pointing):
         """Run an sst static."""
 
         # Use this to do a system temperature measurement.
@@ -240,7 +239,7 @@ class StationDriver(object):
         caltabinfo = ""    # No need for caltab info
 
         # Record data
-        rspctl_CMD = self.stationcontroller.rec_sst(integration, duration)
+        rspctl_CMD = self.stationcontroller.rec_sst(integration, duration_scan)
 
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
@@ -253,10 +252,10 @@ class StationDriver(object):
         obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
 
-    def do_xst(self, freqbndobj, integration, duration, pointing):
+    def do_xst(self, freqbndobj, integration, duration_scan, pointing):
         """Run an xst statistic towards the given pointing. This corresponds to
-        a crosscorrelation of all elements at the given frequency and
-        integration repeated for a duration of seconds."""
+        a crosscorrelation of all elements at the given frequency for
+        integration seconds over a duration_scan of seconds."""
 
         caltabinfo = ""  # No need for caltab info for xst data
         obsinfolist = []
@@ -272,7 +271,7 @@ class StationDriver(object):
             for subband in subbands:
                 # Record data
                 rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
-                                                            duration)
+                                                            duration_scan)
                 obsdatetime_stamp = self.get_data_timestamp(-1)
                 curr_obsinfo = dataIO.ObsInfo()
                 curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds,
@@ -290,7 +289,7 @@ class StationDriver(object):
             curr_obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
 
-    def bsxST(self, statistic, freqbndobj, integration, duration, pointSrc):
+    def bsxST(self, statistic, freqbndobj, integration, duration_scan, pointSrc):
         """Run a statisics observation.
 
         Parameters
@@ -302,8 +301,8 @@ class StationDriver(object):
             frequency in Hz.
         integration : int
             integration time in seconds.
-        duration : int
-            duration of observation in seconds.
+        duration_scan : int
+            duration of statistic observation in seconds.
         pointSrc : str
             point direction as a beamctl triplet.
         """
@@ -321,24 +320,24 @@ class StationDriver(object):
                 pointing = pointSrc
             except ValueError:
                 raise ValueError("Error: %s invalid pointing syntax".format(pointSrc))
-        if integration > duration:
-            raise (ValueError, "Integration {} is longer than duration {}."
-                               .format(integration, duration))
+        if integration > duration_scan:
+            raise (ValueError, "integration {} is longer than duration_scan {}."
+                               .format(integration, duration_scan))
         self.stationcontroller.stop_beam()
 
         datapath = None
         if statistic == 'bst':
-             datapath, bsxSTobsEpoch = self.do_bst(freqbndobj, integration, duration,
+             datapath, bsxSTobsEpoch = self.do_bst(freqbndobj, integration, duration_scan,
                                                    pointing)
         elif statistic == 'sst':
-             datapath, bsxSTobsEpoch = self.do_sst(freqbndobj, integration, duration,
+             datapath, bsxSTobsEpoch = self.do_sst(freqbndobj, integration, duration_scan,
                                                    pointing)
         elif statistic == 'xst':
-             datapath, bsxSTobsEpoch = self.do_xst(freqbndobj, integration, duration,
+             datapath, bsxSTobsEpoch = self.do_xst(freqbndobj, integration, duration_scan,
                                                    pointing)
         stnsesinfo = copy.deepcopy(self.stnsesinfo)
         stnsesinfo.set_obsfolderinfo(statistic, bsxSTobsEpoch, freqbndobj.arg,
-                                     integration, duration, pointing)
+                                     integration, duration_scan, pointing)
         stnsesinfo.write_session_header(datapath)
         data_url = "{}:{}".format(self.get_stnid(), datapath)
         return data_url
@@ -362,13 +361,12 @@ class StationDriver(object):
         time.sleep(timeuntilboot)
         return st
 
-    def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
+    def do_bfs(self, band, duration_scan, pointsrc, when='NOW', shutdown=True):
         """Record BeamFormed Streams (BFS)."""
         try:
             self.goto_observingstate()
         except RuntimeError as e:
             raise RuntimeError(e)
-        duration = eval(duration)  # Duration in seconds
 
         ###
         bits = 8  # 8
@@ -441,11 +439,11 @@ class StationDriver(object):
             bf_data_dir = self.bf_data_dir
             port0 = self.bf_port0
             stnid = self.stationcontroller.stnid
-            bfbackend.rec_bf_streams(starttimestr, duration, lanes, band, bf_data_dir,
+            bfbackend.rec_bf_streams(starttimestr, duration_scan, lanes, band, bf_data_dir,
                                      port0, stnid)
         else:
             print("Not recording")
-            time.sleep(duration)
+            time.sleep(duration_scan)
         sys.stdout.flush()
         self.stationcontroller.stop_beam()
         headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
@@ -460,16 +458,16 @@ class StationDriver(object):
         os.mkdir(datapath)
         stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
         integration = None
-        stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration, duration,
+        stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration, duration_scan,
                                      pointing)
         stnsesinfo.write_session_header(datapath)
         self.halt_observingstate_when_finished = shutdown  # Necessary due to forking
         data_url = "{}:{}".format(self.get_stnid(), datapath)
         return data_url
 
-    def do_acc(self, band, duration_req, pointSrc='Z', exit_obsstate=True):
+    def do_acc(self, band, duration_tot_req, pointSrc='Z', exit_obsstate=True):
         """Perform calibration observation mode on station. Also known as ACC
-        mode. The duration may be longer than requested so as to fit within the
+        mode. The duration_tot_req may be longer than requested so as to fit within the
         cadence of whole ACC aquisitions (512+7=519 seconds). swlevel needs to
         cycle down to 2 (or less) and then to 3. If swlevel is kept at 3
         (i.e. exit_obsstate=False), then ACC will continue to be produced, until
@@ -484,7 +482,7 @@ class StationDriver(object):
         Parameters
         ----------
             band: str
-            duration_req: int
+            duration_tot_req: int
             pointSrc: str
         """
         try:
@@ -505,21 +503,17 @@ class StationDriver(object):
             pointing = pointSrc
         # Get timings
         # Also duration of ACC sweep since each sb is 1 second.
-        nrACCsbs = ilisa.observations.modeparms.TotNrOfsb
-        # Time between end of one ACC sweep and beginning of next one.
-        timebetweenACCs = 7
-        ACCcadence = float(nrACCsbs+timebetweenACCs) # =519s time between two ACCs
-        duration = int(math.ceil((duration_req-nrACCsbs)/ACCcadence)
-                       * (ACCcadence)+nrACCsbs+timebetweenACCs)
-        if duration != duration_req:
+        dur1acc = ilisa.observations.modeparms.TotNrOfsb  # Duration of one ACC
+        interv2accs = 7  # time between end of one ACC and start of next one
+        acc_cadence = dur1acc+interv2accs  # =519s time between start of two ACCs
+        (nraccs, timrest) = divmod(duration_tot_req, acc_cadence)
+        if timrest > dur1acc:
+            nraccs += 1
+        duration_tot = nraccs*acc_cadence-interv2accs
+        if duration_tot != duration_tot_req:
             print("""Warning: using longer duration {}s to fit with ACC
-                  cadence.""".format(duration))
-        obsStartDate = time.strftime("%Y%m%d_%H%M%S", time.gmtime())
-        sst_integration = int(ACCcadence)
-
-        # Run ACC mode
-        #beamctl_CMD, rspctl_CMD = \
-        #    self.stationcontroller.runACC(rcumode, duration, pointing)
+                  cadence.""".format(duration_tot))
+        sst_integration = int(acc_cadence)
 
         # Make sure swlevel=<2
         self.stationcontroller.set_swlevel(2)
@@ -527,15 +521,15 @@ class StationDriver(object):
         # Set CalServ.conf to dump ACCs:
         self.stationcontroller.acc_mode(enable=True)
 
-        # Boot to swlevel 3 so the calserver service starts (
-        self.stationcontroller.set_swlevel()
+        # Boot to swlevel 3 so the calserver service starts
+        self.stationcontroller.set_swlevel(3)
 
         # Beamlet & Subband allocation does not matter here
         # since niether ACC or SST cares
         beamctl_CMD = self.stationcontroller.run_beamctl('0', '255', rcumode, pointing)
 
-        # Run for $duration seconds
-        rspctl_CMD = self.stationcontroller.rec_sst(sst_integration, duration)
+        # Run for $duration_tot seconds
+        rspctl_CMD = self.stationcontroller.rec_sst(sst_integration, duration_tot)
         self.stationcontroller.stop_beam()
 
         # Switch back to normal state i.e. turn-off ACC dumping:
@@ -549,15 +543,15 @@ class StationDriver(object):
         ACCsrcFiles = self.stationcontroller.ACCsrcDir+"/*.dat"
         acc_destfolder = \
             os.path.join(self.LOFARdataArchive, 'acc',
-                       '{}_{}_rcu{}_dur{}'.format(self.stationcontroller.stnid,
-                         obsdatetime_stamp, rcumode, duration))
+                       '{}_{}_rcu{}_tdur{}'.format(self.stationcontroller.stnid,
+                         obsdatetime_stamp, rcumode, duration_tot))
         if int(rcumode) > 3:
             acc_destfolder += "_"+pointSrc
         acc_destfolder += "_acc"
         if os.path.isdir(acc_destfolder):
             print("Appropriate directory exists already (will put data here)")
         else:
-            print("Creating directory "+acc_destfolder+" for ACC "+str(duration)\
+            print("Creating directory "+acc_destfolder+" for ACC "+str(duration_tot)
                   + " s rcumode="+rcumode+" calibration")
             os.mkdir(acc_destfolder)
 
@@ -569,7 +563,7 @@ class StationDriver(object):
         sesinfo_acc = copy.deepcopy(self.stnsesinfo)
         acc_integration = 1.0
         sesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
-                                     duration_req, pointing)
+                                     duration_tot, pointing)
         sesinfo_acc.write_session_header(acc_destfolder)
 
         # - Create header for each ACC file
@@ -593,7 +587,7 @@ class StationDriver(object):
                          recursive=True)
         sesinfo_sst.obsinfos[-1].create_LOFARst_header(sst_destfolder)
         sesinfo_sst.set_obsfolderinfo('sst', obsdatetime_stamp, band, sst_integration,
-                                          duration_req, pointing)
+                                      duration_tot, pointing)
         sesinfo_sst.write_session_header(sst_destfolder)
         self.stationcontroller.cleanup()
 
@@ -611,7 +605,7 @@ class StationDriver(object):
         sst_url = "{}:{}".format(self.get_stnid(), sst_destfolder)
         return acc_url, sst_url
 
-    def do_SEPTON(self, statistic,  frqbndobj, integration, duration, elemsOn=elOn_gILT):
+    def do_SEPTON(self, statistic,  frqbndobj, integration, duration_scan, elemsOn=elOn_gILT):
         """Record xst or sst data in SEPTON mode.
         Setup Single Element per Tile ON mode. This only valid for HBA and
         currently only rcumode=5."""
@@ -630,9 +624,9 @@ class StationDriver(object):
         caltabinfo = ""  # No need for caltab info
         # Record data
         if statistic == 'xst':
-            rspctl_CMD = self.stationcontroller.rec_xst(subband, integration, duration)
+            rspctl_CMD = self.stationcontroller.rec_xst(subband, integration, duration_scan)
         elif statistic == 'sst':
-            rspctl_CMD = self.stationcontroller.rec_sst(integration, duration)
+            rspctl_CMD = self.stationcontroller.rec_sst(integration, duration_scan)
         else:
             raise ValueError("Only xst or sst data allowed.")
         LOFARdatTYPE = statistic + "-SEPTON"
@@ -652,7 +646,7 @@ class StationDriver(object):
         stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
         stnsesinfo.set_obsfolderinfo(LOFARdatTYPE, bsxSTobsEpoch,
                                      modeparms.rcumode2band(rcumode), integration,
-                                     duration)
+                                     duration_scan)
         stnsesinfo.write_session_header(datapath)
         data_url = "{}:{}".format(self.get_stnid(), datapath)
         return data_url
@@ -684,13 +678,13 @@ class StationDriver(object):
         print("In freezeTBBdata: Stopping any dummy beam")
         self.stationcontroller.stop_beam()
 
-    def _startTBBdataStream(self, duration):
-        """Stream duration seconds of TBB data out of the LCU to
+    def _startTBBdataStream(self, duration_scan):
+        """Stream duration_scan seconds of TBB data out of the LCU to
         datataking node."""
         # Set delay between subsequent frames. One delay unit is 5us.
         udpdelay = 500  # (Previously 100)
         Nqfreq = 100e6
-        nrpages = str(int(duration*2*Nqfreq/1024))  # One page is 1024 samples.
+        nrpages = str(int(duration_scan*2*Nqfreq/1024))  # One page is 1024 samples.
                                                     # Normal sampling frequency
                                                     # is 200MHz.
         self.stationcontroller.run_tbbctl(select='0:15,16:31,32:47', storage='lofarA1')
@@ -717,8 +711,8 @@ class StationDriver(object):
         # until finished.
         self.stationcontroller.run_tbbctl(select='176:191', readall=nrpages) # backgroundJOB='locally')
 
-    def do_tbb(self, duration, band, start_after=0):
-        """Record duration seconds of TBB data from rcumode."""
+    def do_tbb(self, duration_scan, band, start_after=0):
+        """Record duration_scan seconds of TBB data from rcumode."""
 
         observer = self.stnsesinfo.projectmeta['observer']
         project = self.stnsesinfo.projectmeta['projectname']
@@ -741,8 +735,8 @@ class StationDriver(object):
         print("Will start TBB recording in {}s".format(start_after))
         time.sleep(start_after)
 
-        print("Will freeze TBB recording in {}s".format(duration))
-        time.sleep(duration)  # Arbitrary time to trigger
+        print("Will freeze TBB recording in {}s".format(duration_scan))
+        time.sleep(duration_scan)  # Arbitrary time to trigger
         print("Sending trigger to TBBs")
         self._freezeTBBdata()
 
@@ -754,8 +748,8 @@ class StationDriver(object):
                                           observationID,False))
         dalcap.start()
 
-        print("Streaming {}s of TBB data out of LCU".format(duration))
-        self._startTBBdataStream(float(duration))
+        print("Streaming {}s of TBB data out of LCU".format(duration_scan))
+        self._startTBBdataStream(float(duration_scan))
         dalcap.join()
 
     # END: TBB services

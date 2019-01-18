@@ -139,24 +139,23 @@ class Session(object):
         return [acc_url, sst_url]
 
     @log_obs
-    def do_bsxST(self, statistic, freqbnd, integration, duration, pointsrc,
+    def do_bsxST(self, statistic, freqbnd, integration, duration_scan, pointsrc,
                  when='NOW', allsky=False):
         """Records bst,sst,xst data in one of the LOFAR bands and creates a header file
         with observational settings on all stations.
         """
-
-        duration = int(math.ceil(eval(duration)))
+        duration_scan = int(math.ceil(duration_scan))
         frqbndobj = modeparms.FrequencyBand(freqbnd)
         self._waittostart(when)
         datafolder_urls = []
         for stndrv in self.stationdrivers:
             if allsky and 'HBA' in frqbndobj.antsets[0]:
                 datafolder_url = stndrv.do_SEPTON(statistic, frqbndobj, integration,
-                                                  duration)
+                                                  duration_scan)
             else:
                 try:
                     datafolder_url = stndrv.bsxST(statistic, frqbndobj, integration,
-                                                  duration, pointsrc)
+                                                  duration_scan, pointsrc)
                 except RuntimeError as rte:
                     print("Error in do_bsxST(): {}".format(rte))
                 datafolder_urls.append(datafolder_url)

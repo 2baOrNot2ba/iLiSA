@@ -25,7 +25,7 @@ import ilisa.observations.modeparms as modeparms
 regex_ACCfolder=(
 "^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
 "_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-"_rcu(?P<rcumode>\d+)_dur(?P<duration>\d+)(_(?P<calsrc>\w+))?_acc$")
+"_rcu(?P<rcumode>\d+)_tdur(?P<duration_tot>\d+)(_(?P<calsrc>\w+))?_acc$")
 regex_ACCfilename=(
 "^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
 "_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
@@ -34,7 +34,7 @@ regex_ACCfilename=(
 regex_xstfilename=(
 "^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
 "_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-"_rcu(?P<rcumode>\d+)_int(?P<integration>\d+)_dur(?P<duration>\d+)"
+"_rcu(?P<rcumode>\d+)_int(?P<integration>\d+)_dur(?P<duration_scan>\d+)"
 "_dir(?P<RAint>\d+).(?P<RAdecimal>\d+),(?P<DECint>\d+).(?P<DECdecimal>\d+),(?P<ref>\s+)"
 "_xst.dat$")
 
@@ -69,20 +69,20 @@ class StationSessionInfo(object):
         sessiondatetime = datetime.datetime.strptime(sti, '%Y%m%d_%H%M%S')
         return sessiondatetime
 
-    def set_obsfolderinfo(self, datatype, sessiontimeid, freqband, integration, duration,
-                          pointing="None,None,None"):
+    def set_obsfolderinfo(self, datatype, sessiontimeid, freqband, integration,
+                          duration_tot, pointing="None,None,None"):
         self.obsfolderinfo = {}
         self.obsfolderinfo['datatype'] = datatype
         self.obsfolderinfo['sessiontimeid'] = sessiontimeid
         self.obsfolderinfo['freqband'] =  freqband
         self.obsfolderinfo['integration'] = integration
-        self.obsfolderinfo['duration'] = duration
+        self.obsfolderinfo['duration_tot'] = duration_tot
         self.obsfolderinfo['pointing'] = pointing
 
     def get_obsfolderinfo(self):
         return (self.obsfolderinfo['datatype'], self.obsfolderinfo['sessiontimeid'],
                 self.obsfolderinfo['freqband'], self.obsfolderinfo['integration'],
-                self.obsfolderinfo['duration'], self.obsfolderinfo['pointing'])
+                self.obsfolderinfo['duration_tot'], self.obsfolderinfo['pointing'])
 
     def write_session_header(self, datapath):
         with open(os.path.join(datapath, self.stnsesfile), "w") as f:
@@ -92,9 +92,18 @@ class StationSessionInfo(object):
             f.write("telescope: {}\n".format(self.telescope))
             f.write("stnid: {}\n".format(self.stnid))
             f.write("projectmeta: {!r}\n".format(self.projectmeta))
-            f.write("sessiontype: {!r}\n".format(self.obsfolderinfo))
+            f.write("sessionmeta {!r}\n".format(self.obsfolderinfo))
 
     def read_session_header(self, datapath):
+        with open(os.path.join(datapath, self.stnsesfile), 'r') as hf:
+            stnsessionheader = yaml.load(hf)
+        self.headerversion = stnsessionheader['headerversion']
+        self.telescope = stnsessionheader['telescope']
+        self.stnid = stnsessionheader['stnid']
+        self.projectmeta = stnsessionheader['projectmeta']
+        self.obsfolderinfo = stnsessionheader['sessionmeta']
+
+    def read_session_header2(self, datapath):
         with open(os.path.join(datapath, self.stnsesfile), 'r') as f:
             for line in f.readlines():
                 line = line.rstrip()
@@ -108,8 +117,8 @@ class StationSessionInfo(object):
                     self.projectmeta['projectname'] = line.lstrip("projectname: ")
                 elif line.startswith("observer: "):
                     self.projectmeta['observer'] = line.lstrip("observer: ")
-                elif line.startswith("sessiontype: "):
-                    self.obsfolderinfo = eval(line.lstrip("sessiontype: "))
+                elif line.startswith("sessionmeta: "):
+                    self.obsfolderinfo = eval(line.lstrip("sessionmeta: "))
 
     def get_datatype(self):
         return self.obsfolderinfo['datatype']
@@ -144,6 +153,7 @@ class StationSessionInfo(object):
         return int(self.obsinfos[filenr].rspctl_cmd['xcsubband'])
 
     def get_integration(self):
+
         return self.obsfolderinfo['integration']
 
     def get_pointingstr(self, filenr=0):
@@ -159,19 +169,20 @@ class StationSessionInfo(object):
         elmap = modeparms.str2elementMap2(self.obsinfos[filenr].septonconf)
         return elmap
 
+
 class ObsInfo(object):
     """Contains most import technical information of on an observation."""
     def __init__(self):
         pass
 
     def setobsinfo(self, LOFARdatTYPE, datetime, rcumode, sb,
-                         integration, duration, pointing):
+                         integration, duration_scan, pointing):
         self.LOFARdatTYPE = LOFARdatTYPE
         self.datetime = datetime
         self.rcumode = str(rcumode)
         self.sb = int(sb)
         self.integration = float(integration)
-        self.duration = float(duration)
+        self.duration_scan = float(duration_scan)
         self.pointing = pointing
 
     def setobsinfo_fromname(self, obsdatapath):
@@ -187,7 +198,7 @@ class ObsInfo(object):
                 obsfolderinfo['rcumode'] =     rcustr[3:]
                 obsfolderinfo['subband'] =     int(sbstr[2:])
                 obsfolderinfo['integration'] = float(intstr[3:])
-                obsfolderinfo['duration'] =    float(durstr[3:])
+                obsfolderinfo['duration_scan'] = float(durstr[3:])
                 obsfolderinfo['pointing'] =    dirstr[3:].split(',')
                 obsfolderinfo['LOFARdatType'] = dataextstr
             except:
@@ -198,6 +209,7 @@ class ObsInfo(object):
             if obsdirinfo_m is None:
                 raise ValueError, "Calibration directory does not have correct syntax."
             obsdirinfo = obsdirinfo_m.groupdict()
+            obsfolderinfo['stnid'] = obsdirinfo['stnid']
             d0 = datetime.datetime(int(obsdirinfo['year']),
                                    int(obsdirinfo['month']),
                                    int(obsdirinfo['day']),
@@ -207,8 +219,7 @@ class ObsInfo(object):
             obsfolderinfo['datetime'] = d0
             obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
             obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
-            obsfolderinfo['duration'] = int(obsdirinfo['duration'])
-            obsfolderinfo['stnid'] = obsdirinfo['stnid']
+            obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
         return obsfolderinfo
 
     def setobsinfo_fromparams(self, lofardatatype, obsdatetime_stamp, beamctl_cmd,
@@ -247,7 +258,7 @@ class ObsInfo(object):
         rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmd)
         if self.LOFARdatTYPE != 'bfs' and self.LOFARdatTYPE != 'acc':
             self.integration = float(rspctl_args['integration'])
-            self.duration = float(rspctl_args['duration'])
+            self.duration_scan = float(rspctl_args['duration'])
         if self.LOFARdatTYPE == 'sst':
             self.sb = ""
         elif self.LOFARdatTYPE.startswith('xst'):
@@ -280,8 +291,8 @@ class ObsInfo(object):
                 st_extName += modeparms.seqlists2slicestr(self.sb)
             if hasattr(self, 'integration'):
                 st_extName += "_int"+str(int(self.integration))
-            if hasattr(self, 'duration'):
-                st_extName += "_dur"+str(int(self.duration))
+            if hasattr(self, 'duration_scan'):
+                st_extName += "_dur"+str(int(self.duration_scan))
             if self.LOFARdatTYPE != 'sst':
                 if str(self.pointing) != "":
                     st_extName += "_dir"+str(self.pointing)
@@ -677,6 +688,7 @@ class CVCfiles(object):
                 print("Cal error")
                 raise ValueError("Calibration directory does not have correct syntax.")
             obsdirinfo = obsdirinfo_m.groupdict()
+            obsfolderinfo['stnid'] = obsdirinfo['stnid']
             d0 = datetime.datetime(int(obsdirinfo['year']),
                                    int(obsdirinfo['month']),
                                    int(obsdirinfo['day']),
@@ -687,10 +699,9 @@ class CVCfiles(object):
             obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
             obsfolderinfo['subband'] = '0:511'
             obsfolderinfo['integration'] = 1.0
-            obsfolderinfo['duration'] = int(obsdirinfo['duration'])
+            obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
             obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
             obsfolderinfo['pointing'] = modeparms.stdPointings(obsfolderinfo['calsrc'])
-            obsfolderinfo['stnid'] = obsdirinfo['stnid']
         else:
             raise(ValueError, "Folder not expected xst or acc format.")
         obsfolderinfo['datatype'] = cvcextstr
