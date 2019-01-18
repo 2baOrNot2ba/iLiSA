@@ -151,9 +151,9 @@ def image(args):
             intgs = 1
         else:
             intgs = CVCdata.shape[0]
-        for tidx in range(intgs):
-            ll, mm, skyimages, t, freq, stnid, phaseref = imaging.cvcimage(cvcobj,
-                                                        fileidx, tidx, args.phaseref)
+        for tidx in range(args.sampnr, intgs):
+            ll, mm, skyimages, t, freq, stnid, phaseref = \
+                imaging.cvcimage(cvcobj, fileidx, tidx, args.phaseref)
             imaging.plotskyimage(ll, mm, skyimages, t, freq, stnid, phaseref, integration)
 
 
@@ -171,6 +171,7 @@ if __name__ == "__main__":
     parser_image.add_argument('cvcpath', help="acc or xst filefolder")
     parser_image.add_argument('-p','--phaseref', type=str, default=None)
     parser_image.add_argument('-n','--filenr', type=int, default=0)
+    parser_image.add_argument('-s','--sampnr', type=int, default=0)
 
     args = parser.parse_args()
     args.func(args)

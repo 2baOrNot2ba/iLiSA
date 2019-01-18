@@ -155,7 +155,7 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
         cvcdata, caltabhead = calibrationtables.calibrateACC(cvcdata_unc, rcumode, stnid,
                                                              t, docalibrate)
     else:
-        sb = cubeslice
+        sb, nz = modeparms.freq2sb(freq)
         cvcdata, caltabhead = calibrationtables.calibrateXST(cvcdata_unc, sb, rcumode,
                                                              stnid, t, docalibrate)
     cvpol = dataIO.cvc2cvpol(cvcdata)
