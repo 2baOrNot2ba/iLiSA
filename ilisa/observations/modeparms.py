@@ -1,4 +1,5 @@
-"""This package is for the parameters involved in observation modes."""
+"""This package is for the parameters involved in observation modes.
+"""
 import argparse
 import math
 import numpy
@@ -7,6 +8,50 @@ rcusbsep = "+"
 Nqfreq = 100.0e6  # Nyquist frequency in Hz
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
+
+
+def parse_beamctl_args(beamctl_str):
+    """Parse beamctl command arguments"""
+    beamctl_str_normalized = beamctl_str.replace('=', ' ')
+    beamctl_parser = argparse.ArgumentParser()
+    beamctl_parser.add_argument('--antennaset')
+    beamctl_parser.add_argument('--rcus')
+    beamctl_parser.add_argument('--rcumode')  # Obsolete
+    beamctl_parser.add_argument('--band')
+    beamctl_parser.add_argument('--beamlets')
+    beamctl_parser.add_argument('--subbands')
+    beamctl_parser.add_argument('--integration')
+    beamctl_parser.add_argument('--duration')
+    beamctl_parser.add_argument('--anadir')
+    beamctl_parser.add_argument('--digdir')
+    args = beamctl_parser.parse_args(beamctl_str_normalized.split()[1:])
+    rcumode = band2rcumode(args.band)
+    return (args.antennaset, args.rcus, rcumode, args.beamlets,
+            args.subbands, args.anadir, args.digdir)
+
+
+def parse_rspctl_args(rspctl_strs):
+    """Parse rspctl command arguments.
+    Note that rspctl has persistent flags, i.e. multiple rspctl calls add up flags."""
+    # TODO: Add the rest of the arguments
+    rspctl_args ={}
+    rspctl_parser = argparse.ArgumentParser()
+    rspctl_parser.add_argument('--statistics')
+    rspctl_parser.add_argument('--xcstatistics', action='store_true')
+    rspctl_parser.add_argument('--integration')
+    rspctl_parser.add_argument('--duration')
+    rspctl_parser.add_argument('--xcsubband')
+    rspctl_parser.add_argument('--directory')
+    rspctl_parser.add_argument('--bitmode')
+    rspctl_strs = rspctl_strs.lstrip('; ')
+    for rspctl_line in rspctl_strs.split('\n'):
+        for rspctl_str in rspctl_line.split(';'):
+            rspctl_str_normalized = rspctl_str.replace('=', ' ')
+            argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
+            argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
+            rspctl_args.update(argsdict)
+    return rspctl_args
+
 
 class FrequencyBand(object):
     """Class that handles frequency bands and all things related to them.
@@ -428,20 +473,6 @@ def str2elementMap2(elmapstr):
     return elmap
 
 
-def freq2sb(freq):
-    """Convert frequency in Hz to subband number and Nyquist zone."""
-    absSB = int(round(freq/Nqfreq*TotNrOfsb))
-    sb = absSB % TotNrOfsb
-    NqZone = absSB / TotNrOfsb
-    return sb, NqZone
-
-
-def sb2freq(sb, NqZone):
-    """Convert subband in a given Nyquist zone to a frequency."""
-    freq = Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
-    return freq
-
-
 def seqarg2list(seqarg):
     """Return a list that is a sequence of integers corresponding to the sequence given
     by the (extended) commandline argument string."""
@@ -491,58 +522,6 @@ def seqlists2slicestr(seqlists):
     return slicestr
 
 
-def parse_beamctl_args(beamctl_str):
-    """Parse beamctl command arguments"""
-    beamctl_str_normalized = beamctl_str.replace('=', ' ')
-    beamctl_parser = argparse.ArgumentParser()
-    beamctl_parser.add_argument('--antennaset')
-    beamctl_parser.add_argument('--rcus')
-    beamctl_parser.add_argument('--rcumode')  # Obsolete
-    beamctl_parser.add_argument('--band')
-    beamctl_parser.add_argument('--beamlets')
-    beamctl_parser.add_argument('--subbands')
-    beamctl_parser.add_argument('--integration')
-    beamctl_parser.add_argument('--duration')
-    beamctl_parser.add_argument('--anadir')
-    beamctl_parser.add_argument('--digdir')
-    args = beamctl_parser.parse_args(beamctl_str_normalized.split()[1:])
-    rcumode = band2rcumode(args.band)
-    return (args.antennaset, args.rcus, rcumode, args.beamlets,
-            args.subbands, args.anadir, args.digdir)
-
-
-def parse_rspctl_args(rspctl_strs):
-    """Parse rspctl command arguments.
-    Note that rspctl has persistent flags, i.e. multiple rspctl calls add up flags."""
-    # TODO: Add the rest of the arguments
-    rspctl_args ={}
-    rspctl_parser = argparse.ArgumentParser()
-    rspctl_parser.add_argument('--statistics')
-    rspctl_parser.add_argument('--xcstatistics', action='store_true')
-    rspctl_parser.add_argument('--integration')
-    rspctl_parser.add_argument('--duration')
-    rspctl_parser.add_argument('--xcsubband')
-    rspctl_parser.add_argument('--directory')
-    rspctl_parser.add_argument('--bitmode')
-    rspctl_strs = rspctl_strs.lstrip('; ')
-    for rspctl_line in rspctl_strs.split('\n'):
-        for rspctl_str in rspctl_line.split(';'):
-            rspctl_str_normalized = rspctl_str.replace('=', ' ')
-            argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
-            argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
-            rspctl_args.update(argsdict)
-    return rspctl_args
-
-
-def rcumode2sbfreqs(rcumode):
-    """Get the frequencies (in Hz) of the subbands for the given rcumode.
-    Returns an array of frequencies where index is subband number."""
-    NZ = (int(rcumode)-3)/2
-    # Note the endpoint=False here. Before it 2018-03-22 it was missing.
-    freqs = numpy.linspace(NZ*Nqfreq, (NZ+1)*Nqfreq, TotNrOfsb, endpoint=False)
-    return freqs
-
-
 def band2rcumode(band):
     """Map band to rcumode string (Inverse of rcumode2band())."""
     if band == "10_90":
@@ -572,6 +551,15 @@ def band2antset(band):
     else:
         raise ValueError("Undefined band: {}.".format(band))
     return antset
+
+
+def rcumode2sbfreqs(rcumode):
+    """Get the frequencies (in Hz) of the subbands for the given rcumode.
+    Returns an array of frequencies where index is subband number."""
+    NZ = (int(rcumode)-3)/2
+    # Note the endpoint=False here. Before it 2018-03-22 it was missing.
+    freqs = numpy.linspace(NZ*Nqfreq, (NZ+1)*Nqfreq, TotNrOfsb, endpoint=False)
+    return freqs
 
 
 def rcumode2band(rcumode):
@@ -611,3 +599,17 @@ def rcumode2antset(rcumode):
 def rcumode2nyquistzone(rcumode):
     nz = int((int(rcumode)-3)/2)
     return nz
+
+
+def freq2sb(freq):
+    """Convert frequency in Hz to subband number and Nyquist zone."""
+    absSB = int(round(freq/Nqfreq*TotNrOfsb))
+    sb = absSB % TotNrOfsb
+    NqZone = absSB / TotNrOfsb
+    return sb, NqZone
+
+
+def sb2freq(sb, NqZone):
+    """Convert subband in a given Nyquist zone to a frequency."""
+    freq = Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
+    return freq
