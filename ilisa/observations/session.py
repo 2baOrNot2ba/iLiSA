@@ -131,7 +131,6 @@ class Session(object):
         """Record acc data for one of the LOFAR bands over a duration on all stations.
         """
         self._waittostart(when)
-        duration = int(eval(duration))
         for stndrv in self.stationdrivers:
             acc_url, sst_url = stndrv.do_acc(band, duration, pointsrc)
             print("Saved ACC data in folder: {}".format(acc_url))
@@ -166,7 +165,6 @@ class Session(object):
         """Record Transient Buffer Board (TBB) data from one of the LOFAR bands for
         duration seconds on all stations.
         """
-        duration = float(eval(duration))
         for stndrv in self.stationdrivers:
             stndrv.do_tbb(duration, band)
         return "."

@@ -1,11 +1,14 @@
 #!/usr/bin/python
 """Start observation on station.
 Types of observation are:
-* ACC
-* BST
-* SST
-* XST
-* TBB
+
+      intg dur_s dur_t freq
+* ACC    1   512     T
+* BFS    ?     S     T
+* BST    I     S     T
+* SST    I     S     T
+* TBB    ?     S     T
+* XST    I     S     T
 
 """
 
@@ -138,8 +141,14 @@ if __name__ == "__main__":
     parser_tbb.add_argument('duration_tot', **arg_dur_tot_kwargs)
 
     args = parser.parse_args()
-    args.duration_scan = eval(args.duration_scan)
-    args.duration_tot = eval(args.duration_tot)
+    try:
+        args.duration_scan = eval(args.duration_scan)
+    except:
+        pass
+    try:
+        args.duration_tot = eval(args.duration_tot)
+    except:
+        pass
 
     myses = session.Session(projectid=args.projectid,
                             halt_observingstate_when_finished = args.shutdown)
