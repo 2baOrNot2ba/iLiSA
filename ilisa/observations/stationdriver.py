@@ -467,11 +467,13 @@ class StationDriver(object):
 
     def do_acc(self, band, duration_tot_req, pointSrc='Z', exit_obsstate=True):
         """Perform calibration observation mode on station. Also known as ACC
-        mode. The duration_tot_req may be longer than requested so as to fit within the
-        cadence of whole ACC aquisitions (512+7=519 seconds). swlevel needs to
-        cycle down to 2 (or less) and then to 3. If swlevel is kept at 3
-        (i.e. exit_obsstate=False), then ACC will continue to be produced, until
-        swlevel goes below 2.
+        mode. The actual total duration will at most be duration_tot_req.
+        (Usually it will be shorter so it fits within the cadence of whole ACC
+        aquisition, which is 512+7=519 seconds).
+
+        Some technical details: swlevel needs to cycle down to 2 (or less) and then to 3.
+        If swlevel is kept at 3 (i.e. exit_obsstate=False), then ACC will continue to be
+        produced, until swlevel goes below 2.
 
         ACC files are autocovariance-cubes: the covariance of all array
         elements with each as a function of subband. These files are generated
@@ -511,7 +513,7 @@ class StationDriver(object):
             nraccs += 1
         duration_tot = nraccs*acc_cadence-interv2accs
         if duration_tot != duration_tot_req:
-            print("""Warning: using longer duration {}s to fit with ACC
+            print("""Note: will use total duration {}s to fit with ACC
                   cadence.""".format(duration_tot))
         sst_integration = int(acc_cadence)
 
@@ -581,8 +583,8 @@ class StationDriver(object):
         obsdatetime_stamp = self.get_data_timestamp()
         sesinfo_sst.obsinfos[-1].setobsinfo_fromparams('sst', obsdatetime_stamp,
                                                            beamctl_CMD, rspctl_CMD)
-        bsxSTobsEpoch, sst_destfolder = self.stnsesinfo.\
-            obsinfos[-1].getobsdatapath(self.LOFARdataArchive)
+        bsxSTobsEpoch, sst_destfolder = \
+            sesinfo_sst.obsinfos[-1].getobsdatapath(self.LOFARdataArchive)
         self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", sst_destfolder,
                          recursive=True)
         sesinfo_sst.obsinfos[-1].create_LOFARst_header(sst_destfolder)
