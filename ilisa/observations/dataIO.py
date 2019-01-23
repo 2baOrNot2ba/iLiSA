@@ -19,7 +19,7 @@ import re
 import datetime
 import h5py
 import yaml
-
+import ilisa
 import ilisa.observations.modeparms as modeparms
 
 regex_ACCfolder=(
@@ -62,8 +62,12 @@ class StationSessionInfo(object):
             try:
                 stnid = self.obsinfos[0].stnid
             except:
-                raise RuntimeError('Station id not found.')
+                try:
+                    stnid = self.obsfolderinfo['stnid']
+                except:
+                    raise RuntimeError('Station id not found.')
         return stnid
+
     def get_datetime(self):
         sti = self.obsfolderinfo['sessiontimeid']
         sessiondatetime = datetime.datetime.strptime(sti, '%Y%m%d_%H%M%S')
@@ -160,10 +164,18 @@ class StationSessionInfo(object):
         return self.obsfolderinfo['pointing']
 
     def is_septon(self, filenr=0):
-        if self.obsinfos[filenr].septonconf:
-            return True
+        try:
+            self.obsinfos[filenr]
+        except:
+            if self.get_datatype().endswith('SEPTON'):
+                return True
+            else:
+                return False
         else:
-            return False
+            if self.obsinfos[filenr].septonconf:
+                return True
+            else:
+                return False
 
     def get_septon_elmap(self, filenr=0):
         elmap = modeparms.str2elementMap2(self.obsinfos[filenr].septonconf)
