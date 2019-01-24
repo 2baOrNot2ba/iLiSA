@@ -96,33 +96,19 @@ class StationSessionInfo(object):
             f.write("telescope: {}\n".format(self.telescope))
             f.write("stnid: {}\n".format(self.stnid))
             f.write("projectmeta: {!r}\n".format(self.projectmeta))
-            f.write("sessionmeta {!r}\n".format(self.obsfolderinfo))
+            f.write("sessionmeta: {!r}\n".format(self.obsfolderinfo))
 
     def read_session_header(self, datapath):
         with open(os.path.join(datapath, self.stnsesfile), 'r') as hf:
-            stnsessionheader = yaml.load(hf)
+            try:
+                stnsessionheader = yaml.load(hf)
+            except Exception as e:
+                print("Couldn't load yaml formatted session header file.")
         self.headerversion = stnsessionheader['headerversion']
         self.telescope = stnsessionheader['telescope']
         self.stnid = stnsessionheader['stnid']
         self.projectmeta = stnsessionheader['projectmeta']
         self.obsfolderinfo = stnsessionheader['sessionmeta']
-
-    def read_session_header2(self, datapath):
-        with open(os.path.join(datapath, self.stnsesfile), 'r') as f:
-            for line in f.readlines():
-                line = line.rstrip()
-                if line.startswith("headerversion: "):
-                    self.headerversion = line.lstrip("headerversion: ")
-                elif line.startswith("telescope: "):
-                    self.telescope = line.lstrip("telescope: ")
-                elif line.startswith("stnid: "):
-                    self.stnid = line.lstrip("stnid: ")
-                elif line.startswith("projectname: "):
-                    self.projectmeta['projectname'] = line.lstrip("projectname: ")
-                elif line.startswith("observer: "):
-                    self.projectmeta['observer'] = line.lstrip("observer: ")
-                elif line.startswith("sessionmeta: "):
-                    self.obsfolderinfo = eval(line.lstrip("sessionmeta: "))
 
     def get_datatype(self):
         return self.obsfolderinfo['datatype']
@@ -138,13 +124,13 @@ class StationSessionInfo(object):
 
     def get_rcumode(self,filenr=0):
         try:
-            rcumode = modeparms.band2rcumode(self.obsfolderinfo['freqband'])
+            rcumode = modeparms.FrequencyBand(self.obsfolderinfo['freqband']).rcumodes[0]
         except:
             try:
                 rcumode = self.obsinfos[filenr].beamctl_cmd['rcumode']
             except:
                 rcumode = self.obsfolderinfo['rcumode']
-        return rcumode
+        return str(rcumode)
 
     def get_band(self):
         return modeparms.rcumode2band(self.get_rcumode())
@@ -214,12 +200,12 @@ class ObsInfo(object):
                 obsfolderinfo['pointing'] =    dirstr[3:].split(',')
                 obsfolderinfo['LOFARdatType'] = dataextstr
             except:
-                raise ValueError, "Foldername not in correct format."
+                raise ValueError("Foldername not in correct format.")
         elif dataextstr == 'acc':
             dirpat = re.compile(regex_ACCfolder)
             obsdirinfo_m = dirpat.match(foldername)
             if obsdirinfo_m is None:
-                raise ValueError, "Calibration directory does not have correct syntax."
+                raise ValueError("Calibration directory does not have correct syntax.")
             obsdirinfo = obsdirinfo_m.groupdict()
             obsfolderinfo['stnid'] = obsdirinfo['stnid']
             d0 = datetime.datetime(int(obsdirinfo['year']),
@@ -252,10 +238,6 @@ class ObsInfo(object):
                     self.rcumode.append(int(rcumode))
                     self.sb.append(subbands)
                     self.bl.append(beamlets)
-                #self.rcumode = ''.join(self.rcumode)
-                #self.sb = rcusbsep.join(self.sb)
-                #self.bl = ','.join(self.bl)
-                #self.beamctl_cmd = '\n'.join(self.beamctl_cmd)
             else:
                 (antset, rcus, rcumode, beamlets, subbands, anadir, digdir
                 ) = modeparms.parse_beamctl_args(beamctl_cmd)
@@ -413,7 +395,7 @@ class ObsInfo(object):
             obsdatatype == 'bst-357' or
             obsdatatype == 'sst' or
             obsdatatype == 'xst' or
-            obsdatatype == 'xst-SEO' or
+            obsdatatype == 'xst-SEPTON' or
             obsdatatype == 'bfs'):
             return True
         else:
@@ -479,7 +461,7 @@ def parse_bstfolder(BSTfilepath):
         obsfileinfo['duration'] =    int(durstr[3:])
         obsfileinfo['pointing'] =    dirstr[3:].split(',')
     except:
-        raise ValueError, "Filename not in bst_ext format."
+        raise ValueError("Filename not in bst_ext format.")
     if len(obsfileinfo['rcumode']) > 1:
         obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
     if modeparms.rcusbsep in obsfileinfo['subbands']:
@@ -651,22 +633,24 @@ class CVCfiles(object):
         """
         cvcfilename = os.path.basename(cvcfilepath)
         (Ymd, HMS, cvcextrest) = cvcfilename.split('_',2)
-        cvcext, restdat = cvcextrest[0:3], cvcextrest[3:]
+        datatype, restdat = cvcextrest[0:3], cvcextrest[3:]
         (rest, datstr) = restdat.split('.')
-        if cvcext == 'acc':
+        if datatype == 'acc':
             rest = rest.lstrip('_')
-            (nrsbs, nrrcus0, nrrcus1) = map(int, rest.split('x'))
-            self.cvcdim0 = nrsbs
+            (_nr512, nrrcus0, nrrcus1) = map(int, rest.split('x'))
         else:
-            self.cvcdim0 = 0
             nrrcus0 = 192
             nrrcus1 = 192
         self.cvcdim1 = nrrcus0
         self.cvcdim2 = nrrcus1
         filenamedatetime = datetime.datetime.strptime(Ymd + 'T' + HMS, '%Y%m%dT%H%M%S')
+        if datatype == 'acc':
+            filebegindatetime = filenamedatetime - datetime.timedelta(seconds=_nr512)
+        else:
+            filebegindatetime = filenamedatetime
         # Save the observation datetime of file and the cvc dims.
-        self.fileobstimes.append(filenamedatetime)
-        return filenamedatetime, self.cvcdim0, self.cvcdim1, self.cvcdim2
+        self.fileobstimes.append(filebegindatetime)
+        return datatype, filebegindatetime, self.cvcdim1, self.cvcdim2
 
     def _parse_cvcfolder(self, cvcfolderpath):
         """Parse the cvc filefolder.
@@ -760,7 +744,7 @@ class CVCfiles(object):
             except:
                 print("Warning: Couldn't find a header file for {}".format(cvcfile))
             print("Reading cvcfile: {}".format(cvcfile))
-            datafromfile, t_file_end = self._readcvcfile(
+            datafromfile, t_begin = self._readcvcfile(
                 os.path.join(self.filefolder,cvcfile))
             cvcdim_t, cvcdim_rcu1, cvcdim_rcu2 = datafromfile.shape
             self.dataset.append(datafromfile)
@@ -770,9 +754,9 @@ class CVCfiles(object):
             obscvm_datetimes = [None] * cvcdim_t
             for t_idx in range(cvcdim_t):
                 t_delta = datetime.timedelta(
-                    seconds=(t_idx - cvcdim_t + 1) * integration
+                    seconds= t_idx * integration
                 )
-                obscvm_datetimes[t_idx] = t_file_end + t_delta
+                obscvm_datetimes[t_idx] = t_begin + t_delta
             self.samptimeset.append(obscvm_datetimes)
 
             # Compute frequency of corresponding time sample
@@ -797,14 +781,14 @@ class CVCfiles(object):
         ----------
         cvcfilepath : str
         """
-        filenamedatetime, cvcdim_t, cvcdim_rcu1, cvcdim_rcu2 = \
+        datatype, filenamedatetime, cvcdim_rcu1, cvcdim_rcu2 =\
             self._parse_cvcfile(cvcfilepath)
-        t_file_end = filenamedatetime
+        t_begin = filenamedatetime
         # Get cvc data from file.
         cvc_dtype = numpy.dtype(('c16', (cvcdim_rcu1, cvcdim_rcu2)))
         with open(cvcfilepath, 'rb') as fin:
             datafromfile = numpy.fromfile(fin, dtype=cvc_dtype)
-        return datafromfile, t_file_end
+        return datafromfile, t_begin
 
 
     def getnrfiles(self):
