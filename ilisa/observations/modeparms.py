@@ -8,6 +8,7 @@ rcusbsep = "+"
 Nqfreq = 100.0e6  # Nyquist frequency in Hz
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
+MIN_STATS_INTG = 1.0  # Minimum integration for statistics data in seconds.
 
 
 def parse_beamctl_args(beamctl_str):
