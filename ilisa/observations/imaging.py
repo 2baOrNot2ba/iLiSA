@@ -56,9 +56,9 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     """Phase up a spectral cube of visibilities (ACC) to pointing direction."""
     accphasedup = numpy.zeros(accpol.shape, dtype=complex)
     (pntRA, pntDEC, pntref) = pointing
-    pos_ITRF_X = str(stnPos[0,0])+'m'
-    pos_ITRF_Y = str(stnPos[1,0])+'m'
-    pos_ITRF_Z = str(stnPos[2,0])+'m'
+    pos_ITRF_X = str(stnPos[0, 0])+'m'
+    pos_ITRF_Y = str(stnPos[1, 0])+'m'
+    pos_ITRF_Z = str(stnPos[2, 0])+'m'
     # Set up casacore measures object.
     obsme = casacore.measures.measures()
     where = obsme.position("ITRF", pos_ITRF_X, pos_ITRF_Y, pos_ITRF_Z)
@@ -69,8 +69,8 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     nrant = antpos.shape[0]
     bl = []
     for antnr in range(nrant):
-        bl.append( obsme.baseline("ITRF",
-          *[str(comp)+'m' for comp in numpy.asarray(antpos[antnr,:]).squeeze()])
+        bl.append(obsme.baseline("ITRF",
+          *[str(comp)+'m' for comp in numpy.asarray(antpos[antnr, :]).squeeze()])
         )
     # Step through subbands & phase up autocovariance matrix to point direction
     for sb in range(len(sbobstimes)):
@@ -81,44 +81,41 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
         UVWxyz = numpy.zeros((nrant,3))
         for antnr in range(nrant):
             UVWxyz[antnr,:] = numpy.asarray(
-                                  obsme.to_uvw(bl[antnr])["xyz"].get_value('m'))
+                obsme.to_uvw(bl[antnr])["xyz"].get_value('m'))
         lambda0 = c/freqs[sb]
         # Compute phase factors. w-direction (component 2) is towards pointing
-        phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
-        PP = numpy.einsum('i,j->ij',phasefactors, numpy.conj(phasefactors))
-        accphasedup[0,0,sb,:,:] = PP*accpol[0,0,sb,:,:]
-        accphasedup[0,1,sb,:,:] = PP*accpol[0,1,sb,:,:]
-        accphasedup[1,0,sb,:,:] = PP*accpol[1,0,sb,:,:]
-        accphasedup[1,1,sb,:,:] = PP*accpol[1,1,sb,:,:]
-    print()
+        phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:, 2]/lambda0)
+        PP = numpy.einsum('i,j->ij', phasefactors, numpy.conj(phasefactors))
+        accphasedup[0, 0, sb, :, :] = PP*accpol[0, 0, sb, :, :]
+        accphasedup[0, 1, sb, :, :] = PP*accpol[0, 1, sb, :, :]
+        accphasedup[1, 0, sb, :, :] = PP*accpol[1, 0, sb, :, :]
+        accphasedup[1, 1, sb, :, :] = PP*accpol[1, 1, sb, :, :]
     return accphasedup
 
 
 def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=False):
-
+    """Image XSTpol data."""
     if not include_autocorr:
         for indi in range(2):
             for indj in range(2):
                 numpy.fill_diagonal(xstpol[indi,indj,:,:],0.0)
     posU, posV = stn2Dcoord[0,:].squeeze(), stn2Dcoord[1,:].squeeze()
     lambda0 = c / freq
-    k = 2 * numpy.pi / lambda0;
+    k = 2 * numpy.pi / lambda0
     if not allsky:
         lmext = fov(freq)
     else:
         lmext = 1.0
     nrpix = 101
-    l, m = numpy.linspace(-lmext,lmext,nrpix), numpy.linspace(-lmext,lmext,
-                                                                          nrpix)
+    l, m = numpy.linspace(-lmext, lmext, nrpix), numpy.linspace(-lmext, lmext, nrpix)
     ll, mm = numpy.meshgrid(l,m)
-    #skymap = numpy.zeros((len(l), len(m)))
     bf = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU)
-                        +numpy.einsum('ij,k->ijk', mm, posV)))
-    bfbf = numpy.einsum('ijk,ijl->ijkl',bf,numpy.conj(bf))
-    skyimageXX = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0,0,...].squeeze())
-    skyimageXY = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0,1,...].squeeze())
-    skyimageYX = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1,0,...].squeeze())
-    skyimageYY = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1,1,...].squeeze())
+                           + numpy.einsum('ij,k->ijk', mm, posV)))
+    bfbf = numpy.einsum('ijk,ijl->ijkl', bf, numpy.conj(bf))
+    skyimageXX = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 0, ...].squeeze())
+    skyimageXY = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 1, ...].squeeze())
+    skyimageYX = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 0, ...].squeeze())
+    skyimageYY = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 1, ...].squeeze())
     # TODO: make sure stokes are IAU coordinates.
     skyimageSI = numpy.real(skyimageXX+skyimageYY)
     skyimageSQ = numpy.real(skyimageXX-skyimageYY)
@@ -189,13 +186,13 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
 # Conversion between datatypes
 def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
     """Convert xst data to bst data"""
-    xstpu, UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos,
-                                                                       pointing)
+    xstpu, UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos, pointing)
     bstXX = numpy.sum(xstpu[0,0,...].squeeze(), axis=(0,1))
     bstXY = numpy.sum(xstpu[0,1,...].squeeze(), axis=(0,1))
     #bstYX = numpy.sum(xstpu[1,0,...].squeeze(), axis=(0,1))
     bstYY = numpy.sum(xstpu[1,1,...].squeeze(), axis=(0,1))
     return bstXX, bstXY, bstYY #, bstYX
+
 
 def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr = False):
     """Convert a polarized spectral cube of visibilities (ACC order by two X,Y indices)
@@ -224,32 +221,60 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr
 
 
 def plotskyimage(ll, mm, skyimages, t, freq, stnid, phaseref, integration):
-    """Generic plot of images."""
-    plt.subplot(2,2,1)
+    """Generic plot of images of Stokes components from sky map."""
+
+    # Compute extent
+    dl = ll[0, 1] - ll[0, 0]
+    lmin = ll[0, 0] - dl / 2.0
+    lmax = ll[-1, -1] + dl / 2.0
+    dm = mm[1, 0] - mm[0, 0]
+    mmin = mm[0, 0] - dm / 2.0
+    mmax = mm[-1, -1] + dm / 2.0
+    domaincheck = False
+    if domaincheck:
+        fig_dt, (ax_dt_ll, ax_dt_mm) = plt.subplots(2)
+        im_ll = ax_dt_ll.imshow(ll)
+        ax_dt_ll.set_title('ll')
+        fig_dt.colorbar(im_ll, ax=ax_dt_ll)
+        im_mm = ax_dt_mm.imshow(mm)
+        ax_dt_mm.set_title('mm')
+        fig_dt.colorbar(im_mm, ax=ax_dt_mm)
+        plt.show()
+
     #norm=colors.LogNorm()
     norm=None
-    plt.pcolormesh(ll, mm, skyimages[0], norm=norm)
-    plt.gca().invert_xaxis()
-    plt.xlabel('E<-W direction cosine')
-    plt.ylabel('S->N direction cosine')
-    plt.colorbar()
-    plt.title('Stokes I')
-    plt.subplot(2,2,2)
-    plt.pcolormesh(ll, mm, skyimages[1]/skyimages[0])
-    plt.gca().invert_xaxis()
-    plt.colorbar()
-    plt.title('Stokes q')
-    plt.subplot(2,2,3)
-    plt.pcolormesh(ll, mm, skyimages[2]/skyimages[0])
-    plt.gca().invert_xaxis()
-    plt.colorbar()
-    plt.title('Stokes u')
-    plt.subplot(2,2,4)
-    plt.pcolormesh(ll, mm, skyimages[3]/skyimages[0]) #, vmin=-1, vmax=1)
-    plt.gca().invert_xaxis()
-    plt.colorbar()
-    plt.title('Stokes v')
-    plt.suptitle('Image: PhaseRef={} @ {} MHz\nStation {}, int={}s, UT={}'.format(
+    xlabel = 'Easting (dir. cos) []'
+    ylabel = 'Northing (dir. cos) []'
+
+    def plotcomp(compmap, compname, pos):
+        plt.subplot(2, 2, pos)
+        plt.imshow(compmap, origin = 'lower', extent = [lmin, lmax, mmin, mmax],
+                   interpolation = 'none')
+        plt.gca().invert_xaxis()
+        if pos == 3 or pos == 4:
+            plt.xlabel(xlabel)
+        if pos == 1 or pos == 3:
+            plt.ylabel(ylabel)
+        plt.colorbar()
+        plt.title('Stokes {}'.format(compname))
+
+    # Stokes I
+    sI = numpy.ma.masked_where(skyimages[0]<0.0, skyimages[0])
+    plotcomp(sI, 'I', 1)
+
+    # Stokes v
+    sv = skyimages[3] / skyimages[0]
+    plotcomp(sv, 'v', 2)
+
+    # Stokes q
+    sq = skyimages[1] / skyimages[0]
+    plotcomp(sq, 'q', 3)
+
+    # Stokes u
+    su = skyimages[2] / skyimages[0]
+    plotcomp(su, 'u', 4)
+
+    plt.suptitle('Sky Image: PhaseRef={} @ {} MHz\nStation {}, int={}s, UT={}'.format(
         ','.join(phaseref), freq/1e6, stnid, integration, t))
     plt.tight_layout(rect=[0, 0.0, 1, 0.95])
     plt.show()
