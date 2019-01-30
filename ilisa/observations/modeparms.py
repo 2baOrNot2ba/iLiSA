@@ -340,6 +340,13 @@ class FrequencyBand(object):
         freqhi = self.rcumode_sb2freq(self.rcumodes[spw], sbs[-1])
         return freqlo, freqhi
 
+    def nrsubbands(self):
+        """Returns total number of subbands in this FrequencyBand object."""
+        nrsbs = 0
+        for sbrange in self.sb_range:
+            nrsbs += len(sbrange.split(','))
+        return nrsbs
+
 
 def pointingGrid(NrAzDirs=8, NrElDirs=7):
     """Returns a tuple of LOFAR beamctl directions strings of a spherical
