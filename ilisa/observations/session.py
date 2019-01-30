@@ -138,12 +138,12 @@ class Session(object):
         return [acc_url, sst_url]
 
     @log_obs
-    def do_bsxST(self, statistic, freqbnd, integration, duration_scan, pointsrc,
+    def do_bsxST(self, statistic, freqbnd, integration, duration_tot, pointsrc,
                  when='NOW', allsky=False):
         """Records bst,sst,xst data in one of the LOFAR bands and creates a header file
         with observational settings on all stations.
         """
-        duration_scan = int(math.ceil(duration_scan))
+        duration_scan = int(math.ceil(duration_tot))
         frqbndobj = modeparms.FrequencyBand(freqbnd)
         self._waittostart(when)
         datafolder_urls = []

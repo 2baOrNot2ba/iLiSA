@@ -1,19 +1,23 @@
 #!/usr/bin/python
 """Start observation on station.
-Types of observation are:
+Types of observations and their arguments are:
 
-      intg dur_s dur_t freq
-* ACC    1   512     T
-* BFS    ?     S     T
-* BST    I     S     T
-* SST    I     S     T
-* TBB    ?     S     T
-* XST    I     S     T
+      freq dur_t (pnt:Z) [intg:MIN_STATS_INTG] {dur_s}
+* ACC  spw    f                                 512
+* BFS  spw    f           None                  dur_t
+* BST  rng    f                                 dur_t
+* SST  spw    f                                 dur_t
+* TBB  spw    f           None                  dur_t
+* XST  rng    f                                 dur_t/rep
+
+Formula for args:
+dur_t<=nrsbs*(intg)*(dur_s)*(rep)
 
 """
 
 import argparse
 import ilisa.observations.session as session
+import ilisa.observations.modeparms as modeparms
 
 
 def do_bfs(args):
@@ -29,7 +33,7 @@ def do_bst(args):
     """Records BST data in one of the LOFAR bands and creates a header file
     with observational settings.
     """
-    myses.do_bsxST('bst', args.freqbnd, args.integration, args.duration_scan, args.pointsrc,
+    myses.do_bsxST('bst', args.freqbnd, args.integration, args.duration_tot, args.pointsrc,
                    when=args.begintime, allsky=args.allsky)
 
 
@@ -37,7 +41,7 @@ def do_sst(args):
     """Records SST data in one of the LOFAR bands and creates a header file
     with observational settings.
     """
-    myses.do_bsxST('sst', args.freqbnd, args.integration, args.duration_scan, args.pointsrc,
+    myses.do_bsxST('sst', args.freqbnd, args.integration, args.duration_tot, args.pointsrc,
                    when=args.begintime, allsky=args.allsky)
 
 
@@ -45,7 +49,7 @@ def do_xst(args):
     """Records XST data in one of the LOFAR bands and creates a header file
     with observational settings.
     """
-    myses.do_bsxST('xst', args.freqbnd, args.integration, args.duration_scan, args.pointsrc,
+    myses.do_bsxST('xst', args.freqbnd, args.integration, args.duration_tot, args.pointsrc,
                    when=args.begintime, allsky=args.allsky)
 
 
@@ -64,6 +68,9 @@ if __name__ == "__main__":
     parser.add_argument('-p', '--projectid',
                         help="Project ID (format: YYYY-mm-ddTHH:MM:SS)",
                         type=str, default=None)
+    parser.add_argument('-i', '--integration',
+                        help="Integration time [s]",
+                        type=float, default=modeparms.MIN_STATS_INTG)
     subparsers = parser.add_subparsers(title='Observation mode',
                                        description='Select a type of data to record.',
                                        help='Type of datataking:')
@@ -77,11 +84,11 @@ if __name__ == "__main__":
                             Frequency band spec in Hz.\
                             Format: freqct | freqlo:freqhi | freqlo:freqstp:freqhi\
                             """}
-    arg_integration_kwargs ={'type': int,
-                             'help': "Integration time in s"}
-    arg_dur_st_kwargs = {'type': str,
-                         'help': "Duration of statistic scan in seconds. \
-                                  Can be an arithmetic formula e.g. 24*60*60."}
+    #arg_integration_kwargs ={'type': int,
+    #                         'help': "Integration time in s"}
+    #arg_dur_st_kwargs = {'type': str,
+    #                     'help': "Duration of statistic scan in seconds. \
+    #                              Can be an arithmetic formula e.g. 24*60*60."}
     arg_dur_tot_kwargs = {'type': str,
                            'help': "Total duration of session in seconds. \
                                     Can be an arithmetic formula e.g. 24*60*60."}
@@ -111,8 +118,7 @@ if __name__ == "__main__":
                                        help="Make a BST observation")
     parser_bst.set_defaults(func=do_bst)
     parser_bst.add_argument('freqbnd', **arg_freqband_kwargs)
-    parser_bst.add_argument('integration', **arg_integration_kwargs)
-    parser_bst.add_argument('duration_scan',**arg_dur_st_kwargs)
+    parser_bst.add_argument('duration_tot',**arg_dur_tot_kwargs)
     parser_bst.add_argument('pointsrc', **arg_pointsrc_kwargs)
 
     # SST data
@@ -120,8 +126,7 @@ if __name__ == "__main__":
                                        help="Make a SST observation")
     parser_sst.set_defaults(func=do_sst)
     parser_sst.add_argument('freqbnd', **arg_freqband_kwargs)
-    parser_sst.add_argument('integration',**arg_integration_kwargs)
-    parser_sst.add_argument('duration_scan',**arg_dur_st_kwargs)
+    parser_sst.add_argument('duration_tot',**arg_dur_tot_kwargs)
     parser_sst.add_argument('pointsrc', **arg_pointsrc_kwargs)
 
     # XST data
@@ -129,8 +134,7 @@ if __name__ == "__main__":
                                        help="Make a XST observation")
     parser_xst.set_defaults(func=do_xst)
     parser_xst.add_argument('freqbnd', **arg_freqband_kwargs)
-    parser_xst.add_argument('integration',**arg_integration_kwargs)
-    parser_xst.add_argument('duration_scan',**arg_dur_st_kwargs)
+    parser_xst.add_argument('duration_tot',**arg_dur_tot_kwargs)
     parser_xst.add_argument('pointsrc', **arg_pointsrc_kwargs)
 
     # TBB data
@@ -141,10 +145,6 @@ if __name__ == "__main__":
     parser_tbb.add_argument('duration_tot', **arg_dur_tot_kwargs)
 
     args = parser.parse_args()
-    try:
-        args.duration_scan = eval(args.duration_scan)
-    except:
-        pass
     try:
         args.duration_tot = eval(args.duration_tot)
     except:
