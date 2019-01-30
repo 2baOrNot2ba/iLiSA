@@ -217,7 +217,8 @@ class ObsInfo(object):
             obsfolderinfo['datetime'] = d0
             obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
             obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
-            obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
+            obsfolderinfo['duration_tot'] = float(obsdirinfo['duration_tot'])
+            obsfolderinfo['integration'] = modeparms.MIN_STATS_INTG
         return obsfolderinfo
 
     def setobsinfo_fromparams(self, lofardatatype, obsdatetime_stamp, beamctl_cmd,
