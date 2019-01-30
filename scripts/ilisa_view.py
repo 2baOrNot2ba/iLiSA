@@ -80,10 +80,10 @@ def plotxst(xstff):
     xstobj = dataIO.CVCfiles(xstff)
     XSTdataset = xstobj.getdata()
     for sbstepidx in range(len(XSTdataset)):
-        obsinfo = xstobj.obsinfos[sbstepidx]
+        obsinfo = xstobj.stnsesinfo.obsinfos[sbstepidx]
         sb = obsinfo.rspctl_cmd['xcsubband']
-        intg = int(obsinfo.rspctl_cmd['integration'])
-        dur = int(obsinfo.rspctl_cmd['duration'])
+        intg = float(obsinfo.rspctl_cmd['integration'])
+        dur = float(obsinfo.rspctl_cmd['duration'])
 
         if obsinfo.datatype != "xst-SEPTON":
             rcumode = obsinfo.beamctl_cmd['rcumode']
