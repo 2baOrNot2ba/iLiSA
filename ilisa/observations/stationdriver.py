@@ -183,10 +183,11 @@ class StationDriver(object):
         return rcu_setup_CMD, beamctl_cmds
 
 
-    def do_bst(self, freqbndobj, integration, duration_scan, pointing):
+    def do_bst(self, freqbndobj, integration, duration_tot, pointing):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
         """
 
+        duration_scan = duration_tot
         CALTABLESRC = 'default'   # FIXME put this in args
 
         # Setup Calibration:
@@ -222,9 +223,10 @@ class StationDriver(object):
         obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
 
-    def do_sst(self, freqbndobj, integration, duration_scan, pointing):
+    def do_sst(self, freqbndobj, integration, duration_tot, pointing):
         """Run an sst static."""
 
+        duration_scan =  duration_tot
         # Use this to do a system temperature measurement.
         SYS_TEMP_MEAS = False
 
@@ -252,32 +254,44 @@ class StationDriver(object):
         obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
 
-    def do_xst(self, freqbndobj, integration, duration_scan, pointing):
+    def do_xst(self, freqbndobj, integration, duration_tot, pointing, duration_scan=None):
         """Run an xst statistic towards the given pointing. This corresponds to
         a crosscorrelation of all elements at the given frequency for
         integration seconds over a duration_scan of seconds."""
 
         caltabinfo = ""  # No need for caltab info for xst data
         obsinfolist = []
-        # Get subbands to do
-        for sb_rcumode in freqbndobj.sb_range:
-            # Start beamforming
-            rcu_setup_CMD, beamctl_cmds = self.streambeams(freqbndobj, pointing)
-            if ':' in sb_rcumode:
-                sblo, sbhi = sb_rcumode.split(':')
-                subbands = range(int(sblo),int(sbhi)+1)
+        nrsubbands = freqbndobj.nrsubbands()
+        if duration_scan is None:
+            if nrsubbands > 1:
+                duration_scan = integration
             else:
-                subbands = [int(sb) for sb in sb_rcumode.split(',')]
-            for subband in subbands:
-                # Record data
-                rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
-                                                            duration_scan)
-                obsdatetime_stamp = self.get_data_timestamp(-1)
-                curr_obsinfo = dataIO.ObsInfo()
-                curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp, beamctl_cmds,
-                                                   rspctl_CMD, caltabinfo)
-                obsinfolist.append(curr_obsinfo)
-            self.stationcontroller.stop_beam()
+                duration_scan = duration_tot
+        (rep, rst) = divmod(duration_tot , duration_scan*nrsubbands)
+        rep = int(rep)
+        # Start beamforming
+        rcu_setup_CMD, beamctl_cmds = self.streambeams(freqbndobj, pointing)
+
+        # Repeat rep times (the freq sweep)
+        for itr in range(rep):
+            # Start freq sweep
+            for sb_rcumode in freqbndobj.sb_range:
+                if ':' in sb_rcumode:
+                    sblo, sbhi = sb_rcumode.split(':')
+                    subbands = range(int(sblo),int(sbhi)+1)
+                else:
+                    subbands = [int(sb) for sb in sb_rcumode.split(',')]
+                for subband in subbands:
+                    # Record data
+                    rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
+                                                                duration_scan)
+                    obsdatetime_stamp = self.get_data_timestamp(-1)
+                    curr_obsinfo = dataIO.ObsInfo()
+                    curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp,
+                                                       beamctl_cmds, rspctl_CMD,
+                                                       caltabinfo)
+                    obsinfolist.append(curr_obsinfo)
+        self.stationcontroller.stop_beam()
 
         obsinfo = copy.copy(obsinfolist[0])
         obsinfo.sb = freqbndobj.sb_range[0]
@@ -289,7 +303,7 @@ class StationDriver(object):
             curr_obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
 
-    def bsxST(self, statistic, freqbndobj, integration, duration_scan, pointSrc):
+    def bsxST(self, statistic, freqbndobj, integration, duration_tot, pointSrc):
         """Run a statisics observation.
 
         Parameters
@@ -301,8 +315,8 @@ class StationDriver(object):
             frequency in Hz.
         integration : int
             integration time in seconds.
-        duration_scan : int
-            duration of statistic observation in seconds.
+        duration_tot : int
+            total duration of statistic observation in seconds.
         pointSrc : str
             point direction as a beamctl triplet.
         """
@@ -320,24 +334,24 @@ class StationDriver(object):
                 pointing = pointSrc
             except ValueError:
                 raise ValueError("Error: %s invalid pointing syntax".format(pointSrc))
-        if integration > duration_scan:
+        if integration > duration_tot:
             raise (ValueError, "integration {} is longer than duration_scan {}."
-                               .format(integration, duration_scan))
+                               .format(integration, duration_tot))
         self.stationcontroller.stop_beam()
 
         datapath = None
         if statistic == 'bst':
-             datapath, bsxSTobsEpoch = self.do_bst(freqbndobj, integration, duration_scan,
-                                                   pointing)
+            datapath, bsxSTobsEpoch = self.do_bst(freqbndobj, integration, duration_tot,
+                                                  pointing)
         elif statistic == 'sst':
-             datapath, bsxSTobsEpoch = self.do_sst(freqbndobj, integration, duration_scan,
-                                                   pointing)
+            datapath, bsxSTobsEpoch = self.do_sst(freqbndobj, integration, duration_tot,
+                                                  pointing)
         elif statistic == 'xst':
-             datapath, bsxSTobsEpoch = self.do_xst(freqbndobj, integration, duration_scan,
-                                                   pointing)
+            datapath, bsxSTobsEpoch = self.do_xst(freqbndobj, integration, duration_tot,
+                                                  pointing)
         stnsesinfo = copy.deepcopy(self.stnsesinfo)
         stnsesinfo.set_obsfolderinfo(statistic, bsxSTobsEpoch, freqbndobj.arg,
-                                     integration, duration_scan, pointing)
+                                     integration, duration_tot, pointing)
         stnsesinfo.write_session_header(datapath)
         data_url = "{}:{}".format(self.get_stnid(), datapath)
         return data_url
