@@ -13,27 +13,46 @@ import yaml
 class Session(object):
 
     obslogfile = "obs.log"
+    userilisadir = os.path.expanduser('~/.iLiSA/')
 
-    def __init__(self, accessconffile=None, projectid=None,
+    def __init__(self, stnroster='stations_roster.conf', projectid=None,
                  halt_observingstate_when_finished=True):
-        if accessconffile is None:
-            accessconffile = os.path.expanduser('~/.iLiSA/access_config.yml')
-        with open(accessconffile) as cfigfilep:
-            accessconf = yaml.load(cfigfilep)
-        userilisadir = os.path.expanduser('~/.iLiSA/')
-        projectmeta = {'observer': None, 'projectname': None}
+        """Initialize Session."""
+
+        # Setup projectmeta:
         if projectid is not None:
             projectfile = projectid + "_project.yml"
-            projectfile = os.path.join(userilisadir, projectfile)
+            projectfile = os.path.join(self.userilisadir, projectfile)
             with open(projectfile) as projectfilep:
                 projectprofile = yaml.load(projectfilep)
             projectmeta = projectprofile['PROJECTPROFILE']
+        else:
+            projectmeta = {'observer': None, 'projectname': None}
         self.stnsesinfo = dataIO.StationSessionInfo(projectmeta)
+
+        # Find accessconfig files:
+        accessconffiles = []
+        if stnroster is None:
+            accessconffiles.append(os.path.join(self.userilisadir, 'access_config.yml'))
+        else:
+            stnroster = os.path.join(self.userilisadir, stnroster)
+            with open(stnroster, 'r') as stnrosterf:
+                for l in stnrosterf:
+                    li = l.strip()
+                    if li.startswith('#') or not li:
+                        continue
+                    accessconffile = os.path.join(self.userilisadir, li)
+                    accessconffiles.append(accessconffile)
+
+        # Initialize stationdrivers :
         self.stationdrivers = []
-        stndrv = stationdriver.StationDriver(accessconf, self.stnsesinfo,
-                                             goto_observingstate_when_starting=False)
-        stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
-        self.stationdrivers.append(stndrv)
+        for accessconffile in accessconffiles:
+            with open(accessconffile) as cfigfilep:
+                accessconf = yaml.load(cfigfilep)
+            stndrv = stationdriver.StationDriver(accessconf, self.stnsesinfo,
+                                                 goto_observingstate_when_starting=False)
+            stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
+            self.stationdrivers.append(stndrv)
 
     def goto_observingstate(self):
         for stndrv in self.stationdrivers:
