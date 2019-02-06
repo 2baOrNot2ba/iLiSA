@@ -345,7 +345,7 @@ class FrequencyBand(object):
         """Returns total number of subbands in this FrequencyBand object."""
         nrsbs = 0
         for sbrange in self.sb_range:
-            nrsbs += len(sbrange.split(','))
+            nrsbs += len(seqarg2list(sbrange))
         return nrsbs
 
 
