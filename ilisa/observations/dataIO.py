@@ -766,7 +766,7 @@ class CVCfiles(object):
             if self.stnsesinfo.get_datatype() == 'acc':
                 freqs = modeparms.rcumode2sbfreqs(rcumode)
             else:
-                sb = self.stnsesinfo.get_xcsubband()
+                sb = obsinfo.rspctl_cmd['xcsubband']
                 freq = modeparms.sb2freq(sb, nz)
                 freqs = [freq]*cvcdim_t
             self.freqset.append(freqs)
