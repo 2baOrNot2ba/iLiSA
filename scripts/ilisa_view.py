@@ -2,6 +2,7 @@
 import os
 import argparse
 import numpy
+import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
@@ -34,6 +35,7 @@ def plotbst(bstff):
 
 def plotsst(sstff, freqreq):
     SSTdata, obsfolderinfo = dataIO.readsstfolder(sstff)
+    starttime = obsfolderinfo['datetime']
     SSTdata = numpy.array(SSTdata)
     freqs = modeparms.rcumode2sbfreqs(obsfolderinfo['rcumode'])
     if  freqreq:
@@ -43,12 +45,12 @@ def plotsst(sstff, freqreq):
         show = 'mean'
     intg = obsfolderinfo['integration']
     dur = obsfolderinfo['duration']
-    ts = numpy.arange(0., dur, intg)
+    ts = [starttime + datetime.timedelta(seconds=td) for td in numpy.arange(0., dur, intg)]
     if show == 'mean':
         meandynspec = numpy.mean(SSTdata, axis=0)
         res = meandynspec
         if res.shape[0] > 1:
-            plt.pcolormesh(freqs/1e6, ts/3600, res, norm=colors.LogNorm())
+            plt.pcolormesh(freqs/1e6, starttime + tds, res, norm=colors.LogNorm())
             plt.colorbar()
             plt.title('Mean (over RCUs) dynamicspectrum')
             plt.xlabel('Frequency [MHz]')
@@ -60,17 +62,25 @@ def plotsst(sstff, freqreq):
             plt.xlabel('Frequency [MHz]')
             plt.ylabel('Power [arb. unit]')
     elif show == 'persb':
+        ampVStime = True
         res = SSTdata[:,:,sbreq]
         resX = res[0::2,:]
         resY = res[1::2,:]
         plt.subplot(211)
-        plt.plot(ts/3600,numpy.transpose(resX))
-        plt.xlabel('Time [h]')
+        if ampVStime:
+            plt.plot(ts, numpy.transpose(resX))
+            #plt.gcf().autofmt_xdate()
+        else:
+            plt.pcolormesh(ts, numpy.arange(96), resX, norm=colors.LogNorm())
         plt.title('X pol')
         plt.subplot(212)
-        plt.pcolormesh(ts/3600, numpy.arange(96), resY, norm=colors.LogNorm())
-        plt.ylabel('rcu [nr]')
-        plt.xlabel('Time [h]')
+        if ampVStime:
+            plt.plot(ts, numpy.transpose(resY))
+            plt.gcf().autofmt_xdate()
+        else:
+            plt.pcolormesh(ts, numpy.arange(96), resY, norm=colors.LogNorm())
+            plt.ylabel('rcu [nr]')
+        plt.xlabel('Time [UT]')
         plt.title('Y pol')
         plt.suptitle('Freq {} MHz'.format(freqs[sbreq]/1e6))
     plt.show()
