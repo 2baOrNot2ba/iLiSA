@@ -124,6 +124,34 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky
     return (skyimageSI, skyimageSQ, skyimageSU, skyimageSV), ll, mm
 
 
+def nearfield_grd_image(vis_S0, stn2Dcoord, freq, include_autocorr=False):
+    """Make a nearfield image along the ground from Stokes I visibility.
+    (Useful for RFI)."""
+    if not include_autocorr:
+        numpy.fill_diagonal(vis_S0[:,:],0.0)
+    stn2Dcoord = numpy.squeeze(numpy.asarray( stn2Dcoord))
+    posU, posV = stn2Dcoord[:,0].squeeze(), stn2Dcoord[:,1].squeeze()
+    lambda0 = c / freq
+    k = 2 * numpy.pi / lambda0
+    r_ext = 500.0
+    print(r_ext)
+    nrpix = 101
+    x, y = numpy.linspace(-r_ext, r_ext, nrpix), numpy.linspace(-r_ext, r_ext, nrpix)
+    xx, yy = numpy.meshgrid(x,y)
+    xx1 = xx[...,numpy.newaxis]
+    yy1 = yy[...,numpy.newaxis]
+    rvec = numpy.array([xx1 - posU, yy1 - posV])
+    r = numpy.linalg.norm(rvec, axis=0)
+    #plt.imshow(r[:,:,50])
+    #plt.colorbar()
+    #plt.show()
+    bf = numpy.exp(-1.j*k*r)
+    bfbf = numpy.einsum('ijk,ijl->ijkl', bf, numpy.conj(bf))
+    nfhimage = numpy.einsum('ijkl,kl->ij', bfbf, vis_S0)
+    blankimage = numpy.zeros(nfhimage.shape)
+    return (nfhimage, blankimage, blankimage, blankimage), xx, yy
+
+
 def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
     """Image a CVC object"""
     t = cvcobj.samptimeset[filestep][cubeslice]
@@ -172,15 +200,23 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate = True):
         pntstr = pointingstr
     phaseref = pntstr.split(',')
 
-    # Phase up visibilities
-    cvpu, UVWxyz = phaseref_xstpol(cvpol[:,:,cubeslice,...].squeeze(),
-                                   t, freq, stnPos, antpos, phaseref)
+    skyimage = True
+    if skyimage:
+        # Phase up visibilities
+        cvpu, UVWxyz = phaseref_xstpol(cvpol[:,:,cubeslice,...].squeeze(),
+                                       t, freq, stnPos, antpos, phaseref)
 
-    # Make image on phased up visibilities
-    skyimages, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freq,
-                                             include_autocorr=True, allsky=allsky)
+        # Make image on phased up visibilities
+        images, ll, mm = xst2skyim_stn2Dcoord(cvpu, UVWxyz.T, freq,
+                                                 include_autocorr=True, allsky=allsky)
+    else:
+        vis_S0 = cvpol[0,0,cubeslice,...].squeeze() + cvpol[0,0,cubeslice,...].squeeze()
+        nfhimages, xx, yy = nearfield_grd_image(vis_S0, antpos, freq, include_autocorr=True)
+        images = numpy.real(nfhimages)
+        ll = xx
+        mm = yy
 
-    return ll, mm, skyimages, t, freq, stnid, phaseref
+    return ll, mm, images, t, freq, stnid, phaseref
 
 
 # Conversion between datatypes
@@ -248,8 +284,8 @@ def plotskyimage(ll, mm, skyimages, t, freq, stnid, phaseref, integration):
 
     def plotcomp(compmap, compname, pos):
         plt.subplot(2, 2, pos)
-        plt.imshow(compmap, origin = 'lower', extent = [lmin, lmax, mmin, mmax],
-                   interpolation = 'none')
+        plt.imshow(compmap, origin='lower', extent=[lmin, lmax, mmin, mmax],
+                   interpolation='none')
         plt.gca().invert_xaxis()
         if pos == 3 or pos == 4:
             plt.xlabel(xlabel)
