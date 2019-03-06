@@ -4,6 +4,12 @@ mode.
 
 import time
 import subprocess
+import sys, os
+try:
+    import paramiko
+    IMPORTED_PARAMIKO = True
+except ImportError:
+    IMPORTED_PARAMIKO = False
 
 # LOFAR constants
 from ilisa.observations.modeparms import nrofrcus, band2antset, rcumode2band
@@ -23,7 +29,8 @@ class StationInterface(object):
         """Initialize with user-station configuration."""
         self.stnid = accessconf['stnid']
         self.user = accessconf['user']
-        self.lcuURL = self.user+"@"+accessconf['hostname']
+        self.hostname = accessconf['hostname']
+        self.lcuURL = self.user+"@"+self.hostname
         self.lcuHome = accessconf['home']
         # This where the statistics data goes:
         self.lcuDumpDir = accessconf['dumpdir']
@@ -82,7 +89,50 @@ class StationInterface(object):
     def __del__(self):
         pass
 
-    def execOnLCU(self, cmdline, backgroundJOB=False, quotes="'"):
+    def exec_lcu(self, cmdline, backgroundJOB=False, quotes="'", method='ssh'):
+
+        if method == 'ssh':
+            self._exec_lcu_ssh(cmdline, backgroundJOB=backgroundJOB, quotes=quotes)
+        elif method == 'paramiko':
+            self._exec_lcu_paramiko(cmdline, backgroundJOB=backgroundJOB)
+
+    def _exec_lcu_paramiko(self, cmdline, backgroundJOB=False):
+        lcuprompt = "LCUp>"
+        if self.DryRun:
+            preprompt = "(dryrun)"
+        else:
+            preprompt = ""
+        if backgroundJOB is True:
+            cmdline = "(( "+cmdline+" ) > "+self.lcuHome+"lofarctl.log 2>&1) &"
+        if self.verbose:
+            print("{} {} {}".format(preprompt,lcuprompt,cmdline))
+
+        client = paramiko.SSHClient()
+        client.load_system_host_keys()
+        client.set_missing_host_key_policy(paramiko.WarningPolicy())
+
+        ssh_config = paramiko.SSHConfig()
+        user_config_file = os.path.expanduser("~/.ssh/config")
+        if os.path.exists(user_config_file):
+            with open(user_config_file) as f:
+                ssh_config.parse(f)
+        cfg = {'hostname': self.hostname, 'username': self.user}
+
+        user_config = ssh_config.lookup(cfg['hostname'])
+        for k in ('hostname', 'username', 'port'):
+            if k in user_config:
+                cfg[k] = user_config[k]
+
+        if 'proxycommand' in user_config:
+            cfg['sock'] = paramiko.ProxyCommand(user_config['proxycommand'])
+
+        client.connect(**cfg)
+
+        stdin, stdout, stderr = client.exec_command(cmdline)
+        print(stdout.read())
+        client.close()
+
+    def _exec_lcu_ssh(self, cmdline, backgroundJOB=False, quotes="'"):
         """Execute a command on the LCU, either as a background job or in the
         foreground (blocking). Typically access is remote via ssh.
         (To speed things up use the ssh CommandMaster option.)
@@ -202,13 +252,13 @@ class StationInterface(object):
 
     def rm(self, source):
         """Remove specified source file(s) on LCU."""
-        self.execOnLCU("rm -fr "+source)
+        self.exec_lcu("rm -fr " + source)
 
     def cleanup(self):
         """Clean up all local data dumps. It is usually the ObsSession()
         objects responsibility to call this."""
-        self.execOnLCU("rm -fr "+self.lcuDumpDir+"/*")
-        self.execOnLCU("rm "+self.ACCsrcDir+"/*.dat")
+        self.exec_lcu("rm -fr " + self.lcuDumpDir + "/*")
+        self.exec_lcu("rm " + self.ACCsrcDir + "/*.dat")
 
     def getDISABLEDRCUs(self, rcumode):
         """Return list of RCUs to be disabled (as determined by ASTRON)."""
@@ -263,16 +313,16 @@ class StationInterface(object):
             print("Found swlevel="+swlevel)
             if swlevel != str(swleveltarget):
                 # FullReboot = True
-                self.execOnLCU("swlevel "+str(swleveltarget))
+                self.exec_lcu("swlevel " + str(swleveltarget))
         if FullReboot is True:
             # May need to be swlevel 0, but swlevel 1 is faster
-            self.execOnLCU("swlevel 0; swlevel "+str(swleveltarget))
+            self.exec_lcu("swlevel 0; swlevel " + str(swleveltarget))
         # TODO check if we own the swlevel
 
     def stop_beam(self):
         """Stop any running beamctl processes."""
         # Stop any beamctl on lcu.
-        self.execOnLCU("killall beamctl")
+        self.exec_lcu("killall beamctl")
         # Put caltables back to default
         self.selectCalTable('default')
         # print("Beam off at %s"%time.asctime(time.localtime(time.time())))
@@ -288,7 +338,7 @@ class StationInterface(object):
                 argsstr += " --{}={}".format(arg, argsdict[arg])
         if argsstr != '':
             rspctl_cmd = "rspctl"+argsstr
-            self.execOnLCU(rspctl_cmd)
+            self.exec_lcu(rspctl_cmd)
         else:
             rspctl_cmd = None
         return rspctl_cmd
@@ -304,7 +354,7 @@ class StationInterface(object):
             # NOTE attenuation only set when beamctl is runnning.
             rcu_setup_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "
         #rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
-        self.execOnLCU(rcu_setup_CMDs)
+        self.exec_lcu(rcu_setup_CMDs)
         return rcu_setup_CMDs
 
     def _setup_beamctl(self, beamlets, subbands, band, anadigdir, rcus,
@@ -333,7 +383,7 @@ class StationInterface(object):
         """Start a beam using beamctl command. Blocks until ready."""
         beamctl_CMD = self._setup_beamctl(beamlets, subbands, rcumode, anadigdir, rcus,
                                           beamdurstr)
-        self.execOnLCU(beamctl_CMD, backgroundJOB)
+        self.exec_lcu(beamctl_CMD, backgroundJOB)
         waittime = 10
         print("Waiting {}s for beam to settle...".format(waittime))
         time.sleep(waittime)  # Wait for beam to settle
@@ -352,20 +402,20 @@ class StationInterface(object):
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
                       + " --directory="+self.lcuDumpDir)
-        self.execOnLCU(rspctl_CMD)
+        self.exec_lcu(rspctl_CMD)
         return rspctl_CMD
 
     def rec_xst(self, sb, integration, duration):
         rspctl_CMDs = ""
         # NOTE:  Seems like this has to be sent before xstats
         rspctl_CMD = ("rspctl --xcsubband="+str(sb))
-        self.execOnLCU(rspctl_CMD)
+        self.exec_lcu(rspctl_CMD)
         rspctl_CMDs += rspctl_CMD + "\n"
         rspctl_CMD = ("rspctl --xcstatistics"
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
                       + " --directory="+self.lcuDumpDir)
-        self.execOnLCU(rspctl_CMD)
+        self.exec_lcu(rspctl_CMD)
         rspctl_CMDs += rspctl_CMD
         return rspctl_CMDs
 
@@ -396,7 +446,7 @@ class StationInterface(object):
             tbbctl_args += " --select={}".format(select)
         if tbbctl_args != "":
             tbbctl_cmd = "tbbctl"+tbbctl_args
-            self.execOnLCU(tbbctl_cmd, backgroundJOB)
+            self.exec_lcu(tbbctl_cmd, backgroundJOB)
         else:
             tbbctl_cmd = None
         return tbbctl_cmd
@@ -407,11 +457,11 @@ class StationInterface(object):
         (swlevel>=2). If enableacc=False, ACC files will not be written.
         """
         if enable:
-            self.execOnLCU(
+            self.exec_lcu(
         r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/ ; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}"\
             .format(self.ACCsrcDir, self.CalServer_conf), quotes='"')
         else:
-            self.execOnLCU(
+            self.exec_lcu(
         r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}"\
             .format(self.CalServer_conf), quotes='"')
 
@@ -458,7 +508,7 @@ class StationInterface(object):
                 SelCalTabArg = "0"
             elif which == 'local':
                 SelCalTabArg = "1"
-            self.execOnLCU("SelectCalTable.sh"+" "+SelCalTabArg)
+            self.exec_lcu("SelectCalTable.sh" + " " + SelCalTabArg)
         else:
             # TODO Implement select CalTable without using script on lcu
             pass
@@ -469,7 +519,7 @@ class StationInterface(object):
         # TODO allow selection of rcus rather than always all.
         rspctl_CMD = "rspctl --rcu=0x00034880 --sel=0:191"
         time.sleep(30)
-        self.execOnLCU(rspctl_CMD)
+        self.exec_lcu(rspctl_CMD)
         print("Warning: Turning OFF LBA LNAs.")
         time.sleep(30)
         return rspctl_CMD
@@ -499,7 +549,7 @@ class StationInterface(object):
             lcucmd = "rspctl --hbadelay="\
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(2*tileNr)+","+str(2*tileNr+1)
-            self.execOnLCU(lcucmd)
+            self.exec_lcu(lcucmd)
 
     def turnoffElinTile_byEl(self, elemsOn):
         """"Turn off all elements per tile except the one specificied in list.
@@ -515,4 +565,4 @@ class StationInterface(object):
             lcucmd = "rspctl --hbadelay="\
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
-            self.execOnLCU(lcucmd)
+            self.exec_lcu(lcucmd)
