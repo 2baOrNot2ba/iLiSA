@@ -15,7 +15,7 @@ except ImportError:
 from ilisa.observations.modeparms import nrofrcus, band2antset, rcumode2band
 
 
-class StationInterface(object):
+class LCUInterface(object):
     """This class manages an International LOFAR station."""
     lofarroot = "/opt/lofar_local/"
     lofarbin = "/opt/lofar/bin"

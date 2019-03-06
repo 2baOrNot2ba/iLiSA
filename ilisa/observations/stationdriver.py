@@ -76,7 +76,7 @@ class StationDriver(object):
         """
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
-        self.stationcontroller = stationcontrol.StationInterface(lcuaccessconf)
+        self.stationcontroller = stationcontrol.LCUInterface(lcuaccessconf)
         self.stnsesinfo = stnsesinfo
         self.stnsesinfo.set_stnid(self.stationcontroller.stnid)
 
