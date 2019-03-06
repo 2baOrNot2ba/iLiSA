@@ -4,7 +4,6 @@ import os
 import subprocess
 
 import ilisa.observations.modeparms
-import ilisa.observations.stationinterface as stationcontrol
 import ilisa.observations.beamformedstreams
 
 

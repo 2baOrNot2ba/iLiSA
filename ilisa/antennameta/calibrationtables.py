@@ -7,7 +7,6 @@ import datetime
 import matplotlib.pyplot as plt
 
 import ilisa.observations.modeparms
-import ilisa.observations.stationinterface as stationcontrol
 
 __version__ = '0.1'
 CALTABDIRROOT = os.path.join(os.path.dirname(__file__), 'share/CalTables/')
