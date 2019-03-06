@@ -9,6 +9,7 @@ Nqfreq = 100.0e6  # Nyquist frequency in Hz
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
 MIN_STATS_INTG = 1.0  # Minimum integration for statistics data in seconds.
+BASE_NR_BEAMLETS = 244
 
 
 def parse_beamctl_args(beamctl_str):
@@ -167,7 +168,9 @@ class FrequencyBand(object):
     combos = [[4],[3],[5],[7],[6],[4,5],[3,5],[5,7],[4,5,7],[3,5,7]]
 
     nrffts = 1024
-    nrbeamletsbybits = {16: 244, 8: 488, 4: 976}
+    nrbeamletsbybits = {16:   BASE_NR_BEAMLETS,
+                        8:  2*BASE_NR_BEAMLETS,
+                        4:  4*BASE_NR_BEAMLETS}
 
     def __init__(self, arg):
         self.arg = arg

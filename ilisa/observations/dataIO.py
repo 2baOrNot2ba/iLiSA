@@ -492,15 +492,17 @@ def readbstfolder(BSTfilefolder):
 
     # When the beamlets allocated is less than the maximum (given by bit depth) the
     # RSPs fill the remaining ones regardless. Hence we have to account for them:
-    if totnrsbs > 244:
-        maxnrsbs = 2*244
+    if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
+        maxnrsbs = modeparms.BASE_NR_BEAMLETS
+    elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
+        maxnrsbs = modeparms.BASE_NR_BEAMLETS * 2
     else:
-        maxnrsbs = 244
-    missing_sbs = maxnrsbs - totnrsbs
-    if  missing_sbs > 0:
-        nrsbs = missing_sbs
+        maxnrsbs = modeparms.BASE_NR_BEAMLETS * 4
+    missing_nr_sbs = maxnrsbs - totnrsbs
+    if  missing_nr_sbs > 0:
+        nrsbs = missing_nr_sbs
         sblo = sbhi + 1
-        sbhi = sblo + nrsbs
+        sbhi = sblo + nrsbs - 1
         freqlo = modeparms.sb2freq(sblo, nz)
         freqhi = modeparms.sb2freq(sbhi, nz)
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
