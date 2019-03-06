@@ -16,7 +16,8 @@ from ilisa.observations.modeparms import nrofrcus, band2antset, rcumode2band
 
 
 class LCUInterface(object):
-    """This class manages an International LOFAR station."""
+    """This class provides an interface to the Local Control Unit (LCU) of an
+       International LOFAR station."""
     lofarroot = "/opt/lofar_local/"
     lofarbin = "/opt/lofar/bin"
     lofaroperationsbin = "/opt/operations/bin"

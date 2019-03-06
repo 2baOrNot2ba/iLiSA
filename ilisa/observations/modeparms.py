@@ -63,55 +63,72 @@ class FrequencyBand(object):
     >>> fbb=FrequencyBand('10_90')
     >>> fbb.__dict__
     {'antsets': ['LBA_INNER'],
+     'arg': '10_90',
      'beamlets': ['0:410'],
      'bits': 8,
      'rcubands': ['10_90'],
      'rcumodes': [3],
+     'rcusel': ['0:191'],
      'sb_range': ['51:461']}
 
     Set using single frequency, either string or float:
     >>> fb1=FrequencyBand('180e6')
     >>> fb1.__dict__
     {'antsets': ['HBA_JOINED'],
+     'arg': '180e6',
      'beamlets': ['0'],
      'bits': 16,
      'rcubands': ['110_190'],
      'rcumodes': [5],
+     'rcusel': ['0:191'],
      'sb_range': ['410']}
 
     Set using a tuple given by (freqlo, freqhi):
     >>> fbt2=FrequencyBand((40e6,120e6))
     >>> fbt2.__dict__
     {'antsets': ['LBA_INNER', 'HBA_JOINED'],
+     'arg': (40000000.0, 120000000.0),
      'beamlets': ['0:256', '257:308'],
      'bits': 8,
      'rcubands': ['30_90', '110_190'],
      'rcumodes': [4, 5],
+     'rcusel': ['0:47,96:143', '48:95,144:191'],
      'sb_range': ['205:461', '51:102']}
 
     Set using a tuple given by (freqlo, freqstep, freqhi):
     >>> fbt3=FrequencyBand((150e6,5.0e6,220e6))
     >>> fbt3.__dict__
     {'antsets': ['HBA_JOINED', 'HBA_JOINED'],
+     'arg': (150000000.0, 5000000.0, 220000000.0),
      'beamlets': ['0:8', '9:11'],
-     'bits': 8,
+     'bits': 16,
      'rcubands': ['110_190', '210_250'],
      'rcumodes': [5, 7],
+     'rcusel': ['0:47,96:143', '48:95,144:191'],
      'sb_range': ['256,281,306,331,356,381,406,431,456', '51,76,101']}
 
-    Set using slice style index string given by 'freqlo:freqstep:freqhi':
-    >>> fbs3=FrequencyBand('35e6:1e6:210e6')
-    >>> fbs3.__dict__
-
-
-     Set using slice style index string given by 'freqlo:freqhi':
-     >>> fbs2=FrequencyBand('80e6:10.0e6:220e6')
-     >>> fbs2.__dict__
+    Set using slice style index string given by 'freqlo:freqhi':
+    >>> fbs2=FrequencyBand('35e6:1e6:210e6')
+    >>> fbs2.__dict__
     {'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'],
+     'arg': '35e6:210e6',
+     'beamlets': ['0:282', '283:693', '694:694'],
+     'bits': 4,
+     'rcubands': ['30_90', '110_190', '210_250'],
+     'rcumodes': [4, 5, 7],
+     'rcusel': ['0:31,96:127', '32:63,128:159', '64:95,160:191'],
+     'sb_range': ['179:461', '51:461', '51:51']}
+
+     or using full slice style index string given by 'freqlo:freqstep:freqhi':
+     >>> fbs3=FrequencyBand('80e6:10.0e6:220e6')
+     >>> fbs3.__dict__
+    {'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'],
+     'arg': '80e6:10e6:220e6',
      'beamlets': ['0:1', '2:10', '11:12'],
      'bits': 16,
      'rcubands': ['30_90', '110_190', '210_250'],
      'rcumodes': [4, 5, 7],
+     'rcusel': ['0:31,96:127', '32:63,128:159', '64:95,160:191'],
      'sb_range': ['410,461', '51,102,153,204,255,306,357,408,459', '51,102']}
 
     """
