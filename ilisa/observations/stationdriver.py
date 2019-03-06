@@ -14,7 +14,7 @@ import multiprocessing
 import copy
 
 import ilisa.observations.modeparms
-import ilisa.observations.stationinterface as stationcontrol
+import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
