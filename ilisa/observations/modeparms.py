@@ -141,12 +141,11 @@ class FrequencyBand(object):
                        5: 1,
                        6: 2,
                        7: 2}
-    subarr_rcusel = [{0: '0:191'},
-                     {0: '0:47,96:143',
-                      1: '48:95,144:191'},
-                     {0: '0:31,96:127',
-                      1: '32:63,128:159',
-                      2: '64:95,160:191'}]
+    # rcus must be split into at least the same number of partitions as number of spws:
+    subarr_rcusel = [['0:191'],                                         # 1 spw (all rcus)
+                     ['0:47,96:143', '48:95,144:191'],                  # 2 spws 2 subarrs
+                     ['0:31,96:127', '32:63,128:159', '64:95,160:191']  # 3 spws 3 subarrs
+                     ]
 
     combos = [[4],[3],[5],[7],[6],[4,5],[3,5],[5,7],[4,5,7],[3,5,7]]
 
@@ -302,7 +301,7 @@ class FrequencyBand(object):
             # Choose largest bit size that fulfills nrbeamlets
             if nrbeamlets <= self.nrbeamletsbybits[bits]:
                 break
-        rcusel = [self.subarr_rcusel[nrrcumodes-1][idx] for idx in range(nrrcumodes)]
+        rcusel = self.subarr_rcusel[nrrcumodes-1]
         return rcumodes, rcubands, antsets, sb_range, bits, beamlets, rcusel
 
     def getsampinfo(self,rcumode):
