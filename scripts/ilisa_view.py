@@ -6,7 +6,6 @@ import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 
-import ilisa.observations.modeparms
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
 import ilisa.observations.modeparms as modeparms
@@ -91,15 +90,10 @@ def plotxst(xstff):
     XSTdataset = xstobj.getdata()
     for sbstepidx in range(len(XSTdataset)):
         obsinfo = xstobj.stnsesinfo.obsinfos[sbstepidx]
-        sb = obsinfo.rspctl_cmd['xcsubband']
         intg = float(obsinfo.rspctl_cmd['integration'])
         dur = float(obsinfo.rspctl_cmd['duration'])
 
-        if obsinfo.datatype != "xst-SEPTON":
-            rcumode = obsinfo.beamctl_cmd['rcumode']
-        else:
-            rcumode = 5
-        freq = modeparms.sb2freq(sb, ilisa.observations.modeparms.rcumode2nyquistzone(rcumode))
+        freq = obsinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
         XSTdata = XSTdataset[sbstepidx]
         for tidx in range(XSTdata.shape[0]):
