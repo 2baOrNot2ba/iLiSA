@@ -446,6 +446,16 @@ class ObsInfo(object):
             f.write(str(caltabinfo))
         f.close()
 
+    def get_recfreq(self):
+        """Return data recording frequency in Hz."""
+        sb =self.rspctl_cmd['xcsubband']
+        if self.datatype != "xst-SEPTON":
+            rcumode = self.beamctl_cmd['rcumode']
+        else:
+            rcumode = 5
+        nz = modeparms.rcumode2nyquistzone(rcumode)
+        return modeparms.sb2freq(sb, nz)
+
 
 # BEGIN BST related code
 def parse_bstfolder(BSTfilepath):
