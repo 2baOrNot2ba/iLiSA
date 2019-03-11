@@ -213,14 +213,17 @@ class LCUInterface(object):
                                       )) + "sec left out of " + str(duration))
                     count += 1
 
+    def _list_dat_files(self, dumpdir):
+        return self._stdoutLCU("ls "+dumpdir).split('\n')
+
     def getdatalist(self):
         """Get list of data recorded on LCU. Returns a separate list for data dumps
         and ACC data. Note that because data dumps are named by date and time
         (uses YYYYmmdd_HHMMSS) and because default 'ls' sorts names in alphabetical
         order, the list of files will be ordered such that oldest data is first.
         """
-        ls_lcuDumpDir = self._stdoutLCU("ls "+self.lcuDumpDir).split('\n')
-        ls_ACCsrcDir = self._stdoutLCU("ls "+self.ACCsrcDir).split('\n')
+        ls_lcuDumpDir = self._list_dat_files(self.lcuDumpDir)
+        ls_ACCsrcDir = self._list_dat_files(self.ACCsrcDir)
         return ls_lcuDumpDir, ls_ACCsrcDir
 
     def who_servicebroker(self):
@@ -390,23 +393,32 @@ class LCUInterface(object):
         time.sleep(waittime)  # Wait for beam to settle
         return beamctl_CMD
 
-    def rec_bst(self, integration, duration):
+    def rec_bst(self, integration, duration,directory=None):
+        """Convenience function to record BST data on LCU."""
+        if directory is None:
+            directory = self.lcuDumpDir
         rspctl_CMD = ("rspctl --statistics=beamlet"
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
-                      + " --directory="+self.lcuDumpDir)
+                      + " --directory="+directory)
         self.outfromLCU(rspctl_CMD, integration, duration)
         return rspctl_CMD
 
-    def rec_sst(self, integration, duration):
+    def rec_sst(self, integration, duration, directory=None):
+        """Convenience function to record SST data on LCU."""
+        if directory is None:
+            directory = self.lcuDumpDir
         rspctl_CMD = ("rspctl --statistics=subband"
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
-                      + " --directory="+self.lcuDumpDir)
+                      + " --directory="+directory)
         self.exec_lcu(rspctl_CMD)
         return rspctl_CMD
 
-    def rec_xst(self, sb, integration, duration):
+    def rec_xst(self, sb, integration, duration, directory=None):
+        """Convenience function to record BST data on LCU."""
+        if directory is None:
+            directory = self.lcuDumpDir
         rspctl_CMDs = ""
         # NOTE:  Seems like this has to be sent before xstats
         rspctl_CMD = ("rspctl --xcsubband="+str(sb))
@@ -415,7 +427,7 @@ class LCUInterface(object):
         rspctl_CMD = ("rspctl --xcstatistics"
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
-                      + " --directory="+self.lcuDumpDir)
+                      + " --directory="+directory)
         self.exec_lcu(rspctl_CMD)
         rspctl_CMDs += rspctl_CMD
         return rspctl_CMDs
