@@ -44,17 +44,18 @@ class Session(object):
                     accessconffiles.append(accessconffile)
 
         # Initialize stationdrivers :
-        self.stationdrivers = []
+        self.stationdrivers = {}
         for accessconffile in accessconffiles:
             with open(accessconffile) as cfigfilep:
                 accessconf = yaml.load(cfigfilep)
             stndrv = stationdriver.StationDriver(accessconf, self.stnsesinfo,
                                                  goto_observingstate_when_starting=False)
             stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
-            self.stationdrivers.append(stndrv)
+            # stationdrivers is a dict with stnid keys and corresp. stationdriver object
+            self.stationdrivers[stndrv.get_stnid()] = stndrv
 
     def goto_observingstate(self):
-        for stndrv in self.stationdrivers:
+        for stndrv in self.stationdrivers.values():
             try:
                 stndrv.goto_observingstate()
             except RuntimeError as e:
@@ -62,7 +63,7 @@ class Session(object):
                                    .format(e))
 
     def set_halt_observingstate(self):
-        for stndrv in self.stationdrivers:
+        for stndrv in self.stationdrivers.values():
             stndrv.halt_observingstate_when_finished = True
 
     def readlogfile(self):
@@ -134,7 +135,7 @@ class Session(object):
     def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
         """Record bfs data. Beamformed stream is capture with udpcapture on backend."""
         datafolder_urls = []
-        for stndrv in self.stationdrivers:
+        for stndrv in self.stationdrivers.values():
             try:
                 datafolder_url = stndrv.do_bfs(band, duration, pointsrc, when=when,
                                                shutdown=shutdown)
@@ -149,7 +150,7 @@ class Session(object):
         """Record acc data for one of the LOFAR bands over a duration on all stations.
         """
         self._waittostart(when)
-        for stndrv in self.stationdrivers:
+        for stndrv in self.stationdrivers.values():
             acc_url, sst_url = stndrv.do_acc(band, duration, pointsrc)
             print("Saved ACC data in folder: {}".format(acc_url))
             print("Saved SST data in folder: {}".format(sst_url))
@@ -164,7 +165,7 @@ class Session(object):
         frqbndobj = modeparms.FrequencyBand(freqbnd)
         self._waittostart(when)
         datafolder_urls = []
-        for stndrv in self.stationdrivers:
+        for stndrv in self.stationdrivers.values():
             if allsky and 'HBA' in frqbndobj.antsets[0]:
                 datafolder_url = stndrv.do_SEPTON(statistic, frqbndobj, integration,
                                                   duration_tot)
@@ -182,6 +183,6 @@ class Session(object):
         """Record Transient Buffer Board (TBB) data from one of the LOFAR bands for
         duration seconds on all stations.
         """
-        for stndrv in self.stationdrivers:
+        for stndrv in self.stationdrivers.values():
             stndrv.do_tbb(duration, band)
         return "."
