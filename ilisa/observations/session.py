@@ -1,6 +1,5 @@
 """This package provides Session class that handles observations."""
 import os
-import math
 import time
 import datetime
 import ilisa.observations.stationdriver as stationdriver

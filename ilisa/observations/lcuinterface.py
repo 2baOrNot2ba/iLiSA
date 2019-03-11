@@ -4,7 +4,7 @@ mode.
 
 import time
 import subprocess
-import sys, os
+import os
 try:
     import paramiko
     IMPORTED_PARAMIKO = True

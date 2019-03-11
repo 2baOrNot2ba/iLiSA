@@ -2,13 +2,11 @@
 XST."""
 from __future__ import print_function
 import sys
-import datetime
 import casacore.measures
 import casacore.quanta.quantity
 import numpy
 from scipy.constants import speed_of_light
 import matplotlib.pyplot as plt
-import matplotlib.colors as colors
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
 import ilisa.observations.modeparms as modeparms

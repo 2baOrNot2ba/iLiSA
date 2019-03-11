@@ -1,7 +1,6 @@
 #!/usr/bin/python
 
 import argparse
-import ilisa.observations.stationdriver as observing
 from ilisa.observations.session import Session
 
 def getswlevel(args):

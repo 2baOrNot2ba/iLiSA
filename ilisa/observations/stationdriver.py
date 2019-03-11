@@ -4,7 +4,6 @@ via station controller objects. This package knows about the data archive and
 should not run anything directly on LCU."""
 
 
-import math
 import time
 import datetime
 import subprocess
@@ -13,7 +12,6 @@ import sys
 import multiprocessing
 import copy
 
-import ilisa.observations.modeparms
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.modeparms as modeparms
@@ -22,7 +20,6 @@ import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 
 # SEPTON configurations:
 #        1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24
-from ilisa.observations.modeparms import stdPointings, elementMap2str
 
 elOn_step = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15, 0, 1, 2, 3, 4, 5, 6, 7,
              8, 9,10,11,12,13,14,15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
@@ -326,7 +323,7 @@ class StationDriver(object):
             raise RuntimeError(e)
 
         try:
-            pointing = stdPointings(pointSrc)
+            pointing = modeparms.stdPointings(pointSrc)
         except KeyError:
             try:
                 phi, theta, ref = pointSrc.split(',', 3)
@@ -506,11 +503,11 @@ class StationDriver(object):
         except RuntimeError as e:
             raise RuntimeError(e)
         try:
-            rcumode = ilisa.observations.modeparms.band2rcumode(band)
+            rcumode = modeparms.band2rcumode(band)
         except ValueError:
             raise
         try:
-            pointing = stdPointings(pointSrc)
+            pointing = modeparms.stdPointings(pointSrc)
         except KeyError:
             try:
                 phi, theta, ref = pointSrc.split(',', 3)
@@ -519,7 +516,7 @@ class StationDriver(object):
             pointing = pointSrc
         # Get timings
         # Also duration of ACC sweep since each sb is 1 second.
-        dur1acc = ilisa.observations.modeparms.TotNrOfsb  # Duration of one ACC
+        dur1acc = modeparms.TotNrOfsb  # Duration of one ACC
         interv2accs = 7  # time between end of one ACC and start of next one
         acc_cadence = dur1acc+interv2accs  # =519s time between start of two ACCs
         (nraccs, timrest) = divmod(duration_tot_req, acc_cadence)
@@ -653,7 +650,7 @@ class StationDriver(object):
         stnsesinfo.new_obsinfo()
         stnsesinfo.obsinfos[-1].setobsinfo_fromparams(
             LOFARdatTYPE, obsdatetime_stamp, beamctl_CMD, rspctl_CMD, caltabinfo,
-            septonconf=elementMap2str(elemsOn))
+            septonconf = modeparms.elementMap2str(elemsOn))
 
         # Move data to archive
         bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
@@ -735,7 +732,7 @@ class StationDriver(object):
         observationID = "Null"
 
         # Start a beam
-        pointing = stdPointings('Z')
+        pointing = modeparms.stdPointings('Z')
         freqband = modeparms.FrequencyBand(band)
         # FrequencyBand obtained from band spec sets 8 bit mode,
         # so create a new FrequencyBand object with only center frequency

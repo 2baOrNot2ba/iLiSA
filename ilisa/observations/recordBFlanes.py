@@ -3,7 +3,6 @@ import sys
 import multiprocessing
 import subprocess
 import socket
-import IN
 import datetime
 import time
 import os
