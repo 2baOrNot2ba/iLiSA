@@ -389,8 +389,8 @@ def pointingGrid(NrAzDirs=8, NrElDirs=7):
     return tuple(pntGridStrs)
 
 
-def parsebeamctldir(beamctldirarg):
-    """Parse a beamctl direction string into direction tuple.
+def pointing_str2tuple(beamctldirarg):
+    """Convert a beamctl direction string into direction tuple.
 
     Parameters
     ----------
@@ -475,7 +475,7 @@ def normalizebeamctldir(gendirstr):
     beamctldirstr : str
         The beamctl direction string corresponding to input gendirstr.
     """
-    beamctldir = parsebeamctldir(gendirstr)
+    beamctldir = pointing_str2tuple(gendirstr)
     if beamctldir is None:
         try:
             beamctldirstr = stdPointings(gendirstr)
