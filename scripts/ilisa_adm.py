@@ -5,9 +5,8 @@ from ilisa.observations.session import Session
 
 def getswlevel(args):
     myobs.halt_observingstate_when_finished = False
-    for stndrv in myobs.stationdrivers:
-        current_swl = stndrv.stationcontroller.get_swlevel()
-        stnid = stndrv.get_stnid()
+    for stnid in myobs.stationdrivers:
+        current_swl = myobs.stationdrivers[stnid].stationcontroller.get_swlevel()
         print("The current swlevel of {} is {}".format(stnid, current_swl))
 
 def halt(args):
