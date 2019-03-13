@@ -65,8 +65,8 @@ class StationDriver(object):
 
     def __init__(self, accessconf, stnsesinfo,
                  goto_observingstate_when_starting=True):
-        """Initialize a Session object, which has access to a station via
-        a Station object configured with setting given by accessconfile.
+        """Initialize a StationDriver object, which has access to a station via
+        a LCUInterface object configured with setting given by accessconf dict.
         When goto_observingstate_when_starting is True, boot the
         station to swlevel 3, but only if observations are allowed on the
         station.
@@ -264,7 +264,7 @@ class StationDriver(object):
                 duration_scan = integration
             else:
                 duration_scan = duration_tot
-        (rep, rst) = divmod(duration_tot , duration_scan*nrsubbands)
+        (rep, rst) = divmod(duration_tot, duration_scan*nrsubbands)
         rep = int(rep)
         # Start beamforming
         rcu_setup_CMD, beamctl_cmds = self.streambeams(freqbndobj, pointing)
@@ -767,6 +767,7 @@ class StationDriver(object):
 
     # END: TBB services
     ###################
+
 
 # END: Session
 ##############
