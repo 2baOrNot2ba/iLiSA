@@ -49,10 +49,10 @@ class StationDriver(object):
     def checkobservingallowed(self):
         """Check whether observations are allowed. This occurs is someone else
         is using the station."""
-        serviceuser = self.stationcontroller.who_servicebroker()
+        serviceuser = self.lcu_interface.who_servicebroker()
 
-        if serviceuser == 'None' or serviceuser == self.stationcontroller.user:
-            stationswitchmode = self.stationcontroller.getstationswitchmode()
+        if serviceuser == 'None' or serviceuser == self.lcu_interface.user:
+            stationswitchmode = self.lcu_interface.getstationswitchmode()
             if stationswitchmode == 'local':
                 return True
             else:
@@ -60,7 +60,7 @@ class StationDriver(object):
                 return False
         else:
             print("Warning: Someone else ({}) is using LCU".format(serviceuser))
-            print("         (You are running as {})".format(self.stationcontroller.user))
+            print("         (You are running as {})".format(self.lcu_interface.user))
             return False
 
     def __init__(self, accessconf, stnsesinfo,
@@ -73,9 +73,9 @@ class StationDriver(object):
         """
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
-        self.stationcontroller = stationcontrol.LCUInterface(lcuaccessconf)
+        self.lcu_interface = stationcontrol.LCUInterface(lcuaccessconf)
         self.stnsesinfo = stnsesinfo
-        self.stnsesinfo.set_stnid(self.stationcontroller.stnid)
+        self.stnsesinfo.set_stnid(self.lcu_interface.stnid)
 
         self.LOFARdataArchive = dpuaccessconf['LOFARdataArchive']
         self.bf_data_dir =      dpuaccessconf['BeamFormDataDir']
@@ -99,17 +99,17 @@ class StationDriver(object):
         """Put station into the main observing state."""
         if not self.checkobservingallowed():
             raise RuntimeError('Observations not allowed')
-        self.stationcontroller.set_swlevel(3)
+        self.lcu_interface.set_swlevel(3)
 
     def haltobservingstate(self):
         """Halt observing state on station."""
         if self.checkobservingallowed():
-            self.stationcontroller.set_swlevel(0)
+            self.lcu_interface.set_swlevel(0)
             self.cleanup()
             # Cleanup any data left on LCU.
-            self.stationcontroller.cleanup()
+            self.lcu_interface.cleanup()
         # Close down stationcontroller:
-        del self.stationcontroller
+        del self.lcu_interface
 
     def __del__(self):
         """Normally, shutdown observation mode on station."""
@@ -117,7 +117,7 @@ class StationDriver(object):
             self.haltobservingstate()
         elif self.exit_check:
             if self.checkobservingallowed():
-                swlevel = self.stationcontroller.get_swlevel()
+                swlevel = self.lcu_interface.get_swlevel()
                 if int(swlevel) != 0:
                     print("Warning: You are leaving station in swlevel {} != 0"
                           .format(swlevel))
@@ -129,20 +129,20 @@ class StationDriver(object):
         movecmd = "scp"
         if recursive:
             movecmd += " -r"
-        fullcmd = movecmd+" "+self.stationcontroller.lcuURL+":"+source+" "+dest
+        fullcmd = movecmd +" " + self.lcu_interface.lcuURL + ":" + source + " " + dest
         cmdprompt = "on DPU>"
-        if self.stationcontroller.DryRun:
+        if self.lcu_interface.DryRun:
             cmdprompt = "(dryrun) "+cmdprompt
-        if self.stationcontroller.verbose:
+        if self.lcu_interface.verbose:
             print("{} {}".format(cmdprompt, fullcmd))
-        if not self.stationcontroller.DryRun:
+        if not self.lcu_interface.DryRun:
             subprocess.call(fullcmd, shell=True)
-            self.stationcontroller.rm(source)
+            self.lcu_interface.rm(source)
 
     def get_data_timestamp(self, order=0, ACC=False):
         """Get timestamp of datafiles on LCU. order is the temporal order of the data
         file, order=0 is oldest, order=-1 is newest."""
-        dd_dir, acc_dir = self.stationcontroller.getdatalist()
+        dd_dir, acc_dir = self.lcu_interface.getdatalist()
         # Assumes only one file in datadump dir with
         # format YYYYmmdd_HHMMSS_[bsx]st.dat
         if not ACC:
@@ -155,7 +155,7 @@ class StationDriver(object):
 
     def get_stnid(self):
         """Return the station id that this StationDriver is managing."""
-        return self.stationcontroller.stnid
+        return self.lcu_interface.stnid
 
 #######################################
 # Begin: Basic obs modes
@@ -173,10 +173,10 @@ class StationDriver(object):
             beamletIDs = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
             rcusel = freqbndobj.rcusel[bandbeamidx]
-            beamctl_main = self.stationcontroller.run_beamctl(beamletIDs, subbands,
-                                                              rcumode, pointing, rcusel)
+            beamctl_main = self.lcu_interface.run_beamctl(beamletIDs, subbands,
+                                                          rcumode, pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
-        rcu_setup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
+        rcu_setup_CMD = self.lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_CMD, beamctl_cmds
 
 
@@ -190,13 +190,13 @@ class StationDriver(object):
         # Setup Calibration:
         ## (Only BST uses calibration tables)
         # Choose between 'default' or 'local'
-        self.stationcontroller.selectCalTable(CALTABLESRC)
+        self.lcu_interface.selectCalTable(CALTABLESRC)
         # Start beamforming
         (rcu_setup_CMD, beamctl_cmds) = self.streambeams(freqbndobj, pointing)
 
         # Get some metadata about operational settings:
         if len(freqbndobj.rcumodes) == 1:
-            caltabinfo = self.stationcontroller.getCalTableInfo(freqbndobj.rcumodes[0])
+            caltabinfo = self.lcu_interface.getCalTableInfo(freqbndobj.rcumodes[0])
         else:
             # TODO implement storing of multiband caltab
             caltabinfo = ''
@@ -205,18 +205,18 @@ class StationDriver(object):
         # waittime = 0
         # print "Waiting extra", str(waittime) +" seconds" #Seems necessary
         # time.sleep(waittime)
-        rspctl_CMD = self.stationcontroller.rec_bst(integration, duration_scan)
+        rspctl_CMD = self.lcu_interface.rec_bst(integration, duration_scan)
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
         obsinfo = dataIO.ObsInfo()
         obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp,
                                       beamctl_cmds, rspctl_CMD, caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
-        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*00[XY].dat",
+        self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*00[XY].dat",
                          datapath)
         # beamlet statistics also generate empty *01[XY].dat so remove:
-        self.stationcontroller.rm(
-                              self.stationcontroller.lcuDumpDir+"/*01[XY].dat")
+        self.lcu_interface.rm(
+            self.lcu_interface.lcuDumpDir + "/*01[XY].dat")
         obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
 
@@ -231,14 +231,14 @@ class StationDriver(object):
         rcu_setup_CMD, beamctl_cmds = \
             self.streambeams(freqbndobj, pointing)
         if SYS_TEMP_MEAS:
-            lbbalnaoff_CMD = self.stationcontroller.turnoffLBA_LNAs()
+            lbbalnaoff_CMD = self.lcu_interface.turnoffLBA_LNAs()
             #beamctl_CMD += "\n"+lbbalnaoff_CMD
 
         # Get some metadata about operational settings:
         caltabinfo = ""    # No need for caltab info
 
         # Record data
-        rspctl_CMD = self.stationcontroller.rec_sst(integration, duration_scan)
+        rspctl_CMD = self.lcu_interface.rec_sst(integration, duration_scan)
 
         # Move data to archive
         obsdatetime_stamp = self.get_data_timestamp()
@@ -246,7 +246,7 @@ class StationDriver(object):
         obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_cmds, rspctl_CMD,
                                       caltabinfo)
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
-        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath,
+        self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath,
                          recursive=True)
         obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
@@ -280,22 +280,22 @@ class StationDriver(object):
                     subbands = [int(sb) for sb in sb_rcumode.split(',')]
                 for subband in subbands:
                     # Record data
-                    rspctl_CMD = self.stationcontroller.rec_xst(subband, integration,
-                                                                duration_scan)
+                    rspctl_CMD = self.lcu_interface.rec_xst(subband, integration,
+                                                            duration_scan)
                     obsdatetime_stamp = self.get_data_timestamp(-1)
                     curr_obsinfo = dataIO.ObsInfo()
                     curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp,
                                                        beamctl_cmds, rspctl_CMD,
                                                        caltabinfo)
                     obsinfolist.append(curr_obsinfo)
-        self.stationcontroller.stop_beam()
+        self.lcu_interface.stop_beam()
 
         obsinfo = copy.copy(obsinfolist[0])
         obsinfo.sb = freqbndobj.sb_range[0]
         # Move data to archive
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
 
-        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
+        self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath)
         for curr_obsinfo in obsinfolist:
             curr_obsinfo.create_LOFARst_header(datapath)
         return datapath, bsxSTobsEpoch
@@ -334,7 +334,7 @@ class StationDriver(object):
         if integration > duration_tot:
             raise (ValueError, "integration {} is longer than duration_scan {}."
                                .format(integration, duration_tot))
-        self.stationcontroller.stop_beam()
+        self.lcu_interface.stop_beam()
 
         datapath = None
         if statistic == 'bst':
@@ -402,7 +402,7 @@ class StationDriver(object):
             raise ValueError(
                 "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
         pointing = modeparms.normalizebeamctldir(pointsrc)
-        caltabinfo = self.stationcontroller.getCalTableInfo(modeparms.band2rcumode(band))
+        caltabinfo = self.lcu_interface.getCalTableInfo(modeparms.band2rcumode(band))
 
         # Wait until it is time to start
         pause = 5  # Sufficient?
@@ -424,10 +424,10 @@ class StationDriver(object):
         # TODO: This seems necessary, otherwise beamctl will not start up next time,
         #       although it should not have to necessary.)
         print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
-        self.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band, pointing)
-        self.stationcontroller.rcusetup(bits,
-                                         attenuation)  # setting bits also seems necessary
-        self.stationcontroller.stop_beam()
+        self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band, pointing)
+        self.lcu_interface.rcusetup(bits,
+                                    attenuation)  # setting bits also seems necessary
+        self.lcu_interface.stop_beam()
         # END Dummy or hot start
 
         print("Pause {}s after boot.".format(pause))
@@ -435,9 +435,9 @@ class StationDriver(object):
 
         # Real beam start:
         print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-        beamctl_CMD = self.stationcontroller.run_beamctl(beamletIDs, subbandNrs, band,
-                                                          pointing)
-        rcu_setup_CMD = self.stationcontroller.rcusetup(bits, attenuation)
+        beamctl_CMD = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
+                                                     pointing)
+        rcu_setup_CMD = self.lcu_interface.rcusetup(bits, attenuation)
         nw = datetime.datetime.utcnow()
         timeleft = st - nw
         if timeleft.total_seconds() < 0.:
@@ -449,14 +449,14 @@ class StationDriver(object):
         if REC == True:
             bf_data_dir = self.bf_data_dir
             port0 = self.bf_port0
-            stnid = self.stationcontroller.stnid
+            stnid = self.lcu_interface.stnid
             bfbackend.rec_bf_streams(starttimestr, duration_scan, lanes, band, bf_data_dir,
                                      port0, stnid)
         else:
             print("Not recording")
             time.sleep(duration_scan)
         sys.stdout.flush()
-        self.stationcontroller.stop_beam()
+        self.lcu_interface.stop_beam()
         headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                 ).strftime("%Y%m%d_%H%M%S")
         stnsesinfo = copy.deepcopy(self.stnsesinfo)
@@ -529,35 +529,35 @@ class StationDriver(object):
         sst_integration = int(acc_cadence)
 
         # Make sure swlevel=<2
-        self.stationcontroller.set_swlevel(2)
+        self.lcu_interface.set_swlevel(2)
 
         # Set CalServ.conf to dump ACCs:
-        self.stationcontroller.acc_mode(enable=True)
+        self.lcu_interface.acc_mode(enable=True)
 
         # Boot to swlevel 3 so the calserver service starts
-        self.stationcontroller.set_swlevel(3)
+        self.lcu_interface.set_swlevel(3)
 
         # Beamlet & Subband allocation does not matter here
         # since niether ACC or SST cares
-        beamctl_CMD = self.stationcontroller.run_beamctl('0', '255', rcumode, pointing)
+        beamctl_CMD = self.lcu_interface.run_beamctl('0', '255', rcumode, pointing)
 
         # Run for $duration_tot seconds
-        rspctl_CMD = self.stationcontroller.rec_sst(sst_integration, duration_tot)
-        self.stationcontroller.stop_beam()
+        rspctl_CMD = self.lcu_interface.rec_sst(sst_integration, duration_tot)
+        self.lcu_interface.stop_beam()
 
         # Switch back to normal state i.e. turn-off ACC dumping:
-        self.stationcontroller.acc_mode(enable=False)
+        self.lcu_interface.acc_mode(enable=False)
 
         if exit_obsstate:
-            self.stationcontroller.set_swlevel(0)
+            self.lcu_interface.set_swlevel(0)
 
         # Transfer data from LCU to DAU
         obsdatetime_stamp = self.get_data_timestamp(ACC=True)
-        ACCsrcFiles = self.stationcontroller.ACCsrcDir+"/*.dat"
+        ACCsrcFiles = self.lcu_interface.ACCsrcDir + "/*.dat"
         acc_destfolder = \
             os.path.join(self.LOFARdataArchive, 'acc',
-                       '{}_{}_rcu{}_tdur{}'.format(self.stationcontroller.stnid,
-                         obsdatetime_stamp, rcumode, duration_tot))
+                       '{}_{}_rcu{}_tdur{}'.format(self.lcu_interface.stnid,
+                                                   obsdatetime_stamp, rcumode, duration_tot))
         if int(rcumode) > 3:
             acc_destfolder += "_"+pointSrc
         acc_destfolder += "_acc"
@@ -596,13 +596,13 @@ class StationDriver(object):
                                                            beamctl_CMD, rspctl_CMD)
         bsxSTobsEpoch, sst_destfolder = \
             sesinfo_sst.obsinfos[-1].getobsdatapath(self.LOFARdataArchive)
-        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*", sst_destfolder,
+        self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*", sst_destfolder,
                          recursive=True)
         sesinfo_sst.obsinfos[-1].create_LOFARst_header(sst_destfolder)
         sesinfo_sst.set_obsfolderinfo('sst', obsdatetime_stamp, band, sst_integration,
                                       duration_tot, pointing)
         sesinfo_sst.write_session_header(sst_destfolder)
-        self.stationcontroller.cleanup()
+        self.lcu_interface.cleanup()
 
         # Postprocess?
         if False:
@@ -631,15 +631,15 @@ class StationDriver(object):
         rspctl_SET = ""
         beamctl_CMD = ""
         # NOTE: LCU must be in swlevel=2 to run SEPTON!
-        self.stationcontroller.set_swlevel(2)
+        self.lcu_interface.set_swlevel(2)
         # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
-        self.stationcontroller.turnoffElinTile_byEl(elemsOn)
+        self.lcu_interface.turnoffElinTile_byEl(elemsOn)
         caltabinfo = ""  # No need for caltab info
         # Record data
         if statistic == 'xst':
-            rspctl_CMD = self.stationcontroller.rec_xst(subband, integration, duration_scan)
+            rspctl_CMD = self.lcu_interface.rec_xst(subband, integration, duration_scan)
         elif statistic == 'sst':
-            rspctl_CMD = self.stationcontroller.rec_sst(integration, duration_scan)
+            rspctl_CMD = self.lcu_interface.rec_sst(integration, duration_scan)
         else:
             raise ValueError("Only xst or sst data allowed.")
         LOFARdatTYPE = statistic + "-SEPTON"
@@ -655,7 +655,7 @@ class StationDriver(object):
         # Move data to archive
         bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
             self.LOFARdataArchive)
-        self.movefromlcu(self.stationcontroller.lcuDumpDir+"/*.dat", datapath)
+        self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath)
         stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
         stnsesinfo.set_obsfolderinfo(LOFARdatTYPE, bsxSTobsEpoch,
                                      modeparms.rcumode2band(rcumode), integration,
@@ -670,26 +670,26 @@ class StationDriver(object):
     def _setupTBBs(self):
         """Setup transient buffer boards and start recording."""
         print("In setupTBBs: Freeing TBBs")
-        self.stationcontroller.run_tbbctl(free=True)
+        self.lcu_interface.run_tbbctl(free=True)
         print("In setupTBBs: Setting TBB transient mode on rspctl")
-        self.stationcontroller.run_rspctl(tbbmode='transient')
+        self.lcu_interface.run_rspctl(tbbmode='transient')
         time.sleep(1)
         print("In setupTBBs: Allocating TBBs")
-        self.stationcontroller.run_tbbctl(alloc=True)
+        self.lcu_interface.run_tbbctl(alloc=True)
         time.sleep(1)
         print("In setupTBBs: Setting TBB transient mode on tbbctl")
-        self.stationcontroller.run_tbbctl(mode='transient')
+        self.lcu_interface.run_tbbctl(mode='transient')
         time.sleep(1)
         print("In setupTBBs: Start TBB recording")
-        self.stationcontroller.run_tbbctl(record=True)
+        self.lcu_interface.run_tbbctl(record=True)
         print("In setupTBBs: Finished setting up TBBs & started recording")
 
     def _freezeTBBdata(self):
         """Stop TBB recording."""
         print("In freezeTBBdata: Stopping TBB recording")
-        self.stationcontroller.run_tbbctl(stop=True)
+        self.lcu_interface.run_tbbctl(stop=True)
         print("In freezeTBBdata: Stopping any dummy beam")
-        self.stationcontroller.stop_beam()
+        self.lcu_interface.stop_beam()
 
     def _startTBBdataStream(self, duration_scan):
         """Stream duration_scan seconds of TBB data out of the LCU to
@@ -700,29 +700,29 @@ class StationDriver(object):
         nrpages = str(int(duration_scan*2*Nqfreq/1024))  # One page is 1024 samples.
                                                     # Normal sampling frequency
                                                     # is 200MHz.
-        self.stationcontroller.run_tbbctl(select='0:15,16:31,32:47', storage='lofarA1')
-        self.stationcontroller.run_tbbctl(select='48:63,64:79,80:95', storage='lofarA2')
-        self.stationcontroller.run_tbbctl(select='96:111,112:127,128:143', storage='lofarA3')
-        self.stationcontroller.run_tbbctl(select='144:159,160:175,176:191', storage='lofarA4')
+        self.lcu_interface.run_tbbctl(select='0:15,16:31,32:47', storage='lofarA1')
+        self.lcu_interface.run_tbbctl(select='48:63,64:79,80:95', storage='lofarA2')
+        self.lcu_interface.run_tbbctl(select='96:111,112:127,128:143', storage='lofarA3')
+        self.lcu_interface.run_tbbctl(select='144:159,160:175,176:191', storage='lofarA4')
 
-        self.stationcontroller.run_tbbctl(cepdelay=str(udpdelay))
+        self.lcu_interface.run_tbbctl(cepdelay=str(udpdelay))
 
-        self.stationcontroller.run_tbbctl(select='0:15', readall=nrpages, backgroundJOB='locally')
-        self.stationcontroller.run_tbbctl(select='48:63', readall=nrpages, backgroundJOB='locally')
-        self.stationcontroller.run_tbbctl(select='96:111', readall=nrpages, backgroundJOB='locally')
-        self.stationcontroller.run_tbbctl(select='144:159', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='0:15', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='48:63', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='96:111', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='144:159', readall=nrpages, backgroundJOB='locally')
 
-        self.stationcontroller.run_tbbctl(select='16:31', readall=nrpages, backgroundJOB='locally')
-        self.stationcontroller.run_tbbctl(select='64:79', readall=nrpages, backgroundJOB='locally')
-        self.stationcontroller.run_tbbctl(select='112:127', readall=nrpages, backgroundJOB='locally')
-        self.stationcontroller.run_tbbctl(select='160:175', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='16:31', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='64:79', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='112:127', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='160:175', readall=nrpages, backgroundJOB='locally')
 
-        self.stationcontroller.run_tbbctl(select='32:47', readall=nrpages, backgroundJOB='locally')
-        self.stationcontroller.run_tbbctl(select='80:95', readall=nrpages, backgroundJOB='locally')
-        self.stationcontroller.run_tbbctl(select='128:143', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='32:47', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='80:95', readall=nrpages, backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='128:143', readall=nrpages, backgroundJOB='locally')
         # Last one is not put in background so the parent process blocks
         # until finished.
-        self.stationcontroller.run_tbbctl(select='176:191', readall=nrpages) # backgroundJOB='locally')
+        self.lcu_interface.run_tbbctl(select='176:191', readall=nrpages) # backgroundJOB='locally')
 
     def do_tbb(self, duration_scan, band, start_after=0):
         """Record duration_scan seconds of TBB data from rcumode."""
@@ -767,7 +767,53 @@ class StationDriver(object):
 
     # END: TBB services
     ###################
+    def do_obsprog(self, starttime, obsfun, obsargs):
+        """At starttime execute the observation program specified by the obsfun method
+        pointer and run with arguments specified by obsargs dict.
+        """
 
+        # Setup Calibration tables on LCU:
+        CALTABLESRC = 'default'   # FIXME put this in args
+        ## (Only BST uses calibration tables)
+        # Choose between 'default' or 'local'
+        self.lcu_interface.selectCalTable(CALTABLESRC)
+
+        # Prepare for obs program.
+        try:
+            self.goto_observingstate()
+        except RuntimeError as e:
+            raise RuntimeError(e)
+
+        # Run the observation program:
+        obsinfolist = obsfun(**obsargs)
+        # Stop program beam
+        self.lcu_interface.stop_beam()
+
+        # Get some metadata about operational settings:
+        caltabinfos = []
+        freqbndobj = obsargs['freqbndobj']
+        for rcumode in freqbndobj.rcumodes:
+            caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
+            caltabinfos.append(caltabinfo)
+        for i in range(len(obsinfolist)):
+            obsinfolist[i].caltabinfo = caltabinfos
+        obsinfo = copy.copy(obsinfolist[0])
+        obsinfo.sb = freqbndobj.sb_range[0]
+
+        # Move data to archive
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
+
+        self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath)
+        for curr_obsinfo in obsinfolist:
+            curr_obsinfo.create_LOFARst_header(datapath)
+        # Prepare metadata for session on this station.
+        stnsesinfo = copy.deepcopy(self.stnsesinfo)
+        stnsesinfo.set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
+                                     freqbndobj.arg, obsinfo.integration,
+                                     obsinfo.duration_scan, obsinfo.pointing)
+        stnsesinfo.write_session_header(datapath)
+        data_url = "{}:{}".format(self.get_stnid(), datapath)
+        return data_url
 
 # END: Session
 ##############

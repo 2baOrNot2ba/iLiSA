@@ -1,12 +1,12 @@
-"""This package provides Session class that handles observations."""
+"""This package provides Session class that handles sessions of observations."""
 import os
 import time
 import datetime
 import ilisa.observations.stationdriver as stationdriver
-import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
 from functools import wraps
 import yaml
+import ilisa.observations.programs as programs
 
 
 class Session(object):
@@ -157,28 +157,6 @@ class Session(object):
         return [acc_url, sst_url]
 
     @log_obs
-    def do_bsxST(self, statistic, freqbnd, integration, duration_tot, pointsrc,
-                 when='NOW', allsky=False):
-        """Records bst,sst,xst data in one of the LOFAR bands and creates a header file
-        with observational settings on all stations.
-        """
-        frqbndobj = modeparms.FrequencyBand(freqbnd)
-        self._waittostart(when)
-        datafolder_urls = []
-        for stndrv in self.stationdrivers.values():
-            if allsky and 'HBA' in frqbndobj.antsets[0]:
-                datafolder_url = stndrv.do_SEPTON(statistic, frqbndobj, integration,
-                                                  duration_tot)
-            else:
-                try:
-                    datafolder_url = stndrv.bsxST(statistic, frqbndobj, integration,
-                                                  duration_tot, pointsrc)
-                except RuntimeError as rte:
-                    print("Error in do_bsxST(): {}".format(rte))
-                datafolder_urls.append(datafolder_url)
-        return datafolder_urls
-
-    @log_obs
     def do_tbb(self, duration, band):
         """Record Transient Buffer Board (TBB) data from one of the LOFAR bands for
         duration seconds on all stations.
@@ -186,3 +164,19 @@ class Session(object):
         for stndrv in self.stationdrivers.values():
             stndrv.do_tbb(duration, band)
         return "."
+
+    def implement_scanschedule(self, scanschedops):
+        """Implement the scan schedule, that is parse the schedule and tell the
+        stationdrivers to setup corresponding observations."""
+        for scan in scanschedops:
+            self._waittostart(scan['starttime'])
+
+            # From the scan['stations'] string, generate list of stations:
+            if scan['stations'] == '*':
+                stns = self.stationdrivers.keys()
+            else:
+                stns = scan['stations'].split(',')
+            for stn in stns:
+                obsfun, scan_args = programs.BasicObsPrograms(self.stationdrivers[stn]) \
+                    .get_fun_args(scan['obsfunname'], scan['obsargs'])
+                self.stationdrivers[stn].do_obsprog(scan['starttime'], obsfun, scan_args)
