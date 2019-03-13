@@ -790,13 +790,14 @@ class StationDriver(object):
         self.lcu_interface.stop_beam()
 
         # Get some metadata about operational settings:
+        # e.g. caltables used
         caltabinfos = []
         freqbndobj = obsargs['freqbndobj']
         for rcumode in freqbndobj.rcumodes:
             caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
             caltabinfos.append(caltabinfo)
         for i in range(len(obsinfolist)):
-            obsinfolist[i].caltabinfo = caltabinfos
+            obsinfolist[i].caltabinfos = caltabinfos
         obsinfo = copy.copy(obsinfolist[0])
         obsinfo.sb = freqbndobj.sb_range[0]
 

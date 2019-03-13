@@ -222,7 +222,7 @@ class ObsInfo(object):
         return obsfolderinfo
 
     def setobsinfo_fromparams(self, lofardatatype, obsdatetime_stamp, beamctl_cmd,
-                              rspctl_cmd, caltabinfo="", septonconf=""):
+                              rspctl_cmd, caltabinfos="", septonconf=""):
         """Set observation info from parameters"""
         self.LOFARdatTYPE = lofardatatype
         self.datetime = obsdatetime_stamp
@@ -260,7 +260,7 @@ class ObsInfo(object):
             self.sb = str(rspctl_args['xcsubband'])
         elif self.LOFARdatTYPE == 'bst':
             self.sb = self.sb
-        self.caltabinfo = caltabinfo
+        self.caltabinfos = caltabinfos
         self.septonconf = septonconf
         if self.septonconf != "":
             self.rcumode = 5
@@ -412,7 +412,7 @@ class ObsInfo(object):
             beamctl_CMD = self.beamctl_cmd
         beamctl_CMD = '\n'.join(beamctl_CMD)
         rspctl_CMD = self.rspctl_cmd
-        caltabinfo = self.caltabinfo
+        caltabinfos = self.caltabinfos
         septonconfig = self.septonconf
         def indenttext(txt):
             indentstr = "  "
@@ -441,9 +441,12 @@ class ObsInfo(object):
             f.write("rspctl_cmds: |-\n")
             f.write(indenttext(rspctl_CMD)+"\n")
         if LOFARstTYPE == 'bst' or LOFARstTYPE == 'bfs':
-            f.write("caltabinfo: |-\n")
+            f.write("caltabinfos:\n")
             #f.write(indenttext(caltableInfo))
-            f.write(str(caltabinfo))
+            for caltabinfo in caltabinfos:
+                f.write("  - ")
+                f.write(str(caltabinfo))
+                f.write("\n")
         f.close()
 
     def get_recfreq(self):
