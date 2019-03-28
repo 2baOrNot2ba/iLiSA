@@ -16,6 +16,7 @@ import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
+import ilisa.observations.programs as programs
 
 
 # SEPTON configurations:
@@ -767,6 +768,20 @@ class StationDriver(object):
 
     # END: TBB services
     ###################
+
+    def executeblock(self, scans):
+        for scan in scans:
+            prg = programs.BasicObsPrograms(self)
+            if scan['obsprog'] != 'None':
+                obsfun = prg.getprogram(scan['obsprog'])
+                obsargs = {'freqbndarg': scan['beam']['freqspec'],
+                           'pointsrc': scan['beam']['pointing'],
+                           'duration_tot': scan['rec_stat']['duration_tot'],
+                           'integration': scan['rec_stat']['integration']}
+                self.do_obsprog(scan['starttime'], obsfun, obsargs)
+            else:
+                pass
+
     def do_obsprog(self, starttime, obsfun, obsargs):
         """At starttime execute the observation program specified by the obsfun method
         pointer and run with arguments specified by obsargs dict.

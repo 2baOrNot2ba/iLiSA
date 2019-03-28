@@ -7,18 +7,8 @@ class BasicObsPrograms(object):
         self.stationdriver = stationdriver
         self.lcu_interface = stationdriver.lcu_interface
 
-    def _getprogram(self, programname):
+    def getprogram(self, programname):
         return getattr(self, programname)
-
-    def _getprgargs(self, prgarg):
-        if type(prgarg) is str:
-            kwargs_prg = eval(prgarg)
-        else:
-            kwargs_prg = prgarg
-        return self._fix_obsargs(kwargs_prg)
-
-    def get_fun_args(self, programname, prgargstr):
-        return self._getprogram(programname), self._getprgargs(prgargstr)
 
     def _fix_obsargs(self, kwargs_in):
         """Check and transform observational arguments to useful arguments."""

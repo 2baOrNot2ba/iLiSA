@@ -6,7 +6,6 @@ import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.dataIO as dataIO
 from functools import wraps
 import yaml
-import ilisa.observations.programs as programs
 
 
 class Session(object):
@@ -165,18 +164,14 @@ class Session(object):
             stndrv.do_tbb(duration, band)
         return "."
 
-    def implement_scanschedule(self, scanschedops):
-        """Implement the scan schedule, that is parse the schedule and tell the
+    def implement_scanschedule(self, sessionsched):
+        """Implement the scan schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding observations."""
-        for scan in scanschedops:
-            self._waittostart(scan['starttime'])
-
+        for eb in sessionsched:
             # From the scan['stations'] string, generate list of stations:
-            if scan['stations'] == '*':
+            if eb['stations'] == '*' or eb['stations'] == 'ALL':
                 stns = self.stationdrivers.keys()
             else:
-                stns = scan['stations'].split(',')
+                stns = eb['stations'].split(',')
             for stn in stns:
-                obsfun, scan_args = programs.BasicObsPrograms(self.stationdrivers[stn]) \
-                    .get_fun_args(scan['obsfunname'], scan['obsargs'])
-                self.stationdrivers[stn].do_obsprog(scan['starttime'], obsfun, scan_args)
+                self.stationdrivers[stn].executeblock(eb['scans'])
