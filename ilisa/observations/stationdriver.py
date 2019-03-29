@@ -557,7 +557,7 @@ class StationDriver(object):
         ACCsrcFiles = self.lcu_interface.ACCsrcDir + "/*.dat"
         acc_destfolder = \
             os.path.join(self.LOFARdataArchive, 'acc',
-                       '{}_{}_rcu{}_tdur{}'.format(self.lcu_interface.stnid,
+                       '{}_{}_rcu{}_dur{}'.format(self.lcu_interface.stnid,
                                                    obsdatetime_stamp, rcumode, duration_tot))
         if int(rcumode) > 3:
             acc_destfolder += "_"+pointSrc

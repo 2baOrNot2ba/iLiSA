@@ -25,7 +25,7 @@ import ilisa.observations.modeparms as modeparms
 regex_ACCfolder=(
 "^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
 "_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-"_rcu(?P<rcumode>\d+)_tdur(?P<duration_tot>\d+)(_(?P<calsrc>\w+))?_acc$")
+"_rcu(?P<rcumode>\d+)_dur(?P<duration_tot>\d+)(_(?P<calsrc>\w+))?_acc$")
 regex_ACCfilename=(
 "^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
 "_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
