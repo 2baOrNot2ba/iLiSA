@@ -25,12 +25,10 @@ def main(accrunfolder, desiredsrc, use_autocorr=False):
         The source to point at.
     """
     accffobj = dataIO.CVCfiles(accrunfolder)
-    obsfolderinfo = accffobj.getobsfolderinfo()
-    obsdate = obsfolderinfo['datetime']
-    rcumode = obsfolderinfo['rcumode']
-    calsrc = obsfolderinfo['calsrc']
-    # dur = obsfolderinfo['duration']
-    stnid = obsfolderinfo['stnid']
+    obsdate = accffobj.stnsesinfo.obsfolderinfo['datetime']
+    rcumode = accffobj.stnsesinfo.obsfolderinfo['rcumode']
+    calsrc = accffobj.stnsesinfo.obsfolderinfo['pointing']
+    stnid =  accffobj.stnsesinfo.obsfolderinfo['stnid']
     if calsrc is None and desiredsrc is None:
         raise ValueError("No calibration source specified")
     elif int(rcumode) == 3 and desiredsrc is not None:
@@ -64,7 +62,7 @@ def main(accrunfolder, desiredsrc, use_autocorr=False):
 
     for tidx, ACCfile in enumerate(accfiles):
         accunc = accffobj.getdata(tidx)
-        sbobstimes = accffobj.samptimes[tidx]
+        sbobstimes = accffobj.samptimeset[tidx]
         filestarttimes[tidx] = numpy.datetime64(sbobstimes[0])
         if tidx == 0:
             calrunstarttime = sbobstimes[0]
