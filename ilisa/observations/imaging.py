@@ -237,20 +237,19 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr
     nrbaselinestot = nrelems**2  # i.e. total number of baselines incl. autocorr and
                                  # conjugate baselines.
     if not use_autocorr:
-        # Do not use the autocorrelations
+        # Do not use the autocorrelations (for all pol combos i.e. for XX, YY, XY and YX)
         for idx in range(nrelems):
             accpol[...,idx,idx]= 0.0
         nrbaselinestot -= nrelems
     # Phase up ACC towards pointing direction
     accpu = phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing)
-    # Average phased up ACCs per pol component over all baselines (Previously sum)
-    bstXX = numpy.sum(numpy.real(accpu[0,0,...].squeeze()), axis=(1,2)) \
-                      / float(nrbaselinestot)
-    bstXY = numpy.sum(accpu[0,1,...].squeeze(), axis=(1,2)) / float(nrbaselinestot)
+    # Sum up phased up ACCs per pol component over all baselines (Previously average)
+    # Note that this sum is also over conjugate baselines, so factor 2 more
+    bstXX = numpy.sum(numpy.real(accpu[0,0,...].squeeze()), axis=(1,2))
+    bstXY = numpy.sum(accpu[0,1,...].squeeze(), axis=(1,2))
     # bstYX is redundant: it is conjugate of bstXY.
     # bstYX = numpy.sum(accpu[1,0,...].squeeze(), axis=(1,2))
-    bstYY = numpy.sum(numpy.real(accpu[1,1,...].squeeze()), axis=(1,2)) \
-                      / float(nrbaselinestot)
+    bstYY = numpy.sum(numpy.real(accpu[1,1,...].squeeze()), axis=(1,2))
     return bstXX, bstXY, bstYY  # , bstYX
 
 

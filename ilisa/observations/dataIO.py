@@ -877,7 +877,7 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
                 calrunduration, rcumode, calsrc, calibmeta, stnid, used_autocorr,
                 saveformat = "hdf5"):
     """Save acc2bst data to file. Dataformat can be hdf or numpy."""
-    version = '3'  # Version of this dataformat
+    version = '4'  # Version of this dataformat
     calrundurationstr = str(int(calrunduration.total_seconds()))
     caltabID = calibmeta['Date']
     # Calculate start of ACC run.
