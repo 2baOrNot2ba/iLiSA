@@ -126,13 +126,13 @@ def readcaltab(caltabfile):
 def plotcaltab(caltab, header):
     """Plot a calibration table."""
     plt.subplot(211)
-    plt.imshow(numpy.abs(caltab.T))
+    plt.pcolormesh(numpy.abs(caltab.T))
     plt.xlabel('subband [#]')
     plt.ylabel('RCU [#]')
     plt.title('Gain (Abs)\nRCU mode: '+header['Observation']['Mode'])
     plt.colorbar()
     plt.subplot(212)
-    plt.imshow(numpy.rad2deg(numpy.angle(caltab.T)))
+    plt.pcolormesh(numpy.rad2deg(numpy.angle(caltab.T)))
     plt.xlabel('subband [#]')
     plt.ylabel('RCU [#]')
     plt.title('Gain (Phase)\nRCU mode: '+header['Observation']['Mode'])
