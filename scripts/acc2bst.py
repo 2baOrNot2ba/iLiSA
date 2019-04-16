@@ -27,7 +27,7 @@ def main(accrunfolder, desiredsrc, use_autocorr=False):
     accffobj = dataIO.CVCfiles(accrunfolder)
     obsdate = accffobj.stnsesinfo.obsfolderinfo['datetime']
     rcumode = accffobj.stnsesinfo.obsfolderinfo['rcumode']
-    calsrc = accffobj.stnsesinfo.obsfolderinfo['pointing']
+    calsrc = accffobj.stnsesinfo.obsfolderinfo['calsrc']
     stnid =  accffobj.stnsesinfo.obsfolderinfo['stnid']
     if calsrc is None and desiredsrc is None:
         raise ValueError("No calibration source specified")
