@@ -27,13 +27,16 @@ if __name__ == "__main__":
         obsprog = 'do_sstnew'
     elif args.datatype == 'xst':
         obsprog = 'do_xstnew'
+    elif args.datatype == 'acc':
+        obsprog = 'do_accnew'
     beam = {'freqspec': args.freqspec, 'pointing': args.pointing}
-    rec_stat = {'duration_tot': eval(args.duration_tot), 'integration': 1}
+    rec_stat = {'type': args.datatype, 'integration': 1}
     sessionsched = {'projectid': '0',
                     'stations': 'ALL',
                     'scans': [{'starttime': starttime,
                                'obsprog': obsprog,
                                'beam': beam,
+                               'duration_tot': eval(args.duration_tot),
                                'rec_stat': rec_stat
                                }]}
     myses.implement_scanschedule(sessionsched)

@@ -1,5 +1,12 @@
+import sys
+import os
+import time
+import datetime
+import copy
+import inspect
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
+import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 
 class BasicObsPrograms(object):
 
@@ -8,7 +15,9 @@ class BasicObsPrograms(object):
         self.lcu_interface = stationdriver.lcu_interface
 
     def getprogram(self, programname):
-        return getattr(self, programname)
+        programpointer = getattr(self, programname)
+        programargs = inspect.getargspec(programpointer).args[1:]
+        return programpointer, programargs
 
     def _fix_obsargs(self, kwargs_in):
         """Check and transform observational arguments to useful arguments."""
@@ -146,3 +155,227 @@ class BasicObsPrograms(object):
                                                        caltabinfo)
                     obsinfolist.append(curr_obsinfo)
         return obsinfolist
+
+    def do_accnew(self, freqbndobj, duration_tot, pointing, pointsrc):
+        """Perform calibration observation mode on station. Also known as ACC
+        mode. The actual total duration will at most be duration_tot_req.
+        (Usually it will be shorter so it fits within the cadence of whole ACC
+        aquisition, which is 512+7=519 seconds).
+
+        Some technical details: swlevel needs to cycle down to 2 (or less) and then to 3.
+        If swlevel is kept at 3 (i.e. exit_obsstate=False), then ACC will continue to be
+        produced, until swlevel goes below 2.
+
+        ACC files are autocovariance-cubes: the covariance of all array
+        elements with each as a function of subband. These files are generated
+        by the MAC service called CalServer. It run at swlevel 3 and is
+        configured in the file lofar/etc/CalServer.conf. Note subband
+        integration is always 1s, so ACC file is dumped after 512 seconds.
+
+        Parameters
+        ----------
+            freqbndobj: FrequencyBand
+            duration_tot: int
+            pointsrc: str
+        """
+        exit_obsstate = False
+        duration_tot_req = duration_tot
+        band = freqbndobj.rcubands[0]
+        rcumode = freqbndobj.rcumodes[0]
+
+        # Get timings
+        # Also duration of ACC sweep since each sb is 1 second.
+        dur1acc = modeparms.TotNrOfsb  # Duration of one ACC
+        interv2accs = 7  # time between end of one ACC and start of next one
+        acc_cadence = dur1acc+interv2accs  # =519s time between start of two ACCs
+        (nraccs, timrest) = divmod(duration_tot_req, acc_cadence)
+        if timrest > dur1acc:
+            nraccs += 1
+        duration_tot = nraccs*acc_cadence-interv2accs
+        if duration_tot != duration_tot_req:
+            print("""Note: will use total duration {}s to fit with ACC
+                  cadence.""".format(duration_tot))
+        sst_integration = int(acc_cadence)
+
+        # Make sure swlevel=<2
+        self.lcu_interface.set_swlevel(2)
+
+        # Set CalServ.conf to dump ACCs:
+        self.lcu_interface.acc_mode(enable=True)
+
+        # Boot to swlevel 3 so the calserver service starts
+        self.lcu_interface.set_swlevel(3)
+
+        # Beamlet & Subband allocation does not matter here
+        # since niether ACC or SST cares
+        beamctl_CMD = self.lcu_interface.run_beamctl('0', '255', rcumode, pointing)
+
+        # Run for $duration_tot seconds
+        rspctl_CMD = self.lcu_interface.rec_sst(sst_integration, duration_tot)
+        self.lcu_interface.stop_beam()
+
+        # Switch back to normal state i.e. turn-off ACC dumping:
+        self.lcu_interface.acc_mode(enable=False)
+
+        if exit_obsstate:
+            self.lcu_interface.set_swlevel(0)
+
+        # Transfer data from LCU to DAU
+        obsdatetime_stamp = self.stationdriver.get_data_timestamp(ACC=True)
+        accsrcfiles = self.lcu_interface.ACCsrcDir + "/*.dat"
+        acc_destfolder = \
+            os.path.join(self.stationdriver.LOFARdataArchive, 'acc',
+                         '{}_{}_rcu{}_dur{}'.format(self.lcu_interface.stnid,
+                                                    obsdatetime_stamp, rcumode,
+                                                    duration_tot))
+        if int(rcumode) > 3:
+            acc_destfolder += "_"+pointsrc
+        acc_destfolder += "_acc"
+        if os.path.isdir(acc_destfolder):
+            print("Appropriate directory exists already (will put data here)")
+        else:
+            print("Creating directory "+acc_destfolder+" for ACC "+str(duration_tot)
+                  + " s rcumode="+str(rcumode)+" calibration")
+            os.mkdir(acc_destfolder)
+
+        # Move ACC dumps to storage
+        self.stationdriver.movefromlcu(accsrcfiles, acc_destfolder)
+        accdestfiles = os.listdir(acc_destfolder)
+
+        # - Create project header
+        sesinfo_acc = copy.deepcopy(self.stationdriver.stnsesinfo)
+        acc_integration = 1.0
+        sesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
+                                     duration_tot, pointing)
+        sesinfo_acc.write_session_header(acc_destfolder)
+
+        # - Create header for each ACC file
+        for destfile in accdestfiles:
+            filedatestr, filetimestr, _ = destfile.split('_', 2)
+            filedtstr = '_'.join([filedatestr, filetimestr])
+            sesinfo_acc.new_obsinfo()
+            sesinfo_acc.obsinfos[-1].setobsinfo_fromparams('acc', filedtstr, beamctl_CMD,
+                                                           "")
+            sesinfo_acc.obsinfos[-1].create_LOFARst_header(acc_destfolder)
+
+        # Move concurrent data to storage
+        sesinfo_sst = copy.deepcopy(self.stationdriver.stnsesinfo)
+        sesinfo_sst.new_obsinfo()
+        obsdatetime_stamp = self.stationdriver.get_data_timestamp()
+        sesinfo_sst.obsinfos[-1].setobsinfo_fromparams('sst', obsdatetime_stamp,
+                                                       beamctl_CMD, rspctl_CMD)
+        bsxSTobsEpoch, sst_destfolder = \
+            sesinfo_sst.obsinfos[-1].getobsdatapath(self.stationdriver.LOFARdataArchive)
+        self.stationdriver.movefromlcu(self.lcu_interface.lcuDumpDir + "/*",
+                                       sst_destfolder, recursive=True)
+        sesinfo_sst.obsinfos[-1].create_LOFARst_header(sst_destfolder)
+        sesinfo_sst.set_obsfolderinfo('sst', obsdatetime_stamp, band, sst_integration,
+                                      duration_tot, pointing)
+        sesinfo_sst.write_session_header(sst_destfolder)
+        self.lcu_interface.cleanup()
+
+        acc_url = "{}:{}".format(self.stationdriver.get_stnid(), acc_destfolder)
+        sst_url = "{}:{}".format(self.stationdriver.get_stnid(), sst_destfolder)
+        return None
+
+    def do_bfsnew(self, freqbndobj, duration_tot, pointsrc, starttime='NOW'):
+        """Record BeamFormed Streams (BFS)."""
+
+        band = freqbndobj.rcubands[0]
+        ###
+        bits = 8  # 8
+        attenuation = None
+        # Subbands allocation
+        if band == '10_90' or band == '30_90':
+            # LBA
+            lanes = (0, 1)  # (0,1)
+            beamletIDs = '0:243'  # '0:243'
+            subbandNrs = '164:407'  # '164:407'
+        elif band == '110_190':
+            # HBAlo
+            lanes = (0, 1, 2, 3)  # Normally (0,1,2,3) for all 4 lanes.
+            beamletIDs = '0:487'
+            subbandNrs = '12:499'
+        elif band == '210_250':
+            # HBAhi
+            lanes = (0, 1)
+            beamletIDs = '0:243'
+            subbandNrs = '12:255'
+        else:
+            raise ValueError(
+                "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
+        pointing = modeparms.normalizebeamctldir(pointsrc)
+        caltabinfo = self.lcu_interface.getCalTableInfo(modeparms.band2rcumode(band))
+
+        # Wait until it is time to start
+        pause = 5  # Sufficient?
+        if starttime != "NOW":
+            starttimestr = starttime.strftime("%Y-%m-%dT%H:%M:%S")
+        else:
+            starttimestr = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        st = self.stationdriver._waittoboot(starttimestr, pause)
+
+        # From swlevel 0 it takes about 1:30min? to reach swlevel 3
+        print("Booting @ {}".format(datetime.datetime.utcnow()))
+
+        # Necessary since fork creates multiple instances of myobs and each one
+        # will call it's __del__ on completion and __del__ shutdown...
+        shutdown = self.stationdriver.halt_observingstate_when_finished
+        self.stationdriver.halt_observingstate_when_finished = False
+        self.stationdriver.exit_check = False
+
+        # BEGIN Dummy or hot beam start: (takes about 10sec)
+        # TODO: This seems necessary, otherwise beamctl will not start up next time,
+        #       although it should not have to necessary.)
+        print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
+        self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band, pointing)
+        self.lcu_interface.rcusetup(bits,
+                                    attenuation)  # setting bits also seems necessary
+        self.lcu_interface.stop_beam()
+        # END Dummy or hot start
+
+        print("Pause {}s after boot.".format(pause))
+        time.sleep(pause)
+
+        # Real beam start:
+        print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+        beamctl_CMD = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
+                                                     pointing)
+        rcu_setup_CMD = self.lcu_interface.rcusetup(bits, attenuation)
+        nw = datetime.datetime.utcnow()
+        timeleft = st - nw
+        if timeleft.total_seconds() < 0.:
+            starttimestr = nw.strftime("%Y-%m-%dT%H:%M:%S")
+        print("(Beam started) Time left before recording: {}".format(
+            timeleft.total_seconds()))
+
+        REC = True
+        if REC == True:
+            bf_data_dir = self.stationdriver.bf_data_dir
+            port0 = self.stationdriver.bf_port0
+            stnid = self.lcu_interface.stnid
+            bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band, bf_data_dir,
+                                     port0, stnid)
+        else:
+            print("Not recording")
+            time.sleep(duration_tot)
+        sys.stdout.flush()
+        self.lcu_interface.stop_beam()
+        headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
+                                                ).strftime("%Y%m%d_%H%M%S")
+        stnsesinfo = copy.deepcopy(self.stationdriver.stnsesinfo)
+        stnsesinfo.new_obsinfo()
+        stnsesinfo.obsinfos[-1].setobsinfo_fromparams('bfs', headertime, beamctl_CMD,
+                                                      rcu_setup_CMD, caltabinfo)
+        bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
+            self.stationdriver.LOFARdataArchive)
+        print("Creating BFS destination folder on DPU:\n{}".format(datapath))
+        os.mkdir(datapath)
+        stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
+        integration = None
+        stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration, duration_tot,
+                                     pointing)
+        stnsesinfo.write_session_header(datapath)
+        self.stationdriver.halt_observingstate_when_finished = shutdown  # Necessary due to forking
+        data_url = "{}:{}".format(self.stationdriver.get_stnid(), datapath)
+        return None

@@ -774,7 +774,8 @@ class StationDriver(object):
             prg = programs.BasicObsPrograms(self)
 
             if scan['obsprog'] != 'None':
-                obsfun = prg.getprogram(scan['obsprog'])
+                obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
+
                 # Prepare observation arguments:
                 freqbndoobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
                 pointsrc = scan['beam']['pointing']
@@ -788,15 +789,21 @@ class StationDriver(object):
                     except ValueError:
                         raise ValueError(
                             "Error: %s invalid pointing syntax".format(pointsrc))
-                integration = scan['rec_stat']['integration']
-                duration_tot = scan['rec_stat']['duration_tot']
+                if scan['rec_stat'] is not None:
+                    integration = scan['rec_stat']['integration']
+                else:
+                    integration = 1
+                duration_tot = scan['duration_tot']
                 if integration > duration_tot:
                     raise (ValueError, "integration {} is longer than duration_scan {}."
                            .format(integration, duration_tot))
-                obsargs = {'freqbndobj': freqbndoobj,
-                           'pointing': pointing,
-                           'duration_tot': duration_tot,
-                           'integration': integration}
+                obsargs_in = {'starttime': scan['starttime'],
+                              'freqbndobj': freqbndoobj,
+                              'pointsrc': pointsrc,
+                              'pointing': pointing,
+                              'duration_tot': duration_tot,
+                              'integration': integration}
+                obsargs = {k: obsargs_in[k] for k in obsargs_sig}
                 self.do_obsprog(scan['starttime'], obsfun, obsargs)
             else:
                 pass
@@ -823,32 +830,33 @@ class StationDriver(object):
         # Stop program beam
         self.lcu_interface.stop_beam()
 
-        # Get some metadata about operational settings:
-        # e.g. caltables used
-        caltabinfos = []
-        freqbndobj = obsargs['freqbndobj']
-        for rcumode in freqbndobj.rcumodes:
-            caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
-            caltabinfos.append(caltabinfo)
-        for i in range(len(obsinfolist)):
-            obsinfolist[i].caltabinfos = caltabinfos
-        obsinfo = copy.copy(obsinfolist[0])
-        obsinfo.sb = freqbndobj.sb_range[0]
+        if obsinfolist is not None:
+            # Get some metadata about operational settings:
+            # e.g. caltables used
+            caltabinfos = []
+            freqbndobj = obsargs['freqbndobj']
+            for rcumode in freqbndobj.rcumodes:
+                caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
+                caltabinfos.append(caltabinfo)
+            for i in range(len(obsinfolist)):
+                obsinfolist[i].caltabinfos = caltabinfos
+            obsinfo = copy.copy(obsinfolist[0])
+            obsinfo.sb = freqbndobj.sb_range[0]
 
-        # Move data to archive
-        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
+            # Move data to archive
+            bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
 
-        self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath)
-        for curr_obsinfo in obsinfolist:
-            curr_obsinfo.create_LOFARst_header(datapath)
-        # Prepare metadata for session on this station.
-        stnsesinfo = copy.deepcopy(self.stnsesinfo)
-        stnsesinfo.set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
-                                     freqbndobj.arg, obsinfo.integration,
-                                     obsinfo.duration_scan, obsinfo.pointing)
-        stnsesinfo.write_session_header(datapath)
-        data_url = "{}:{}".format(self.get_stnid(), datapath)
-        return data_url
+            self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath)
+            for curr_obsinfo in obsinfolist:
+                curr_obsinfo.create_LOFARst_header(datapath)
+            # Prepare metadata for session on this station.
+            stnsesinfo = copy.deepcopy(self.stnsesinfo)
+            stnsesinfo.set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
+                                         freqbndobj.arg, obsinfo.integration,
+                                         obsinfo.duration_scan, obsinfo.pointing)
+            stnsesinfo.write_session_header(datapath)
+            data_url = "{}:{}".format(self.get_stnid(), datapath)
+        return None
 
 # END: Session
 ##############
