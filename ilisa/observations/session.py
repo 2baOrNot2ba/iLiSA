@@ -167,11 +167,12 @@ class Session(object):
     def implement_scanschedule(self, sessionsched):
         """Implement the scan schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding observations."""
-        for eb in sessionsched:
-            # From the scan['stations'] string, generate list of stations:
-            if eb['stations'] == '*' or eb['stations'] == 'ALL':
-                stns = self.stationdrivers.keys()
-            else:
-                stns = eb['stations'].split(',')
-            for stn in stns:
-                self.stationdrivers[stn].executeblock(eb['scans'])
+        #print sessionsched
+        eb = sessionsched
+        # From the scan['stations'] string, generate list of stations:
+        if eb['stations'] == '*' or eb['stations'] == 'ALL':
+            stns = self.stationdrivers.keys()
+        else:
+            stns = eb['stations'].split(',')
+        for stn in stns:
+            self.stationdrivers[stn].executeblock(eb['scans'])

@@ -772,12 +772,31 @@ class StationDriver(object):
     def executeblock(self, scans):
         for scan in scans:
             prg = programs.BasicObsPrograms(self)
+
             if scan['obsprog'] != 'None':
                 obsfun = prg.getprogram(scan['obsprog'])
-                obsargs = {'freqbndarg': scan['beam']['freqspec'],
-                           'pointsrc': scan['beam']['pointing'],
-                           'duration_tot': scan['rec_stat']['duration_tot'],
-                           'integration': scan['rec_stat']['integration']}
+                # Prepare observation arguments:
+                freqbndoobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
+                pointsrc = scan['beam']['pointing']
+                try:
+                    pointing = modeparms.stdPointings(pointsrc)
+                except KeyError:
+                    try:
+                        phi, theta, ref = pointsrc.split(',', 3)
+                        # FIXME:  (not always going to be correct)
+                        pointing = pointsrc
+                    except ValueError:
+                        raise ValueError(
+                            "Error: %s invalid pointing syntax".format(pointsrc))
+                integration = scan['rec_stat']['integration']
+                duration_tot = scan['rec_stat']['duration_tot']
+                if integration > duration_tot:
+                    raise (ValueError, "integration {} is longer than duration_scan {}."
+                           .format(integration, duration_tot))
+                obsargs = {'freqbndobj': freqbndoobj,
+                           'pointing': pointing,
+                           'duration_tot': duration_tot,
+                           'integration': integration}
                 self.do_obsprog(scan['starttime'], obsfun, obsargs)
             else:
                 pass

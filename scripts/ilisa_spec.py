@@ -11,11 +11,11 @@ if __name__ == "__main__":
 
     parser.add_argument('datatype',
                         help='lofar datatype rec')
-    parser.add_argument('freqbndarg',
+    parser.add_argument('freqspec',
                         help='')
     parser.add_argument('duration_tot',
                         help='')
-    parser.add_argument('pointsrc',
+    parser.add_argument('pointing',
                         help='')
     args = parser.parse_args()
 
@@ -27,12 +27,12 @@ if __name__ == "__main__":
         obsprog = 'do_sstnew'
     elif args.datatype == 'xst':
         obsprog = 'do_xstnew'
-    beam = {'freqbndarg': args.freqbndarg, 'pointsrc': args.pointsrc}
+    beam = {'freqspec': args.freqspec, 'pointing': args.pointing}
     rec_stat = {'duration_tot': eval(args.duration_tot), 'integration': 1}
     sessionsched = {'projectid': '0',
                     'stations': 'ALL',
                     'scans': [{'starttime': starttime,
-                               'obstype': obsprog,
+                               'obsprog': obsprog,
                                'beam': beam,
                                'rec_stat': rec_stat
                                }]}
