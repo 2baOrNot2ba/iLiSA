@@ -64,6 +64,19 @@ class BasicObsPrograms(object):
         rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
+    def _setupallsky(self, allysky, freqbndobj, elemsOn=modeparms.elOn_gILT):
+
+        # Implement allsky if requested
+        if allsky and freqbndobj.antsets[-1].startswith('HBA'):
+            # NOTE: LCU must be in swlevel=2 to run SEPTON!
+            self.lcu_interface.set_swlevel(2)
+            # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
+            self.lcu_interface.turnoffElinTile_byEl(elemsOn)
+            septonconf = modeparms.elementMap2str(elemsOn)
+        else:
+            septonconf = None
+        return septonconf
+
     def do_bstnew(self, freqbndobj, integration, duration_tot, pointing):
         """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
         """
@@ -116,7 +129,7 @@ class BasicObsPrograms(object):
         obsinfolist.append(curr_obsinfo)
         return obsinfolist
 
-    def do_xstnew(self, freqbndobj, integration, duration_tot, pointing,
+    def do_xstnew(self, freqbndobj, integration, duration_tot, pointing, allsky=False,
                   duration_scan=None):
         """New: Run an xst statistic towards the given pointing. This corresponds to
         a crosscorrelation of all elements at the given frequency for
@@ -133,6 +146,7 @@ class BasicObsPrograms(object):
         # FIXME When duration_tot is too small for 1 rep this will fail badly.
         (rep, rst) = divmod(duration_tot, duration_scan*nrsubbands)
         rep = int(rep)
+        septonconf = self._setupallsky(allsky, freqbndobj)
         # Start beamforming
         rcu_setup_CMD, beamctl_cmds = self._streambeams_mltfreq(freqbndobj, pointing)
         # Repeat rep times (the freq sweep)
@@ -152,7 +166,7 @@ class BasicObsPrograms(object):
                     curr_obsinfo = dataIO.ObsInfo()
                     curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp,
                                                        beamctl_cmds, rspctl_cmd,
-                                                       caltabinfo)
+                                                       caltabinfo, septonconf=septonconf)
                     obsinfolist.append(curr_obsinfo)
         return obsinfolist
 

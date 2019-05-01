@@ -17,27 +17,6 @@ import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 import ilisa.observations.programs as programs
 
 
-# SEPTON configurations:
-#        1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24
-
-elOn_step = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15, 0, 1, 2, 3, 4, 5, 6, 7,
-             8, 9,10,11,12,13,14,15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-             0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15, 0, 1, 2, 3, 4, 5, 6, 7,
-             8, 9,10,11,12,13,14,15, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15]
-elOn_gILT = [15, 0,15, 3, 9,15,14, 2, 0, 3, 4,14,10, 8, 5,15,12, 0, 2,11, 3,12,12, 1,
-              5, 4, 4, 8, 6, 3, 0, 5, 3,11, 3, 2, 8,15,13, 8, 3, 2, 9, 1,14, 8, 8, 0,
-             12,13, 0,11,15, 3,12, 3,13, 3,10, 5, 0,10, 1, 6, 4,10, 3,15, 3,14, 0,12,
-              0, 7, 0,12, 7, 3,13, 0, 7, 3,15, 4,14, 4, 3, 8, 4, 9,12, 0,14, 9, 3,11]
-elOn_Generic_Int_201512 = \
-            [ 0, 5, 3, 1, 8, 3,12,15,10,13,11, 5,12,12, 5, 2,10, 8, 0, 3, 5, 1, 4, 0,
-             11, 6, 2, 4, 9,14,15, 3, 7, 5,13,15, 5, 6, 5,12,15, 7, 1, 1,14, 9, 4, 9,
-              3, 9, 3,13, 7,14, 7,14, 2, 8, 8, 0, 1, 4, 2, 2,12,15, 5, 7, 6,10,12, 3,
-              3,12, 7, 4, 6, 0, 5, 9, 1,10,10,11, 5,11, 7, 9, 7, 6, 4, 4,15, 4, 1,15]
-elOn_same_el = 0
-# elOn_same = [elOn_same_el for elemNr in range(stationcontrol.nrTiles)]
-elemsOn = elOn_Generic_Int_201512  # elOn_same or elOn_step or elOn_gILT or ...
-
-
 class StationDriver(object):
     """observing.Session class is a client type class typically running on the
     compute node."""
@@ -193,7 +172,7 @@ class StationDriver(object):
         return st
 
     def do_SEPTON(self, statistic,  frqbndobj, integration, duration_scan,
-                  elemsOn=elOn_gILT):
+                  elemsOn=modeparms.elOn_gILT):
         """Record xst or sst data in SEPTON mode.
         Setup Single Element per Tile ON mode. This only valid for HBA and
         currently only rcumode=5."""
