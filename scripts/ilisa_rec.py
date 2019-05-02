@@ -9,7 +9,7 @@ import ilisa.observations.modeparms as modeparms
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    #parser.add_argument('-a', '--allsky', help="Set allsky FoV", action='store_true')
+    parser.add_argument('-a', '--allsky', help="Set allsky FoV", action='store_true')
     parser.add_argument('-s', '--starttime',
                         help="Start Time (format: YYYY-mm-ddTHH:MM:SS)",
                         type=str, default='NOW')
@@ -31,25 +31,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     myses = session.Session(halt_observingstate_when_finished = False)
-    starttime = 'NOW'
-    if args.datatype == 'bst':
-        obsprog = 'do_bstnew'
-    elif args.datatype == 'sst':
-        obsprog = 'do_sstnew'
-    elif args.datatype == 'xst':
-        obsprog = 'do_xstnew'
-    elif args.datatype == 'acc':
-        obsprog = 'do_accnew'
-    else:
-        obsprog = None
-    beam = {'freqspec': args.freqspec, 'pointing': args.pointing}
+    beam = {'freqspec': args.freqspec, 'pointing': args.pointing, 'allsky': args.allsky}
     rec_stat = {'type': args.datatype, 'integration': args.integration}
     sessionsched = {'projectid': args.projectid,
                     'stations': 'ALL',
-                    'scans': [{'starttime': starttime,
-                               'obsprog': obsprog,
+                    'scans': [{'starttime': args.starttime,
                                'beam': beam,
-                               'duration_tot': eval(args.duration_tot),
+                               'duration_tot': args.duration_tot,
                                'rec_stat': rec_stat
                                }]}
     myses.implement_scanschedule(sessionsched)

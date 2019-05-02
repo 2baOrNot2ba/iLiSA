@@ -5,7 +5,6 @@ import datetime
 import copy
 import inspect
 import ilisa.observations.modeparms as modeparms
-import ilisa.observations.dataIO as dataIO
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 
 class BasicObsPrograms(object):
@@ -16,34 +15,13 @@ class BasicObsPrograms(object):
 
     def getprogram(self, programname):
         programpointer = getattr(self, programname)
-        programargs = inspect.getargspec(programpointer).args[1:]
+        defargstart = None
+        # # FIXME Only return args without defaults
+        # defarg = inspect.getargspec(programpointer).defaults
+        # if defarg is not None:
+        #     defargstart = -len(defarg)
+        programargs = inspect.getargspec(programpointer).args[1:defargstart]
         return programpointer, programargs
-
-    def _fix_obsargs(self, kwargs_in):
-        """Check and transform observational arguments to useful arguments."""
-        kwargs_out = {}
-        try:
-            kwargs_out['pointing'] = modeparms.stdPointings(kwargs_in['pointsrc'])
-
-        except KeyError:
-            try:
-                phi, theta, ref = kwargs_in['pointsrc'].split(',', 3)
-                # FIXME Not always going to be correct
-            except ValueError:
-                raise ValueError("Error: %s invalid pointing syntax"\
-                                 .format(kwargs_in['pointsrc']))
-            else:
-                kwargs_out['pointing'] = kwargs_in['pointsrc']
-        if kwargs_in['integration'] > kwargs_in['duration_tot']:
-            raise (ValueError, "integration {} is longer than duration_scan {}."
-                               .format(kwargs_in['integration'],
-                                       kwargs_in['duration_tot']))
-        else:
-            kwargs_out['integration'] = kwargs_in['integration']
-            kwargs_out['duration_tot'] = kwargs_in['duration_tot']
-        kwargs_out['freqbndobj'] = modeparms.FrequencyBand(kwargs_in['freqbndarg'])
-
-        return kwargs_out
 
     def _streambeams_mltfreq(self, freqbndobj, pointing, recDuration=float('inf'),
                              attenuation=0, DUMMYWARMUP=False):
@@ -63,112 +41,6 @@ class BasicObsPrograms(object):
             beamctl_cmds.append(beamctl_main)
         rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
-
-    def _setupallsky(self, allysky, freqbndobj, elemsOn=modeparms.elOn_gILT):
-
-        # Implement allsky if requested
-        if allsky and freqbndobj.antsets[-1].startswith('HBA'):
-            # NOTE: LCU must be in swlevel=2 to run SEPTON!
-            self.lcu_interface.set_swlevel(2)
-            # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
-            self.lcu_interface.turnoffElinTile_byEl(elemsOn)
-            septonconf = modeparms.elementMap2str(elemsOn)
-        else:
-            septonconf = None
-        return septonconf
-
-    def do_bstnew(self, freqbndobj, integration, duration_tot, pointing):
-        """Do a Beamlet STatistic (bst) recording on station. frequency in Hz.
-        """
-        duration_scan = duration_tot
-        obsinfolist = []
-
-        # Start beamforming
-        (rcu_setup_cmd, beamctl_cmds) = self._streambeams_mltfreq(freqbndobj, pointing)
-
-        # Record data
-        rspctl_cmd = self.lcu_interface.rec_bst(integration, duration_scan)
-
-        # beamlet statistics also generate empty *01[XY].dat so remove:
-        self.lcu_interface.rm(self.lcu_interface.lcuDumpDir+"/*01[XY].dat")
-
-        # Collect some obsinfo (calinfo will be added later):
-        obsdatetime_stamp = self.stationdriver.get_data_timestamp()
-        curr_obsinfo = dataIO.ObsInfo()
-        curr_obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp, beamctl_cmds,
-                                           rspctl_cmd)
-        obsinfolist.append(curr_obsinfo)
-        return obsinfolist
-
-    def do_sstnew(self, freqbndobj, integration, duration_tot, pointing):
-        """Run an sst static."""
-
-        duration_scan =  duration_tot
-        obsinfolist = []
-
-        # Use this to do a system temperature measurement.
-        SYS_TEMP_MEAS = False
-
-        # Start beamforming
-        rcu_setup_CMD, beamctl_cmds = \
-            self._streambeams_mltfreq(freqbndobj, pointing)
-        if SYS_TEMP_MEAS:
-            lbbalnaoff_CMD = self.lcu_interface.turnoffLBA_LNAs()
-            #beamctl_CMD += "\n"+lbbalnaoff_CMD
-
-        # Get some metadata about operational settings:
-        caltabinfo = ""    # No need for caltab info
-
-        # Record data
-        rspctl_cmd = self.lcu_interface.rec_sst(integration, duration_scan)
-        obsdatetime_stamp = self.stationdriver.get_data_timestamp(-1)
-        curr_obsinfo = dataIO.ObsInfo()
-        curr_obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp,
-                                           beamctl_cmds, rspctl_cmd,
-                                           caltabinfo)
-        obsinfolist.append(curr_obsinfo)
-        return obsinfolist
-
-    def do_xstnew(self, freqbndobj, integration, duration_tot, pointing, allsky=False,
-                  duration_scan=None):
-        """New: Run an xst statistic towards the given pointing. This corresponds to
-        a crosscorrelation of all elements at the given frequency for
-        integration seconds over a duration_scan of seconds."""
-
-        caltabinfo = ""  # No need for caltab info for xst data
-        obsinfolist = []
-        nrsubbands = freqbndobj.nrsubbands()
-        if duration_scan is None:
-            if nrsubbands > 1:
-                duration_scan = integration
-            else:
-                duration_scan = duration_tot
-        # FIXME When duration_tot is too small for 1 rep this will fail badly.
-        (rep, rst) = divmod(duration_tot, duration_scan*nrsubbands)
-        rep = int(rep)
-        septonconf = self._setupallsky(allsky, freqbndobj)
-        # Start beamforming
-        rcu_setup_CMD, beamctl_cmds = self._streambeams_mltfreq(freqbndobj, pointing)
-        # Repeat rep times (the freq sweep)
-        for itr in range(rep):
-            # Start freq sweep
-            for sb_rcumode in freqbndobj.sb_range:
-                if ':' in sb_rcumode:
-                    sblo, sbhi = sb_rcumode.split(':')
-                    subbands = range(int(sblo),int(sbhi)+1)
-                else:
-                    subbands = [int(sb) for sb in sb_rcumode.split(',')]
-                for subband in subbands:
-                    # Record data
-                    rspctl_cmd = self.lcu_interface.rec_xst(subband, integration,
-                                                            duration_scan)
-                    obsdatetime_stamp = self.stationdriver.get_data_timestamp(-1)
-                    curr_obsinfo = dataIO.ObsInfo()
-                    curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp,
-                                                       beamctl_cmds, rspctl_cmd,
-                                                       caltabinfo, septonconf=septonconf)
-                    obsinfolist.append(curr_obsinfo)
-        return obsinfolist
 
     def do_accnew(self, freqbndobj, duration_tot, pointing, pointsrc):
         """Perform calibration observation mode on station. Also known as ACC

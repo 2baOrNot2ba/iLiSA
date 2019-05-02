@@ -13,6 +13,7 @@ import copy
 
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
+import ilisa.observations.dataIO as dataIO
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 import ilisa.observations.programs as programs
 
@@ -151,8 +152,8 @@ class StationDriver(object):
             beamctl_main = self.lcu_interface.run_beamctl(beamletIDs, subbands,
                                                           rcumode, pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
-        rcu_setup_CMD = self.lcu_interface.rcusetup(bits, attenuation)
-        return rcu_setup_CMD, beamctl_cmds
+        rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
+        return rcu_setup_cmd, beamctl_cmds
 
     def _waittoboot(self, starttimestr, pause):
         """Before booting, wait until time given by starttimestr. This includes
@@ -170,6 +171,19 @@ class StationDriver(object):
         print("Will boot to observe state after " + str(timeuntilboot) + " seconds...")
         time.sleep(timeuntilboot)
         return st
+
+    def _setupallsky(self, allsky, freqbndobj, elemsOn=modeparms.elOn_gILT):
+
+        # Implement allsky if requested
+        if allsky and freqbndobj.antsets[-1].startswith('HBA'):
+            # NOTE: LCU must be in swlevel=2 to run SEPTON!
+            self.lcu_interface.set_swlevel(2)
+            # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
+            self.lcu_interface.turnoffElinTile_byEl(elemsOn)
+            septonconf = modeparms.elementMap2str(elemsOn)
+        else:
+            septonconf = None
+        return septonconf
 
     def do_SEPTON(self, statistic,  frqbndobj, integration, duration_scan,
                   elemsOn=modeparms.elOn_gILT):
@@ -326,40 +340,282 @@ class StationDriver(object):
         for scan in scans:
             prg = programs.BasicObsPrograms(self)
 
-            if scan['obsprog'] != 'None':
-                obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
-
-                # Prepare observation arguments:
-                freqbndoobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
-                pointsrc = scan['beam']['pointing']
+            # Prepare observation arguments:
+            # - Starttime
+            starttime = scan['starttime']
+            # - Beam
+            # -- Freq
+            freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
+            # -- Pointing
+            pointsrc = scan['beam']['pointing']
+            try:
+                pointing = modeparms.stdPointings(pointsrc)
+            except KeyError:
                 try:
-                    pointing = modeparms.stdPointings(pointsrc)
-                except KeyError:
-                    try:
-                        phi, theta, ref = pointsrc.split(',', 3)
-                        # FIXME:  (not always going to be correct)
-                        pointing = pointsrc
-                    except ValueError:
-                        raise ValueError(
-                            "Error: %s invalid pointing syntax".format(pointsrc))
-                if scan['rec_stat'] is not None:
-                    integration = scan['rec_stat']['integration']
-                else:
-                    integration = 1
-                duration_tot = scan['duration_tot']
-                if integration > duration_tot:
-                    raise (ValueError, "integration {} is longer than duration_scan {}."
-                           .format(integration, duration_tot))
-                obsargs_in = {'starttime': scan['starttime'],
-                              'freqbndobj': freqbndoobj,
-                              'pointsrc': pointsrc,
-                              'pointing': pointing,
-                              'duration_tot': duration_tot,
-                              'integration': integration}
-                obsargs = {k: obsargs_in[k] for k in obsargs_sig}
-                self.do_obsprog(scan['starttime'], obsfun, obsargs)
+                    phi, theta, ref = pointsrc.split(',', 3)
+                    # FIXME:  (not always going to be correct)
+                    pointing = pointsrc
+                except ValueError:
+                    raise ValueError(
+                        "Error: %s invalid pointing syntax".format(pointsrc))
+            # -- Allsky
+            try:
+                allsky = scan['beam']['allsky']
+            except KeyError:
+                allsky = False
+            # - Record statistics
+            try:
+                scan['rec_stat']
+            except KeyError:
+                scan['rec_stat'] = None
+            if scan['rec_stat'] is not None:
+                rec_stat_type = scan['rec_stat']['type']
+                integration = eval(str(scan['rec_stat']['integration']))
             else:
-                pass
+                rec_stat_type = None
+                integration = 1
+            # - Duration total
+            duration_tot = eval(str(scan['duration_tot']))
+            if integration > duration_tot:
+                raise ValueError("integration {} is longer than duration_scan {}."
+                                 .format(integration, duration_tot))
+            # - ACC
+            try:
+                do_acc = scan['acc']
+            except KeyError:
+                do_acc = False
+            # Collect observation parameters specified
+            obsargs_in = {'starttime': starttime,
+                          'freqbndobj': freqbndobj,
+                          'pointsrc': pointsrc,
+                          'pointing': pointing,
+                          'allsky': allsky,
+                          'rec_stat_type': rec_stat_type,
+                          'integration': integration,
+                          'duration_tot': duration_tot
+                          }
+
+            # If dedicated observation program chosen, set it up
+            # otherwise run main obs program
+            try:
+                scan['obsprog']
+            except KeyError:
+                scan['obsprog'] = None
+            if scan['obsprog'] is not None:
+                obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
+                # Map only args required by
+                obsargs = {k: obsargs_in[k] for k in obsargs_sig}
+                self.do_obsprog(starttime, obsfun, obsargs)
+            else:
+                self.main_obs_prog(freqbndobj, integration, duration_tot, pointing,
+                                   pointsrc, starttime, rec_stat_type, do_acc=do_acc,
+                                   allsky=allsky)
+
+    def main_obs_prog(self, freqbndobj, integration, duration_tot, pointing, pointsrc,
+                      starttime='NOW', rec_stat_type=None, duration_scan=None,
+                      do_acc=False, allsky=False, warmup=False):
+        """Main observing program.
+        """
+        # Setup Calibration tables on LCU:
+        CALTABLESRC = 'default'   # FIXME put this in args
+        ## (Only BST uses calibration tables)
+        # Choose between 'default' or 'local'
+        self.lcu_interface.selectCalTable(CALTABLESRC)
+
+        # Prepare for obs program.
+        try:
+            self.goto_observingstate()
+        except RuntimeError as e:
+            raise RuntimeError(e)
+
+        exit_obsstate = False
+        duration_tot_req = duration_tot
+        band = freqbndobj.rcubands[0]
+        rcumode = freqbndobj.rcumodes[0]
+
+        # Get timings
+        if do_acc:
+            # Also duration of ACC sweep since each sb is 1 second.
+            dur1acc = modeparms.TotNrOfsb  # Duration of one ACC
+            interv2accs = 7  # time between end of one ACC and start of next one
+            acc_cadence = dur1acc+interv2accs  # =519s time between start of two ACCs
+            (nraccs, timrest) = divmod(duration_tot_req, acc_cadence)
+            if timrest > dur1acc:
+                nraccs += 1
+            duration_tot = nraccs*acc_cadence-interv2accs
+            if duration_tot != duration_tot_req:
+                print("""Note: will use total duration {}s to fit with ACC
+                      cadence.""".format(duration_tot))
+            #sst_integration = int(acc_cadence)
+
+            # Make sure swlevel=<2
+            self.lcu_interface.set_swlevel(2)
+
+            # Set CalServ.conf to dump ACCs:
+            self.lcu_interface.acc_mode(enable=True)
+
+            # Boot to swlevel 3 so the calserver service starts
+            self.lcu_interface.set_swlevel(3)
+
+        # Wait until it is time to start
+        pause = 5  # Sufficient?
+        if starttime != "NOW":
+            starttimestr = starttime.strftime("%Y-%m-%dT%H:%M:%S")
+        else:
+            starttimestr = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
+        st = self._waittoboot(starttimestr, pause)
+
+        # From swlevel 0 it takes about 1:30min? to reach swlevel 3
+        print("Booting @ {}".format(datetime.datetime.utcnow()))
+
+        # Necessary since fork creates multiple instances of myobs and each one
+        # will call it's __del__ on completion and __del__ shutdown...
+        shutdown = self.halt_observingstate_when_finished
+        self.halt_observingstate_when_finished = False
+        self.exit_check = False
+
+        if warmup:
+            # Dummy or hot beam start: (takes about 10sec)
+            # TODO: This seems necessary, otherwise beamctl will not start up next time,
+            #       although it should not have to necessary.)
+            print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
+            self.streambeams(freqbndobj, pointing)
+            self.lcu_interface.stop_beam()
+
+        print("Pause {}s after boot.".format(pause))
+        time.sleep(pause)
+
+        # Real beam start:
+        print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+        rcu_setup_cmd, beamctl_cmds = self.streambeams(freqbndobj, pointing)
+        nw = datetime.datetime.utcnow()
+        timeleft = st - nw
+        if timeleft.total_seconds() < 0.:
+            starttimestr = nw.strftime("%Y-%m-%dT%H:%M:%S")
+        print("(Beam started) Time left before recording: {}".format(
+            timeleft.total_seconds()))
+
+        if rec_stat_type is not None:
+            # Record statistic for duration_tot seconds
+            if rec_stat_type == 'bst':
+                rspctl_cmd = self.lcu_interface.rec_bst(integration, duration_tot)
+                # beamlet statistics also generate empty *01[XY].dat so remove:
+                self.lcu_interface.rm(self.lcu_interface.lcuDumpDir + "/*01[XY].dat")
+            elif rec_stat_type == 'sst':
+                rspctl_cmd = self.lcu_interface.rec_sst(integration, duration_tot)
+            elif rec_stat_type == 'xst':
+                caltabinfo = ""  # No need for caltab info for xst data
+                obsinfolist = []
+                nrsubbands = freqbndobj.nrsubbands()
+                if duration_scan is None:
+                    if nrsubbands > 1:
+                        duration_scan = integration
+                    else:
+                        duration_scan = duration_tot
+                # FIXME When duration_tot is too small for 1 rep this will fail badly.
+                (rep, rst) = divmod(duration_tot, duration_scan * nrsubbands)
+                rep = int(rep)
+                septonconf = self._setupallsky(allsky, freqbndobj)
+                # Repeat rep times (the freq sweep)
+                for itr in range(rep):
+                    # Start freq sweep
+                    for sb_rcumode in freqbndobj.sb_range:
+                        if ':' in sb_rcumode:
+                            sblo, sbhi = sb_rcumode.split(':')
+                            subbands = range(int(sblo), int(sbhi) + 1)
+                        else:
+                            subbands = [int(sb) for sb in sb_rcumode.split(',')]
+                        for subband in subbands:
+                            # Record data
+                            rspctl_cmd = self.lcu_interface.rec_xst(subband, integration,
+                                                                    duration_scan)
+                            obsdatetime_stamp = self.get_data_timestamp(-1)
+                            curr_obsinfo = dataIO.ObsInfo()
+                            curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp,
+                                                               beamctl_cmds, rspctl_cmd,
+                                                               caltabinfo,
+                                                               septonconf=septonconf)
+                            obsinfolist.append(curr_obsinfo)
+            else:
+                raise Exception('LOFAR statistic datatype "{}" unknown.\
+                                (Known are bst, sst, xst)'.format(rec_stat_type))
+
+        else:
+            # Since we're not recording statistics, just do nothing for the duration_tot.
+            time.sleep(duration_tot)
+
+        # Finished recording
+        self.lcu_interface.stop_beam()
+
+        if exit_obsstate:
+            self.lcu_interface.set_swlevel(0)
+
+        if do_acc:
+            # Switch back to normal state i.e. turn-off ACC dumping:
+            self.lcu_interface.acc_mode(enable=False)
+
+            # Transfer data from LCU to DAU
+            obsdatetime_stamp = self.get_data_timestamp(ACC=True)
+            accsrcfiles = self.lcu_interface.ACCsrcDir + "/*.dat"
+            acc_destfolder = \
+                os.path.join(self.LOFARdataArchive, 'acc',
+                             '{}_{}_rcu{}_dur{}'.format(self.lcu_interface.stnid,
+                                                        obsdatetime_stamp, rcumode,
+                                                        duration_tot))
+            if int(rcumode) > 3:
+                acc_destfolder += "_"+pointsrc
+            acc_destfolder += "_acc"
+            if os.path.isdir(acc_destfolder):
+                print("Appropriate directory exists already (will put data here)")
+            else:
+                print("Creating directory "+acc_destfolder+" for ACC "+str(duration_tot)
+                      + " s rcumode="+str(rcumode)+" calibration")
+                os.mkdir(acc_destfolder)
+
+            # Move ACC dumps to storage
+            self.movefromlcu(accsrcfiles, acc_destfolder)
+            accdestfiles = os.listdir(acc_destfolder)
+
+            # - Create project header
+
+            sesinfo_acc = copy.deepcopy(self.stnsesinfo)
+            acc_integration = 1.0
+            sesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
+                                         duration_tot, pointing)
+            sesinfo_acc.write_session_header(acc_destfolder)
+
+            # - Create header for each ACC file
+            for destfile in accdestfiles:
+                filedatestr, filetimestr, _ = destfile.split('_', 2)
+                filedtstr = '_'.join([filedatestr, filetimestr])
+                sesinfo_acc.new_obsinfo()
+                sesinfo_acc.obsinfos[-1].setobsinfo_fromparams('acc', filedtstr,
+                                                               beamctl_cmds, '')
+                sesinfo_acc.obsinfos[-1].create_LOFARst_header(acc_destfolder)
+
+            acc_url = "{}:{}".format(self.get_stnid(), acc_destfolder)
+
+        if rec_stat_type is not None:
+            # Move concurrent data to storage
+            sesinfo_stat = copy.deepcopy(self.stnsesinfo)
+            sesinfo_stat.new_obsinfo()
+            obsdatetime_stamp = self.get_data_timestamp()
+            sesinfo_stat.obsinfos[-1].setobsinfo_fromparams(rec_stat_type,
+                                                            obsdatetime_stamp,
+                                                            beamctl_cmds, rspctl_cmd)
+            bsxSTobsEpoch, stat_destfolder = \
+                sesinfo_stat.obsinfos[-1].getobsdatapath(self.LOFARdataArchive)
+            self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*", stat_destfolder,
+                             recursive=True)
+            sesinfo_stat.obsinfos[-1].create_LOFARst_header(stat_destfolder)
+            sesinfo_stat.set_obsfolderinfo(rec_stat_type, obsdatetime_stamp, band,
+                                           integration, duration_tot, pointing)
+            sesinfo_stat.write_session_header(stat_destfolder)
+            self.lcu_interface.cleanup()
+
+            stat_url = "{}:{}".format(self.get_stnid(), stat_destfolder)
+
+        return None
 
     def do_obsprog(self, starttime, obsfun, obsargs):
         """At starttime execute the observation program specified by the obsfun method
