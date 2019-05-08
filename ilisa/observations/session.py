@@ -4,6 +4,8 @@ import time
 import datetime
 import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.dataIO as dataIO
+import ilisa.observations.programs as programs
+import ilisa.observations.modeparms as modeparms
 from functools import wraps
 import yaml
 
@@ -164,6 +166,82 @@ class Session(object):
             stndrv.do_tbb(duration, band)
         return "."
 
+    def _executeblock(self, stn, scans):
+        for scan in scans:
+            prg = programs.BasicObsPrograms(self.stationdrivers[stn])
+
+            # Prepare observation arguments:
+            # - Starttime
+            starttime = scan['starttime']
+            # - Beam
+            # -- Freq
+            freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
+            # -- Pointing
+            pointsrc = scan['beam']['pointing']
+            try:
+                pointing = modeparms.stdPointings(pointsrc)
+            except KeyError:
+                try:
+                    phi, theta, ref = pointsrc.split(',', 3)
+                    # FIXME:  (not always going to be correct)
+                    pointing = pointsrc
+                except ValueError:
+                    raise ValueError(
+                        "Error: %s invalid pointing syntax".format(pointsrc))
+            # -- Allsky
+            try:
+                allsky = scan['beam']['allsky']
+            except KeyError:
+                allsky = False
+            # - Record statistics
+            try:
+                scan['rec_stat']
+            except KeyError:
+                scan['rec_stat'] = None
+            if scan['rec_stat'] is not None:
+                rec_stat_type = scan['rec_stat']['type']
+                integration = eval(str(scan['rec_stat']['integration']))
+            else:
+                rec_stat_type = None
+                integration = 1
+            # - Duration total
+            duration_tot = eval(str(scan['duration_tot']))
+            if integration > duration_tot:
+                raise ValueError("integration {} is longer than duration_scan {}."
+                                 .format(integration, duration_tot))
+            # - ACC
+            try:
+                do_acc = scan['acc']
+            except KeyError:
+                do_acc = False
+            # Collect observation parameters specified
+            obsargs_in = {'starttime': starttime,
+                          'freqbndobj': freqbndobj,
+                          'pointsrc': pointsrc,
+                          'pointing': pointing,
+                          'allsky': allsky,
+                          'rec_stat_type': rec_stat_type,
+                          'integration': integration,
+                          'duration_tot': duration_tot
+                          }
+
+            # If dedicated observation program chosen, set it up
+            # otherwise run main obs program
+            try:
+                scan['obsprog']
+            except KeyError:
+                scan['obsprog'] = None
+            if scan['obsprog'] is not None:
+                obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
+                # Map only args required by
+                obsargs = {k: obsargs_in[k] for k in obsargs_sig}
+                self.stationdrivers[stn].do_obsprog(starttime, obsfun, obsargs)
+            else:
+                self.stationdrivers[stn].main_obs_prog(freqbndobj, integration,
+                                                       duration_tot, pointing, pointsrc,
+                                                       starttime, rec_stat_type,
+                                                       do_acc=do_acc, allsky=allsky)
+
     def implement_scanschedule(self, sessionsched):
         """Implement the scan schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding observations."""
@@ -175,4 +253,7 @@ class Session(object):
         else:
             stns = eb['stations'].split(',')
         for stn in stns:
-            self.stationdrivers[stn].executeblock(eb['scans'])
+            try:
+                self._executeblock(stn, eb['scans'])
+            except RuntimeError:
+                break

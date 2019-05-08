@@ -15,7 +15,6 @@ import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
-import ilisa.observations.programs as programs
 
 
 class StationDriver(object):
@@ -172,17 +171,17 @@ class StationDriver(object):
         time.sleep(timeuntilboot)
         return st
 
-    def _setupallsky(self, allsky, freqbndobj, elemsOn=modeparms.elOn_gILT):
+    def _do_setupallsky(self, allsky, freqbndobj):
+        return allsky and freqbndobj.antsets[-1].startswith('HBA')
 
-        # Implement allsky if requested
-        if allsky and freqbndobj.antsets[-1].startswith('HBA'):
-            # NOTE: LCU must be in swlevel=2 to run SEPTON!
-            self.lcu_interface.set_swlevel(2)
-            # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
-            self.lcu_interface.turnoffElinTile_byEl(elemsOn)
-            septonconf = modeparms.elementMap2str(elemsOn)
-        else:
-            septonconf = None
+    def _setupallsky(self, elemsOn=modeparms.elOn_gILT):
+        # Implement allsky HBA aka SEPTON
+        # NOTE: LCU must be in swlevel=2 to run SEPTON!
+        self.lcu_interface.set_swlevel(2)
+        # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
+        self.lcu_interface.turnoffElinTile_byEl(elemsOn)
+        self.lcu_interface.set_swlevel(3)
+        septonconf = modeparms.elementMap2str(elemsOn)
         return septonconf
 
     def do_SEPTON(self, statistic,  frqbndobj, integration, duration_scan,
@@ -336,81 +335,6 @@ class StationDriver(object):
     # END: TBB services
     ###################
 
-    def executeblock(self, scans):
-        for scan in scans:
-            prg = programs.BasicObsPrograms(self)
-
-            # Prepare observation arguments:
-            # - Starttime
-            starttime = scan['starttime']
-            # - Beam
-            # -- Freq
-            freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
-            # -- Pointing
-            pointsrc = scan['beam']['pointing']
-            try:
-                pointing = modeparms.stdPointings(pointsrc)
-            except KeyError:
-                try:
-                    phi, theta, ref = pointsrc.split(',', 3)
-                    # FIXME:  (not always going to be correct)
-                    pointing = pointsrc
-                except ValueError:
-                    raise ValueError(
-                        "Error: %s invalid pointing syntax".format(pointsrc))
-            # -- Allsky
-            try:
-                allsky = scan['beam']['allsky']
-            except KeyError:
-                allsky = False
-            # - Record statistics
-            try:
-                scan['rec_stat']
-            except KeyError:
-                scan['rec_stat'] = None
-            if scan['rec_stat'] is not None:
-                rec_stat_type = scan['rec_stat']['type']
-                integration = eval(str(scan['rec_stat']['integration']))
-            else:
-                rec_stat_type = None
-                integration = 1
-            # - Duration total
-            duration_tot = eval(str(scan['duration_tot']))
-            if integration > duration_tot:
-                raise ValueError("integration {} is longer than duration_scan {}."
-                                 .format(integration, duration_tot))
-            # - ACC
-            try:
-                do_acc = scan['acc']
-            except KeyError:
-                do_acc = False
-            # Collect observation parameters specified
-            obsargs_in = {'starttime': starttime,
-                          'freqbndobj': freqbndobj,
-                          'pointsrc': pointsrc,
-                          'pointing': pointing,
-                          'allsky': allsky,
-                          'rec_stat_type': rec_stat_type,
-                          'integration': integration,
-                          'duration_tot': duration_tot
-                          }
-
-            # If dedicated observation program chosen, set it up
-            # otherwise run main obs program
-            try:
-                scan['obsprog']
-            except KeyError:
-                scan['obsprog'] = None
-            if scan['obsprog'] is not None:
-                obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
-                # Map only args required by
-                obsargs = {k: obsargs_in[k] for k in obsargs_sig}
-                self.do_obsprog(starttime, obsfun, obsargs)
-            else:
-                self.main_obs_prog(freqbndobj, integration, duration_tot, pointing,
-                                   pointsrc, starttime, rec_stat_type, do_acc=do_acc,
-                                   allsky=allsky)
-
     def main_obs_prog(self, freqbndobj, integration, duration_tot, pointing, pointsrc,
                       starttime='NOW', rec_stat_type=None, duration_scan=None,
                       do_acc=False, allsky=False, warmup=False):
@@ -428,12 +352,10 @@ class StationDriver(object):
         except RuntimeError as e:
             raise RuntimeError(e)
 
-        exit_obsstate = False
         duration_tot_req = duration_tot
         band = freqbndobj.rcubands[0]
         rcumode = freqbndobj.rcumodes[0]
 
-        # Get timings
         if do_acc:
             # Also duration of ACC sweep since each sb is 1 second.
             dur1acc = modeparms.TotNrOfsb  # Duration of one ACC
@@ -456,6 +378,11 @@ class StationDriver(object):
 
             # Boot to swlevel 3 so the calserver service starts
             self.lcu_interface.set_swlevel(3)
+
+        if self._do_setupallsky(allsky, freqbndobj):
+            septonconf = self._setupallsky()
+        else:
+            septonconf = None
 
         # Wait until it is time to start
         pause = 5  # Sufficient?
@@ -515,7 +442,6 @@ class StationDriver(object):
                 # FIXME When duration_tot is too small for 1 rep this will fail badly.
                 (rep, rst) = divmod(duration_tot, duration_scan * nrsubbands)
                 rep = int(rep)
-                septonconf = self._setupallsky(allsky, freqbndobj)
                 # Repeat rep times (the freq sweep)
                 for itr in range(rep):
                     # Start freq sweep
@@ -546,9 +472,6 @@ class StationDriver(object):
 
         # Finished recording
         self.lcu_interface.stop_beam()
-
-        if exit_obsstate:
-            self.lcu_interface.set_swlevel(0)
 
         if do_acc:
             # Switch back to normal state i.e. turn-off ACC dumping:
@@ -596,7 +519,7 @@ class StationDriver(object):
             acc_url = "{}:{}".format(self.get_stnid(), acc_destfolder)
 
         if rec_stat_type is not None:
-            # Move concurrent data to storage
+            # Move statistics data to storage
             sesinfo_stat = copy.deepcopy(self.stnsesinfo)
             sesinfo_stat.new_obsinfo()
             obsdatetime_stamp = self.get_data_timestamp()
@@ -614,6 +537,8 @@ class StationDriver(object):
             self.lcu_interface.cleanup()
 
             stat_url = "{}:{}".format(self.get_stnid(), stat_destfolder)
+        # Necessary due to possible forking
+        self.halt_observingstate_when_finished = shutdown
 
         return None
 
