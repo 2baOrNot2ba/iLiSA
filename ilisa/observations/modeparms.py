@@ -191,6 +191,7 @@ class FrequencyBand(object):
     nrbeamletsbybits = {16:   BASE_NR_BEAMLETS,
                         8:  2*BASE_NR_BEAMLETS,
                         4:  4*BASE_NR_BEAMLETS}
+    nrlanes = 4
 
     def __init__(self, arg):
         self.arg = arg
@@ -386,6 +387,25 @@ class FrequencyBand(object):
         for sbrange in self.sb_range:
             nrsbs += len(seqarg2list(sbrange))
         return nrsbs
+
+    def getlanes(self):
+        """Return a dict keyed on lanenr whose value is the beamlets allocated."""
+        bmlts_per_lane = self.nrbeamletsbybits[self.bits]/self.nrlanes
+        lanesplitblmt = iter([(lanenr, (lanenr+1)*bmlts_per_lane-1) for lanenr in
+                              range(self.nrlanes)])
+        bmlts = []
+        for bmltarg in self.beamlets:
+            bmlts.extend(seqarg2list(bmltarg))
+        lanealloc = {0:[]}
+        (lanenr, bmlt_hi) = next(lanesplitblmt)
+        for bmlt in bmlts:
+            if bmlt <= bmlt_hi:
+                lanealloc[lanenr].append(bmlt)
+            else:
+                lanealloc[lanenr+1] = []
+                lanealloc[lanenr+1].append(bmlt)
+                (lanenr, bmlt_hi) = next(lanesplitblmt)
+        return lanealloc
 
 
 def pointingGrid(NrAzDirs=8, NrElDirs=7):
