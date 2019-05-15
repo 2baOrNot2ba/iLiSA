@@ -282,9 +282,49 @@ class StationDriver(object):
     def main_scan(self, freqbndobj, integration, duration_tot, pointing, pointsrc,
                   starttime='NOW', rec_stat_type=None, rec_bfs=False, duration_scan=None,
                   do_acc=False, allsky=False, warmup=False):
-        """Main observing program.
-        """
+        """Run a generic scan.
 
+        Parameters
+        ----------
+            freqbndobj: FrequencyBand
+                Frequency specification of scan.
+            integration: float
+                Integration time in seconds.
+            duration_tot: float
+                Total duration of scan in seconds.
+            pointing:
+                Pointing direction of scan.
+            pointsrc: str
+                The field name.
+            starttime: str
+                The time at which scan should start.
+            rec_stat_type: str
+                The type of LOFAR statistic to be recorded. Can be either: 'bst', 'sst',
+                or 'xst'.
+            rec_bfs: bool
+                Record the beam-formed stream.
+            duration_scan: float
+                The duration of one frequency sweep within the scan.
+            do_acc: bool
+                Perform calibration observation mode on station. Also known as ACC
+                mode. The actual total duration will at most be duration_tot_req.
+                (Usually it will be shorter so it fits within the cadence of whole ACC
+                aquisition, which is 512+7=519 seconds).
+
+                Some technical details: swlevel needs to cycle down to 2 (or less) and then to 3.
+                If swlevel is kept at 3 (i.e. exit_obsstate=False), then ACC will continue to be
+                produced, until swlevel goes below 2.
+
+                ACC files are autocovariance-cubes: the covariance of all array
+                elements with each as a function of subband. These files are generated
+                by the MAC service called CalServer. It run at swlevel 3 and is
+                configured in the file lofar/etc/CalServer.conf. Note subband
+                integration is always 1s, so ACC file is dumped after 512 seconds.
+            allsky: bool, optional
+                HBA allsky mode.
+            warmup: bool, optional
+                Do a beam warmup prior to doing scan.
+        """
         req_allsky = allsky; del allsky
         arraytype = freqbndobj.antsets[-1][:3]
         # Mode logic
