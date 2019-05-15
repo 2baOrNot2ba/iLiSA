@@ -214,6 +214,12 @@ class Session(object):
                 do_acc = scan['acc']
             except KeyError:
                 do_acc = False
+            # - BFS
+            try:
+                rec_bfs = scan['rec_bfs']
+            except KeyError:
+                rec_bfs = False
+
             # Collect observation parameters specified
             obsargs_in = {'starttime': starttime,
                           'freqbndobj': freqbndobj,
@@ -222,7 +228,8 @@ class Session(object):
                           'allsky': allsky,
                           'rec_stat_type': rec_stat_type,
                           'integration': integration,
-                          'duration_tot': duration_tot
+                          'duration_tot': duration_tot,
+                          'rec_bfs': rec_bfs
                           }
 
             # If dedicated observation program chosen, set it up
@@ -237,10 +244,10 @@ class Session(object):
                 obsargs = {k: obsargs_in[k] for k in obsargs_sig}
                 self.stationdrivers[stn].do_obsprog(starttime, obsfun, obsargs)
             else:
-                self.stationdrivers[stn].main_obs_prog(freqbndobj, integration,
-                                                       duration_tot, pointing, pointsrc,
-                                                       starttime, rec_stat_type,
-                                                       do_acc=do_acc, allsky=allsky)
+                self.stationdrivers[stn].main_scan(freqbndobj, integration, duration_tot,
+                                                   pointing, pointsrc, starttime,
+                                                   rec_stat_type, rec_bfs=rec_bfs,
+                                                   do_acc=do_acc, allsky=allsky)
 
     def implement_scanschedule(self, sessionsched):
         """Implement the scan schedule dict. That is, dispatch to the

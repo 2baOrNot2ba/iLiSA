@@ -17,6 +17,6 @@ if __name__ == "__main__":
 
     with open(args.file, 'r') as f:
         schedspec = yaml.load(f)
-    myses = session.Session(projectid=schedspec['projectid'],
+    myses = session.Session(projectid=str(schedspec['projectid']),
                             halt_observingstate_when_finished = False)
     myses.implement_scanschedule(schedspec)

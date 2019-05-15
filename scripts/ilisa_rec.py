@@ -26,7 +26,7 @@ if __name__ == "__main__":
                         help='Frequency spec in Hz.')
     parser.add_argument('duration_tot',
                         help='Duration in seconds. (Can be an arithmetic expression)')
-    parser.add_argument('pointing',
+    parser.add_argument('pointing', nargs='?',
                         help='A direction in az,el,ref (radians) or a source name.')
     args = parser.parse_args()
 
