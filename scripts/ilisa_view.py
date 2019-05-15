@@ -49,7 +49,7 @@ def plotsst(sstff, freqreq):
         meandynspec = numpy.mean(SSTdata, axis=0)
         res = meandynspec
         if res.shape[0] > 1:
-            plt.pcolormesh(freqs/1e6, starttime + tds, res, norm=colors.LogNorm())
+            plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm())
             plt.colorbar()
             plt.title('Mean (over RCUs) dynamicspectrum')
             plt.xlabel('Frequency [MHz]')
