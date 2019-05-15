@@ -133,31 +133,6 @@ class Session(object):
             time.sleep(timeuntilboot)
 
     @log_obs
-    def do_bfs(self, band, duration, pointsrc, when='NOW', shutdown=True):
-        """Record bfs data. Beamformed stream is capture with udpcapture on backend."""
-        datafolder_urls = []
-        for stndrv in self.stationdrivers.values():
-            try:
-                datafolder_url = stndrv.do_bfs(band, duration, pointsrc, when=when,
-                                               shutdown=shutdown)
-            except RuntimeError as rte:
-                print("Error in do_bfs(): {}".format(rte))
-                datapath = None
-            datafolder_urls.append(datafolder_url)
-        return datafolder_urls
-
-    @log_obs
-    def do_acc(self, band, duration, pointsrc, when='NOW'):
-        """Record acc data for one of the LOFAR bands over a duration on all stations.
-        """
-        self._waittostart(when)
-        for stndrv in self.stationdrivers.values():
-            acc_url, sst_url = stndrv.do_acc(band, duration, pointsrc)
-            print("Saved ACC data in folder: {}".format(acc_url))
-            print("Saved SST data in folder: {}".format(sst_url))
-        return [acc_url, sst_url]
-
-    @log_obs
     def do_tbb(self, duration, band):
         """Record Transient Buffer Board (TBB) data from one of the LOFAR bands for
         duration seconds on all stations.

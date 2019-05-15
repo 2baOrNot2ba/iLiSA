@@ -181,56 +181,6 @@ class StationDriver(object):
         septonconf = modeparms.elementMap2str(elemsOn)
         return septonconf
 
-    def do_SEPTON(self, statistic,  frqbndobj, integration, duration_scan,
-                  elemsOn=modeparms.elOn_gILT):
-        """Record xst or sst data in SEPTON mode.
-        Setup Single Element per Tile ON mode. This only valid for HBA and
-        currently only rcumode=5."""
-        try:
-            self.goto_observingstate()
-        except RuntimeError as e:
-            raise RuntimeError(e)
-        subband = frqbndobj.sb_range[0]
-        rcumode = frqbndobj.rcumodes[0]
-        rspctl_SET = ""
-        beamctl_CMD = ""
-        # NOTE: LCU must be in swlevel=2 to run SEPTON!
-        self.lcu_interface.set_swlevel(2)
-        # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
-        self.lcu_interface.turnoffElinTile_byEl(elemsOn)
-        caltabinfo = ""  # No need for caltab info
-        # Record data
-        if statistic == 'xst':
-            rspctl_CMD = self.lcu_interface.rec_xst(subband, integration, duration_scan)
-        elif statistic == 'sst':
-            rspctl_CMD = self.lcu_interface.rec_sst(integration, duration_scan)
-        else:
-            raise ValueError("Only xst or sst data allowed.")
-        LOFARdatTYPE = statistic + "-SEPTON"
-        # Collect observational metadata
-        obsdatetime_stamp = self.get_data_timestamp()
-
-        stnsesinfo = copy.deepcopy(self.stnsesinfo)
-        stnsesinfo.new_obsinfo()
-        stnsesinfo.obsinfos[-1].setobsinfo_fromparams(
-            LOFARdatTYPE, obsdatetime_stamp, beamctl_CMD, rspctl_CMD, caltabinfo,
-            septonconf = modeparms.elementMap2str(elemsOn))
-
-        # Move data to archive
-        bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
-            self.LOFARdataArchive)
-        self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath)
-        stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
-        stnsesinfo.set_obsfolderinfo(LOFARdatTYPE, bsxSTobsEpoch,
-                                     modeparms.rcumode2band(rcumode), integration,
-                                     duration_scan)
-        stnsesinfo.write_session_header(datapath)
-        data_url = "{}:{}".format(self.get_stnid(), datapath)
-        return data_url
-
-    #####################
-    # BEGIN: TBB services
-
     def _setupTBBs(self):
         """Setup transient buffer boards and start recording."""
         print("In setupTBBs: Freeing TBBs")
@@ -328,9 +278,6 @@ class StationDriver(object):
         print("Streaming {}s of TBB data out of LCU".format(duration_scan))
         self._startTBBdataStream(float(duration_scan))
         dalcap.join()
-
-    # END: TBB services
-    ###################
 
     def main_scan(self, freqbndobj, integration, duration_tot, pointing, pointsrc,
                   starttime='NOW', rec_stat_type=None, rec_bfs=False, duration_scan=None,
@@ -666,8 +613,6 @@ class StationDriver(object):
             data_url = "{}:{}".format(self.get_stnid(), datapath)
         return None
 
-# END: Session
-##############
 
 # TBBh5dumpDir="/home/tobia/lofar/data/tbb/h5/"
 # "/mnt/lane0/TBB/" #Should end with "/" character.
