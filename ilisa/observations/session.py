@@ -82,7 +82,6 @@ class Session(object):
                  'Command':  sessionentry['Command'],
                  'DataPaths':sessionentry['DataPaths']}
 
-
     done_logsessionbegin = False
 
     def logsessionbegin(self):

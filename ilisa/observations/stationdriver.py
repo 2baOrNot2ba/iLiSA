@@ -394,6 +394,12 @@ class StationDriver(object):
             starttimestr = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         st = self._waittoboot(starttimestr, pause)
 
+        # Get metadata about caltables to be used
+        caltabinfos = []
+        for rcumode in freqbndobj.rcumodes:
+            caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
+            caltabinfos.append(caltabinfo)
+
         # From swlevel 0 it takes about 1:30min? to reach swlevel 3
         print("Booting @ {}".format(datetime.datetime.utcnow()))
 
@@ -429,7 +435,8 @@ class StationDriver(object):
             beamctl_cmds = ""
 
         if rec_bfs:
-            bf_data_dir = self.bf_data_dir
+            bf_data_dir = self.bf_data_dir+'/proj'\
+                          +str(self.stnsesinfo.projectmeta['projectID'])+'/'
             port0 = self.bf_port0
             stnid = self.lcu_interface.stnid
             lanes = tuple(freqbndobj.getlanes().keys())
@@ -449,16 +456,15 @@ class StationDriver(object):
                 obsdatetime_stamp = self.get_data_timestamp(-1)
                 curr_obsinfo = dataIO.ObsInfo()
                 curr_obsinfo.setobsinfo_fromparams('bst', obsdatetime_stamp, beamctl_cmds,
-                                                   rspctl_cmd)
+                                                   rspctl_cmd, caltabinfos)
                 obsinfolist.append(curr_obsinfo)
             elif rec_stat_type == 'sst':
                 caltabinfo = ""
                 rspctl_cmd = self.lcu_interface.rec_sst(integration, duration_tot)
                 obsdatetime_stamp = self.get_data_timestamp(-1)
                 curr_obsinfo = dataIO.ObsInfo()
-                curr_obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp,
-                                                   beamctl_cmds, rspctl_cmd,
-                                                   caltabinfo)
+                curr_obsinfo.setobsinfo_fromparams('sst', obsdatetime_stamp, beamctl_cmds,
+                                                   rspctl_cmd, caltabinfo)
                 obsinfolist.append(curr_obsinfo)
             elif rec_stat_type == 'xst':
                 caltabinfo = ""  # No need for caltab info for xst data
@@ -540,7 +546,7 @@ class StationDriver(object):
             sesinfo_acc = copy.deepcopy(self.stnsesinfo)
             acc_integration = 1.0
             sesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
-                                         duration_tot, pointing)
+                                          duration_tot, pointing)
             sesinfo_acc.write_session_header(acc_destfolder)
 
             # - Create header for each ACC file
@@ -555,14 +561,6 @@ class StationDriver(object):
             acc_url = "{}:{}".format(self.get_stnid(), acc_destfolder)
 
         if rec_stat_type is not None and obsinfolist is not None:
-            # Get some metadata about operational settings:
-            # e.g. caltables used
-            caltabinfos = []
-            for rcumode in freqbndobj.rcumodes:
-                caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
-                caltabinfos.append(caltabinfo)
-            for i in range(len(obsinfolist)):
-                obsinfolist[i].caltabinfos = caltabinfos
             obsinfo = copy.copy(obsinfolist[0])
             obsinfo.sb = freqbndobj.sb_range[0]
 
@@ -585,15 +583,15 @@ class StationDriver(object):
             stnsesinfo = copy.deepcopy(self.stnsesinfo)
             stnsesinfo.new_obsinfo()
             stnsesinfo.obsinfos[-1].setobsinfo_fromparams('bfs', headertime, beamctl_cmds,
-                                                          rspctl_cmd, caltabinfo)
+                                                          rcu_setup_cmd, caltabinfos)
             bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
                 self.LOFARdataArchive)
             print("Creating BFS destination folder on DPU:\n{}".format(datapath))
             os.mkdir(datapath)
             stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
             integration = None
-            stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration, duration_tot,
-                                         pointing)
+            stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration,
+                                         duration_tot, pointing)
             stnsesinfo.write_session_header(datapath)
             data_url = "{}:{}".format(self.get_stnid(), datapath)
 
