@@ -19,6 +19,8 @@ def _startlanerec(lane, starttimestr, duration, band, bf_data_dir, port0, stnid)
     port = port0 + lane
     pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
     outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
+    if not os.path.exists(outdumpdir):
+        os.mkdir(outdumpdir)
     outfilepre = "udp_" + stnid
     rcumode = ilisa.observations.modeparms.band2rcumode(band)
     dumplogname = outdumpdir + dumpername \
