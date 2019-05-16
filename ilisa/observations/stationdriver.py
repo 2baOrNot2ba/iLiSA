@@ -424,10 +424,10 @@ class StationDriver(object):
             # Real beam start:
             print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
             rcu_setup_cmd, beamctl_cmds = self.streambeams(freqbndobj, pointing)
-            nw = datetime.datetime.utcnow()
-            timeleft = st - nw
+            beamstarted = datetime.datetime.utcnow()
+            timeleft = st - beamstarted
             if timeleft.total_seconds() < 0.:
-                starttimestr = nw.strftime("%Y-%m-%dT%H:%M:%S")
+                starttimestr = beamstarted.strftime("%Y-%m-%dT%H:%M:%S")
             print("(Beam started) Time left before recording: {}".format(
                 timeleft.total_seconds()))
         else:
@@ -513,7 +513,12 @@ class StationDriver(object):
         # Determine path where this scan should be stored
         projpath = os.path.join(self.LOFARdataArchive,
                                 "proj{}".format(self.stnsesinfo.projectmeta['projectID']))
-        scanpath = os.path.join(projpath, "scan_{}".format(self.get_data_timestamp(-1)))
+        # - Make a scan ID. (Currently based on starttime of scan)
+        try:
+            scanid = self.get_data_timestamp(-1)
+        except Exception:
+            scanid = beamstarted.strftime("%Y%d%m_%H%M%S")
+        scanpath = os.path.join(projpath, "scan_{}".format(scanid))
 
         if todo_tof:
             self.lcu_interface.set_swlevel(3)
@@ -592,7 +597,7 @@ class StationDriver(object):
                                                               caltabinfos)
             bsxSTobsEpoch, datapath = stnsesinfo_bfs.obsinfos[-1].getobsdatapath(scanpath)
             print("Creating BFS destination folder on DPU:\n{}".format(datapath))
-            os.mkdir(datapath)
+            os.makedirs(datapath)
             stnsesinfo_bfs.obsinfos[-1].create_LOFARst_header(datapath)
             integration = None
             stnsesinfo_bfs.set_obsfolderinfo('bfs', headertime, band, integration,
