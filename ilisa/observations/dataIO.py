@@ -269,7 +269,8 @@ class ObsInfo(object):
         """Create name and destination path for folders (on the DPU) in
         which to save the various LOFAR data products.
         """
-        stDataArchive = os.path.join(LOFARdataArchive, self.LOFARdatTYPE)
+        #stDataArchive = os.path.join(LOFARdataArchive, self.LOFARdatTYPE)
+        stDataArchive = LOFARdataArchive
         stObsEpoch = self.datetime
         st_extName = stObsEpoch
         if folder_name_beamctl_type:

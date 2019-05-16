@@ -103,8 +103,8 @@ class StationDriver(object):
 
     def movefromlcu(self, source, dest, recursive=False):
         """Move file(s) off LCU to DPU."""
-        if not os.path.isdir(dest):
-            os.mkdir(dest)
+        if not os.path.exists(dest):
+            os.makedirs(dest)
         movecmd = "scp"
         if recursive:
             movecmd += " -r"
@@ -435,8 +435,8 @@ class StationDriver(object):
             beamctl_cmds = ""
 
         if rec_bfs:
-            bf_data_dir = self.bf_data_dir+'/proj'\
-                          +str(self.stnsesinfo.projectmeta['projectID'])+'/'
+            bf_data_dir = os.path.join(self.bf_data_dir,'proj{}'.format(
+                self.stnsesinfo.projectmeta['projectID']))
             port0 = self.bf_port0
             stnid = self.lcu_interface.stnid
             lanes = tuple(freqbndobj.getlanes().keys())
@@ -510,6 +510,11 @@ class StationDriver(object):
         # Finished recording
         self.lcu_interface.stop_beam()
 
+        # Determine path where this scan should be stored
+        projpath = os.path.join(self.LOFARdataArchive,
+                                "proj{}".format(self.stnsesinfo.projectmeta['projectID']))
+        scanpath = os.path.join(projpath, "scan_{}".format(self.get_data_timestamp(-1)))
+
         if todo_tof:
             self.lcu_interface.set_swlevel(3)
 
@@ -523,19 +528,19 @@ class StationDriver(object):
             obsdatetime_stamp = self.get_data_timestamp(ACC=True)
             accsrcfiles = self.lcu_interface.ACCsrcDir + "/*.dat"
             acc_destfolder = \
-                os.path.join(self.LOFARdataArchive, 'acc',
+                os.path.join(scanpath,
                              '{}_{}_rcu{}_dur{}'.format(self.lcu_interface.stnid,
                                                         obsdatetime_stamp, rcumode,
                                                         duration_tot))
             if int(rcumode) > 3:
                 acc_destfolder += "_"+pointsrc
             acc_destfolder += "_acc"
-            if os.path.isdir(acc_destfolder):
+            if os.path.exists(acc_destfolder):
                 print("Appropriate directory exists already (will put data here)")
             else:
                 print("Creating directory "+acc_destfolder+" for ACC "+str(duration_tot)
                       + " s rcumode="+str(rcumode)+" calibration")
-                os.mkdir(acc_destfolder)
+                os.makedirs(acc_destfolder)
 
             # Move ACC dumps to storage
             self.movefromlcu(accsrcfiles, acc_destfolder)
@@ -565,7 +570,7 @@ class StationDriver(object):
             obsinfo.sb = freqbndobj.sb_range[0]
 
             # Move data to archive
-            bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
+            bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(scanpath)
             self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath)
             for curr_obsinfo in obsinfolist:
                 curr_obsinfo.create_LOFARst_header(datapath)
@@ -580,19 +585,19 @@ class StationDriver(object):
         if rec_bfs:
             headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                     ).strftime("%Y%m%d_%H%M%S")
-            stnsesinfo = copy.deepcopy(self.stnsesinfo)
-            stnsesinfo.new_obsinfo()
-            stnsesinfo.obsinfos[-1].setobsinfo_fromparams('bfs', headertime, beamctl_cmds,
-                                                          rcu_setup_cmd, caltabinfos)
-            bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
-                self.LOFARdataArchive)
+            stnsesinfo_bfs = copy.deepcopy(self.stnsesinfo)
+            stnsesinfo_bfs.new_obsinfo()
+            stnsesinfo_bfs.obsinfos[-1].setobsinfo_fromparams('bfs', headertime,
+                                                              beamctl_cmds, rcu_setup_cmd,
+                                                              caltabinfos)
+            bsxSTobsEpoch, datapath = stnsesinfo_bfs.obsinfos[-1].getobsdatapath(scanpath)
             print("Creating BFS destination folder on DPU:\n{}".format(datapath))
             os.mkdir(datapath)
-            stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
+            stnsesinfo_bfs.obsinfos[-1].create_LOFARst_header(datapath)
             integration = None
-            stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration,
-                                         duration_tot, pointing)
-            stnsesinfo.write_session_header(datapath)
+            stnsesinfo_bfs.set_obsfolderinfo('bfs', headertime, band, integration,
+                                             duration_tot, pointing)
+            stnsesinfo_bfs.write_session_header(datapath)
             data_url = "{}:{}".format(self.get_stnid(), datapath)
 
         self.lcu_interface.cleanup()

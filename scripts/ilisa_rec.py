@@ -30,7 +30,8 @@ if __name__ == "__main__":
                         help='A direction in az,el,ref (radians) or a source name.')
     args = parser.parse_args()
 
-    myses = session.Session(halt_observingstate_when_finished = False)
+    myses = session.Session(projectid=args.projectid,
+                            halt_observingstate_when_finished = False)
     beam = {'freqspec': args.freqspec, 'pointing': args.pointing, 'allsky': args.allsky}
     rec_stat = {'type': args.datatype, 'integration': args.integration}
     sessionsched = {'projectid': args.projectid,
