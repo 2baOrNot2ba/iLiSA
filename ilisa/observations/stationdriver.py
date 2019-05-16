@@ -436,7 +436,7 @@ class StationDriver(object):
 
         if rec_bfs:
             bf_data_dir = os.path.join(self.bf_data_dir,'proj{}'.format(
-                self.stnsesinfo.projectmeta['projectID']))
+                self.stnsesinfo.projectmeta['projectID']),'')
             port0 = self.bf_port0
             stnid = self.lcu_interface.stnid
             lanes = tuple(freqbndobj.getlanes().keys())
