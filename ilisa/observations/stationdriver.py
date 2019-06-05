@@ -396,20 +396,18 @@ class StationDriver(object):
             starttimestr = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
         st = self._waittoboot(starttimestr, pause)
 
-        # Get metadata about caltables to be used
-        caltabinfos = []
-        if not todo_tof:
-            for rcumode in freqbndobj.rcumodes:
-                caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
-                caltabinfos.append(caltabinfo)
-
         # Necessary since fork creates multiple instances of myobs and each one
         # will call it's __del__ on completion and __del__ shutdown...
         shutdown = self.halt_observingstate_when_finished
         self.halt_observingstate_when_finished = False
         self.exit_check = False
 
+        caltabinfos = []
         if pointing is not None:
+            # Get metadata about caltables to be used
+            for rcumode in freqbndobj.rcumodes:
+                caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
+                caltabinfos.append(caltabinfo)
             if warmup:
                 # Dummy or hot beam start: (takes about 10sec)
                 # TODO: This seems necessary, otherwise beamctl will not start up next time,
