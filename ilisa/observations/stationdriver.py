@@ -170,6 +170,8 @@ class StationDriver(object):
             timeuntilboot = 0
         print("Will boot to observe state after " + str(timeuntilboot) + " seconds...")
         time.sleep(timeuntilboot)
+        # From swlevel 0 it takes about 1:30min? to reach swlevel 3
+        print("Booting @ {}".format(datetime.datetime.utcnow()))
         return st
 
     def _setup_tof(self, elemsOn=modeparms.elOn_gILT):
@@ -396,12 +398,10 @@ class StationDriver(object):
 
         # Get metadata about caltables to be used
         caltabinfos = []
-        for rcumode in freqbndobj.rcumodes:
-            caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
-            caltabinfos.append(caltabinfo)
-
-        # From swlevel 0 it takes about 1:30min? to reach swlevel 3
-        print("Booting @ {}".format(datetime.datetime.utcnow()))
+        if not todo_tof:
+            for rcumode in freqbndobj.rcumodes:
+                caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
+                caltabinfos.append(caltabinfo)
 
         # Necessary since fork creates multiple instances of myobs and each one
         # will call it's __del__ on completion and __del__ shutdown...
@@ -431,6 +431,7 @@ class StationDriver(object):
             print("(Beam started) Time left before recording: {}".format(
                 timeleft.total_seconds()))
         else:
+            print("No pointing...")
             rcu_setup_cmd = ""
             beamctl_cmds = ""
 

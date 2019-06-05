@@ -151,7 +151,11 @@ class Session(object):
             # -- Freq
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
             # -- Pointing
-            pointsrc = scan['beam']['pointing']
+            try:
+                pointsrc = scan['beam']['pointing']
+            except KeyError:
+                # No pointing specified so set to None
+                pointsrc = None
             try:
                 pointing = modeparms.stdPointings(pointsrc)
             except KeyError:
