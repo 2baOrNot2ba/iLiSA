@@ -441,6 +441,12 @@ class StationDriver(object):
             lanes = tuple(freqbndobj.getlanes().keys())
             bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band, bf_data_dir,
                                      port0, stnid)
+            bfspaths = []
+            for lane in lanes:
+                outdumpdir, outarg, datafileguess, dumplogname =\
+                    bfbackend.bfsfilepaths(lane, starttimestr, band, bf_data_dir, port0,
+                                           stnid)
+                bfspaths.append(datafileguess)
         else:
             print("Not recording")
         sys.stdout.flush()
@@ -597,6 +603,10 @@ class StationDriver(object):
             bsxSTobsEpoch, datapath = stnsesinfo_bfs.obsinfos[-1].getobsdatapath(scanpath)
             print("Creating BFS destination folder on DPU:\n{}".format(datapath))
             os.makedirs(datapath)
+            # Make soft links to actual BFS files
+            for lane in lanes:
+                os.symlink(bfspaths[lane], os.path.join(datapath,
+                                                        os.path.basename(bfspaths[lane])))
             stnsesinfo_bfs.obsinfos[-1].create_LOFARst_header(datapath)
             integration = None
             stnsesinfo_bfs.set_obsfolderinfo('bfs', headertime, band, integration,

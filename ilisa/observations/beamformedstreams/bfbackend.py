@@ -12,32 +12,39 @@ pathtodumper = os.path.dirname(ilisa.observations.beamformedstreams.__file__)
 dumpercmd = os.path.join(pathtodumper, dumpername)
 # dumpercmd = 'echo'  # For testing purposes
 
+def bfsfilepaths(lane, starttimestr, band, bf_data_dir, port0, stnid):
+    """Generate paths and name for BFS recording."""
+    port = port0 + lane
+    pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
+    outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
+    outfilepre = "udp_" + stnid
+    rcumode = ilisa.observations.modeparms.band2rcumode(band)
+    outarg = outdumpdir + outfilepre
+    dumplogname = outdumpdir + dumpername \
+                  + '_lane' + str(lane) \
+                  + '_rcu' + rcumode \
+                  + '.log'
+    datafileguess = outarg + '_' + str(port) + '.start.' + starttimestr + '.000'
+    return outdumpdir, outarg, datafileguess, dumplogname
 
 def _startlanerec(lane, starttimestr, duration, band, bf_data_dir, port0, stnid):
     """Start recording a lane using an external dumper process.
     """
     port = port0 + lane
-    pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
-    outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
+    outdumpdir, outarg, datafileguess, dumplogname = bfsfilepaths(lane, starttimestr,
+                                                                  band, bf_data_dir,
+                                                                  port0, stnid)
     if not os.path.exists(outdumpdir):
         os.mkdir(outdumpdir)
-    outfilepre = "udp_" + stnid
-    rcumode = ilisa.observations.modeparms.band2rcumode(band)
-    dumplogname = outdumpdir + dumpername \
-                  + '_lane' + str(lane) \
-                  + '_rcu' + rcumode \
-                  + '.log'
     subprocess.call(dumpercmd + ' --ports ' + str(port) + ' --check '
                     + ' --Start ' + starttimestr
                     + ' --duration ' + str(duration)
                     + ' --timeout 9999'
-                    + ' --out ' + outdumpdir + outfilepre
+                    + ' --out ' + outarg
                     + ' > ' + dumplogname,
                     shell=True
                     )
     print("dumper log written in {}".format(dumplogname))
-    datafileguess = outdumpdir + outfilepre + '_' + str(
-        port) + '.start.' + starttimestr + '.000'
     print("Hopefully created dumpfile: ".format(datafileguess))
 
 
