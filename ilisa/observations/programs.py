@@ -139,7 +139,7 @@ class BasicObsPrograms(object):
         integration = None
         stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration, duration_tot,
                                      pointing)
-        stnsesinfo.write_session_header(datapath)
+        stnsesinfo.write_scan_rec(datapath)
         self.stationdriver.halt_observingstate_when_finished = shutdown  # Necessary due to forking
         data_url = "{}:{}".format(self.stationdriver.get_stnid(), datapath)
         return None

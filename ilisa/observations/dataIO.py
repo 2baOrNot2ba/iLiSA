@@ -41,7 +41,7 @@ regex_xstfilename=(
 
 class StationSessionInfo(object):
 
-    stnsesfile = "StationSession.yml"
+    stnsesfile = "Scan_Rec.yml"
 
     def __init__(self, projectmeta={}):
         self.headerversion = 1
@@ -88,7 +88,7 @@ class StationSessionInfo(object):
                 self.obsfolderinfo['freqband'], self.obsfolderinfo['integration'],
                 self.obsfolderinfo['duration_tot'], self.obsfolderinfo['pointing'])
 
-    def write_session_header(self, datapath):
+    def write_scan_rec(self, datapath):
         with open(os.path.join(datapath, self.stnsesfile), "w") as f:
             f.write("# LOFAR local station project\n")
             f.write("# Created by {} version {}\n".format("iLiSA", ilisa.__version__))
@@ -96,19 +96,19 @@ class StationSessionInfo(object):
             f.write("telescope: {}\n".format(self.telescope))
             f.write("stnid: {}\n".format(self.stnid))
             f.write("projectmeta: {!r}\n".format(self.projectmeta))
-            f.write("sessionmeta: {!r}\n".format(self.obsfolderinfo))
+            f.write("scan: {!r}\n".format(self.obsfolderinfo))
 
-    def read_session_header(self, datapath):
+    def read_scan_rec(self, datapath):
         with open(os.path.join(datapath, self.stnsesfile), 'r') as hf:
             try:
-                stnsessionheader = yaml.load(hf)
+                stnscanrec = yaml.load(hf)
             except Exception as e:
-                print("Couldn't load yaml formatted session header file.")
-        self.headerversion = stnsessionheader['headerversion']
-        self.telescope = stnsessionheader['telescope']
-        self.stnid = stnsessionheader['stnid']
-        self.projectmeta = stnsessionheader['projectmeta']
-        self.obsfolderinfo = stnsessionheader['sessionmeta']
+                print("Couldn't load yaml formatted scan header file.")
+        self.headerversion = stnscanrec['headerversion']
+        self.telescope = stnscanrec['telescope']
+        self.stnid = stnscanrec['stnid']
+        self.projectmeta = stnscanrec['projectmeta']
+        self.obsfolderinfo = stnscanrec['scan']
 
     def get_datatype(self):
         return self.obsfolderinfo['datatype']
@@ -732,7 +732,7 @@ class CVCfiles(object):
         """
         self.stnsesinfo.obsinfos = []
         try:
-            self.stnsesinfo.read_session_header(self.filefolder)
+            self.stnsesinfo.read_scan_rec(self.filefolder)
         except Exception as e:
             print(e.message)
             print(e.__doc__)

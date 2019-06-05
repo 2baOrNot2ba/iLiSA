@@ -556,7 +556,7 @@ class StationDriver(object):
             acc_integration = 1.0
             sesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
                                           duration_tot, pointing)
-            sesinfo_acc.write_session_header(acc_destfolder)
+            sesinfo_acc.write_scan_rec(acc_destfolder)
 
             # - Create header for each ACC file
             for destfile in accdestfiles:
@@ -583,7 +583,7 @@ class StationDriver(object):
             stnsesinfo.set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
                                          freqbndobj.arg, obsinfo.integration,
                                          obsinfo.duration_scan, obsinfo.pointing)
-            stnsesinfo.write_session_header(datapath)
+            stnsesinfo.write_scan_rec(datapath)
             data_url = "{}:{}".format(self.get_stnid(), datapath)
 
         if rec_bfs:
@@ -601,7 +601,7 @@ class StationDriver(object):
             integration = None
             stnsesinfo_bfs.set_obsfolderinfo('bfs', headertime, band, integration,
                                              duration_tot, pointing)
-            stnsesinfo_bfs.write_session_header(datapath)
+            stnsesinfo_bfs.write_scan_rec(datapath)
             data_url = "{}:{}".format(self.get_stnid(), datapath)
 
         self.lcu_interface.cleanup()
@@ -656,7 +656,7 @@ class StationDriver(object):
             stnsesinfo.set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
                                          freqbndobj.arg, obsinfo.integration,
                                          obsinfo.duration_scan, obsinfo.pointing)
-            stnsesinfo.write_session_header(datapath)
+            stnsesinfo.write_scan_rec(datapath)
             data_url = "{}:{}".format(self.get_stnid(), datapath)
         return None
 
