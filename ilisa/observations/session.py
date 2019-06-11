@@ -222,10 +222,12 @@ class Session(object):
                 obsargs = {k: obsargs_in[k] for k in obsargs_sig}
                 self.stationdrivers[stn].do_obsprog(starttime, obsfun, obsargs)
             else:
-                self.stationdrivers[stn].main_scan(freqbndobj, integration, duration_tot,
-                                                   pointing, pointsrc, starttime,
-                                                   rec_stat_type, rec_bfs=rec_bfs,
-                                                   do_acc=do_acc, allsky=allsky)
+                bfs_url, stat_url, acc_url = \
+                    self.stationdrivers[stn].main_scan(freqbndobj, integration,
+                                                       duration_tot, pointing, pointsrc,
+                                                       starttime, rec_stat_type,
+                                                       rec_bfs=rec_bfs, do_acc=do_acc,
+                                                       allsky=allsky)
 
     def implement_scanschedule(self, sessionsched):
         """Implement the scan schedule dict. That is, dispatch to the

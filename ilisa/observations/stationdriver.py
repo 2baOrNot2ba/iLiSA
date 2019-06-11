@@ -528,6 +528,7 @@ class StationDriver(object):
         if todo_tof:
             self.lcu_interface.set_swlevel(3)
 
+        acc_url = None
         if do_acc:
             # Switch back to normal state i.e. turn-off ACC dumping:
             self.lcu_interface.set_swlevel(2)
@@ -575,6 +576,7 @@ class StationDriver(object):
 
             acc_url = "{}:{}".format(self.get_stnid(), acc_destfolder)
 
+        stat_url = None
         if rec_stat_type is not None and obsinfolist is not None:
             obsinfo = copy.copy(obsinfolist[0])
             obsinfo.sb = freqbndobj.sb_range[0]
@@ -590,8 +592,9 @@ class StationDriver(object):
                                          freqbndobj.arg, obsinfo.integration,
                                          obsinfo.duration_scan, obsinfo.pointing)
             stnsesinfo.write_scan_rec(datapath)
-            data_url = "{}:{}".format(self.get_stnid(), datapath)
+            stat_url = "{}:{}".format(self.get_stnid(), datapath)
 
+        bfs_url = None
         if rec_bfs:
             headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                     ).strftime("%Y%m%d_%H%M%S")
@@ -613,13 +616,13 @@ class StationDriver(object):
             stnsesinfo_bfs.set_obsfolderinfo('bfs', headertime, band, integration,
                                              duration_tot, pointing)
             stnsesinfo_bfs.write_scan_rec(datapath)
-            data_url = "{}:{}".format(self.get_stnid(), datapath)
+            bfs_url = "{}:{}".format(self.get_stnid(), datapath)
 
         self.lcu_interface.cleanup()
         # Necessary due to possible forking
         self.halt_observingstate_when_finished = shutdown
 
-        return None
+        return bfs_url, stat_url, acc_url
 
     def do_obsprog(self, starttime, obsfun, obsargs):
         """At starttime execute the observation program specified by the obsfun method
