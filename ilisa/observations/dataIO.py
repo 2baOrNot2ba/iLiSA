@@ -453,7 +453,7 @@ class ObsInfo(object):
     def get_recfreq(self):
         """Return data recording frequency in Hz."""
         sb =self.rspctl_cmd['xcsubband']
-        if self.datatype != "xst-SEPTON":
+        if self.datatype != "xst-SEPTON" and  not self.septonconf:
             rcumode = self.beamctl_cmd['rcumode']
         else:
             rcumode = 5

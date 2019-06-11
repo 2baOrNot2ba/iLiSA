@@ -607,6 +607,7 @@ class StationDriver(object):
             for lane in lanes:
                 os.symlink(bfspaths[lane], os.path.join(datapath,
                                                         os.path.basename(bfspaths[lane])))
+            # TODO: Move dump log files
             stnsesinfo_bfs.obsinfos[-1].create_LOFARst_header(datapath)
             integration = None
             stnsesinfo_bfs.set_obsfolderinfo('bfs', headertime, band, integration,
