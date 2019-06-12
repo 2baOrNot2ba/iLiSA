@@ -140,10 +140,58 @@ class Session(object):
             stndrv.do_tbb(duration, band)
         return "."
 
-    def _executeblock(self, stn, scans):
-        for scan in scans:
-            prg = programs.BasicObsPrograms(self.stationdrivers[stn])
+    def implement_scanschedule(self, sessionsched):
+        """Implement the scan schedule dict. That is, dispatch to the
+        stationdrivers to setup corresponding observations."""
+        stn_ses_sched = self.parse_ses_sched(sessionsched)
+        for stn in stn_ses_sched.keys():
+            for scan in stn_ses_sched[stn]:
+                prg = programs.BasicObsPrograms(self.stationdrivers[stn])
+                if scan['obsprog'] is not None:
+                    obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
+                    # Map only args required by
+                    obsargs = {k: scan[k] for k in obsargs_sig}
+                    self.stationdrivers[stn].do_obsprog(scan['starttime'], obsfun,
+                                                        obsargs)
+                else:
+                    freqbndobj = scan['freqbndobj']
+                    integration = scan['integration']
+                    duration_tot = scan['duration_tot']
+                    pointing = scan['pointing']
+                    pointsrc = scan['pointsrc']
+                    starttime = scan['starttime']
+                    rec_stat_type = scan['rec_stat_type']
+                    rec_bfs = scan['rec_bfs']
+                    do_acc = scan['do_acc']
+                    allsky = scan['allsky']
+                    exit(0)
+                    bfs_url, stat_url, acc_url = \
+                        self.stationdrivers[stn].main_scan(freqbndobj, integration,
+                                                           duration_tot, pointing,
+                                                           pointsrc,
+                                                           starttime, rec_stat_type,
+                                                           rec_bfs=rec_bfs, do_acc=do_acc,
+                                                           allsky=allsky)
 
+    def parse_ses_sched(self, ses_sched_in):
+        """Is a method for parsing session schedules."""
+        def _parse_stations(stns_str):
+            # From the stations string, generate list of stations:
+            if stns_str == '*' or stns_str == 'ALL':
+                stns = self.stationdrivers.keys()
+            else:
+                stns = stns_str.split(',')
+            return stns
+
+        stn_ses_sched_out = {}
+        stns = set()
+        for scan in ses_sched_in['scans']:
+            scan_stns = _parse_stations(scan['stations'])
+            stns.update(scan_stns)
+        for stn in stns:
+            stn_ses_sched_out[stn] = []
+
+        for scan in ses_sched_in['scans']:
             # Prepare observation arguments:
             # - Starttime
             starttime = scan['starttime']
@@ -198,49 +246,28 @@ class Session(object):
             except KeyError:
                 rec_bfs = False
 
-            # Collect observation parameters specified
-            obsargs_in = {'starttime': starttime,
-                          'freqbndobj': freqbndobj,
-                          'pointsrc': pointsrc,
-                          'pointing': pointing,
-                          'allsky': allsky,
-                          'rec_stat_type': rec_stat_type,
-                          'integration': integration,
-                          'duration_tot': duration_tot,
-                          'rec_bfs': rec_bfs
-                          }
-
             # If dedicated observation program chosen, set it up
             # otherwise run main obs program
             try:
-                scan['obsprog']
+                obsprog = scan['obsprog']
             except KeyError:
-                scan['obsprog'] = None
-            if scan['obsprog'] is not None:
-                obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
-                # Map only args required by
-                obsargs = {k: obsargs_in[k] for k in obsargs_sig}
-                self.stationdrivers[stn].do_obsprog(starttime, obsfun, obsargs)
-            else:
-                bfs_url, stat_url, acc_url = \
-                    self.stationdrivers[stn].main_scan(freqbndobj, integration,
-                                                       duration_tot, pointing, pointsrc,
-                                                       starttime, rec_stat_type,
-                                                       rec_bfs=rec_bfs, do_acc=do_acc,
-                                                       allsky=allsky)
+                obsprog = None
 
-    def implement_scanschedule(self, sessionsched):
-        """Implement the scan schedule dict. That is, dispatch to the
-        stationdrivers to setup corresponding observations."""
-        #print sessionsched
-        eb = sessionsched
-        # From the scan['stations'] string, generate list of stations:
-        if eb['stations'] == '*' or eb['stations'] == 'ALL':
-            stns = self.stationdrivers.keys()
-        else:
-            stns = eb['stations'].split(',')
-        for stn in stns:
-            try:
-                self._executeblock(stn, eb['scans'])
-            except RuntimeError:
-                break
+            # Collect observation parameters specified
+            obsargs_in = {'freqbndobj': freqbndobj,
+                          'integration': integration,
+                          'duration_tot': duration_tot,
+                          'pointing': pointing,
+                          'pointsrc': pointsrc,
+                          'starttime': starttime,
+                          'rec_stat_type': rec_stat_type,
+                          'rec_bfs': rec_bfs,
+                          'do_acc': do_acc,
+                          'allsky': allsky
+                          }
+            obsargs_in.update({'obsprog': obsprog})
+            scan_stns = _parse_stations(scan['stations'])
+            for stn in scan_stns:
+                stn_ses_sched_out[stn].append(obsargs_in)
+
+        return stn_ses_sched_out

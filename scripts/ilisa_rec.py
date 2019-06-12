@@ -35,8 +35,8 @@ if __name__ == "__main__":
     beam = {'freqspec': args.freqspec, 'pointing': args.pointing, 'allsky': args.allsky}
     rec_stat = {'type': args.datatype, 'integration': args.integration}
     sessionsched = {'projectid': args.projectid,
-                    'stations': 'ALL',
-                    'scans': [{'starttime': args.starttime,
+                    'scans': [{'stations': 'ALL',
+                               'starttime': args.starttime,
                                'beam': beam,
                                'duration_tot': args.duration_tot,
                                'rec_stat': rec_stat
