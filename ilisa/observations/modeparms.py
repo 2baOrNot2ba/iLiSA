@@ -193,7 +193,7 @@ class FrequencyBand(object):
                         4:  4*BASE_NR_BEAMLETS}
     nrlanes = 4
 
-    def __init__(self, arg):
+    def __init__(self, arg=None):
         self.arg = arg
         if arg is not None:
             if type(arg) is not tuple:
