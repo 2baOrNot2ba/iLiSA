@@ -164,7 +164,6 @@ class Session(object):
                     rec_bfs = scan['rec_bfs']
                     do_acc = scan['do_acc']
                     allsky = scan['allsky']
-                    exit(0)
                     bfs_url, stat_url, acc_url = \
                         self.stationdrivers[stn].main_scan(freqbndobj, integration,
                                                            duration_tot, pointing,

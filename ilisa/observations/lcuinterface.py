@@ -326,9 +326,10 @@ class LCUInterface(object):
     def stop_beam(self):
         """Stop any running beamctl processes."""
         # Stop any beamctl on lcu.
-        self.exec_lcu("killall beamctl")
-        # Put caltables back to default
-        self.selectCalTable('default')
+        if not self.DryRun:
+            self.exec_lcu("killall beamctl")
+            # Put caltables back to default
+            self.selectCalTable('default')
         # print("Beam off at %s"%time.asctime(time.localtime(time.time())))
 
     def run_rspctl(self, select=None, mode=None, tbbmode=None):
@@ -393,7 +394,7 @@ class LCUInterface(object):
         time.sleep(waittime)  # Wait for beam to settle
         return beamctl_CMD
 
-    def rec_bst(self, integration, duration,directory=None):
+    def rec_bst(self, integration, duration, directory=None):
         """Convenience function to record BST data on LCU."""
         if directory is None:
             directory = self.lcuDumpDir
