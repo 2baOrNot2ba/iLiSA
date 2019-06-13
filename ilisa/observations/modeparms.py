@@ -407,6 +407,15 @@ class FrequencyBand(object):
                 (lanenr, bmlt_hi) = next(lanesplitblmt)
         return lanealloc
 
+    def get_maxbeamletsbybits(self, bits=None):
+        """Return the maximum number of beamlets depending on bit depth."""
+        if not bits:
+            try:
+                bits = self.bits
+            except NameError:
+                raise ValueError("Need to specify bits.")
+        return self.nrbeamletsbybits[bits]
+
 
 def pointingGrid(NrAzDirs=8, NrElDirs=7):
     """Returns a tuple of LOFAR beamctl directions strings of a spherical
