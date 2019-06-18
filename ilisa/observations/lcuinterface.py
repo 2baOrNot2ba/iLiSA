@@ -362,6 +362,22 @@ class LCUInterface(object):
         self.exec_lcu(rcu_setup_CMDs)
         return rcu_setup_CMDs
 
+    def get_bits(self):
+        """Get rcu sample bit-depth."""
+        bits = getattr(self, 'bits', None)
+        if not bits:
+            outrspctl = self._stdoutLCU("rspctl --bitmode").splitlines()
+            ans = outrspctl[2:]
+            rspbits = []
+            for l in ans:
+                rsplnnr, head1684,  bitsstr = l.split(':', 2)
+                rsp_nr = int(rsplnnr[4:6])
+                rspbits.append( (rsp_nr, int(bitsstr.lstrip())) )
+            # Will assume all rsp board have same bit depth:
+            bits = rspbits[0][1]
+        self.bits = bits
+        return self.bits
+
     def _setup_beamctl(self, beamlets, subbands, band, anadigdir, rcus,
                        beamdurstr=''):
         """Create a beamctl command string from the given arguments."""
