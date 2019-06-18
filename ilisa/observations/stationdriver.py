@@ -30,7 +30,7 @@ class StationDriver(object):
         is using the station."""
         serviceuser = self.lcu_interface.who_servicebroker()
 
-        if serviceuser == 'None' or serviceuser == self.lcu_interface.user:
+        if serviceuser is None or serviceuser == self.lcu_interface.user:
             stationswitchmode = self.lcu_interface.getstationswitchmode()
             if stationswitchmode == 'local':
                 return True
@@ -110,13 +110,16 @@ class StationDriver(object):
             movecmd += " -r"
         fullcmd = movecmd +" " + self.lcu_interface.lcuURL + ":" + source + " " + dest
         cmdprompt = "on DPU>"
-        if self.lcu_interface.DryRun:
-            cmdprompt = "(dryrun) "+cmdprompt
+        #if self.lcu_interface.DryRun:
+        #    cmdprompt = "(dryrun) "+cmdprompt
         if self.lcu_interface.verbose:
             print("{} {}".format(cmdprompt, fullcmd))
-        if not self.lcu_interface.DryRun:
-            subprocess.call(fullcmd, shell=True)
-            self.lcu_interface.rm(source)
+        #if not self.lcu_interface.DryRun:
+        subprocess.call(fullcmd, shell=True)
+        dryrun = self.lcu_interface.DryRun
+        self.lcu_interface.DryRun = False
+        self.lcu_interface.rm(source)
+        self.lcu_interface.DryRun = dryrun
 
     def get_data_timestamp(self, order=0, ACC=False):
         """Get timestamp of datafiles on LCU. order is the temporal order of the data

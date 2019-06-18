@@ -54,6 +54,8 @@ class LCUInterface(object):
 
     def checkLCUenv(self):
         """Check the LCU environment, especially for datataking assumptions."""
+        if self.DryRun:
+            return True, True
         envpath = self._stdoutLCU("env | grep '^PATH'")
         envpath = envpath.split("=")[1].split(":")
         if self.lofarbin in envpath and self.lofaroperationsbin in envpath:
@@ -188,10 +190,21 @@ class LCUInterface(object):
         return output
 
     def outfromLCU(self, cmdline, integration, duration):
-        print("LCUo> {}".format(cmdline))
-        cmd = subprocess.Popen("ssh "+self.lcuURL+" "+"'"+cmdline+"'",
+        """Execute a command on the LCU and monitor progress."""
+        LCUprompt = "LCUo> "
+        shellinvoc = "ssh " + self.lcuURL
+        if self.DryRun:
+            prePrompt = "(dryrun) "
+        else:
+            prePrompt = ""
+        if self.verbose:
+            print(prePrompt+LCUprompt+cmdline)
+        if self.DryRun is False:
+            cmd = subprocess.Popen(shellinvoc+" '"+cmdline+"'",
                                stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                stderr=subprocess.PIPE, shell=True)
+        else:
+            return None
         count = 0
         outstrname = 'stderr'
         while cmd.poll() is None:
@@ -222,13 +235,18 @@ class LCUInterface(object):
         (uses YYYYmmdd_HHMMSS) and because default 'ls' sorts names in alphabetical
         order, the list of files will be ordered such that oldest data is first.
         """
+        dryrun = self.DryRun
+        self.DryRun = False  # Override DryRun for this case
         ls_lcuDumpDir = self._list_dat_files(self.lcuDumpDir)
         ls_ACCsrcDir = self._list_dat_files(self.ACCsrcDir)
+        self.DryRun = dryrun
         return ls_lcuDumpDir, ls_ACCsrcDir
 
     def who_servicebroker(self):
         """Check who is running the Service Broker on the LCU. This is an
         indication of who is currently using the station."""
+        if self.DryRun:
+            return None
         try:
             ps_out = \
               self._stdoutLCU("/bin/ps -CServiceBroker --no-headers -ouser")
@@ -238,13 +256,15 @@ class LCUInterface(object):
             ps_out = ""
         ps_out_lns = ps_out.splitlines()
         if len(ps_out_lns) == 0:
-            sb_user = 'None'
+            sb_user = None
         else:
             sb_user = ps_out_lns[0]
         return sb_user
 
     def getstationswitchmode(self):
         """Get mode of station switch. Can be 'ILT' or 'local' mode."""
+        if self.DryRun:
+            return 'local'
         try:
             getstationmode_out = self._stdoutLCU("getstationmode")
         except:
@@ -360,6 +380,8 @@ class LCUInterface(object):
             rcu_setup_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "
         #rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
         self.exec_lcu(rcu_setup_CMDs)
+        if self.DryRun:
+            self.bits = bits
         return rcu_setup_CMDs
 
     def get_bits(self):
@@ -419,6 +441,8 @@ class LCUInterface(object):
                       + " --duration="+str(duration)
                       + " --directory="+directory)
         self.outfromLCU(rspctl_CMD, integration, duration)
+        if self.DryRun:
+            self.mockstatistics('bst', integration, duration, directory)
         return rspctl_CMD
 
     def rec_sst(self, integration, duration, directory=None):
@@ -430,6 +454,8 @@ class LCUInterface(object):
                       + " --duration="+str(duration)
                       + " --directory="+directory)
         self.exec_lcu(rspctl_CMD)
+        if self.DryRun:
+            self.mockstatistics('sst', integration, duration, directory)
         return rspctl_CMD
 
     def rec_xst(self, sb, integration, duration, directory=None):
@@ -446,8 +472,55 @@ class LCUInterface(object):
                       + " --duration="+str(duration)
                       + " --directory="+directory)
         self.exec_lcu(rspctl_CMD)
+        if self.DryRun:
+            self.mockstatistics('xst', integration, duration, directory)
         rspctl_CMDs += rspctl_CMD
         return rspctl_CMDs
+
+    def mockstatistics(self, statistics, integration, duration, directory=None):
+        """Make mock statistics data file(s)."""
+        if directory is None:
+            directory = self.lcuDumpDir
+        self.DryRun = False
+        nrtimsamps = int(duration/integration)
+        import ilisa.observations.modeparms as modeparms
+        import datetime
+        dd_cmdbase = 'dd if=/dev/zero'
+        bits = self.get_bits()
+        dtstamp = datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        if statistics == 'bst':
+            # Write mock bst files. (mock files contain just zeros)
+            nrbls = modeparms.FrequencyBand().get_maxbeamletsbybits(bits)
+            dd_bs = 8
+            dd_count = nrbls * nrtimsamps
+            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
+            for pol in ['X', 'Y']:
+                bstfilename = "{}_bst_00{}.dat".format(dtstamp, pol)
+                fpath = os.path.join(directory, bstfilename)
+                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
+                self.exec_lcu(dd_cmd)
+        elif statistics == 'sst':
+            # Write mock sst files
+            nrsbs = modeparms.TotNrOfsb
+            dd_bs = 8
+            dd_count = nrsbs * nrtimsamps
+            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
+            for rcunr in range(modeparms.nrofrcus):
+                sstfilename = "{}_sst_rcu{:03}.dat".format(dtstamp, rcunr)
+                fpath = os.path.join(directory, sstfilename)
+                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
+                self.exec_lcu(dd_cmd)
+        elif statistics == 'xst':
+            # Write mock sst files
+            nrrcus = modeparms.nrofrcus
+            dd_bs = 2*8
+            dd_count = nrrcus*nrrcus * nrtimsamps
+            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
+            xstfilename = "{}_xst.dat".format(dtstamp)
+            fpath = os.path.join(directory, xstfilename)
+            dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
+            self.exec_lcu(dd_cmd)
+        self.DryRun = True
 
     def run_tbbctl(self, select=None, alloc=False, free=False, record=False, stop=False,
                    mode=None, storage=None, readall=None, cepdelay=None,
@@ -509,6 +582,8 @@ class LCUInterface(object):
                                                    shell=True)
         else:
             calinfoout =self._stdoutLCU("beamctl --calinfo")
+            if self.DryRun:
+                return ""
             # Convert output into a list of dict per antset
             calinfolist = []
             # Strip off first initial lines and split on blank lines
