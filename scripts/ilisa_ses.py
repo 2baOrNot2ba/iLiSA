@@ -17,6 +17,14 @@ if __name__ == "__main__":
 
     with open(args.file, 'r') as f:
         schedspec = yaml.load(f)
-    myses = session.Session(projectid=str(schedspec['projectid']),
+    try:
+        projectid = str(schedspec['projectid'])
+    except AttributeError:
+        raise RuntimeError("'projectid' field not set.")
+    try:
+        mockrun = schedspec['mockrun']
+    except KeyError:
+        mockrun = False
+    myses = session.Session(projectid=projectid, mockrun=mockrun,
                             halt_observingstate_when_finished = False)
     myses.implement_scanschedule(schedspec)

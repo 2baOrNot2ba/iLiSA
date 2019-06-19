@@ -9,6 +9,7 @@ import datetime
 import subprocess
 import os
 import sys
+import shutil
 import multiprocessing
 import copy
 
@@ -42,7 +43,7 @@ class StationDriver(object):
             print("         (You are running as {})".format(self.lcu_interface.user))
             return False
 
-    def __init__(self, accessconf, stnsesinfo,
+    def __init__(self, accessconf, stnsesinfo, mockrun=False,
                  goto_observingstate_when_starting=True):
         """Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
@@ -64,6 +65,9 @@ class StationDriver(object):
         self.tbbh5dumpdir =     dpuaccessconf['TBBh5dumpDir']
 
         self.DryRun = lcuaccessconf['DryRun']
+        self.mockrun = mockrun
+        if self.mockrun:
+            self.DryRun = True  # TODO improve logic regarding simulated observations
         self.exit_check = True
         self.halt_observingstate_when_finished = True
         self.cleanup()
@@ -444,12 +448,14 @@ class StationDriver(object):
             lanes = tuple(freqbndobj.getlanes().keys())
             bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band, bf_data_dir,
                                      port0, stnid)
-            bfspaths = []
+            bfsdatapaths = []
+            bfslogpaths = []
             for lane in lanes:
                 outdumpdir, outarg, datafileguess, dumplogname =\
                     bfbackend.bfsfilepaths(lane, starttimestr, band, bf_data_dir, port0,
                                            stnid)
-                bfspaths.append(datafileguess)
+                bfsdatapaths.append(datafileguess)
+                bfslogpaths.append(dumplogname)
         else:
             print("Not recording")
         sys.stdout.flush()
@@ -518,15 +524,7 @@ class StationDriver(object):
         # Finished recording
         self.lcu_interface.stop_beam()
 
-        # Determine path where this scan should be stored
-        projpath = os.path.join(self.LOFARdataArchive,
-                                "proj{}".format(self.stnsesinfo.projectmeta['projectID']))
-        # - Make a scan ID. (Currently based on starttime of scan)
-        try:
-            scanid = self.get_data_timestamp(-1)
-        except Exception:
-            scanid = beamstarted.strftime("%Y%d%m_%H%M%S")
-        scanpath = os.path.join(projpath, "scan_{}".format(scanid))
+        projpath, scanpath = self.storagepaths(beamstarted)
 
         if todo_tof:
             self.lcu_interface.set_swlevel(3)
@@ -611,9 +609,11 @@ class StationDriver(object):
             os.makedirs(datapath)
             # Make soft links to actual BFS files
             for lane in lanes:
-                os.symlink(bfspaths[lane], os.path.join(datapath,
-                                                        os.path.basename(bfspaths[lane])))
+                os.symlink(bfsdatapaths[lane], os.path.join(datapath,
+                                                    os.path.basename(bfsdatapaths[lane])))
+                shutil.move(bfslogpaths[lane], datapath)
             # TODO: Move dump log files
+
             stnsesinfo_bfs.obsinfos[-1].create_LOFARst_header(datapath)
             integration = None
             stnsesinfo_bfs.set_obsfolderinfo('bfs', headertime, band, integration,
@@ -626,6 +626,18 @@ class StationDriver(object):
         self.halt_observingstate_when_finished = shutdown
 
         return bfs_url, stat_url, acc_url
+
+    def storagepaths(self, beamstarted):
+        # Determine path where this scan should be stored
+        projpath = os.path.join(self.LOFARdataArchive,
+                                "proj{}".format(self.stnsesinfo.projectmeta['projectID']))
+        # - Make a scan ID. (Currently based on starttime of scan)
+        try:
+            scanid = self.get_data_timestamp(-1)
+        except Exception:
+            scanid = beamstarted.strftime("%Y%m%d_%H%M%S")
+        scanpath = os.path.join(projpath, "scan_{}".format(scanid))
+        return projpath, scanpath
 
     def do_obsprog(self, starttime, obsfun, obsargs):
         """At starttime execute the observation program specified by the obsfun method

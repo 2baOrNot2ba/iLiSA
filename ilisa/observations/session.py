@@ -15,7 +15,7 @@ class Session(object):
     obslogfile = "obs.log"
     userilisadir = os.path.expanduser('~/.iLiSA/')
 
-    def __init__(self, stnroster='stations_roster.conf', projectid=None,
+    def __init__(self, stnroster='stations_roster.conf', projectid=None, mockrun=False,
                  halt_observingstate_when_finished=True):
         """Initialize Session."""
 
@@ -50,6 +50,7 @@ class Session(object):
             with open(accessconffile) as cfigfilep:
                 accessconf = yaml.load(cfigfilep)
             stndrv = stationdriver.StationDriver(accessconf, self.stnsesinfo,
+                                                 mockrun=mockrun,
                                                  goto_observingstate_when_starting=False)
             stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
             # stationdrivers is a dict with stnid keys and corresp. stationdriver object
