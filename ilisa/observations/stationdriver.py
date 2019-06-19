@@ -439,6 +439,7 @@ class StationDriver(object):
             print("No pointing...")
             rcu_setup_cmd = ""
             beamctl_cmds = ""
+            beamstarted = None
 
         if rec_bfs:
             bf_data_dir = os.path.join(self.bf_data_dir,'proj{}'.format(
@@ -580,7 +581,7 @@ class StationDriver(object):
         stat_url = None
         if rec_stat_type is not None and obsinfolist is not None:
             obsinfo = copy.copy(obsinfolist[0])
-            obsinfo.sb = freqbndobj.sb_range[0]
+            #obsinfo.sb = freqbndobj.sb_range[0]
 
             # Move data to archive
             bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(scanpath)
