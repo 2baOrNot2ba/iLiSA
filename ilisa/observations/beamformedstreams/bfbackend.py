@@ -19,11 +19,10 @@ def bfsfilepaths(lane, starttimestr, band, bf_data_dir, port0, stnid):
     outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
     outfilepre = "udp_" + stnid
     rcumode = ilisa.observations.modeparms.band2rcumode(band)
-    outarg = outdumpdir + outfilepre
-    dumplogname = outdumpdir + dumpername \
-                  + '_lane' + str(lane) \
-                  + '_rcu' + rcumode \
-                  + '.log'
+    outarg = os.path.join(outdumpdir, outfilepre)
+    dumplogname = os.path.join(outdumpdir, '{}_lane{}_rcu{}.log'.format(dumpername,
+                                                                        lane,
+                                                                        rcumode))
     datafileguess = outarg + '_' + str(port) + '.start.' + starttimestr + '.000'
     return outdumpdir, outarg, datafileguess, dumplogname
 

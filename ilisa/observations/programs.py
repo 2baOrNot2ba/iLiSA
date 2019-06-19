@@ -106,16 +106,18 @@ class BasicObsPrograms(object):
         beamctl_CMD = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
                                                      pointing)
         rcu_setup_CMD = self.lcu_interface.rcusetup(bits, attenuation)
-        nw = datetime.datetime.utcnow()
-        timeleft = st - nw
+        beamstart = datetime.datetime.utcnow()
+        timeleft = st - beamstart
         if timeleft.total_seconds() < 0.:
-            starttimestr = nw.strftime("%Y-%m-%dT%H:%M:%S")
+            starttimestr = beamstart.strftime("%Y-%m-%dT%H:%M:%S")
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
 
         REC = True
         if REC == True:
-            bf_data_dir = self.stationdriver.bf_data_dir
+            #bf_data_dir = os.path.join(self.stationdriver.bf_data_dir, 'OW')
+            bf_data_dir = os.path.join(self.stationdriver.bf_data_dir, 'proj{}'.format(
+                self.stationdriver.stnsesinfo.projectmeta['projectID']), '')
             port0 = self.stationdriver.bf_port0
             stnid = self.lcu_interface.stnid
             bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band, bf_data_dir,
@@ -125,16 +127,18 @@ class BasicObsPrograms(object):
             time.sleep(duration_tot)
         sys.stdout.flush()
         self.lcu_interface.stop_beam()
+
         headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                 ).strftime("%Y%m%d_%H%M%S")
+        projpath, scanpath = self.stationdriver.storagepaths(beamstart)
         stnsesinfo = copy.deepcopy(self.stationdriver.stnsesinfo)
         stnsesinfo.new_obsinfo()
         stnsesinfo.obsinfos[-1].setobsinfo_fromparams('bfs', headertime, beamctl_CMD,
                                                       rcu_setup_CMD, caltabinfo)
         bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
-            self.stationdriver.LOFARdataArchive)
+            scanpath)
         print("Creating BFS destination folder on DPU:\n{}".format(datapath))
-        os.mkdir(datapath)
+        os.makedirs(datapath)
         stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
         integration = None
         stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration, duration_tot,
