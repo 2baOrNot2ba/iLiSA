@@ -15,8 +15,8 @@ class Session(object):
     obslogfile = "obs.log"
     userilisadir = os.path.expanduser('~/.iLiSA/')
 
-    def __init__(self, stnroster='stations_roster.conf', projectid=None, mockrun=False,
-                 halt_observingstate_when_finished=True):
+    def __init__(self, stnroster='stations_roster.conf', projectid=None, session_id=None,
+                 mockrun=False, halt_observingstate_when_finished=True):
         """Initialize Session."""
 
         # Setup projectmeta:
@@ -56,9 +56,15 @@ class Session(object):
             # stationdrivers is a dict with stnid keys and corresp. stationdriver object
             self.stationdrivers[stndrv.get_stnid()] = stndrv
 
-        # Get a session ID
-        self.session_id = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S')
+        self.set_session_id(session_id)
 
+    def set_session_id(self, session_id=None):
+        """Set the session ID. If session_id is None then a session ID based on time of
+        creation will be used."""
+        if session_id is None:
+            session_id = "sid{}".format(
+                datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S'))
+        self.session_id = session_id
 
     def goto_observingstate(self):
         for stndrv in self.stationdrivers.values():
@@ -72,52 +78,9 @@ class Session(object):
         for stndrv in self.stationdrivers.values():
             stndrv.halt_observingstate_when_finished = True
 
-    def readlogfile(self):
-        sessionlogs = []
-        with open(self.obslogfile, 'r') as f:
-            for sessionentry in yaml.load_all(f):
-                sessionlogs.append(sessionentry)
-        projectsessions = {}
-        for sessionentry in sessionlogs:
-            projectsessions[sessionentry['projectname']] = {}
-        for sessionentry in sessionlogs:
-            projectsessions[sessionentry['projectname']][sessionentry['sessionnr']] = \
-                {'StartTime':sessionentry['StartTime'],
-                 'Duration': sessionentry['Duration'],
-                 'Command':  sessionentry['Command'],
-                 'DataPaths':sessionentry['DataPaths']}
-
-    done_logsessionbegin = False
-
-    def logsessionbegin(self):
-        """Log that the observing session is beginning."""
-        if not self.done_logsessionbegin:
-            with open(self.obslogfile, 'a') as ologfile:
-                ologfile.write("\n---\n")
-                ologfile.write("projectname: {}\n"
-                               .format(self.stnsesinfo.projectmeta['projectname']))
-                # ologfile.write("    SessionNr: {}\n".format(calltime.isoformat()))
-        self.done_logsessionbegin = True
-
-    def log_obs(obsf):
-        @wraps(obsf)
-        def logit(self, *args, **kwargs):
-            self.logsessionbegin()
-            calltime = datetime.datetime.utcnow()
-            retval_obsf = obsf(self, *args, **kwargs)
-            rettime = datetime.datetime.utcnow()
-            elemind  = "    "
-            listind = "  - "
-            with open(self.obslogfile, 'a') as f:
-                f.write(listind+"StartTime: {}\n".format(calltime.isoformat()))
-                f.write(elemind+"Duration: {}\n".format(rettime - calltime))
-                argsstr = ', '.join(map(repr,args))
-                kwargsstr = ', '.join(['{}={!r}'.format(k, v) for k, v in kwargs.items()])
-                cmdargstr = ', '.join([argsstr, kwargsstr])
-                f.write(elemind+"Command: {}({})\n".format(obsf.__name__, cmdargstr))
-                f.write(elemind+"DataPaths: {}\n".format(retval_obsf))
-            return retval_obsf
-        return logit
+    def log(self, com_ses_sched):
+        with open(self.obslogfile,'a') as f:
+            yaml.dump(com_ses_sched, f)
 
     def _waittostart(self, when):
         if when != 'NOW':
@@ -136,22 +99,14 @@ class Session(object):
                 timeuntilboot) + " seconds...")
             time.sleep(timeuntilboot)
 
-    @log_obs
-    def do_tbb(self, duration, band):
-        """Record Transient Buffer Board (TBB) data from one of the LOFAR bands for
-        duration seconds on all stations.
-        """
-        for stndrv in self.stationdrivers.values():
-            stndrv.do_tbb(duration, band)
-        return "."
-
     def implement_scanschedule(self, sessionsched):
         """Implement the scan schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding observations."""
-        stn_ses_sched = self.parse_ses_sched(sessionsched)
+        stn_ses_sched, com_ses_sched = self.process_ses_sched(sessionsched)
+        self.log(com_ses_sched)
         for stn in stn_ses_sched.keys():
             self.stationdrivers[stn].set_stnsess(self.session_id)
-            self.stationdrivers[stn].save_sched(stn_ses_sched[stn])
+            self.stationdrivers[stn].save_stnsessched(stn_ses_sched[stn])
             for scan in stn_ses_sched[stn]['scans']:
                 prg = programs.BasicObsPrograms(self.stationdrivers[stn])
                 if scan['obsprog'] is not None:
@@ -179,7 +134,7 @@ class Session(object):
                                                            rec_bfs=rec_bfs, do_acc=do_acc,
                                                            allsky=allsky)
 
-    def parse_ses_sched(self, ses_sched_in):
+    def process_ses_sched(self, ses_sched_in):
         """Is a method for parsing session schedules."""
         def _parse_stations(stns_str):
             # From the stations string, generate list of stations:
@@ -189,15 +144,34 @@ class Session(object):
                 stns = stns_str.split(',')
             return stns
 
-        stn_ses_sched_out = {}
+        try:
+            mockrun = ses_sched_in['mockrun']
+        except KeyError:
+            mockrun = False
+        try:
+            projectid = ses_sched_in['projectid']
+        except KeyError:
+            projectid = '0'
+
+        # Initialize processed central session schedule
+        com_ses_sched = {self.session_id: {'projectid': projectid,
+                                           'scans': []}}
+        if mockrun:
+            com_ses_sched[self.session_id]['mockrun'] = True
+
+        # Initialize processed station session schedule
+        stn_ses_sched = {}
         stns = set()
         for scan in ses_sched_in['scans']:
             scan_stns = _parse_stations(scan['stations'])
             stns.update(scan_stns)
         for stn in stns:
-            stn_ses_sched_out[stn] = {'session_id': self.session_id,
+            stn_ses_sched[stn] = {'session_id': self.session_id,
+                                      'projectid': projectid,
                                       'station': stn,
                                       'scans': []}
+            if mockrun:
+                stn_ses_sched[stn]['mockrun'] = True
 
         for scan in ses_sched_in['scans']:
             # Prepare observation arguments:
@@ -277,6 +251,8 @@ class Session(object):
             obsargs_in.update({'obsprog': obsprog})
             scan_stns = _parse_stations(scan['stations'])
             for stn in scan_stns:
-                stn_ses_sched_out[stn]['scans'].append(obsargs_in)
-
-        return stn_ses_sched_out
+                stn_ses_sched[stn]['scans'].append(obsargs_in)
+            com_scan = obsargs_in
+            com_scan.update({'stations': scan_stns})
+            com_ses_sched[self.session_id]['scans'].append(com_scan)
+        return stn_ses_sched, com_ses_sched

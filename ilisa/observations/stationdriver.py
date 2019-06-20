@@ -29,7 +29,7 @@ class StationDriver(object):
 
     def checkobservingallowed(self):
         """Check whether observations are allowed. This occurs is someone else
-        is using the station."""
+        is using the station. Note that if mockrun then this method will return True."""
         serviceuser = self.lcu_interface.who_servicebroker()
 
         if serviceuser is None or serviceuser == self.lcu_interface.user:
@@ -54,6 +54,9 @@ class StationDriver(object):
         """
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
+        self.mockrun = mockrun
+        if self.mockrun:
+            lcuaccessconf['DryRun'] = True  # mockrun overrides DryRun
         self.lcu_interface = stationcontrol.LCUInterface(lcuaccessconf)
         self.stnsesinfo = stnsesinfo
         self.stnsesinfo.set_stnid(self.lcu_interface.stnid)
@@ -65,10 +68,8 @@ class StationDriver(object):
         self.tbbraw2h5cmd =     dpuaccessconf['TBBraw2h5Cmd']
         self.tbbh5dumpdir =     dpuaccessconf['TBBh5dumpDir']
 
-        self.DryRun = lcuaccessconf['DryRun']
-        self.mockrun = mockrun
-        if self.mockrun:
-            self.DryRun = True  # TODO improve logic regarding simulated observations
+
+
         self.exit_check = True
         self.halt_observingstate_when_finished = True
         self.cleanup()
@@ -176,10 +177,10 @@ class StationDriver(object):
         scanpath = os.path.join(projpath, sesspath, "scan_{}".format(scanid))
         return scanpath
 
-    def save_sched(self, sched):
+    def save_stnsessched(self, sched):
         sesspath=self.get_sesspath()
         os.makedirs(sesspath)
-        ses_sched_file = os.path.join(sesspath, 'schedule.yaml')
+        ses_sched_file = os.path.join(sesspath, 'stn_session.yaml')
         with open(ses_sched_file, 'w') as f:
             yaml.dump(sched, f)
 
