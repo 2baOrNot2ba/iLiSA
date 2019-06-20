@@ -130,7 +130,7 @@ class BasicObsPrograms(object):
 
         headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                 ).strftime("%Y%m%d_%H%M%S")
-        projpath, scanpath = self.stationdriver.storagepaths(beamstart)
+        scanpath = self.stationdriver.get_scanpath(beamstart)
         stnsesinfo = copy.deepcopy(self.stationdriver.stnsesinfo)
         stnsesinfo.new_obsinfo()
         stnsesinfo.obsinfos[-1].setobsinfo_fromparams('bfs', headertime, beamctl_CMD,
