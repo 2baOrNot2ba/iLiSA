@@ -10,6 +10,7 @@ import subprocess
 import os
 import sys
 import shutil
+import yaml
 import multiprocessing
 import copy
 
@@ -142,6 +143,45 @@ class StationDriver(object):
     def get_stnid(self):
         """Return the station id that this StationDriver is managing."""
         return self.lcu_interface.stnid
+
+    def set_stnsess(self, parent_session_id):
+        self.stn_sess_id = '{}_{}'.format(parent_session_id, self.get_stnid())
+
+    def get_stnsess(self):
+        return self.stn_sess_id
+
+    def get_datastorepath(self):
+        return self.LOFARdataArchive
+
+    def get_projpath(self):
+        projpath = os.path.join(self.get_datastorepath(),
+                                "proj{}".format(self.stnsesinfo.projectmeta['projectID']))
+        return projpath
+
+
+    def get_sesspath(self):
+        return os.path.join(self.get_projpath(), 'session_{}'.format(self.get_stnsess()))
+
+    def get_scanpath(self, beamstarted=None):
+        """Determine path where next scan should be stored."""
+        # - Make a scan ID. (Currently based on starttime of scan)
+        try:
+            scanid = self.get_data_timestamp(-1)
+        except Exception:
+            if beamstarted is None:
+                beamstarted = datetime.datetime.utcnow()
+            scanid = beamstarted.strftime("%Y%m%d_%H%M%S")
+        projpath = self.get_projpath()
+        sesspath = self.get_sesspath()
+        scanpath = os.path.join(projpath, sesspath, "scan_{}".format(scanid))
+        return scanpath
+
+    def save_sched(self, sched):
+        sesspath=self.get_sesspath()
+        os.makedirs(sesspath)
+        ses_sched_file = os.path.join(sesspath, 'schedule.yaml')
+        with open(ses_sched_file, 'w') as f:
+            yaml.dump(sched, f)
 
     def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
                     attenuation=0, DUMMYWARMUP=False):
@@ -525,7 +565,9 @@ class StationDriver(object):
         # Finished recording
         self.lcu_interface.stop_beam()
 
-        projpath, scanpath = self.storagepaths(beamstarted)
+        # Work where data should be stored:
+
+        scanpath = self.get_scanpath(beamstarted)
 
         if todo_tof:
             self.lcu_interface.set_swlevel(3)
@@ -627,18 +669,6 @@ class StationDriver(object):
         self.halt_observingstate_when_finished = shutdown
 
         return bfs_url, stat_url, acc_url
-
-    def storagepaths(self, beamstarted):
-        # Determine path where this scan should be stored
-        projpath = os.path.join(self.LOFARdataArchive,
-                                "proj{}".format(self.stnsesinfo.projectmeta['projectID']))
-        # - Make a scan ID. (Currently based on starttime of scan)
-        try:
-            scanid = self.get_data_timestamp(-1)
-        except Exception:
-            scanid = beamstarted.strftime("%Y%m%d_%H%M%S")
-        scanpath = os.path.join(projpath, "scan_{}".format(scanid))
-        return projpath, scanpath
 
     def do_obsprog(self, starttime, obsfun, obsargs):
         """At starttime execute the observation program specified by the obsfun method

@@ -56,6 +56,10 @@ class Session(object):
             # stationdrivers is a dict with stnid keys and corresp. stationdriver object
             self.stationdrivers[stndrv.get_stnid()] = stndrv
 
+        # Get a session ID
+        self.session_id = datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S')
+
+
     def goto_observingstate(self):
         for stndrv in self.stationdrivers.values():
             try:
@@ -146,7 +150,9 @@ class Session(object):
         stationdrivers to setup corresponding observations."""
         stn_ses_sched = self.parse_ses_sched(sessionsched)
         for stn in stn_ses_sched.keys():
-            for scan in stn_ses_sched[stn]:
+            self.stationdrivers[stn].set_stnsess(self.session_id)
+            self.stationdrivers[stn].save_sched(stn_ses_sched[stn])
+            for scan in stn_ses_sched[stn]['scans']:
                 prg = programs.BasicObsPrograms(self.stationdrivers[stn])
                 if scan['obsprog'] is not None:
                     obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
@@ -155,16 +161,16 @@ class Session(object):
                     self.stationdrivers[stn].do_obsprog(scan['starttime'], obsfun,
                                                         obsargs)
                 else:
-                    freqbndobj = scan['freqbndobj']
+                    freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
                     integration = scan['integration']
                     duration_tot = scan['duration_tot']
-                    pointing = scan['pointing']
-                    pointsrc = scan['pointsrc']
+                    pointing = scan['beam']['pointing']
+                    pointsrc = scan['beam']['pointsrc']
                     starttime = scan['starttime']
                     rec_stat_type = scan['rec_stat_type']
                     rec_bfs = scan['rec_bfs']
                     do_acc = scan['do_acc']
-                    allsky = scan['allsky']
+                    allsky = scan['beam']['allsky']
                     bfs_url, stat_url, acc_url = \
                         self.stationdrivers[stn].main_scan(freqbndobj, integration,
                                                            duration_tot, pointing,
@@ -189,7 +195,9 @@ class Session(object):
             scan_stns = _parse_stations(scan['stations'])
             stns.update(scan_stns)
         for stn in stns:
-            stn_ses_sched_out[stn] = []
+            stn_ses_sched_out[stn] = {'session_id': self.session_id,
+                                      'station': stn,
+                                      'scans': []}
 
         for scan in ses_sched_in['scans']:
             # Prepare observation arguments:
@@ -197,7 +205,7 @@ class Session(object):
             starttime = scan['starttime']
             # - Beam
             # -- Freq
-            freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
+            freqspec = scan['beam']['freqspec']
             # -- Pointing
             try:
                 pointsrc = scan['beam']['pointing']
@@ -254,20 +262,21 @@ class Session(object):
                 obsprog = None
 
             # Collect observation parameters specified
-            obsargs_in = {'freqbndobj': freqbndobj,
+            obsargs_in = {'beam':
+                              {'freqspec': freqspec,
+                               'pointsrc': pointsrc,
+                               'pointing': pointing,
+                               'allsky': allsky},
                           'integration': integration,
                           'duration_tot': duration_tot,
-                          'pointing': pointing,
-                          'pointsrc': pointsrc,
                           'starttime': starttime,
                           'rec_stat_type': rec_stat_type,
                           'rec_bfs': rec_bfs,
-                          'do_acc': do_acc,
-                          'allsky': allsky
+                          'do_acc': do_acc
                           }
             obsargs_in.update({'obsprog': obsprog})
             scan_stns = _parse_stations(scan['stations'])
             for stn in scan_stns:
-                stn_ses_sched_out[stn].append(obsargs_in)
+                stn_ses_sched_out[stn]['scans'].append(obsargs_in)
 
         return stn_ses_sched_out
