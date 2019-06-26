@@ -14,10 +14,25 @@ import yaml
 import multiprocessing
 import copy
 
+import ilisa
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
+import ilisa.observations.programs as programs
+
+def projid2meta(projectid):
+    """Get the project metadata for project with projectid."""
+    # Setup projectmeta:
+    if projectid is not None:
+        projectfile = projectid + "_project.yml"
+        projectfile = os.path.join(ilisa.user_conf_dir, projectfile)
+        with open(projectfile) as projectfilep:
+            projectprofile = yaml.load(projectfilep)
+        projectmeta = projectprofile['PROJECTPROFILE']
+    else:
+        projectmeta = {'observer': None, 'projectname': None}
+    return projectmeta
 
 
 class StationDriver(object):
@@ -44,8 +59,7 @@ class StationDriver(object):
             print("         (You are running as {})".format(self.lcu_interface.user))
             return False
 
-    def __init__(self, accessconf, stnsesinfo, mockrun=False,
-                 goto_observingstate_when_starting=True):
+    def __init__(self, accessconf, mockrun=False, goto_observingstate_when_starting=True):
         """Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
         When goto_observingstate_when_starting is True, boot the
@@ -58,8 +72,6 @@ class StationDriver(object):
         if self.mockrun:
             lcuaccessconf['DryRun'] = True  # mockrun overrides DryRun
         self.lcu_interface = stationcontrol.LCUInterface(lcuaccessconf)
-        self.stnsesinfo = stnsesinfo
-        self.stnsesinfo.set_stnid(self.lcu_interface.stnid)
 
         self.LOFARdataArchive = dpuaccessconf['LOFARdataArchive']
         self.bf_data_dir =      dpuaccessconf['BeamFormDataDir']
@@ -156,9 +168,8 @@ class StationDriver(object):
 
     def get_projpath(self):
         projpath = os.path.join(self.get_datastorepath(),
-                                "proj{}".format(self.stnsesinfo.projectmeta['projectID']))
+                                "proj{}".format(self.projectmeta['projectID']))
         return projpath
-
 
     def get_sesspath(self):
         return os.path.join(self.get_projpath(), 'session_{}'.format(self.get_stnsess()))
@@ -183,6 +194,147 @@ class StationDriver(object):
         ses_sched_file = os.path.join(sesspath, 'stn_session.yaml')
         with open(ses_sched_file, 'w') as f:
             yaml.dump(sched, f)
+
+    def make_session_id(self):
+        """Make a session ID based on time of creation."""
+        session_id = "sid{}".format(datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S'))
+        return session_id
+
+    def process_stn_ses_sched(self, stn_ses_sched_in, session_id=None):
+        """Method for parsing a station session schedule."""
+
+        # Set the session_id to something
+        if not session_id:
+            try:
+                session_id = stn_ses_sched_in['session_id']
+            except KeyError:
+                session_id = self.make_session_id()
+        try:
+            mockrun = stn_ses_sched_in['mockrun']
+        except KeyError:
+            mockrun = False
+        try:
+            projectid = stn_ses_sched_in['projectid']
+        except KeyError:
+            projectid = '0'
+
+        # Initialize processed station session schedule
+        stnid= self.get_stnid()
+        stn_ses_sched = {'session_id': session_id,
+                         'projectid': projectid,
+                         'station': stnid,
+                         'scans': []}
+        if mockrun:
+            stn_ses_sched['mockrun'] = True
+
+        for scan in stn_ses_sched_in['scans']:
+            # Prepare observation arguments:
+            # - Starttime
+            starttime = scan['starttime']
+            # - Beam
+            # -- Freq
+            freqspec = scan['beam']['freqspec']
+            # -- Pointing
+            try:
+                pointsrc = scan['beam']['pointing']
+            except KeyError:
+                # No pointing specified so set to None
+                pointsrc = None
+            try:
+                pointing = modeparms.stdPointings(pointsrc)
+            except KeyError:
+                try:
+                    phi, theta, ref = pointsrc.split(',', 3)
+                    # FIXME:  (not always going to be correct)
+                    pointing = pointsrc
+                except ValueError:
+                    raise ValueError(
+                        "Error: %s invalid pointing syntax".format(pointsrc))
+            # -- Allsky
+            try:
+                allsky = scan['beam']['allsky']
+            except KeyError:
+                allsky = False
+            # - Record statistics
+            try:
+                scan['rec_stat']
+            except KeyError:
+                scan['rec_stat'] = None
+            if scan['rec_stat'] is not None:
+                rec_stat_type = scan['rec_stat']['type']
+                integration = eval(str(scan['rec_stat']['integration']))
+            else:
+                rec_stat_type = None
+                integration = 1
+            # - Duration total
+            duration_tot = eval(str(scan['duration_tot']))
+            if integration > duration_tot:
+                raise ValueError("integration {} is longer than duration_scan {}."
+                                 .format(integration, duration_tot))
+            # - ACC
+            try:
+                do_acc = scan['acc']
+            except KeyError:
+                do_acc = False
+            # - BFS
+            try:
+                rec_bfs = scan['rec_bfs']
+            except KeyError:
+                rec_bfs = False
+
+            # If dedicated observation program chosen, set it up
+            # otherwise run main obs program
+            try:
+                obsprog = scan['obsprog']
+            except KeyError:
+                obsprog = None
+
+            # Collect observation parameters specified
+            obsargs_in = {'beam':
+                              {'freqspec': freqspec,
+                               'pointsrc': pointsrc,
+                               'pointing': pointing,
+                               'allsky': allsky},
+                          'integration': integration,
+                          'duration_tot': duration_tot,
+                          'starttime': starttime,
+                          'rec_stat_type': rec_stat_type,
+                          'rec_bfs': rec_bfs,
+                          'do_acc': do_acc
+                          }
+            obsargs_in.update({'obsprog': obsprog})
+            stn_ses_sched['scans'].append(obsargs_in)
+        return stn_ses_sched
+
+    def run_lcl_session(self, stn_ses_sched_in, session_id=None):
+        """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
+        stationdrivers to setup corresponding observations."""
+        stn_ses_sched = self.process_stn_ses_sched(stn_ses_sched_in, session_id)
+        self.projectmeta = projid2meta(stn_ses_sched['projectid'])
+        self.set_stnsess(stn_ses_sched['session_id'])
+        self.save_stnsessched(stn_ses_sched)
+        for scan in stn_ses_sched['scans']:
+            prg = programs.BasicObsPrograms(self)
+            if scan['obsprog'] is not None:
+                obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
+                # Map only args required by
+                obsargs = {k: scan[k] for k in obsargs_sig}
+                self.do_obsprog(scan['starttime'], obsfun, obsargs)
+            else:
+                freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
+                integration = scan['integration']
+                duration_tot = scan['duration_tot']
+                pointing = scan['beam']['pointing']
+                pointsrc = scan['beam']['pointsrc']
+                starttime = scan['starttime']
+                rec_stat_type = scan['rec_stat_type']
+                rec_bfs = scan['rec_bfs']
+                do_acc = scan['do_acc']
+                allsky = scan['beam']['allsky']
+                bfs_url, stat_url, acc_url = \
+                    self.main_scan(freqbndobj, integration, duration_tot, pointing,
+                                   pointsrc, starttime, rec_stat_type,  rec_bfs=rec_bfs,
+                                   do_acc=do_acc, allsky=allsky)
 
     def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
                     attenuation=0, DUMMYWARMUP=False):
@@ -484,7 +636,7 @@ class StationDriver(object):
 
         if rec_bfs:
             bf_data_dir = os.path.join(self.bf_data_dir,'proj{}'.format(
-                self.stnsesinfo.projectmeta['projectID']),'')
+                self.projectmeta['projectID']),'')
             port0 = self.bf_port0
             stnid = self.lcu_interface.stnid
             lanes = tuple(freqbndobj.getlanes().keys())
@@ -603,8 +755,8 @@ class StationDriver(object):
             accdestfiles = os.listdir(acc_destfolder)
 
             # - Create project header
-
-            sesinfo_acc = copy.deepcopy(self.stnsesinfo)
+            sesinfo_acc = dataIO.StationSessionInfo(self.projectmeta)
+            sesinfo_acc.set_stnid(self.get_stnid())
             acc_integration = 1.0
             sesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
                                           duration_tot, pointing)
@@ -632,7 +784,8 @@ class StationDriver(object):
             for curr_obsinfo in obsinfolist:
                 curr_obsinfo.create_LOFARst_header(datapath)
             # Prepare metadata for session on this station.
-            stnsesinfo = copy.deepcopy(self.stnsesinfo)
+            stnsesinfo = dataIO.StationSessionInfo(self.projectmeta)
+            stnsesinfo.set_stnid(self.get_stnid())
             stnsesinfo.set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
                                          freqbndobj.arg, obsinfo.integration,
                                          obsinfo.duration_scan, obsinfo.pointing)
@@ -643,7 +796,9 @@ class StationDriver(object):
         if rec_bfs:
             headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
                                                     ).strftime("%Y%m%d_%H%M%S")
-            stnsesinfo_bfs = copy.deepcopy(self.stnsesinfo)
+
+            stnsesinfo_bfs = dataIO.StationSessionInfo(self.projectmeta)
+            stnsesinfo.set_stnid(self.get_stnid())
             stnsesinfo_bfs.new_obsinfo()
             stnsesinfo_bfs.obsinfos[-1].setobsinfo_fromparams('bfs', headertime,
                                                               beamctl_cmds, rcu_setup_cmd,

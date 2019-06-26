@@ -2,43 +2,27 @@
 """Spec observations.
 """
 
+import os
 import argparse
-import ilisa.observations.session as session
-import ilisa.observations.modeparms as modeparms
-
+import yaml
+import ilisa
+import ilisa.observations.stationdriver as stationdriver
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--allsky', help="Set allsky FoV", action='store_true')
-    parser.add_argument('-s', '--starttime',
-                        help="Start Time (format: YYYY-mm-ddTHH:MM:SS)",
-                        type=str, default='NOW')
-    parser.add_argument('-p', '--projectid',
-                        help="Project ID",
-                        type=str, default='0')
-    parser.add_argument('-i', '--integration',
-                        help="Integration time [s]",
-                        type=float, default=modeparms.MIN_STATS_INTG)
-
-    parser.add_argument('datatype',
-                        help='lofar data type to record')
-    parser.add_argument('freqspec',
-                        help='Frequency spec in Hz.')
-    parser.add_argument('duration_tot',
-                        help='Duration in seconds. (Can be an arithmetic expression)')
-    parser.add_argument('pointing', nargs='?',
-                        help='A direction in az,el,ref (radians) or a source name.')
+    parser.add_argument('file',
+                        help='station schedule specification file')
     args = parser.parse_args()
 
-    myses = session.Session(projectid=args.projectid,
-                            halt_observingstate_when_finished = False)
-    beam = {'freqspec': args.freqspec, 'pointing': args.pointing, 'allsky': args.allsky}
-    rec_stat = {'type': args.datatype, 'integration': args.integration}
-    sessionsched = {'projectid': args.projectid,
-                    'scans': [{'stations': 'ALL',
-                               'starttime': args.starttime,
-                               'beam': beam,
-                               'duration_tot': args.duration_tot,
-                               'rec_stat': rec_stat
-                               }]}
-    myses.implement_scanschedule(sessionsched)
+    userilisadir = ilisa.user_conf_dir
+    accessconffile = os.path.join(userilisadir, 'access_config.yml')
+    with open(accessconffile) as cfigfilep:
+        accessconf = yaml.load(cfigfilep)
+    with open(args.file, 'r') as f:
+        stn_ses_sched_in = yaml.load(f)
+    try:
+        mockrun = stn_ses_sched_in['mockrun']
+    except KeyError:
+        mockrun = False
+    stndrv = stationdriver.StationDriver(accessconf, mockrun)
+    stndrv.run_lcl_session(stn_ses_sched_in)
