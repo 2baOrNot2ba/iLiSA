@@ -755,21 +755,21 @@ class StationDriver(object):
             accdestfiles = os.listdir(acc_destfolder)
 
             # - Create project header
-            sesinfo_acc = dataIO.StationSessionInfo(self.projectmeta)
-            sesinfo_acc.set_stnid(self.get_stnid())
+            stnsesinfo_acc = dataIO.StationSessionInfo(self.projectmeta)
+            stnsesinfo_acc.set_stnid(self.get_stnid())
             acc_integration = 1.0
-            sesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
+            stnsesinfo_acc.set_obsfolderinfo('acc', obsdatetime_stamp, band, acc_integration,
                                           duration_tot, pointing)
-            sesinfo_acc.write_scan_rec(acc_destfolder)
+            stnsesinfo_acc.write_scan_rec(acc_destfolder)
 
             # - Create header for each ACC file
             for destfile in accdestfiles:
                 filedatestr, filetimestr, _ = destfile.split('_', 2)
                 filedtstr = '_'.join([filedatestr, filetimestr])
-                sesinfo_acc.new_obsinfo()
-                sesinfo_acc.obsinfos[-1].setobsinfo_fromparams('acc', filedtstr,
+                stnsesinfo_acc.new_obsinfo()
+                stnsesinfo_acc.obsinfos[-1].setobsinfo_fromparams('acc', filedtstr,
                                                                beamctl_cmds, '')
-                sesinfo_acc.obsinfos[-1].create_LOFARst_header(acc_destfolder)
+                stnsesinfo_acc.obsinfos[-1].create_LOFARst_header(acc_destfolder)
 
             acc_url = "{}:{}".format(self.get_stnid(), acc_destfolder)
 
@@ -784,12 +784,12 @@ class StationDriver(object):
             for curr_obsinfo in obsinfolist:
                 curr_obsinfo.create_LOFARst_header(datapath)
             # Prepare metadata for session on this station.
-            stnsesinfo = dataIO.StationSessionInfo(self.projectmeta)
-            stnsesinfo.set_stnid(self.get_stnid())
-            stnsesinfo.set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
+            stnsesinfo_bsx = dataIO.StationSessionInfo(self.projectmeta)
+            stnsesinfo_bsx.set_stnid(self.get_stnid())
+            stnsesinfo_bsx.set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
                                          freqbndobj.arg, obsinfo.integration,
                                          obsinfo.duration_scan, obsinfo.pointing)
-            stnsesinfo.write_scan_rec(datapath)
+            stnsesinfo_bsx.write_scan_rec(datapath)
             stat_url = "{}:{}".format(self.get_stnid(), datapath)
 
         bfs_url = None
@@ -798,7 +798,7 @@ class StationDriver(object):
                                                     ).strftime("%Y%m%d_%H%M%S")
 
             stnsesinfo_bfs = dataIO.StationSessionInfo(self.projectmeta)
-            stnsesinfo.set_stnid(self.get_stnid())
+            stnsesinfo_bfs.set_stnid(self.get_stnid())
             stnsesinfo_bfs.new_obsinfo()
             stnsesinfo_bfs.obsinfos[-1].setobsinfo_fromparams('bfs', headertime,
                                                               beamctl_cmds, rcu_setup_cmd,
