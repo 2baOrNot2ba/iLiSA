@@ -191,9 +191,9 @@ class StationDriver(object):
     def save_stnsessched(self, sched):
         sesspath=self.get_sesspath()
         os.makedirs(sesspath)
-        ses_sched_file = os.path.join(sesspath, 'stn_session.yaml')
+        ses_sched_file = os.path.join(sesspath, 'stn_session.yml')
         with open(ses_sched_file, 'w') as f:
-            yaml.dump(sched, f)
+            yaml.dump(sched, f, explicit_start=True)
 
     def make_session_id(self):
         """Make a session ID based on time of creation."""
