@@ -39,9 +39,9 @@ regex_xstfilename=(
 "_xst.dat$")
 
 
-class StationSessionInfo(object):
+class ScanRecInfo(object):
 
-    stnsesfile = "Scan_Rec.yml"
+    scanrec_header = "SCAN_REC.yml"
 
     def __init__(self, projectmeta={}):
         self.headerversion = 1
@@ -89,7 +89,7 @@ class StationSessionInfo(object):
                 self.obsfolderinfo['duration_tot'], self.obsfolderinfo['pointing'])
 
     def write_scan_rec(self, datapath):
-        with open(os.path.join(datapath, self.stnsesfile), "w") as f:
+        with open(os.path.join(datapath, self.scanrec_header), "w") as f:
             f.write("# LOFAR local station project\n")
             f.write("# Created by {} version {}\n".format("iLiSA", ilisa.__version__))
             f.write("headerversion: {}\n".format(self.headerversion))
@@ -99,7 +99,7 @@ class StationSessionInfo(object):
             f.write("scan: {!r}\n".format(self.obsfolderinfo))
 
     def read_scan_rec(self, datapath):
-        with open(os.path.join(datapath, self.stnsesfile), 'r') as hf:
+        with open(os.path.join(datapath, self.scanrec_header), 'r') as hf:
             try:
                 stnscanrec = yaml.load(hf)
             except Exception as e:
@@ -627,7 +627,7 @@ class CVCfiles(object):
         self.dataset = []
         self.samptimeset = []
         self.freqset = []
-        self.stnsesinfo = StationSessionInfo()
+        self.stnsesinfo = ScanRecInfo()
         datapath = os.path.abspath(datapath)
         if os.path.isdir(datapath):
             self.filefolder = datapath

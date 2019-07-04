@@ -42,7 +42,8 @@ class BasicObsPrograms(object):
         rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
-    def do_bfs_OW(self, freqbndobj, duration_tot, pointsrc, starttime='NOW'):
+    def do_bfs_OW(self, freqbndobj, duration_tot, pointsrc, bfdat_projdir,
+                  starttime='NOW'):
         """Record BeamFormed Streams (BFS) with particular beamlet allocation."""
 
         band = freqbndobj.rcubands[0]
@@ -69,7 +70,6 @@ class BasicObsPrograms(object):
             raise ValueError(
                 "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
         pointing = modeparms.normalizebeamctldir(pointsrc)
-        caltabinfo = self.lcu_interface.getCalTableInfo(modeparms.band2rcumode(band))
 
         # Wait until it is time to start
         pause = 5  # Sufficient?
@@ -103,9 +103,9 @@ class BasicObsPrograms(object):
 
         # Real beam start:
         print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-        beamctl_CMD = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
+        beamctl_cmds = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
                                                      pointing)
-        rcu_setup_CMD = self.lcu_interface.rcusetup(bits, attenuation)
+        rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         beamstart = datetime.datetime.utcnow()
         timeleft = st - beamstart
         if timeleft.total_seconds() < 0.:
@@ -115,35 +115,13 @@ class BasicObsPrograms(object):
 
         REC = True
         if REC == True:
-            #bf_data_dir = os.path.join(self.stationdriver.bf_data_dir, 'OW')
-            bf_data_dir = os.path.join(self.stationdriver.bf_data_dir, 'proj{}'.format(
-                self.stationdriver.stnsesinfo.projectmeta['projectID']), '')
             port0 = self.stationdriver.bf_port0
             stnid = self.lcu_interface.stnid
-            bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band, bf_data_dir,
-                                     port0, stnid)
+            bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band,
+                                     bfdat_projdir, port0, stnid)
         else:
             print("Not recording")
             time.sleep(duration_tot)
         sys.stdout.flush()
         self.lcu_interface.stop_beam()
-
-        headertime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
-                                                ).strftime("%Y%m%d_%H%M%S")
-        scanpath = self.stationdriver.get_scanpath(beamstart)
-        stnsesinfo = copy.deepcopy(self.stationdriver.stnsesinfo)
-        stnsesinfo.new_obsinfo()
-        stnsesinfo.obsinfos[-1].setobsinfo_fromparams('bfs', headertime, beamctl_CMD,
-                                                      rcu_setup_CMD, caltabinfo)
-        bsxSTobsEpoch, datapath = stnsesinfo.obsinfos[-1].getobsdatapath(
-            scanpath)
-        print("Creating BFS destination folder on DPU:\n{}".format(datapath))
-        os.makedirs(datapath)
-        stnsesinfo.obsinfos[-1].create_LOFARst_header(datapath)
-        integration = None
-        stnsesinfo.set_obsfolderinfo('bfs', headertime, band, integration, duration_tot,
-                                     pointing)
-        stnsesinfo.write_scan_rec(datapath)
-        self.stationdriver.halt_observingstate_when_finished = shutdown  # Necessary due to forking
-        data_url = "{}:{}".format(self.stationdriver.get_stnid(), datapath)
         return None

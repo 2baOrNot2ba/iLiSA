@@ -6,7 +6,7 @@ import os
 import argparse
 import yaml
 import ilisa
-import ilisa.observations.stationdriver as stationdriver
+from ilisa.observations.stationsession import StationSession
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -24,5 +24,5 @@ if __name__ == "__main__":
         mockrun = stn_ses_sched_in['mockrun']
     except KeyError:
         mockrun = False
-    stndrv = stationdriver.StationDriver(accessconf, mockrun)
-    stndrv.run_lcl_session(stn_ses_sched_in)
+    stnsess = StationSession(accessconf, mockrun=mockrun)
+    stnsess.run_lcl_sched(stn_ses_sched_in)

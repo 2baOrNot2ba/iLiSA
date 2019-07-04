@@ -6,6 +6,11 @@ import ilisa
 import ilisa.observations.stationdriver as stationdriver
 import yaml
 
+def create_session_id():
+    """Create a session ID. session_id has format 'sid<CT>' where <CT> is the datetime
+     in the format '%Y%m%dT%H%M%S' of the time of creation."""
+    session_id = "sid{}".format(datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S'))
+    return session_id
 
 class Session(object):
 
@@ -46,8 +51,7 @@ class Session(object):
         """Set the session ID. If session_id is None then a session ID based on time of
         creation will be used."""
         if session_id is None:
-            session_id = "sid{}".format(
-                datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S'))
+            session_id = create_session_id()
         self.session_id = session_id
 
     def goto_observingstate(self):
