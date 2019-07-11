@@ -15,7 +15,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     userilisadir = ilisa.user_conf_dir
-    accessconffile = os.path.join(userilisadir, 'access_config.yml')
+    accessconffile = os.path.join(userilisadir, 'accessconf_localstation.yml')
     with open(accessconffile) as cfigfilep:
         accessconf = yaml.load(cfigfilep)
     with open(args.file, 'r') as f:

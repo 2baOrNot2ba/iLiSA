@@ -11,7 +11,7 @@ setup(name='iLiSA',
       author_email='tobia.carozzi@chalmers.se',
       packages=find_packages(),
       package_data={
-            'ilisa.observations': ['accessconf_user6@SE607_DIST.yml',
+            'ilisa.observations': ['accessconf_localstation_DIST.yml',
                                    'stations_roster.cfg'],
             'ilisa.antennameta': ['share/CalTables/*/data/*.dat',
                                   'share/StaticMetaData/*.conf']},
@@ -32,6 +32,6 @@ setup(name='iLiSA',
           'PyYAML',
           'h5py'
       ],
-      scripts=['scripts/acc2bst.py', 'scripts/ilisa_adm.py', 'scripts/ilisa_rec.py'
+      scripts=['scripts/acc2bst.py', 'scripts/ilisa_adm.py', 'scripts/ilisa_sses.py'
                'scripts/ilisa_view.py']
       )

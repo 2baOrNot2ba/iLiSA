@@ -1,5 +1,5 @@
 # Example configuration of access to local station for user6 on SE607.
-# Edit it, rename it to access_config.yml and move to your ~/.iLiSA/ directory.
+# Edit it, rename it to accessconf_localstation.yml and move to your ~/.iLiSA/ directory.
 ---
 LCU : 
     stnid : "SE607"                           # Station ID
