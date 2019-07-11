@@ -6,7 +6,6 @@ import ilisa.observations.dataIO as dataIO
 import ilisa.observations.session as session
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.stationdriver as stationdriver
-import ilisa.observations.programs as programs
 
 
 def projid2meta(projectid):
@@ -203,18 +202,7 @@ class StationSession(object):
                 scanrecs[k].set_stnid(self.stndrv.get_stnid())
             scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
             if scan['obsprog'] is not None:
-                scan_flat = dict(scan)
-                del scan_flat['beam']
-                for k in scan['beam'].keys():
-                    scan_flat[k] = scan['beam'][k]
-                scan_flat['freqbndobj'] = freqbndobj
-                scan_flat['projectmeta'] = self.projectmeta
-                prg = programs.BasicObsPrograms(self.stndrv)
-                obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
-                # Map only args required by
-                obsargs = {k: scan_flat[k] for k in obsargs_sig}
-                self.stndrv.do_obsprog(scan_flat['starttime'], obsfun, obsargs,
-                                       scanmeta=scanmeta)
+                self.stndrv.do_obsprog(scan, scanmeta=scanmeta)
             else:
                 integration = scan['integration']
                 duration_tot = scan['duration_tot']

@@ -42,7 +42,7 @@ class BasicObsPrograms(object):
         rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
-    def do_bfs_OW(self, freqbndobj, duration_tot, pointsrc, bfdat_projdir,
+    def do_bfs_OW(self, freqbndobj, duration_tot, pointsrc, bfdsesdumpdir,
                   starttime='NOW'):
         """Record BeamFormed Streams (BFS) with particular beamlet allocation."""
 
@@ -118,7 +118,7 @@ class BasicObsPrograms(object):
             port0 = self.stationdriver.bf_port0
             stnid = self.lcu_interface.stnid
             bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band,
-                                     bfdat_projdir, port0, stnid)
+                                     bfdsesdumpdir, port0, stnid)
         else:
             print("Not recording")
             time.sleep(duration_tot)

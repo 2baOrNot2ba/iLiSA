@@ -17,6 +17,7 @@ import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
+import ilisa.observations.programs as programs
 
 
 class ScanMeta(object):
@@ -647,11 +648,21 @@ class StationDriver(object):
         # Necessary due to possible forking
         self.halt_observingstate_when_finished = shutdown
 
-    def do_obsprog(self, starttime, obsfun, obsargs, scanmeta=None):
+    def do_obsprog(self, scan, scanmeta=None):
         """At starttime execute the observation program specified by the obsfun method
         pointer and run with arguments specified by obsargs dict.
         """
-
+        scan_flat = dict(scan)
+        del scan_flat['beam']
+        for k in scan['beam'].keys():
+            scan_flat[k] = scan['beam'][k]
+        freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
+        scan_flat['freqbndobj'] = freqbndobj
+        prg = programs.BasicObsPrograms(self)
+        obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
+        scan_flat['bfdsesdumpdir'] = scanmeta.bfdsesdumpdir
+        # Map only args required by
+        obsargs = {k: scan_flat[k] for k in obsargs_sig}
         # Setup Calibration tables on LCU:
         CALTABLESRC = 'default'   # FIXME put this in args
         ## (Only BST uses calibration tables)
