@@ -52,12 +52,12 @@ class StationDriver(object):
             print("         (You are running as {})".format(self.lcu_interface.user))
             return False
 
-    def __init__(self, accessconf, mockrun=False, goto_observingstate_when_starting=True):
+    def __init__(self, accessconf, mockrun=False,
+                 goto_observingstate_when_starting=False):
         """Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
-        When goto_observingstate_when_starting is True, boot the
-        station to swlevel 3, but only if observations are allowed on the
-        station.
+        When goto_observingstate_when_starting is True, boot the station to swlevel 3,
+        but only if observations are allowed on the station.
         """
         lcuaccessconf = accessconf['LCU']
         dpuaccessconf = accessconf['DPU']
@@ -83,11 +83,25 @@ class StationDriver(object):
             except RuntimeError:
                 raise RuntimeError('Observations not allowed on this station')
 
-    def goto_observingstate(self):
-        """Put station into the main observing state."""
+    def goto_observingstate(self, warmup=False):
+        """Put station into the main observing state.
+
+        Parameters
+        ----------
+
+        warmup: bool, optional
+                Do a beam warmup after reaching swlevel 3.
+        """
         if not self.checkobservingallowed():
             raise RuntimeError('Observations not allowed')
         self.lcu_interface.set_swlevel(3)
+        if warmup:
+            # Dummy or hot beam start: (takes about 10sec)
+            # This seems necessary: first beamctl after going to swlevel 3
+            # seems to crash.
+            print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
+            self.streambeams(modeparms.FrequencyBand('10_90'), '0.,1.5707963,AZELGEO')
+            self.lcu_interface.stop_beam()
 
     def haltobservingstate(self):
         """Halt observing state on station."""
@@ -304,7 +318,7 @@ class StationDriver(object):
 
     def main_scan(self, freqbndobj, integration, duration_tot, pointing, pointsrc,
                   starttime='NOW', rec_stat_type=None, rec_bfs=False, duration_scan=None,
-                  do_acc=False, allsky=False, warmup=False, scanmeta=None):
+                  do_acc=False, allsky=False, scanmeta=None):
         """Run a generic scan.
 
         Parameters
@@ -345,8 +359,6 @@ class StationDriver(object):
                 integration is always 1s, so ACC file is dumped after 512 seconds.
             allsky: bool, optional
                 HBA allsky mode.
-            warmup: bool, optional
-                Do a beam warmup prior to doing scan.
             scanmeta: ScanMeta, optional
                 The metadata for the scan. Contains: the directory where the scan should
                 be stored, the directory where the bfs data should be dumped, and
@@ -434,14 +446,7 @@ class StationDriver(object):
             for rcumode in freqbndobj.rcumodes:
                 caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
                 caltabinfos.append(caltabinfo)
-            if warmup:
-                # Dummy or hot beam start: (takes about 10sec)
-                # TODO: This seems necessary, otherwise beamctl will not start up next time,
-                #       although it should not have to necessary.)
-                print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
-                self.streambeams(freqbndobj, pointing)
-                self.lcu_interface.stop_beam()
-
+            # warmup used to be here
             print("Pause {}s after boot.".format(pause))
             time.sleep(pause)
 
@@ -464,8 +469,8 @@ class StationDriver(object):
             bfdsesdumpdir = scanmeta.bfdsesdumpdir
             stnid = self.lcu_interface.stnid
             lanes = tuple(freqbndobj.getlanes().keys())
-            bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band, bfdsesdumpdir,
-                                     self.bf_port0, stnid)
+            bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band,
+                                     bfdsesdumpdir, self.bf_port0, stnid)
             bfsdatapaths = []
             bfslogpaths = []
             for lane in lanes:
@@ -578,6 +583,7 @@ class StationDriver(object):
 
             # - Create project header
             acc_integration = 1.0
+            scanmeta.scanrecs['acc'].set_stnid(self.get_stnid())
             scanmeta.scanrecs['acc'].set_obsfolderinfo('acc', obsdatetime_stamp, band,
                                               acc_integration, duration_tot, pointing)
             scanmeta.scanrecs['acc'].write_scan_rec(acc_destfolder)
@@ -594,7 +600,7 @@ class StationDriver(object):
             scanmeta.scanrecs['acc'].datapath = acc_destfolder
 
         if rec_stat_type is not None and obsinfolist is not None:
-            obsinfo = copy.copy(obsinfolist[0])
+            obsinfo = obsinfolist[0]
             #obsinfo.sb = freqbndobj.sb_range[0]
 
             # Move data to archive
@@ -603,6 +609,7 @@ class StationDriver(object):
             for curr_obsinfo in obsinfolist:
                 curr_obsinfo.create_LOFARst_header(datapath)
             # Prepare metadata for session on this station
+            scanmeta.scanrecs['bsx'].set_stnid(self.get_stnid())
             scanmeta.scanrecs['bsx'].set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
                                          freqbndobj.arg, obsinfo.integration,
                                          obsinfo.duration_scan, obsinfo.pointing)
@@ -635,7 +642,7 @@ class StationDriver(object):
                                                                 bfsdatapaths[lane])))
                 shutil.move(bfslogpaths[lane], datapath)
             # TODO: Move dump log files
-
+            scanmeta.scanrecs['bfs'].set_stnid(self.get_stnid())
             scanmeta.scanrecs['bfs'].obsinfos[-1].create_LOFARst_header(datapath)
             integration = None
             scanmeta.scanrecs['bfs'].set_obsfolderinfo('bfs', headertime, band,
@@ -690,7 +697,7 @@ class StationDriver(object):
                 caltabinfos.append(caltabinfo)
             for i in range(len(obsinfolist)):
                 obsinfolist[i].caltabinfos = caltabinfos
-            obsinfo = copy.copy(obsinfolist[0])
+            obsinfo = obsinfolist[0]
             obsinfo.sb = freqbndobj.sb_range[0]
 
             # Move data to archive
