@@ -124,4 +124,5 @@ class BasicObsPrograms(object):
             time.sleep(duration_tot)
         sys.stdout.flush()
         self.lcu_interface.stop_beam()
+        self.stationdriver.halt_observingstate_when_finished = shutdown
         return None
