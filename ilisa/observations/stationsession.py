@@ -12,26 +12,29 @@ def projid2meta(projectid):
     """Get the project metadata for project with projectid."""
     # Setup projectmeta:
     if projectid is not None:
-        projectfile = projectid + "_project.yml"
+        projectfile =  "project_"+projectid+".yml"
         projectfile = os.path.join(ilisa.user_conf_dir, projectfile)
         with open(projectfile) as projectfilep:
             projectprofile = yaml.load(projectfilep)
-        projectmeta = projectprofile['PROJECTPROFILE']
+        projectmeta = projectprofile['project']
+        accessfiles = projectprofile['accessfiles']
     else:
-        projectmeta = {'observer': None, 'projectname': None}
-    return projectmeta
+        projectmeta = {'observer': None, 'name': None}
+    return projectmeta, accessfiles
 
 
 class StationSession(object):
     """Class that runs a session on a station."""
-    def __init__(self, accessconf=None, session_id=None, mockrun=False,
-                 halt_observingstate_when_finished=True):
+    def __init__(self, ac_lcu, ac_dru, session_id=None,
+                 mockrun=False, halt_observingstate_when_finished=True):
         """Initialize Session."""
-        self.LOFARdataArchive = accessconf['DPU']['LOFARdataArchive']
+
+
+        self.LOFARdataArchive = ac_dru['DRU']['LOFARdataArchive']
 
         # Initialize stationdriver :
-        self.stndrv = stationdriver.StationDriver(accessconf, mockrun=mockrun,
-                                             goto_observingstate_when_starting=False)
+        self.stndrv = stationdriver.StationDriver(ac_lcu, ac_dru, mockrun=mockrun,
+                                                  goto_observingstate_when_starting=False)
         self.stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
         if session_id is None:
             session_id = session.create_session_id()
@@ -48,7 +51,7 @@ class StationSession(object):
 
     def get_projpath(self):
         projpath = os.path.join(self.get_datastorepath(),
-                                'proj{}'.format(self.projectmeta['projectID']))
+                                'proj{}'.format(self.projectmeta['id']))
         return projpath
 
     def get_sesspath(self):
@@ -59,7 +62,7 @@ class StationSession(object):
     def get_bfdsesdumpdir(self):
         """Determine directory to where beamformed data scan should be dumped."""
         bf_data_dir = os.path.join(self.stndrv.bf_data_dir, 'proj{}'.format(
-            self.projectmeta['projectID']), '')
+            self.projectmeta['id']), '')
         return bf_data_dir
 
     def save_stnsessched(self, sched):
@@ -101,10 +104,18 @@ class StationSession(object):
         if mockrun:
             stn_ses_sched['mockrun'] = True
 
+        starttime0 = stn_ses_sched_in['scans'][0]['starttime']
+        if starttime0 == 'NOW':
+            starttime0 = datetime.datetime.utcnow()
+
         for scan in stn_ses_sched_in['scans']:
             # Prepare observation arguments:
             # - Starttime
             starttime = scan['starttime']
+            if starttime != 'NOW' and type(starttime) is not datetime.datetime:
+                if type(starttime) is str:
+                    starttime = starttime0 + datetime.timedelta(seconds=
+                                                                int(eval(starttime)))
             # - Beam
             # -- Freq
             freqspec = scan['beam']['freqspec']
@@ -184,7 +195,7 @@ class StationSession(object):
         """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding observations."""
         stn_ses_sched = self.process_stn_ses_sched(stn_ses_sched_in, session_id)
-        self.projectmeta = projid2meta(stn_ses_sched['projectid'])
+        self.projectmeta, _ = projid2meta(stn_ses_sched['projectid'])
         self.set_stn_session_id(stn_ses_sched['session_id'])
         self.save_stnsessched(stn_ses_sched)
         sesspath = self.get_sesspath()

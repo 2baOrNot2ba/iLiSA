@@ -52,26 +52,26 @@ class StationDriver(object):
             print("         (You are running as {})".format(self.lcu_interface.user))
             return False
 
-    def __init__(self, accessconf, mockrun=False,
+    def __init__(self, ac_lcu, ac_dru, mockrun=False,
                  goto_observingstate_when_starting=False):
         """Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
         When goto_observingstate_when_starting is True, boot the station to swlevel 3,
         but only if observations are allowed on the station.
         """
-        lcuaccessconf = accessconf['LCU']
-        dpuaccessconf = accessconf['DPU']
+        lcuaccessconf = ac_lcu['LCU']
+        druaccessconf = ac_dru['DRU']
         self.mockrun = mockrun
         if self.mockrun:
             lcuaccessconf['DryRun'] = True  # mockrun overrides DryRun
         self.lcu_interface = stationcontrol.LCUInterface(lcuaccessconf)
 
-        self.LOFARdataArchive = dpuaccessconf['LOFARdataArchive']
-        self.bf_data_dir =      dpuaccessconf['BeamFormDataDir']
-        self.bf_port0 =     int(dpuaccessconf['BeamFormPort0'])
-        self.bf_logfile =       dpuaccessconf['BeamFormLogFile']
-        self.tbbraw2h5cmd =     dpuaccessconf['TBBraw2h5Cmd']
-        self.tbbh5dumpdir =     dpuaccessconf['TBBh5dumpDir']
+        self.LOFARdataArchive = druaccessconf['LOFARdataArchive']
+        self.bf_data_dir =      druaccessconf['BeamFormDataDir']
+        self.bf_port0 =     int(druaccessconf['BeamFormPort0'])
+        self.bf_logfile =       druaccessconf['BeamFormLogFile']
+        self.tbbraw2h5cmd =     druaccessconf['TBBraw2h5Cmd']
+        self.tbbh5dumpdir =     druaccessconf['TBBh5dumpDir']
 
         self.exit_check = True
         self.halt_observingstate_when_finished = True
@@ -83,7 +83,7 @@ class StationDriver(object):
             except RuntimeError:
                 raise RuntimeError('Observations not allowed on this station')
 
-    def goto_observingstate(self, warmup=False):
+    def goto_observingstate(self, warmup=True):
         """Put station into the main observing state.
 
         Parameters
