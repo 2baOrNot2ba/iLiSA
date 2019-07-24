@@ -20,6 +20,7 @@ def projid2meta(projectid):
         accessfiles = projectprofile['accessfiles']
     else:
         projectmeta = {'observer': None, 'name': None}
+        accessfiles = None
     return projectmeta, accessfiles
 
 
@@ -30,7 +31,7 @@ class StationSession(object):
         """Initialize Session."""
 
 
-        self.LOFARdataArchive = ac_dru['DRU']['LOFARdataArchive']
+        self.LOFARdataArchive = ac_dru['LOFARdataArchive']
 
         # Initialize stationdriver :
         self.stndrv = stationdriver.StationDriver(ac_lcu, ac_dru, mockrun=mockrun,

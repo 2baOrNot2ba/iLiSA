@@ -28,14 +28,10 @@ if __name__ == "__main__":
     projectmeta, accessfiles = projid2meta(projectid)
 
     # Just first element in list since single station cntrl:
-    acf_lcu, acf_dru = accessfiles[0]['LCU'], accessfiles[0]['DRU']
+    acf_lclstn_name = accessfiles.pop().values().pop()
     userilisadir = ilisa.user_conf_dir
-    ac_lcuf = os.path.join(userilisadir, acf_lcu)
-    with open(ac_lcuf) as cfigfilep:
-        ac_lcu = yaml.load(cfigfilep)
-    ac_druf = os.path.join(userilisadir, acf_dru)
-    with open(ac_druf) as cfigfilep:
-        ac_dru = yaml.load(cfigfilep)
-
-    stnsess = StationSession(ac_lcu, ac_dru, mockrun=mockrun)
+    acf_lclstn_path = os.path.join(userilisadir, acf_lclstn_name)
+    with open(acf_lclstn_path) as acffp:
+        acf = yaml.load(acffp)
+    stnsess = StationSession(acf['LCU'], acf['DRU'], mockrun=mockrun)
     stnsess.run_lcl_sched(stn_ses_sched_in)

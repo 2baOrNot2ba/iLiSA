@@ -11,7 +11,6 @@ import os
 import sys
 import shutil
 import multiprocessing
-import copy
 
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
@@ -52,26 +51,25 @@ class StationDriver(object):
             print("         (You are running as {})".format(self.lcu_interface.user))
             return False
 
-    def __init__(self, ac_lcu, ac_dru, mockrun=False,
+    def __init__(self, accessconf_lcu, accessconf_dru, mockrun=False,
                  goto_observingstate_when_starting=False):
         """Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
         When goto_observingstate_when_starting is True, boot the station to swlevel 3,
         but only if observations are allowed on the station.
         """
-        lcuaccessconf = ac_lcu['LCU']
-        druaccessconf = ac_dru['DRU']
+
         self.mockrun = mockrun
         if self.mockrun:
-            lcuaccessconf['DryRun'] = True  # mockrun overrides DryRun
-        self.lcu_interface = stationcontrol.LCUInterface(lcuaccessconf)
+            accessconf_lcu['DryRun'] = True  # mockrun overrides DryRun
+        self.lcu_interface = stationcontrol.LCUInterface(accessconf_lcu)
 
-        self.LOFARdataArchive = druaccessconf['LOFARdataArchive']
-        self.bf_data_dir =      druaccessconf['BeamFormDataDir']
-        self.bf_port0 =     int(druaccessconf['BeamFormPort0'])
-        self.bf_logfile =       druaccessconf['BeamFormLogFile']
-        self.tbbraw2h5cmd =     druaccessconf['TBBraw2h5Cmd']
-        self.tbbh5dumpdir =     druaccessconf['TBBh5dumpDir']
+        self.LOFARdataArchive = accessconf_dru['LOFARdataArchive']
+        self.bf_data_dir =      accessconf_dru['BeamFormDataDir']
+        self.bf_port0 =     int(accessconf_dru['BeamFormPort0'])
+        self.bf_logfile =       accessconf_dru['BeamFormLogFile']
+        self.tbbraw2h5cmd =     accessconf_dru['TBBraw2h5Cmd']
+        self.tbbh5dumpdir =     accessconf_dru['TBBh5dumpDir']
 
         self.exit_check = True
         self.halt_observingstate_when_finished = True
