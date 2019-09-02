@@ -113,6 +113,7 @@ class StationSession(object):
             # Prepare observation arguments:
             # - Starttime
             starttime = scan['starttime']
+            #   Check for deltatime:
             if starttime != 'NOW' and type(starttime) is not datetime.datetime:
                 if type(starttime) is str:
                     starttime = starttime0 + datetime.timedelta(seconds=
@@ -201,6 +202,15 @@ class StationSession(object):
         self.save_stnsessched(stn_ses_sched)
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self.get_bfdsesdumpdir()
+        # Boot Time handling
+        nw = datetime.datetime.utcnow()
+        starttime = stn_ses_sched['scans'][0]['starttime']
+        if starttime == 'NOW':
+            starttime = nw
+        bootupstart = starttime - datetime.timedelta(seconds=10)
+        # Wait until it is time to bootup
+        print("In stnsess: Wait until it is time to bootup")
+        st = self.stndrv._waittoboot(bootupstart.strftime("%Y-%m-%dT%H:%M:%S"))
         for scan in stn_ses_sched['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
             scanrecs={}

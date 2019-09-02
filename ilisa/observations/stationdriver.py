@@ -92,14 +92,15 @@ class StationDriver(object):
         """
         if not self.checkobservingallowed():
             raise RuntimeError('Observations not allowed')
-        self.lcu_interface.set_swlevel(3)
-        if warmup:
+        swlevel_changed = self.lcu_interface.set_swlevel(3)
+        if swlevel_changed and warmup:
             # Dummy or hot beam start: (takes about 10sec)
             # This seems necessary: first beamctl after going to swlevel 3
             # seems to crash.
             print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
             self.streambeams(modeparms.FrequencyBand('10_90'), '0.,1.5707963,AZELGEO')
             self.lcu_interface.stop_beam()
+            print("Finished warmup beam... @ {}".format(datetime.datetime.utcnow()))
 
     def haltobservingstate(self):
         """Halt observing state on station."""
@@ -179,15 +180,14 @@ class StationDriver(object):
         rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
-    def _waittoboot(self, starttimestr, pause):
-        """Before booting, wait until time given by starttimestr. This includes
-         a dummy beam warmup."""
+    def _waittoboot(self, starttimestr, pause=0):
+        """Before booting, wait until time given by starttimestr. """
         nw = datetime.datetime.utcnow()
         st = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S")
 
         maxminsetuptime = datetime.timedelta(seconds=105 + pause)  # Longest minimal time
         # before observation
-        # start to set up
+        # start to set up (This includes a dummy beam warmup)
         d = (st - maxminsetuptime) - nw
         timeuntilboot = d.total_seconds()
         if timeuntilboot < 0.:

@@ -328,20 +328,19 @@ class LCUInterface(object):
     def set_swlevel(self, swleveltarget=3, FullReboot=False):
         """Set station's software level. swleveltarget=3 is the swlevel for which
         most observations take place."""
-        if FullReboot is not True:
+        swlevel_changed = False
+        if not FullReboot:
             print("Checking swlevel (prior to running observations)")
             if not self.DryRun:
                 swlevel = self.get_swlevel()
-            else:
-                swlevel = "undefined"
-            print("Found swlevel="+swlevel)
-            if swlevel != str(swleveltarget):
-                # FullReboot = True
-                self.exec_lcu("swlevel " + str(swleveltarget))
-        if FullReboot is True:
-            # May need to be swlevel 0, but swlevel 1 is faster
+                if swlevel != str(swleveltarget):
+                    self.exec_lcu("swlevel " + str(swleveltarget))
+                    swlevel_changed = True
+        else:
+            # For completeness swlevel 0, but swlevel 1 is faster
             self.exec_lcu("swlevel 0; swlevel " + str(swleveltarget))
-        # TODO check if we own the swlevel
+            swlevel_changed = True
+        return swlevel_changed
 
     def stop_beam(self):
         """Stop any running beamctl processes."""
