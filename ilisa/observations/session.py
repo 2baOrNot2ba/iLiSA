@@ -39,7 +39,8 @@ class Session(object):
         for accessconffile in accessconffiles:
             with open(accessconffile) as cfigfilep:
                 accessconf = yaml.load(cfigfilep)
-            stndrv = stationdriver.StationDriver(accessconf, mockrun=mockrun,
+            stndrv = stationdriver.StationDriver(accessconf['LCU'],  accessconf['DRU'],
+                                                 mockrun=mockrun,
                                                  goto_observingstate_when_starting=False)
             stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
             # stationdrivers is a dict with stnid keys and corresp. stationdriver object
