@@ -1,0 +1,19 @@
+# Example session schedule using main_obs mode and
+# it records the most data it can record: ACC,
+projectid: '0'
+mockrun: False
+stations: SE607
+scans:
+  - starttime: NOW
+    obsprog:
+    beam:
+      freqspec: '50e6:150e6'
+      pointing: CasA
+    rec_stat:
+      type: sst
+      integration:  60
+    acc: True
+    duration_tot: 601
+    rec_bfs: True
+    pipeline:
+      type: None

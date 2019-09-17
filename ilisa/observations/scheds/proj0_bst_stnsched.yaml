@@ -1,0 +1,15 @@
+# Example session schedule for bst recording
+projectid: '0'
+mockrun: False
+stations: SE607
+scans:
+  - starttime: NOW
+    obsprog:
+    beam:
+      freqspec: '52e6:148e6'
+      pointing: CasA
+    rec_stat:
+      type: bst
+      integration:  1
+    duration_tot: 60
+

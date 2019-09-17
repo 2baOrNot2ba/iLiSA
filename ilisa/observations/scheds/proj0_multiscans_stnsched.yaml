@@ -1,0 +1,20 @@
+# Example session schedule with multiple scans
+projectid: '0'
+mockrun: False
+stations: SE607
+scans:
+  - &id001
+    starttime: NOW
+    beam:
+      freqspec: '55e6'
+      pointing: CasA
+    rec_stat:
+      type: xst
+      integration:  1
+    duration_tot: 10
+    rec_bfs: False
+    pipeline:
+      type: None
+  -
+    <<: *id001
+    starttime: '1*60'  # Can always be NOW
