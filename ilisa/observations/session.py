@@ -3,6 +3,7 @@ import os
 import time
 import datetime
 import ilisa
+import ilisa.observations
 import ilisa.observations.stationdriver as stationdriver
 import yaml
 
@@ -23,15 +24,15 @@ class Session(object):
         # Find accessconfig files:
         accessconffiles = []
         if stnroster is None:
-            accessconffiles.append(os.path.join(ilisa.user_conf_dir, 'access_config.yml'))
+            accessconffiles.append(os.path.join(ilisa.observations.user_conf_dir, 'access_config.yml'))
         else:
-            stnroster = os.path.join(ilisa.user_conf_dir, stnroster)
+            stnroster = os.path.join(ilisa.observations.user_conf_dir, stnroster)
             with open(stnroster, 'r') as stnrosterf:
                 for l in stnrosterf:
                     li = l.strip()
                     if li.startswith('#') or not li:
                         continue
-                    accessconffile = os.path.join(ilisa.user_conf_dir, li)
+                    accessconffile = os.path.join(ilisa.observations.user_conf_dir, li)
                     accessconffiles.append(accessconffile)
 
         # Initialize stationdrivers :

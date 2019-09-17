@@ -6,6 +6,7 @@ import os
 import argparse
 import yaml
 import ilisa
+import ilisa.observations
 from ilisa.observations.stationsession import StationSession, projid2meta
 
 if __name__ == "__main__":
@@ -29,7 +30,7 @@ if __name__ == "__main__":
 
     # Just first element in list since single station cntrl:
     acf_lclstn_name = accessfiles.pop().values().pop()
-    userilisadir = ilisa.user_conf_dir
+    userilisadir = ilisa.observations.user_conf_dir
     acf_lclstn_path = os.path.join(userilisadir, acf_lclstn_name)
     with open(acf_lclstn_path) as acffp:
         acf = yaml.load(acffp)

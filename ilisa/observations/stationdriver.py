@@ -11,7 +11,10 @@ import os
 import sys
 import shutil
 import multiprocessing
+import yaml
 
+import ilisa
+import ilisa.observations
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
@@ -66,10 +69,12 @@ class StationDriver(object):
 
         self.LOFARdataArchive = accessconf_dru['LOFARdataArchive']
         self.bf_data_dir =      accessconf_dru['BeamFormDataDir']
-        self.bf_port0 =     int(accessconf_dru['BeamFormPort0'])
+        #self.bf_port0 =     int(accessconf_dru['BeamFormPort0'])
         self.bf_logfile =       accessconf_dru['BeamFormLogFile']
         self.tbbraw2h5cmd =     accessconf_dru['TBBraw2h5Cmd']
         self.tbbh5dumpdir =     accessconf_dru['TBBh5dumpDir']
+        bf_ports = self.get_laneports()
+        self.bf_port0 = int(bf_ports[0])
 
         self.exit_check = True
         self.halt_observingstate_when_finished = True
@@ -160,6 +165,15 @@ class StationDriver(object):
     def get_stnid(self):
         """Return the station id that this StationDriver is managing."""
         return self.lcu_interface.stnid
+
+    def get_laneports(self):
+        """Return the UDP ports the 4 data lanes are sent to on the DRU."""
+        rspdriver_conf = self.lcu_interface.get_RSPDriver_conf()
+        port0 = rspdriver_conf['RSPDriver']['LANE_00_DSTPORT']
+        port1 = rspdriver_conf['RSPDriver']['LANE_01_DSTPORT']
+        port2 = rspdriver_conf['RSPDriver']['LANE_02_DSTPORT']
+        port3 = rspdriver_conf['RSPDriver']['LANE_03_DSTPORT']
+        return port0, port1, port2, port3
 
     def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
                     attenuation=0, DUMMYWARMUP=False):

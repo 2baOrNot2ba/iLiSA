@@ -4,8 +4,7 @@
 
 import os
 import argparse
-import yaml
-import ilisa
+import ilisa.observations
 import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
@@ -32,10 +31,7 @@ if __name__ == "__main__":
                         help='A direction in az,el,ref (radians) or a source name.')
     args = parser.parse_args()
 
-    userilisadir = ilisa.user_conf_dir
-    accessconffile = os.path.join(userilisadir, 'access_lclstn.conf')
-    with open(accessconffile) as cfigfilep:
-        accessconf = yaml.load(cfigfilep)
+    accessconf = ilisa.observations.default_access_lclstn_conf()
     stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'])
     halt_observingstate_when_finished = True
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished

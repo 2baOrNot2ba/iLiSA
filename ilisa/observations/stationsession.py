@@ -2,6 +2,7 @@ import os
 import datetime
 import yaml
 import ilisa
+import ilisa.observations
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.session as session
 import ilisa.observations.modeparms as modeparms
@@ -13,7 +14,7 @@ def projid2meta(projectid):
     # Setup projectmeta:
     if projectid is not None:
         projectfile =  "project_"+projectid+".yml"
-        projectfile = os.path.join(ilisa.user_conf_dir, projectfile)
+        projectfile = os.path.join(ilisa.observations.user_conf_dir, projectfile)
         with open(projectfile) as projectfilep:
             projectprofile = yaml.load(projectfilep)
         projectmeta = projectprofile['project']

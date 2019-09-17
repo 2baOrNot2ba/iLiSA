@@ -74,6 +74,26 @@ def parse_rspctl_args(rspctl_strs):
             rspctl_args.update(argsdict)
     return rspctl_args
 
+def parse_lofar_conf_files(filetext):
+    """Parse LOFAR .conf files. Input file text, output dict of content.
+    LOFAR .conf files have lines with format:
+
+    configtype.key = value
+    """
+    contentdict = {}
+    for line in filetext.split('\n'):
+        if line.startswith('#'):
+            continue
+        if '=' in line:
+            cfgtypedotkey, value = line.split('=')
+            cfgtypedotkey = cfgtypedotkey.strip()
+            value = value.strip()
+            cfgtype, key = cfgtypedotkey.split('.')
+            if cfgtype not in contentdict:
+                contentdict[cfgtype] = {}
+            contentdict[cfgtype][key] = value
+    return contentdict
+
 
 class FrequencyBand(object):
     """Class that handles frequency bands and all things related to them.

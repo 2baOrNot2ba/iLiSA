@@ -11,6 +11,8 @@ try:
 except ImportError:
     IMPORTED_PARAMIKO = False
 
+import ilisa.observations
+from ilisa.observations.modeparms import parse_lofar_conf_files
 # LOFAR constants
 from ilisa.observations.modeparms import nrofrcus, band2antset, rcumode2band
 
@@ -25,6 +27,7 @@ class LCUInterface(object):
     # ACCsrcDir is set in CalServer.conf and used when CalServer is running.
     ACCsrcDir = "/localhome/data/ACCdata/"
     CalServer_conf = lofarroot + "/etc/CalServer.conf"
+    RSPDriver_conf = lofarroot + "/etc/RSPDriver.conf"
 
     def setupaccess(self, accessconf):
         """Initialize with user-station configuration."""
@@ -86,8 +89,10 @@ class LCUInterface(object):
         return self.accessible
 
     def __init__(self, lcuaccessconf=None):
-        if lcuaccessconf is not None:
-            self.setupaccess(lcuaccessconf)
+        if lcuaccessconf is None:
+            accessconf = ilisa.observations.default_access_lclstn_conf()
+            lcuaccessconf = accessconf['LCU']
+        self.setupaccess(lcuaccessconf)
 
     def __del__(self):
         pass
@@ -283,6 +288,12 @@ class LCUInterface(object):
         objects responsibility to call this."""
         self.exec_lcu("rm -fr " + self.lcuDumpDir + "/*")
         self.exec_lcu("rm " + self.ACCsrcDir + "/*.dat")
+
+    def get_RSPDriver_conf(self):
+        """Get RSPDriver configuration settings."""
+        filecontents = self._stdoutLCU("cat "+self.RSPDriver_conf)
+        rspdriver = parse_lofar_conf_files(filecontents)
+        return rspdriver
 
     def getDISABLEDRCUs(self, rcumode):
         """Return list of RCUs to be disabled (as determined by ASTRON)."""
