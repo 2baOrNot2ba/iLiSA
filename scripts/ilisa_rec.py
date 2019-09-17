@@ -33,10 +33,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     userilisadir = ilisa.user_conf_dir
-    accessconffile = os.path.join(userilisadir, 'accessconf_localstation.yml')
+    accessconffile = os.path.join(userilisadir, 'access_lclstn.conf')
     with open(accessconffile) as cfigfilep:
         accessconf = yaml.load(cfigfilep)
-    stndrv = stationdriver.StationDriver(accessconf)
+    stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'])
     halt_observingstate_when_finished = True
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
     freqbndobj = modeparms.FrequencyBand(args.freqspec)
@@ -59,7 +59,7 @@ if __name__ == "__main__":
     rec_bfs = False
     scanrecs = {}
     scanrec = dataIO.ScanRecInfo()
-    sesspath = accessconf['DPU']['LOFARdataArchive']
+    sesspath = accessconf['DRU']['LOFARdataArchive']
     if args.datatype == 'nil':
         rec_stat_type = None
     elif args.datatype == 'acc':
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     else:
         raise RuntimeError('Unknown datatype {}'.format(args.datatype))
 
-    bfdsesdumpdir = accessconf['DPU']['BeamFormDataDir']
+    bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
     scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
     stndrv.main_scan(freqbndobj, args.integration, duration_tot, pointing, pointsrc,
                      starttime=args.starttime, rec_stat_type=rec_stat_type,
