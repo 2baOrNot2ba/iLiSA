@@ -156,8 +156,7 @@ def parseiHBADeltasfile(stationName):
             #elempos[elemnr,0], elempos[elemnr,1], elempos[elemnr,2] =\
             #                 float(xpos), float(ypos), float(zpos)
     else:
-        print("Error: iHBADeltas file is corrupt.")
-        raise
+        raise RuntimeError("Error: iHBADeltas file is corrupt.")
     return iHBADeltasdata
 
 
@@ -187,8 +186,8 @@ def getArrayBandParams(stnid, arrband):
     """
     antfld = parseAntennaField(stnid)
     stnLoc = stnid[0:2]
-    errmess = "Error Array band not valid. Only 'LBA', 'HBA' are valid, "\
-            +"except for 'CS' stations for which 'HBA0', 'HBA1' are also valid."
+    errmess = "Array band not valid. Only 'LBA', 'HBA' are valid, "\
+            + "except for 'CS' stations for which 'HBA0', 'HBA1' are also valid."
     if arrband == 'LBA':
         subarr = 'LBA'
         hbadeltas = [0.,0.,0.]
@@ -203,13 +202,11 @@ def getArrayBandParams(stnid, arrband):
         elif arrband == 'HBA':
             subarr = arrband
         else:
-            print(errmess)
-            raise
+            raise ValueError(errmess)
         arrband = 'HBA'
         hbadeltas = parseiHBADeltasfile(stnid)
     else:
-        print(errmess)
-        raise
+        raise ValueError(errmess)
     # Use matrices in order to facilitate coord transformation.
     # axis=0
     stnpos = np.matrix(antfld[arrband]['POSITION']).T
