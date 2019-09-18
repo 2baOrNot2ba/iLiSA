@@ -156,9 +156,11 @@ def image(args):
         else:
             intgs = CVCdata.shape[0]
         for tidx in range(args.sampnr, intgs):
-            ll, mm, skyimages, t, freq, stnid, phaseref = \
-                imaging.cvcimage(cvcobj, fileidx, tidx, args.phaseref)
-            imaging.plotskyimage(ll, mm, skyimages, t, freq, stnid, phaseref, integration)
+            ll, mm, skyimages, polrep, t, freq, stnid, phaseref = \
+                imaging.cvcimage(cvcobj, fileidx, tidx, args.phaseref,
+                                 pbcor=args.correctpb)
+            imaging.plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref,
+                                 integration, pbcor=args.correctpb)
 
 
 if __name__ == "__main__":
@@ -176,6 +178,8 @@ if __name__ == "__main__":
     parser_image.add_argument('-p','--phaseref', type=str, default=None)
     parser_image.add_argument('-n','--filenr', type=int, default=0)
     parser_image.add_argument('-s','--sampnr', type=int, default=0)
+    parser_image.add_argument('-c','--correctpb', help="Correct for primary beam",
+                              action="store_true")
 
     args = parser.parse_args()
     args.func(args)
