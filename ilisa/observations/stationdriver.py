@@ -69,7 +69,6 @@ class StationDriver(object):
 
         self.LOFARdataArchive = accessconf_dru['LOFARdataArchive']
         self.bf_data_dir =      accessconf_dru['BeamFormDataDir']
-        #self.bf_port0 =     int(accessconf_dru['BeamFormPort0'])
         self.bf_logfile =       accessconf_dru['BeamFormLogFile']
         self.tbbraw2h5cmd =     accessconf_dru['TBBraw2h5Cmd']
         self.tbbh5dumpdir =     accessconf_dru['TBBh5dumpDir']
@@ -492,7 +491,7 @@ class StationDriver(object):
                 bfsdatapaths.append(datafileguess)
                 bfslogpaths.append(dumplogname)
         else:
-            print("Not recording")
+            print("Not recording bfs")
         sys.stdout.flush()
 
         if rec_stat_type is not None:
