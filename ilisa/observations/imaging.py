@@ -13,7 +13,7 @@ import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
 try:
     from dreambeam.polarimetry import convertxy2stokes
-    canuse_stokes = False
+    canuse_stokes = True
 except ImportError:
     canuse_stokes = False
 try:
@@ -381,7 +381,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
         ax_dt_mm.set_title('mm')
         fig_dt.colorbar(im_mm, ax=ax_dt_mm)
         plt.show()
-    hrzrgn = (numpy.sqrt(ll**2+mm**2)>.75)
+    hrzrgn = (numpy.sqrt(ll**2+mm**2)>.99)
 
     #norm=colors.LogNorm()
     norm=None
