@@ -79,7 +79,7 @@ if __name__ == "__main__":
     scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
     stndrv.main_scan(freqbndobj, args.integration, duration_tot, pointing, pointsrc,
                      starttime=args.starttime, rec_stat_type=rec_stat_type,
-                     rec_bfs=rec_bfs, duration_scan=None, do_acc=do_acc,
+                     rec_bfs=rec_bfs, duration_frq=None, do_acc=do_acc,
                      allsky=args.allsky, scanmeta=scanmeta)
     print "Finished"
     import sys

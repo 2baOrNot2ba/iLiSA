@@ -11,6 +11,7 @@ import os
 import sys
 import shutil
 import multiprocessing
+import warnings
 
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
@@ -325,7 +326,7 @@ class StationDriver(object):
         return scanpath
 
     def main_scan(self, freqbndobj, integration, duration_tot, pointing, pointsrc,
-                  starttime='NOW', rec_stat_type=None, rec_bfs=False, duration_scan=None,
+                  starttime='NOW', rec_stat_type=None, rec_bfs=False, duration_frq=None,
                   do_acc=False, allsky=False, scanmeta=None):
         """Run a generic scan.
 
@@ -348,8 +349,8 @@ class StationDriver(object):
                 or 'xst'.
             rec_bfs: bool
                 Record the beam-formed stream.
-            duration_scan: float
-                The duration of one frequency sweep within the scan.
+            duration_frq: float
+                Duration in seconds of a sampled frequency within a frequency sweep scan.
             do_acc: bool
                 Perform calibration observation mode on station. Also known as ACC
                 mode. The actual total duration will at most be duration_tot_req.
@@ -514,15 +515,19 @@ class StationDriver(object):
             elif rec_stat_type == 'xst':
                 caltabinfo = ""  # No need for caltab info for xst data
                 nrsubbands = freqbndobj.nrsubbands()
-                if duration_scan is None:
+                if duration_frq is None:
                     if nrsubbands > 1:
-                        duration_scan = integration
+                        duration_frq = integration
                     else:
-                        duration_scan = duration_tot
-                # FIXME When duration_tot is too small for 1 rep this will fail badly.
-                (rep, rst) = divmod(duration_tot, duration_scan * nrsubbands)
+                        duration_frq = duration_tot
+                (rep, rst) = divmod(duration_tot, duration_frq * nrsubbands)
                 rep = int(rep)
-                # Repeat rep times (the freq sweep)
+                if rep == 0:
+                    warnings.warn("""Total duration too short for 1 full repetition.
+                    Will increase total duration to get 1 full repetition.""")
+                    duration_tot = duration_frq * nrsubbands
+                    rep = 1
+                # Repeat rep times (freq sweep)
                 for itr in range(rep):
                     # Start freq sweep
                     for sb_rcumode in freqbndobj.sb_range:
@@ -534,7 +539,7 @@ class StationDriver(object):
                         for subband in subbands:
                             # Record data
                             rspctl_cmd = self.lcu_interface.rec_xst(subband, integration,
-                                                                    duration_scan)
+                                                                    duration_frq)
                             obsdatetime_stamp = self.get_data_timestamp(-1)
                             curr_obsinfo = dataIO.ObsInfo()
                             curr_obsinfo.setobsinfo_fromparams('xst', obsdatetime_stamp,
@@ -609,7 +614,6 @@ class StationDriver(object):
 
         if rec_stat_type is not None and obsinfolist is not None:
             obsinfo = obsinfolist[0]
-            #obsinfo.sb = freqbndobj.sb_range[0]
 
             # Move data to archive
             bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(scanpath)
