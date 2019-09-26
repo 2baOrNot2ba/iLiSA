@@ -268,7 +268,8 @@ class FrequencyBand(object):
         rcubands = []
         antsets = []
         if not rcumodes:
-            return None, None, None, None, None, None
+            # TODO Consider extending to sbs outside of passband but still measured
+            return None, None, None, None, None, None, None
         sampfreq, sampres = self.getsampinfo(rcumodes[0])
 
         for rcumode in rcumodes:
@@ -383,7 +384,7 @@ class FrequencyBand(object):
     def freqstep2sbstep(self,freqstep, sbwidth):
         return int(math.floor(freqstep/sbwidth))
 
-    def supportrcumodes(self,freqlo,freqhi):
+    def supportrcumodes(self, freqlo, freqhi):
         for combo in self.combos:
             if self.rcumode_passbands[combo[0]][0] <= freqlo \
                and freqhi <= self.rcumode_passbands[combo[-1]][1]:
