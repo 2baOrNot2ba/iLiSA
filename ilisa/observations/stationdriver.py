@@ -520,11 +520,13 @@ class StationDriver(object):
                         duration_frq = integration
                     else:
                         duration_frq = duration_tot
+                # TODO Consider that specified duration is not the same as actual
+                #  duration. Each step in frequency sweep take about 6s for 1s int.
                 (rep, rst) = divmod(duration_tot, duration_frq * nrsubbands)
                 rep = int(rep)
                 if rep == 0:
                     warnings.warn("""Total duration too short for 1 full repetition.
-                    Will increase total duration to get 1 full repetition.""")
+Will increase total duration to get 1 full repetition.""")
                     duration_tot = duration_frq * nrsubbands
                     rep = 1
                 # Repeat rep times (freq sweep)
