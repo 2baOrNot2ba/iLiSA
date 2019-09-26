@@ -115,18 +115,19 @@ def whichst(bsxff):
 def plotacc(args):
     accff = os.path.normpath(args.dataff)
     dataobj = dataIO.CVCfiles(accff)
-    obsfolderinfo = dataobj.getobsfolderinfo()
     data = dataobj.getdata()
-    nrfiles = dataobj.getnrfiles()
-    if nrfiles>1:
-        data = data[0]
     if args.freq is None:
         args.freq = 0.0
     sb, nqzone = modeparms.freq2sb(args.freq)
-    while sb<512:
-        plt.pcolormesh(numpy.abs(data[sb]))
-        plt.show()
-        sb += 1
+    for fileidx in range(0, dataobj.getnrfiles()):
+        while sb<512:
+            plt.pcolormesh(numpy.abs(data[fileidx][sb]))
+            plt.title('Station element covariance (abs value)\n Time: {}UT, SB: {}'\
+                      .format(dataobj.samptimeset[fileidx][sb], sb))
+            plt.xlabel('RCU [#]')
+            plt.ylabel('RCU [#]')
+            plt.show()
+            sb += 1
 
 
 def plot_bsxst(args):
