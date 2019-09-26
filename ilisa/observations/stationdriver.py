@@ -11,10 +11,7 @@ import os
 import sys
 import shutil
 import multiprocessing
-import yaml
 
-import ilisa
-import ilisa.observations
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
