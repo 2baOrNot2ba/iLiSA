@@ -281,7 +281,7 @@ class StationDriver(object):
         observationID = "Null"
 
         # Start a beam
-        pointing = ilisa.observations.directions.stdPointings('Z')
+        pointing = ilisa.observations.directions.std_pointings('Z')
         freqband = modeparms.FrequencyBand(band)
         # FrequencyBand obtained from band spec sets 8 bit mode,
         # so create a new FrequencyBand object with only center frequency
@@ -390,7 +390,7 @@ class StationDriver(object):
                 raise ValueError('bfs and hba-allsky cannot be combined.')
             todo_tof = True
         if not req_allsky and pointing is None:
-            pointing = 'Z'
+            pointsrc = 'Z'
 
         pointing = ilisa.observations.directions.normalizebeamctldir(pointsrc)
 

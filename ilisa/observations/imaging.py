@@ -280,9 +280,9 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
 
     # Determine phaseref
     if req_calsrc is not None:
-        pntstr = ilisa.observations.directions.stdPointings(req_calsrc)
+        pntstr = ilisa.observations.directions.std_pointings(req_calsrc)
     elif allsky:
-        pntstr = ilisa.observations.directions.stdPointings('Z')
+        pntstr = ilisa.observations.directions.std_pointings('Z')
     else:
         pntstr = pointingstr
     phaseref = pntstr.split(',')

@@ -130,15 +130,9 @@ class StationSession(object):
                 # No pointing specified so set to None
                 pointsrc = None
             try:
-                pointing = ilisa.observations.directions.stdPointings(pointsrc)
+                pointing = ilisa.observations.directions.normalizebeamctldir(pointsrc)
             except KeyError:
-                try:
-                    phi, theta, ref = pointsrc.split(',', 3)
-                    # FIXME:  (not always going to be correct)
-                    pointing = pointsrc
-                except ValueError:
-                    raise ValueError(
-                        "Error: %s invalid pointing syntax".format(pointsrc))
+                raise ValueError("Error: %s invalid pointing syntax".format(pointsrc))
             # -- Allsky
             try:
                 allsky = scan['beam']['allsky']

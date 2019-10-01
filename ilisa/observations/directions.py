@@ -52,14 +52,14 @@ def pointing_str2tuple(beamctldirarg):
         return None
 
 
-def stdPointings(directionterm='?'):
+def std_pointings(directionterm='?'):
     """Find beamctl direction string based on direction term.
 
     Parameters
     ----------
     directionterm : str, '?', '', or None
         Source name or term for a direction. E.g. 'Z' for Zenith
-        or 'CasA' for Cassiopeia A.
+        or 'Cas-A' for Cassiopeia A.
 
     Returns
     -------
@@ -80,10 +80,10 @@ def stdPointings(directionterm='?'):
         'S':    str(2*math.pi/2)+',0.,AZELGEO',
         'W':    str(3*math.pi/2)+',0.,AZELGEO',
         'Z':    '0.,'+str(math.pi/2)+',AZELGEO',
-        'CasA': '6.123487,1.026515,J2000', #3C-461
-        'CygA': '5.233660,0.710940,J2000', #3C-405
-        'TauA': '1.459672,0.384225,J2000', #3C-144
-        'VirA': '3.276086,0.216265,J2000', #3C-274
+        'Cas-A': '6.123487,1.026515,J2000', #3C-461
+        'Cyg-A': '5.233660,0.710940,J2000', #3C-405
+        'Tau-A': '1.459672,0.384225,J2000', #3C-144
+        'Vir-A': '3.276086,0.216265,J2000', #3C-274
         'Sun':  '0.,0.,SUN',
         'Jupiter': '0.,0.,JUPITER',
         'Moon': '0.,0.,MOON',
@@ -111,12 +111,15 @@ def normalizebeamctldir(gendirstr):
     Returns
     -------
     beamctldirstr : str
-        The beamctl direction string corresponding to input gendirstr.
+        The beamctl direction string corresponding to input gendirstr. If gendirstr is
+        None, then beamctldirstr is None.
     """
+    if gendirstr is None:
+        return None
     beamctldir = pointing_str2tuple(gendirstr)
     if beamctldir is None:
         try:
-            beamctldirstr = stdPointings(gendirstr)
+            beamctldirstr = std_pointings(gendirstr)
         except:
             raise ValueError('General direction term {} unknown.'.format(gendirstr))
     else:
@@ -125,7 +128,8 @@ def normalizebeamctldir(gendirstr):
 
 
 def lookupsource(src_name):
-    """Lookup the pointing direction for the name of a source.
+    """Lookup the pointing direction for the name of a source stored in user created
+    files.
 
     Parameters
     ----------
@@ -138,13 +142,19 @@ def lookupsource(src_name):
         Length 3 tuple with (az, el, ref).
 
     """
+    src_database = {}
     user_srcs_dir = os.path.join(ilisa.observations.user_data_dir, 'sources')
     user_srcs_files = os.listdir(user_srcs_dir)
 
-    with open(os.path.join(user_srcs_dir, user_srcs_files.pop())) as usf:
-        user_srcs = yaml.load(usf)
+    for user_srcs_file in user_srcs_files:
+        with open(os.path.join(user_srcs_dir, user_srcs_file)) as usf:
+            srcs_data = yaml.load(usf)
+        for source_entry in srcs_data:
+            source_name = source_entry['source']
+            pointingstr = source_entry['pointing']
+            src_database[source_name] = pointing_str2tuple(pointingstr)
     try:
-        pointing = user_srcs[src_name]
+        pointing = src_database[src_name]
     except KeyError:
         raise RuntimeError('Source {} not found in {}.'.format(src_name,
                                                                user_srcs_files))

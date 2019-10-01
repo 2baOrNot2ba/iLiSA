@@ -37,7 +37,7 @@ def main(accrunfolder, desiredsrc, use_autocorr=False):
     elif desiredsrc != calsrc:
         print("Warning: calibration source {} is not the desired one {}."
               .format(calsrc, desiredsrc))
-    pntstr = ilisa.observations.directions.stdPointings(calsrc)
+    pntstr = ilisa.observations.directions.std_pointings(calsrc)
     pointing = pntstr.split(',')
     bandarr = ilisa.observations.modeparms.rcumode2antset(rcumode).split("_")[0]
     stn_pos, stn_rot, antpos, stn_intile_pos = antennafieldlib.getArrayBandParams(stnid,
