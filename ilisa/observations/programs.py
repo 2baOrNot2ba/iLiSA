@@ -4,6 +4,8 @@ import time
 import datetime
 import copy
 import inspect
+
+import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 
@@ -69,7 +71,7 @@ class BasicObsPrograms(object):
         else:
             raise ValueError(
                 "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
-        pointing = modeparms.normalizebeamctldir(pointsrc)
+        pointing = ilisa.observations.directions.normalizebeamctldir(pointsrc)
 
         # Wait until it is time to start
         pause = 5  # Sufficient?

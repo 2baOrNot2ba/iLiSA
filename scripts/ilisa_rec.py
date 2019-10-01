@@ -5,6 +5,7 @@
 import os
 import argparse
 import ilisa.observations
+import ilisa.observations.directions
 import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
@@ -41,7 +42,7 @@ if __name__ == "__main__":
     except AttributeError:
         pointsrc = None
     try:
-        pointing = modeparms.stdPointings(pointsrc)
+        pointing = ilisa.observations.directions.stdPointings(pointsrc)
     except KeyError:
         try:
             phi, theta, ref = pointsrc.split(',', 3)

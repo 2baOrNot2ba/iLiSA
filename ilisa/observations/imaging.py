@@ -9,6 +9,7 @@ from scipy.constants import speed_of_light
 import matplotlib.pyplot as plt
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
+import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
 try:
@@ -279,9 +280,9 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
 
     # Determine phaseref
     if req_calsrc is not None:
-        pntstr = modeparms.stdPointings(req_calsrc)
+        pntstr = ilisa.observations.directions.stdPointings(req_calsrc)
     elif allsky:
-        pntstr = modeparms.stdPointings('Z')
+        pntstr = ilisa.observations.directions.stdPointings('Z')
     else:
         pntstr = pointingstr
     phaseref = pntstr.split(',')

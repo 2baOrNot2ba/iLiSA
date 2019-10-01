@@ -13,6 +13,7 @@ import shutil
 import multiprocessing
 import warnings
 
+import ilisa.observations.directions
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
@@ -142,7 +143,7 @@ class StationDriver(object):
         subprocess.call(fullcmd, shell=True)
         dryrun = self.lcu_interface.DryRun
         self.lcu_interface.DryRun = False
-        self.lcu_interface.rm(source)
+        #self.lcu_interface.rm(source)
         self.lcu_interface.DryRun = dryrun
 
     def get_data_timestamp(self, order=0, ACC=False):
@@ -280,7 +281,7 @@ class StationDriver(object):
         observationID = "Null"
 
         # Start a beam
-        pointing = modeparms.stdPointings('Z')
+        pointing = ilisa.observations.directions.stdPointings('Z')
         freqband = modeparms.FrequencyBand(band)
         # FrequencyBand obtained from band spec sets 8 bit mode,
         # so create a new FrequencyBand object with only center frequency
@@ -390,6 +391,8 @@ class StationDriver(object):
             todo_tof = True
         if not req_allsky and pointing is None:
             pointing = 'Z'
+
+        pointing = ilisa.observations.directions.normalizebeamctldir(pointsrc)
 
         # Setup Calibration tables on LCU:
         CALTABLESRC = 'default'   # FIXME put this in args

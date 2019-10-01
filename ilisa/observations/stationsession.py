@@ -4,6 +4,7 @@ import yaml
 import ilisa
 import ilisa.observations
 import ilisa.observations.dataIO as dataIO
+import ilisa.observations.directions
 import ilisa.observations.session as session
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.stationdriver as stationdriver
@@ -129,7 +130,7 @@ class StationSession(object):
                 # No pointing specified so set to None
                 pointsrc = None
             try:
-                pointing = modeparms.stdPointings(pointsrc)
+                pointing = ilisa.observations.directions.stdPointings(pointsrc)
             except KeyError:
                 try:
                     phi, theta, ref = pointsrc.split(',', 3)

@@ -20,6 +20,7 @@ import datetime
 import h5py
 import yaml
 import ilisa
+import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 
 regex_ACCfolder=(
@@ -714,7 +715,7 @@ class CVCfiles(object):
             obsfolderinfo['integration'] = 1.0
             obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
             obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
-            obsfolderinfo['pointing'] = modeparms.stdPointings(obsfolderinfo['calsrc'])
+            obsfolderinfo['pointing'] = ilisa.observations.directions.stdPointings(obsfolderinfo['calsrc'])
         else:
             raise(ValueError, "Folder not expected xst or acc format.")
         obsfolderinfo['datatype'] = cvcextstr
@@ -888,7 +889,7 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
                   +'_rcu'+rcumode +'_'+calsrc+'_dur'+calrundurationstr\
                   +'_ct'+caltabID+'_v'+version+'_'+dtlabel
     #acc2bstsuffix = '.dat'
-    pntstr = modeparms.stdPointings(calsrc)
+    pntstr = ilisa.observations.directions.stdPointings(calsrc)
     # Write out the data.
     if saveformat == 'hdf5':
         hf = h5py.File(acc2bstbase+".hdf5", "w")
