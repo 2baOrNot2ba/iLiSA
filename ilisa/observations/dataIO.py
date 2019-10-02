@@ -40,6 +40,37 @@ regex_xstfilename=(
 "_xst.dat$")
 
 
+def datafolder_type(datafolderpath):
+    """Determine what type of LOFAR local mode recording the datafolder is.
+
+    Parameters
+    ----------
+    datafolderpath : str
+        Path to LOFAR local mode datafolder.
+
+    Returns
+    -------
+    lofardatatype : str
+        LOFAR local mode datatype. Can be 'acc', 'bfs', 'bst', 'sst', 'xst'.
+        Returns None if datafolderpath is not one of the recognized types.
+    """
+    datafolder = os.path.basename(os.path.normpath(datafolderpath))
+    suf = datafolder.split('_')[-1]
+    if suf == 'acc':
+        datatype = 'acc'
+    elif suf == 'bfs':
+        datatype = 'bfs'
+    elif suf == 'bst':
+        datatype = 'bst'
+    elif suf == 'sst':
+        datatype = 'sst'
+    elif suf == 'xst':
+        datatype = 'xst'
+    else:
+        datatype = None
+    return datatype
+
+
 class ScanRecInfo(object):
 
     scanrec_header = "SCAN_REC.yml"
@@ -566,6 +597,7 @@ def parse_sstfilename(SSTfilepath):
 
 def readsst(SSTfile):
     """Read-in SST datafile.
+
     Parameters
     ----------
     SSTfile : str

@@ -107,11 +107,6 @@ def plotxst(xstff):
             plt.show()
 
 
-def whichst(bsxff):
-    suf = bsxff.split('_')[-1]
-    return suf
-
-
 def plotacc(args):
     accff = os.path.normpath(args.dataff)
     dataobj = dataIO.CVCfiles(accff)
@@ -130,24 +125,25 @@ def plotacc(args):
             sb += 1
 
 
-def plot_bsxst(args):
-    bsxff = os.path.normpath(args.dataff)
-    suf = whichst(bsxff)
-    if suf=='acc':
-        plotacc(args)
-    if suf=='bst' or suf=='bst-357':
-        plotbst(bsxff)
-    elif suf=='sst':
-        plotsst(bsxff, args.freq)
-    elif suf=='xst' or suf=='xst-SEPTON':
-        plotxst(bsxff)
+def _plot_bsxst(args):
+    if lofar_datatype =='acc':
+        plotacc(args.dataff)
+    if lofar_datatype=='bst' or lofar_datatype=='bst-357':
+        plotbst(args.dataff)
+    elif lofar_datatype=='sst':
+        plotsst(args.dataff, args.freq)
+    elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
+        plotxst(args.dataff)
     else:
         raise RuntimeError("Not a bst, sst, or xst filefolder")
 
 
 def image(args):
     """Image visibility-type data."""
-    cvcobj = dataIO.CVCfiles(args.cvcpath)
+    if lofar_datatype != 'acc' and lofar_datatype != 'xst':
+        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."\
+                           .format(args.dataff))
+    cvcobj = dataIO.CVCfiles(args.dataff)
     CVCdataset = cvcobj.getdata()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
         integration = cvcobj.stnsesinfo.get_integration()
@@ -169,13 +165,13 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(help='sub-command help')
 
     parser_plot = subparsers.add_parser('plot', help='plot help')
-    parser_plot.set_defaults(func=plot_bsxst)
+    parser_plot.set_defaults(func=_plot_bsxst)
     parser_plot.add_argument('dataff', help="acc, bst, sst or xst filefolder")
     parser_plot.add_argument('freq', type=float, nargs='?', default=None)
 
     parser_image = subparsers.add_parser('image', help='image help')
     parser_image.set_defaults(func=image)
-    parser_image.add_argument('cvcpath', help="acc or xst filefolder")
+    parser_image.add_argument('dataff', help="acc or xst filefolder")
     parser_image.add_argument('-p','--phaseref', type=str, default=None)
     parser_image.add_argument('-n','--filenr', type=int, default=0)
     parser_image.add_argument('-s','--sampnr', type=int, default=0)
@@ -183,4 +179,6 @@ if __name__ == "__main__":
                               action="store_true")
 
     args = parser.parse_args()
+    args.dataff = os.path.normpath(args.dataff)
+    lofar_datatype = dataIO.datafolder_type(args.dataff)
     args.func(args)
