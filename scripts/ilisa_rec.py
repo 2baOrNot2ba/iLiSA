@@ -22,7 +22,7 @@ if __name__ == "__main__":
                         type=float, default=modeparms.MIN_STATS_INTG)
     parser.add_argument('datatype',
                         help="""lofar data type to record.
-                        Choose from 'acc', 'bfs', 'bst', 'sst','xst' or 'nil'.""")
+                        Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
     parser.add_argument('freqspec',
                         help='Frequency spec in Hz.')
     parser.add_argument('duration_tot',
@@ -63,25 +63,31 @@ if __name__ == "__main__":
         do_acc = True
         rec_stat_type = None
         scanrecs['acc'] = scanrec
-        sesspath = os.path.join(sesspath,'acc')
+        sesspath = os.path.join(sesspath, 'acc')
     elif args.datatype == 'bfs':
         rec_bfs = True
         rec_stat_type = None
         scanrecs['bfs'] = scanrec
-        sesspath = os.path.join(sesspath,'bfs')
+        sesspath = os.path.join(sesspath, 'bfs')
     elif args.datatype == 'bst' or args.datatype == 'sst' or args.datatype == 'xst':
         rec_stat_type = args.datatype
         scanrecs['bsx'] = scanrec
-        sesspath = os.path.join(sesspath,rec_stat_type)
+        sesspath = os.path.join(sesspath, rec_stat_type)
+    elif args.datatype == 'tbb':
+        pass
     else:
         raise RuntimeError('Unknown datatype {}'.format(args.datatype))
 
-    bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
-    scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
-    stndrv.main_scan(freqbndobj, args.integration, duration_tot, pointing, pointsrc,
-                     starttime=args.starttime, rec_stat_type=rec_stat_type,
-                     rec_bfs=rec_bfs, duration_frq=None, do_acc=do_acc,
-                     allsky=args.allsky, scanmeta=scanmeta)
+    if args.datatype != 'tbb':
+        bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
+        scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
+
+        stndrv.main_scan(freqbndobj, args.integration, duration_tot, pointing, pointsrc,
+                         starttime=args.starttime, rec_stat_type=rec_stat_type,
+                         rec_bfs=rec_bfs, duration_frq=None, do_acc=do_acc,
+                         allsky=args.allsky, scanmeta=scanmeta)
+    else:
+        stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print "Finished"
     import sys
     sys.stdout.flush()

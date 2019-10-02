@@ -277,8 +277,15 @@ class StationDriver(object):
         self.lcu_interface.run_tbbctl(select='176:191', readall=nrpages) # backgroundJOB='locally')
 
     def do_tbb(self, duration_scan, band, start_after=0, observer="", project=""):
-        """Record duration_scan seconds of TBB data from rcumode."""
+        """Record duration_scan seconds of TBB data from rcumode.
+        """
         observationID = "Null"
+
+        # Prepare for obs program.
+        try:
+            self.goto_observingstate()
+        except RuntimeError as e:
+            raise RuntimeError(e)
 
         # Start a beam
         pointing = ilisa.observations.directions.std_pointings('Z')
@@ -307,7 +314,7 @@ class StationDriver(object):
             multiprocessing.Process(target=capture_data_DAL1,
                                     args=(self.tbbraw2h5cmd, self.tbbh5dumpdir,
                                           observer, antset, project,
-                                          observationID,False))
+                                          observationID, False))
         dalcap.start()
 
         print("Streaming {}s of TBB data out of LCU".format(duration_scan))
@@ -744,7 +751,11 @@ def capture_data_DAL1(tbbraw2h5cmd, TBBh5dumpDir, observer, antennaSet,
         ground = 'fg'
         grdcmd = ''
     print("Starting TBBraw2h5 ({})".format(ground))
-    subprocess.call(("cd "+TBBh5dumpDir+"; "
+    if observer == '':
+        observer = 'Null'
+    if project == '':
+        project = 'Null'
+    cmdline = ("cd "+TBBh5dumpDir+"; "
                      + " export LD_LIBRARY_PATH=/mnt/old/usr/lib/ ; "
                      + tbbraw2h5cmd
                      + " "
@@ -756,4 +767,6 @@ def capture_data_DAL1(tbbraw2h5cmd, TBBh5dumpDir, observer, antennaSet,
                      + " -P 31667 -P 31668 -P 31669 "
                      + " -P 31670 -P 31671 -P 31672 "
                      + " -P 31673 -P 31674 -P 31675 "
-                     + grdcmd), shell=True)
+                     + grdcmd)
+    print("DPU> {}".format(cmdline))
+    subprocess.call(cmdline, shell=True)
