@@ -22,10 +22,12 @@ def plotbst(bstff):
     plt.subplot(211)
     plt.pcolormesh(freqs/1e6, ts/3600, BSTdata['X'],
                    norm=colors.LogNorm())
+    plt.colorbar()
     plt.title('X-pol')
     plt.subplot(212)
     plt.pcolormesh(freqs/1e6, ts/3600, BSTdata['Y'],
                    norm=colors.LogNorm())
+    plt.colorbar()
     plt.title('Y-pol')
     plt.xlabel('frequency [MHz]')
     plt.ylabel('Time [h]')
@@ -107,8 +109,7 @@ def plotxst(xstff):
             plt.show()
 
 
-def plotacc(args):
-    accff = os.path.normpath(args.dataff)
+def plotacc(accff):
     dataobj = dataIO.CVCfiles(accff)
     data = dataobj.getdata()
     if args.freq is None:
