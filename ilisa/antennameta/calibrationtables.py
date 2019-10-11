@@ -67,6 +67,7 @@ def getcaltab(rcumode, stnid, obsdatestr=None):
     """Return appropriate calibration table content based on rcumode stnid and
     observation date.
     """
+    rcumode = str(rcumode)
     caltabpath = findcaltabpath(rcumode, stnid, obsdatestr)
     (caltab, header) = readcaltab(caltabpath)
     return caltab, header
