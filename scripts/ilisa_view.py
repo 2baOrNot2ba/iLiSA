@@ -5,6 +5,7 @@ import numpy
 import datetime
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import matplotlib.dates as mdates
 
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.imaging as imaging
@@ -12,29 +13,35 @@ import ilisa.observations.modeparms as modeparms
 
 
 def plotbst(bstff):
+    """Plot BST data."""
     BSTdata, obsfileinfo = dataIO.readbstfolder(bstff)
-
+    starttime = obsfileinfo['datetime']
     intg = obsfileinfo['integration']
     dur = obsfileinfo['duration']
     freqs = obsfileinfo['frequencies']
     ts = numpy.arange(0., dur, intg)
+    ts = [starttime+datetime.timedelta(seconds=t) for t in ts]
+    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
+    bstxplt = ax1.pcolormesh(ts, freqs/1e6, BSTdata['X'].T,
+                             norm=colors.LogNorm())
+    fig.colorbar(bstxplt, ax=ax1)
+    ax1.set_ylabel('Frequency [MHz]')
+    ax1.set_title('X-pol')
+    bstyplt = ax2.pcolormesh(ts, freqs/1e6, BSTdata['Y'].T,
+                             norm=colors.LogNorm())
+    fig.colorbar(bstyplt, ax=ax2)
+    ax2.set_title('Y-pol')
+    fig.autofmt_xdate()
 
-    plt.subplot(211)
-    plt.pcolormesh(freqs/1e6, ts/3600, BSTdata['X'],
-                   norm=colors.LogNorm())
-    plt.colorbar()
-    plt.title('X-pol')
-    plt.subplot(212)
-    plt.pcolormesh(freqs/1e6, ts/3600, BSTdata['Y'],
-                   norm=colors.LogNorm())
-    plt.colorbar()
-    plt.title('Y-pol')
-    plt.xlabel('frequency [MHz]')
-    plt.ylabel('Time [h]')
+    ax2.xaxis.set_major_formatter( mdates.DateFormatter('%H:%M:%S'))
+    ax2.set_xlabel('Time [UT]')
+    ax2.set_ylabel('Frequency [MHz]')
+    plt.suptitle('BST X,Y @ {}'.format(starttime))
     plt.show()
 
 
 def plotsst(sstff, freqreq):
+    """Plot SST data."""
     SSTdata, obsfolderinfo = dataIO.readsstfolder(sstff)
     starttime = obsfolderinfo['datetime']
     SSTdata = numpy.array(SSTdata)
@@ -88,6 +95,12 @@ def plotsst(sstff, freqreq):
 
 
 def plotxst(xstff):
+    """Plot XST data."""
+    colorscale = None  # Colorscale for xst data plot (default None)
+    if colorscale == 'log':
+        normcolor = colors.LogNorm()
+    else:
+        normcolor = None
     xstobj = dataIO.CVCfiles(xstff)
     XSTdataset = xstobj.getdata()
     for sbstepidx in range(len(XSTdataset)):
@@ -100,12 +113,14 @@ def plotxst(xstff):
         XSTdata = XSTdataset[sbstepidx]
         for tidx in range(XSTdata.shape[0]):
             print("Kill plot window for next plot...")
-            plt.imshow(numpy.abs(XSTdata[tidx,...]), norm=colors.LogNorm(),
+            plt.imshow(numpy.abs(XSTdata[tidx,...]), norm=normcolor,
                        interpolation='none')
-            plt.title("Time (from start {}) {}s @ freq={} MHz".format(obsinfo.starttime,
-                                                                      ts[tidx], freq/1e6))
+            plt.title(
+"""Time (from start {}) {}s
+@ freq={} MHz""".format(obsinfo.starttime, ts[tidx], freq/1e6))
             plt.xlabel('RCU [#]')
             plt.ylabel('RCU [#]')
+            plt.colorbar()
             plt.show()
 
 
