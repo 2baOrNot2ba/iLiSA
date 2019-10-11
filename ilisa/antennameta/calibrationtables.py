@@ -66,6 +66,22 @@ def findcaltabpath(rcumode, stnid, obsdatestr=None):
 def getcaltab(rcumode, stnid, obsdatestr=None):
     """Return appropriate calibration table content based on rcumode stnid and
     observation date.
+
+    Parameters
+    ----------
+    rcumode : str, int
+        The rcumode. Can be 3, 4, 5, 6, 7, either as string or integer.
+    stnid : str
+        The station id, e.g. 'SE607'.
+    obsdatestr : str
+        Date of the observation. If None (default), will use latest.
+
+    Returns
+    -------
+    caltab : (512, 192) array
+        The calibration (gains) table: 0-axis=subband, 1-axis=rcunr
+    header : dict
+        The header of the calibration table file.
     """
     rcumode = str(rcumode)
     caltabpath = findcaltabpath(rcumode, stnid, obsdatestr)
