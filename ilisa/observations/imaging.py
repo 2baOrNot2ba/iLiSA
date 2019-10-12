@@ -325,40 +325,51 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
     return ll, mm, images, polrep, t, freq, stnid, phaseref
 
 
+def rm_redundant_bls(cvc, rmconjbl=True, use_autocorr=False):
+    """Remove redundant baselines from covariance matrices.
+    Assumes baseline indices are in last components."""
+    nrelems = cvc.shape[-1]
+    # Total number of baselines incl. autocorr and conjugate baselines.
+    nrbaselinestot = nrelems**2
+    if rmconjbl:
+        # Remove conjugate baselines
+        for idx_i in range(1, nrelems):
+            for idx_j in range(idx_i):
+                cvc[..., idx_i, idx_j] = 0.0
+        nrbaselinestot -= nrelems*(nrelems-1)/2
+    if not use_autocorr:
+        # Do not use the autocorrelations (for all pol combos i.e. for XX, YY, XY and YX)
+        for idx in range(nrelems):
+            cvc[..., idx, idx] = 0.0
+        nrbaselinestot -= nrelems
+    return cvc, nrbaselinestot
+
+
 # Conversion between datatypes
 def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
     """Convert xst data to bst data"""
+    xst, nrbaselinestot = rm_redundant_bls(xst)
     xstpu, UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos, pointing)
-    bstXX = numpy.sum(xstpu[0,0,...].squeeze(), axis=(0,1))
-    bstXY = numpy.sum(xstpu[0,1,...].squeeze(), axis=(0,1))
-    #bstYX = numpy.sum(xstpu[1,0,...].squeeze(), axis=(0,1))
-    bstYY = numpy.sum(xstpu[1,1,...].squeeze(), axis=(0,1))
-    return bstXX, bstXY, bstYY #, bstYX
+    bstXX = numpy.sum(xstpu[0,0,...].squeeze(), axis=(0,1))/nrbaselinestot
+    bstXY = numpy.sum(xstpu[0,1,...].squeeze(), axis=(0,1))/nrbaselinestot
+    bstYY = numpy.sum(xstpu[1,1,...].squeeze(), axis=(0,1))/nrbaselinestot
+    return bstXX, bstXY, bstYY
 
 
-def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr = False):
+def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr=False):
     """Convert a polarized spectral cube of visibilities (ACC order by two X,Y indices)
     to polarized brightness towards pointing direction. The output is a set of 2 real and
     1 complex powers (this is like beamlet statics, bst, data but also has the complex,
     cross-hand polarization components, which the bst does not have)."""
-    nrelems = accpol.shape[-1]
-    nrbaselinestot = nrelems**2  # i.e. total number of baselines incl. autocorr and
-                                 # conjugate baselines.
-    if not use_autocorr:
-        # Do not use the autocorrelations (for all pol combos i.e. for XX, YY, XY and YX)
-        for idx in range(nrelems):
-            accpol[...,idx,idx]= 0.0
-        nrbaselinestot -= nrelems
+    accpol, nrbaselinestot = rm_redundant_bls(accpol)
     # Phase up ACC towards pointing direction
     accpu = phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing)
     # Sum up phased up ACCs per pol component over all baselines (Previously average)
     # Note that this sum is also over conjugate baselines, so factor 2 more
-    bstXX = numpy.sum(numpy.real(accpu[0,0,...].squeeze()), axis=(1,2))
-    bstXY = numpy.sum(accpu[0,1,...].squeeze(), axis=(1,2))
-    # bstYX is redundant: it is conjugate of bstXY.
-    # bstYX = numpy.sum(accpu[1,0,...].squeeze(), axis=(1,2))
-    bstYY = numpy.sum(numpy.real(accpu[1,1,...].squeeze()), axis=(1,2))
-    return bstXX, bstXY, bstYY  # , bstYX
+    bstXX = numpy.sum(numpy.real(accpu[0, 0, ...].squeeze()), axis=(1, 2))/nrbaselinestot
+    bstXY = numpy.sum(accpu[0, 1, ...].squeeze(), axis=(1, 2))/nrbaselinestot
+    bstYY = numpy.sum(numpy.real(accpu[1, 1, ...].squeeze()), axis=(1, 2))/nrbaselinestot
+    return bstXX, bstXY, bstYY
 
 
 def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integration,

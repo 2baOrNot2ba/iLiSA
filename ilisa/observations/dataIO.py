@@ -741,13 +741,14 @@ class CVCfiles(object):
                                    int(obsdirinfo['hour']),
                                    int(obsdirinfo['minute']),
                                    int(obsdirinfo['second']))
-            obsfolderinfo['datetime'] = d0
+            obsfolderinfo['sessiontimeid'] = d0
             obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
             obsfolderinfo['subband'] = '0:511'
             obsfolderinfo['integration'] = 1.0
             obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
-            obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
-            obsfolderinfo['pointing'] = ilisa.observations.directions.std_pointings(obsfolderinfo['calsrc'])
+            obsfolderinfo['source'] = obsdirinfo['calsrc']
+            obsfolderinfo['pointing'] = ilisa.observations.directions.std_pointings(
+                obsfolderinfo['source'])
         else:
             raise(ValueError, "Folder not expected xst or acc format.")
         obsfolderinfo['datatype'] = cvcextstr
@@ -911,15 +912,15 @@ def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
                 calrunduration, rcumode, calsrc, calibmeta, stnid, used_autocorr,
                 saveformat = "hdf5"):
     """Save acc2bst data to file. Dataformat can be hdf or numpy."""
-    version = '4'  # Version of this dataformat
+    version = '5'  # Version of this dataformat
     calrundurationstr = str(int(calrunduration.total_seconds()))
     caltabID = calibmeta['Date']
     # Calculate start of ACC run.
     # Form self describing filename.
     dtlabel = 'acc2bst'
-    acc2bstbase = stnid+'_'+calrunstarttime.strftime("%Y%m%dT%H%M%S")\
-                  +'_rcu'+rcumode +'_'+calsrc+'_dur'+calrundurationstr\
-                  +'_ct'+caltabID+'_v'+version+'_'+dtlabel
+    acc2bstbase = "{}_{}_rcu{}_{}_dur{}_ct{}_v{}_{}".format(
+        stnid, calrunstarttime.strftime("%Y%m%dT%H%M%S"), rcumode, calsrc,
+        calrundurationstr, caltabID, version, dtlabel)
     #acc2bstsuffix = '.dat'
     pntstr = ilisa.observations.directions.std_pointings(calsrc)
     # Write out the data.
