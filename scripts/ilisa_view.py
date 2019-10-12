@@ -125,6 +125,7 @@ def plotxst(xstff):
 
 
 def plotacc(accff):
+    """Plot of ACC folder files."""
     dataobj = dataIO.CVCfiles(accff)
     data = dataobj.getdata()
     if args.freq is None:
@@ -132,12 +133,21 @@ def plotacc(accff):
     sb, nqzone = modeparms.freq2sb(args.freq)
     for fileidx in range(0, dataobj.getnrfiles()):
         while sb<512:
-            plt.pcolormesh(numpy.abs(data[fileidx][sb]))
-            plt.title('Station element covariance (abs value)\n Time: {}UT, SB: {}'\
+            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
+            absdatplt = ax1.pcolormesh(numpy.abs(data[fileidx][sb]))
+            ax1.set_title('Abs value')
+            #ax1.set_xlabel('RCU [#]')
+            ax1.set_ylabel('RCU [#]')
+            fig.colorbar(absdatplt, ax=ax1)
+            angdatplt = ax2.pcolormesh(numpy.angle(data[fileidx][sb]), cmap=plt.get_cmap('hsv'))
+            ax2.set_title('Phase value')
+            ax2.set_xlabel('RCU [#]')
+            ax2.set_ylabel('RCU [#]')
+            fig.colorbar(angdatplt, ax=ax2)
+            plt.suptitle('Station element covariance. Time: {}UT, SB: {}'\
                       .format(dataobj.samptimeset[fileidx][sb], sb))
-            plt.xlabel('RCU [#]')
-            plt.ylabel('RCU [#]')
-            plt.show()
+            fig.show()
+            inpres = raw_input('Press return for next plot... ')
             sb += 1
 
 
