@@ -358,7 +358,8 @@ class FrequencyBand(object):
             else:
                 nrbeamlets += len(rcumode_beamlet.split(','))
         if nrbeamlets > self.nrbeamletsbybits[4]:
-            raise ValueError("Requires too many beamlets.")
+            raise ValueError("Requires too many beamlets ({} > {})."
+                             .format(nrbeamlets, self.nrbeamletsbybits[4]))
         for bits in self.nrbeamletsbybits.keys():
             # Choose largest bit size that fulfills nrbeamlets
             if nrbeamlets <= self.nrbeamletsbybits[bits]:
