@@ -392,6 +392,9 @@ class LCUInterface(object):
         self.exec_lcu(rcu_setup_CMDs)
         if self.DryRun:
             self.bits = bits
+        waittime = 1
+        print("Waiting {}s for rspctl to settle...".format(waittime))
+        time.sleep(waittime)  # Wait for rspctl to settle
         return rcu_setup_CMDs
 
     def get_bits(self):
@@ -437,7 +440,7 @@ class LCUInterface(object):
         beamctl_CMD = self._setup_beamctl(beamlets, subbands, rcumode, anadigdir, rcus,
                                           beamdurstr)
         self.exec_lcu(beamctl_CMD, backgroundJOB)
-        waittime = 10
+        waittime = 11
         print("Waiting {}s for beam to settle...".format(waittime))
         time.sleep(waittime)  # Wait for beam to settle
         return beamctl_CMD

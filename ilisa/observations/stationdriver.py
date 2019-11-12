@@ -84,7 +84,7 @@ class StationDriver(object):
             except RuntimeError:
                 raise RuntimeError('Observations not allowed on this station')
 
-    def goto_observingstate(self, warmup=True):
+    def goto_observingstate(self, warmup=False):
         """Put station into the main observing state.
 
         Parameters
@@ -179,6 +179,7 @@ class StationDriver(object):
         bits = freqbndobj.bits
         if DUMMYWARMUP:
             print("Warning warnup not currently implemented")
+        rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         beamctl_cmds = []
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
             antset = freqbndobj.antsets[bandbeamidx]
@@ -189,7 +190,6 @@ class StationDriver(object):
             beamctl_main = self.lcu_interface.run_beamctl(beamletIDs, subbands,
                                                           rcumode, pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
-        rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
     def _waittoboot(self, starttimestr, pause=0):
