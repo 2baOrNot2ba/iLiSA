@@ -97,12 +97,17 @@ class StationSession(object):
             projectid = stn_ses_sched_in['projectid']
         except KeyError:
             projectid = '0'
+        try:
+            note = stn_ses_sched_in['note']
+        except KeyError:
+            note = None
 
         # Initialize processed station session schedule
         stnid = self.stndrv.get_stnid()
         stn_ses_sched = {'session_id': session_id,
                          'projectid': projectid,
                          'station': stnid,
+                         'note': note,
                          'scans': []}
         if mockrun:
             stn_ses_sched['mockrun'] = True
