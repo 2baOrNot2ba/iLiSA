@@ -323,14 +323,17 @@ class StationDriver(object):
 
     def get_scanpath(self, dumproot, beamstarted=None):
         """Determine path where next scan should be stored."""
-        # - Make a scan ID. (Currently based on starttime of scan)
+        # - Make a scan ID. (Currently based on MJD start time of scan)
         try:
-            scanid = self.get_data_timestamp(-1)
+            scan_dt_id = self.get_data_timestamp(-1)
         except Exception:
             if beamstarted is None:
                 beamstarted = datetime.datetime.utcnow()
-            scanid = beamstarted.strftime("%Y%m%d_%H%M%S")
-        scanpath = os.path.join(dumproot, "scan_{}".format(scanid))
+            scan_dt_id = beamstarted.strftime("%Y%m%d_%H%M%S")
+        # No
+        scan_mjd_id = modeparms.dt2mjd(datetime.datetime.strptime(scan_dt_id,
+                                                                  "%Y%m%d_%H%M%S"))
+        scanpath = os.path.join(dumproot, "scan_{}".format(scan_mjd_id))
         return scanpath
 
     def main_scan(self, freqbndobj, integration, duration_tot, pointing, pointsrc,

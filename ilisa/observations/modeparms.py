@@ -3,6 +3,7 @@
 import argparse
 import math
 import numpy
+import datetime
 
 rcusbsep = "+"
 Nqfreq = 100.0e6  # Nyquist frequency in Hz
@@ -593,3 +594,14 @@ def sb2freq(sb, NqZone):
     """Convert subband in a given Nyquist zone to a frequency."""
     freq = Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
     return freq
+
+def dt2mjd(dt):
+    """Convert a python datetime to modified julian date."""
+    sigdec = 5
+    ymd, hms = dt.date(), dt.time()
+    dayfrac = (datetime.datetime.combine(datetime.date.min, hms)
+                 - datetime.datetime.min).total_seconds()/86400.0
+    ordinalfloat = ymd.toordinal() + dayfrac
+    jd = round(ordinalfloat + 1721424.5, sigdec)
+    mjd = round(jd - 2400000.5, sigdec)
+    return mjd
