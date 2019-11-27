@@ -595,7 +595,7 @@ Will increase total duration to get 1 full repetition.""")
                              '{}_{}_rcu{}_dur{}'.format(self.lcu_interface.stnid,
                                                         obsdatetime_stamp, rcumode,
                                                         duration_tot))
-            if int(rcumode) > 3:
+            if int(rcumode) > 4:  # rcumodes more than 4 need pointing
                 acc_destfolder += "_"+pointsrc
             acc_destfolder += "_acc"
             if os.path.exists(acc_destfolder):
