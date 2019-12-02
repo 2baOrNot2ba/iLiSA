@@ -33,6 +33,6 @@ setup(name='iLiSA',
           'PyYAML',
           'h5py'
       ],
-      scripts=['scripts/acc2bst.py', 'scripts/ilisa_adm.py', 'scripts/ilisa_rec.py',
+      scripts=['scripts/ilisa_adm.py', 'scripts/ilisa_rec.py',
                'scripts/ilisa_sched.py', 'scripts/ilisa_view.py']
       )
