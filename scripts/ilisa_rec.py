@@ -9,6 +9,7 @@ import ilisa.observations.directions
 import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
+import ilisa.observations.programs as programs
 
 
 if __name__ == "__main__":
@@ -33,7 +34,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     accessconf = ilisa.observations.default_access_lclstn_conf()
-    stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'])
+    stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'], mockrun=False)
     halt_observingstate_when_finished = True
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
     freqbndobj = modeparms.FrequencyBand(args.freqspec)
@@ -81,11 +82,11 @@ if __name__ == "__main__":
     if args.datatype != 'tbb':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
-
-        stndrv.main_scan(freqbndobj, args.integration, duration_tot, pointing, pointsrc,
-                         starttime=args.starttime, rec_stat_type=rec_stat_type,
-                         rec_bfs=rec_bfs, duration_frq=None, do_acc=do_acc,
-                         allsky=args.allsky, scanmeta=scanmeta)
+        scanpath = programs.record_scan(stndrv, freqbndobj, args.integration, duration_tot, pointing,
+                             pointsrc, starttime=args.starttime,
+                             rec_stat_type=rec_stat_type, rec_bfs=rec_bfs,
+                             duration_frq=None, do_acc=do_acc, allsky=args.allsky,
+                             scanmeta=scanmeta)
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print "Finished"

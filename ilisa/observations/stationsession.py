@@ -8,6 +8,7 @@ import ilisa.observations.directions
 import ilisa.observations.session as session
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.stationdriver as stationdriver
+import ilisa.observations.programs as programs
 
 
 def projid2meta(projectid):
@@ -236,7 +237,9 @@ class StationSession(object):
                 rec_bfs = scan['rec_bfs']
                 do_acc = scan['do_acc']
                 allsky = scan['beam']['allsky']
-                self.stndrv.main_scan(freqbndobj, integration, duration_tot, pointing,
-                                      pointsrc, starttime, rec_stat_type,
-                                      rec_bfs=rec_bfs, do_acc=do_acc, allsky=allsky,
-                                      scanmeta=scanmeta)
+                scanpath = programs.record_scan(self.stndrv, freqbndobj, integration,
+                                                duration_tot, pointing, pointsrc,
+                                                starttime, rec_stat_type, rec_bfs=rec_bfs,
+                                                do_acc=do_acc, allsky=allsky,
+                                                scanmeta=scanmeta)
+                print "Saved scan here: ", scanpath
