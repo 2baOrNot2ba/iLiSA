@@ -79,7 +79,7 @@ class ScanRecInfo(object):
     data, namely the stn_id, the iLiSA scanrec parameters, and a list of ObsInfo objects
     called obsinfos that maps to each ldat within the scanrec.
     """
-    scanrecinfo_header = "SCANREC.yml"
+    scanrecinfo_header = "SCANRECINFO.yml"
 
     def __init__(self, projectmeta={}):
         self.headerversion = 2
@@ -111,8 +111,8 @@ class ScanRecInfo(object):
         sessiondatetime = datetime.datetime.strptime(sti, '%Y%m%d_%H%M%S')
         return sessiondatetime
 
-    def set_obsfolderinfo(self, datatype, sessiontimeid, freqband, integration,
-                          duration_tot, pointing="None,None,None"):
+    def set_scanrecparms(self, datatype, sessiontimeid, freqband, integration,
+                         duration_tot, pointing="None,None,None"):
         self.scanrecparms = {}
         self.scanrecparms['datatype'] = datatype
         self.scanrecparms['sessiontimeid'] = sessiontimeid
@@ -121,7 +121,7 @@ class ScanRecInfo(object):
         self.scanrecparms['duration_tot'] = duration_tot
         self.scanrecparms['pointing'] = pointing
 
-    def write_scan_rec(self, datapath):
+    def write_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), "w") as f:
             f.write("# LOFAR local station project\n")
             f.write("# Created by {} version {}\n".format("iLiSA", ilisa.__version__))
@@ -131,7 +131,7 @@ class ScanRecInfo(object):
             #f.write("projectmeta: {!r}\n".format(self.projectmeta))
             f.write("scanrec: {!r}\n".format(self.scanrecparms))
 
-    def read_scan_rec(self, datapath):
+    def read_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), 'r') as hf:
             try:
                 scanrecfiledict = yaml.load(hf)
@@ -759,7 +759,7 @@ class CVCfiles(object):
         """
         self.scanrecinfo.obsinfos = []
         try:
-            self.scanrecinfo.read_scan_rec(self.filefolder)
+            self.scanrecinfo.read_scanrec(self.filefolder)
         except Exception as e:
             print(e.message)
             print(e.__doc__)

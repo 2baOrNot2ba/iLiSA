@@ -186,10 +186,10 @@ def do_obsprog(stationdriver, scan, scanmeta=None):
         for curr_obsinfo in obsinfolist:
             curr_obsinfo.write_ldat_header(datapath)
         # Prepare metadata for session on this station.
-        scanmeta.scanrecs['bsx'].set_obsfolderinfo(obsinfo.LOFARdatTYPE,
-            bsxSTobsEpoch, freqbndobj.arg, obsinfo.integration, obsinfo.duration_scan,
-            obsinfo.pointing)
-        scanmeta.scanrecs['bsx'].write_scan_rec(datapath)
+        scanmeta.scanrecs['bsx'].set_scanrecparms(obsinfo.LOFARdatTYPE,
+                                                  bsxSTobsEpoch, freqbndobj.arg, obsinfo.integration, obsinfo.duration_scan,
+                                                  obsinfo.pointing)
+        scanmeta.scanrecs['bsx'].write_scanrec(datapath)
         scanmeta.scanrecs['bsx'].datapath = datapath
 
 
@@ -472,9 +472,9 @@ Will increase total duration to get 1 full repetition.""")
         # - Create project header
         acc_integration = 1.0
         scanmeta.scanrecs['acc'].set_stnid(stationdriver.get_stnid())
-        scanmeta.scanrecs['acc'].set_obsfolderinfo('acc', obsdatetime_stamp, band,
-                                          acc_integration, duration_tot, pointing)
-        scanmeta.scanrecs['acc'].write_scan_rec(acc_destfolder)
+        scanmeta.scanrecs['acc'].set_scanrecparms('acc', obsdatetime_stamp, band,
+                                                  acc_integration, duration_tot, pointing)
+        scanmeta.scanrecs['acc'].write_scanrec(acc_destfolder)
 
         # - Create header for each ACC file
         for destfile in accdestfiles:
@@ -497,11 +497,11 @@ Will increase total duration to get 1 full repetition.""")
             curr_obsinfo.write_ldat_header(datapath)
         # Prepare metadata for session on this station
         scanmeta.scanrecs['bsx'].set_stnid(stationdriver.get_stnid())
-        scanmeta.scanrecs['bsx'].set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
-                                     freqbndobj.arg, obsinfo.integration,
-                                     obsinfo.duration_scan, obsinfo.pointing)
+        scanmeta.scanrecs['bsx'].set_scanrecparms(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
+                                                  freqbndobj.arg, obsinfo.integration,
+                                                  obsinfo.duration_scan, obsinfo.pointing)
         scanmeta.scanrecs['bsx'].datapath = datapath
-        scanmeta.scanrecs['bsx'].write_scan_rec(datapath)
+        scanmeta.scanrecs['bsx'].write_scanrec(datapath)
 
     if rec_bfs:
         # Make a project folder for BFS data
@@ -532,11 +532,11 @@ Will increase total duration to get 1 full repetition.""")
         scanmeta.scanrecs['bfs'].set_stnid(stationdriver.get_stnid())
         scanmeta.scanrecs['bfs'].obsinfos[-1].write_ldat_header(datapath)
         integration = None
-        scanmeta.scanrecs['bfs'].set_obsfolderinfo('bfs', headertime, band,
-                                                   integration, duration_tot,
-                                                   pointing)
+        scanmeta.scanrecs['bfs'].set_scanrecparms('bfs', headertime, band,
+                                                  integration, duration_tot,
+                                                  pointing)
         scanmeta.scanrecs['bfs'].datapath = datapath
-        scanmeta.scanrecs['bfs'].write_scan_rec(datapath)
+        scanmeta.scanrecs['bfs'].write_scanrec(datapath)
 
     stationdriver.lcu_interface.cleanup()
     # Necessary due to possible forking
