@@ -237,9 +237,9 @@ class StationSession(object):
                 rec_bfs = scan['rec_bfs']
                 do_acc = scan['do_acc']
                 allsky = scan['beam']['allsky']
-                scanpath = programs.record_scan(self.stndrv, freqbndobj, integration,
+                scanpaths = programs.record_scan(self.stndrv, freqbndobj, integration,
                                                 duration_tot, pointing, pointsrc,
                                                 starttime, rec_stat_type, rec_bfs=rec_bfs,
                                                 do_acc=do_acc, allsky=allsky,
                                                 scanmeta=scanmeta)
-                print "Saved scan here: ", scanpath
+                print "Saved scans here: ", scanpaths

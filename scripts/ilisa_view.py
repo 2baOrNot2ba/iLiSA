@@ -104,7 +104,7 @@ def plotxst(xstff):
     xstobj = dataIO.CVCfiles(xstff)
     XSTdataset = xstobj.getdata()
     for sbstepidx in range(len(XSTdataset)):
-        obsinfo = xstobj.stnsesinfo.obsinfos[sbstepidx]
+        obsinfo = xstobj.scanrecinfo.obsinfos[sbstepidx]
         intg = float(obsinfo.rspctl_cmd['integration'])
         dur = float(obsinfo.rspctl_cmd['duration'])
 
@@ -172,7 +172,7 @@ def image(args):
     cvcobj = dataIO.CVCfiles(args.dataff)
     CVCdataset = cvcobj.getdata()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
-        integration = cvcobj.stnsesinfo.get_integration()
+        integration = cvcobj.scanrecinfo.get_integration()
         CVCdata = CVCdataset[fileidx]
         if CVCdata.ndim == 2:
             intgs = 1

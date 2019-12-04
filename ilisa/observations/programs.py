@@ -184,7 +184,7 @@ def do_obsprog(stationdriver, scan, scanmeta=None):
 
         stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat", datapath)
         for curr_obsinfo in obsinfolist:
-            curr_obsinfo.create_LOFARst_header(datapath)
+            curr_obsinfo.write_ldat_header(datapath)
         # Prepare metadata for session on this station.
         scanmeta.scanrecs['bsx'].set_obsfolderinfo(obsinfo.LOFARdatTYPE,
             bsxSTobsEpoch, freqbndobj.arg, obsinfo.integration, obsinfo.duration_scan,
@@ -483,7 +483,7 @@ Will increase total duration to get 1 full repetition.""")
             scanmeta.scanrecs['acc'].new_obsinfo()
             scanmeta.scanrecs['acc'].obsinfos[-1].setobsinfo_fromparams('acc',
                 filedtstr, beamctl_cmds, '')
-            scanmeta.scanrecs['acc'].obsinfos[-1].create_LOFARst_header(
+            scanmeta.scanrecs['acc'].obsinfos[-1].write_ldat_header(
                 acc_destfolder)
         scanmeta.scanrecs['acc'].datapath = acc_destfolder
 
@@ -494,7 +494,7 @@ Will increase total duration to get 1 full repetition.""")
         bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(scdat_scanpath)
         stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat", datapath)
         for curr_obsinfo in obsinfolist:
-            curr_obsinfo.create_LOFARst_header(datapath)
+            curr_obsinfo.write_ldat_header(datapath)
         # Prepare metadata for session on this station
         scanmeta.scanrecs['bsx'].set_stnid(stationdriver.get_stnid())
         scanmeta.scanrecs['bsx'].set_obsfolderinfo(obsinfo.LOFARdatTYPE, bsxSTobsEpoch,
@@ -530,7 +530,7 @@ Will increase total duration to get 1 full repetition.""")
             shutil.move(bfslogpaths[lane], datapath)
         # TODO: Move dump log files
         scanmeta.scanrecs['bfs'].set_stnid(stationdriver.get_stnid())
-        scanmeta.scanrecs['bfs'].obsinfos[-1].create_LOFARst_header(datapath)
+        scanmeta.scanrecs['bfs'].obsinfos[-1].write_ldat_header(datapath)
         integration = None
         scanmeta.scanrecs['bfs'].set_obsfolderinfo('bfs', headertime, band,
                                                    integration, duration_tot,
