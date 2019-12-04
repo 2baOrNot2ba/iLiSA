@@ -134,6 +134,65 @@ class BasicObsPrograms(object):
         return None
 
 
+def do_obsprog(stationdriver, scan, scanmeta=None):
+    """At starttime execute the observation program specified by the obsfun method
+    pointer and run with arguments specified by obsargs dict.
+    """
+    scan_flat = dict(scan)
+    del scan_flat['beam']
+    for k in scan['beam'].keys():
+        scan_flat[k] = scan['beam'][k]
+    freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
+    scan_flat['freqbndobj'] = freqbndobj
+    prg = BasicObsPrograms(stationdriver)
+    obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
+    scan_flat['bfdsesdumpdir'] = scanmeta.bfdsesdumpdir
+    # Map only args required by
+    obsargs = {k: scan_flat[k] for k in obsargs_sig}
+    # Setup Calibration tables on LCU:
+    CALTABLESRC = 'default'   # FIXME put this in args
+    ## (Only BST uses calibration tables)
+    # Choose between 'default' or 'local'
+    stationdriver.lcu_interface.selectCalTable(CALTABLESRC)
+
+    # Prepare for obs program.
+    try:
+        stationdriver.goto_observingstate()
+    except RuntimeError as e:
+        raise RuntimeError(e)
+
+    # Run the observation program:
+    obsinfolist = obsfun(**obsargs)
+    # Stop program beam
+    stationdriver.lcu_interface.stop_beam()
+
+    if obsinfolist is not None:
+        # Get some metadata about operational settings:
+        # e.g. caltables used
+        caltabinfos = []
+        freqbndobj = obsargs['freqbndobj']
+        for rcumode in freqbndobj.rcumodes:
+            caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
+            caltabinfos.append(caltabinfo)
+        for i in range(len(obsinfolist)):
+            obsinfolist[i].caltabinfos = caltabinfos
+        obsinfo = obsinfolist[0]
+        obsinfo.sb = freqbndobj.sb_range[0]
+
+        # Move data to archive
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(stationdriver.LOFARdataArchive)
+
+        stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat", datapath)
+        for curr_obsinfo in obsinfolist:
+            curr_obsinfo.create_LOFARst_header(datapath)
+        # Prepare metadata for session on this station.
+        scanmeta.scanrecs['bsx'].set_obsfolderinfo(obsinfo.LOFARdatTYPE,
+            bsxSTobsEpoch, freqbndobj.arg, obsinfo.integration, obsinfo.duration_scan,
+            obsinfo.pointing)
+        scanmeta.scanrecs['bsx'].write_scan_rec(datapath)
+        scanmeta.scanrecs['bsx'].datapath = datapath
+
+
 def record_scan(stationdriver, freqbndobj, integration, duration_tot, pointing, pointsrc,
                 starttime='NOW', rec_stat_type=None, rec_bfs=False, duration_frq=None,
                 do_acc=False, allsky=False, scanmeta=None):
@@ -288,20 +347,21 @@ def record_scan(stationdriver, freqbndobj, integration, duration_tot, pointing, 
         beamstarted = None
 
     if rec_bfs:
-        bfdsesdumpdir = scanmeta.bfdsesdumpdir
+        bfdat_scanpath = stationdriver.get_scanpath(stationdriver.bf_data_dir, beamstarted)
         stnid = stationdriver.lcu_interface.stnid
         lanes = tuple(freqbndobj.getlanes().keys())
         bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band,
-                                 bfdsesdumpdir, stationdriver.bf_port0, stnid)
+                                 bfdat_scanpath, stationdriver.bf_port0, stnid)
         bfsdatapaths = []
         bfslogpaths = []
         for lane in lanes:
             outdumpdir, outarg, datafileguess, dumplogname =\
-                bfbackend.bfsfilepaths(lane, starttimestr, band, bfdsesdumpdir,
+                bfbackend.bfsfilepaths(lane, starttimestr, band, bfdat_scanpath,
                                        stationdriver.bf_port0, stnid)
             bfsdatapaths.append(datafileguess)
             bfslogpaths.append(dumplogname)
     else:
+        bfdat_scanpath = None
         print("Not recording bfs")
     sys.stdout.flush()
 
@@ -378,8 +438,8 @@ Will increase total duration to get 1 full repetition.""")
     if todo_tof:
         stationdriver.lcu_interface.set_swlevel(3)
 
-    # Work out where data should be stored:
-    scanpath = stationdriver.get_scanpath(scanmeta.sesspath, beamstarted)
+    # Work out where station-correlated data should be stored:
+    scdat_scanpath = stationdriver.get_scanpath(scanmeta.sesspath, beamstarted)
 
     if do_acc:
         # Switch back to normal state i.e. turn-off ACC dumping:
@@ -391,7 +451,7 @@ Will increase total duration to get 1 full repetition.""")
         obsdatetime_stamp = stationdriver.get_data_timestamp(ACC=True)
         accsrcfiles = stationdriver.lcu_interface.ACCsrcDir + "/*.dat"
         acc_destfolder = \
-            os.path.join(scanpath,
+            os.path.join(scdat_scanpath,
                          '{}_{}_rcu{}_dur{}'.format(stationdriver.lcu_interface.stnid,
                                                     obsdatetime_stamp, rcumode,
                                                     duration_tot))
@@ -431,7 +491,7 @@ Will increase total duration to get 1 full repetition.""")
         obsinfo = obsinfolist[0]
 
         # Move data to archive
-        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(scanpath)
+        bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(scdat_scanpath)
         stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat", datapath)
         for curr_obsinfo in obsinfolist:
             curr_obsinfo.create_LOFARst_header(datapath)
@@ -451,14 +511,14 @@ Will increase total duration to get 1 full repetition.""")
         scanmeta.scanrecs['bfs'].obsinfos[-1].setobsinfo_fromparams('bfs', headertime,
                                             beamctl_cmds, rcu_setup_cmd, caltabinfos)
         bsxSTobsEpoch, datapath = \
-            scanmeta.scanrecs['bfs'].obsinfos[-1].getobsdatapath(scanpath)
+            scanmeta.scanrecs['bfs'].obsinfos[-1].getobsdatapath(scdat_scanpath)
         print("Creating BFS destination folder on DPU:\n{}".format(datapath))
         os.makedirs(datapath)
         bfsdatapaths = []
         bfslogpaths = []
         for lane in lanes:
             outdumpdir, outarg, datafileguess, dumplogname = \
-                bfbackend.bfsfilepaths(lane, starttimestr, band, bfdsesdumpdir,
+                bfbackend.bfsfilepaths(lane, starttimestr, band, bfdat_scanpath,
                                        stationdriver.bf_port0, stationdriver.get_stnid())
             bfsdatapaths.append(datafileguess)
             bfslogpaths.append(dumplogname)
@@ -481,4 +541,4 @@ Will increase total duration to get 1 full repetition.""")
     stationdriver.lcu_interface.cleanup()
     # Necessary due to possible forking
     stationdriver.halt_observingstate_when_finished = shutdown
-    return scanpath
+    return scdat_scanpath, bfdat_scanpath

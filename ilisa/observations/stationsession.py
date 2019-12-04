@@ -226,7 +226,7 @@ class StationSession(object):
                 scanrecs[k].set_stnid(self.stndrv.get_stnid())
             scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
             if scan['obsprog'] is not None:
-                self.stndrv.do_obsprog(scan, scanmeta=scanmeta)
+                programs.do_obsprog(self.stndrv, scan, scanmeta=scanmeta)
             else:
                 integration = scan['integration']
                 duration_tot = scan['duration_tot']

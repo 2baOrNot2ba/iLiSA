@@ -333,65 +333,6 @@ class StationDriver(object):
         scanpath = os.path.join(dumproot, "scan_{}".format(scan_mjd_id))
         return scanpath
 
-
-    def do_obsprog(self, scan, scanmeta=None):
-        """At starttime execute the observation program specified by the obsfun method
-        pointer and run with arguments specified by obsargs dict.
-        """
-        scan_flat = dict(scan)
-        del scan_flat['beam']
-        for k in scan['beam'].keys():
-            scan_flat[k] = scan['beam'][k]
-        freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
-        scan_flat['freqbndobj'] = freqbndobj
-        prg = programs.BasicObsPrograms(self)
-        obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
-        scan_flat['bfdsesdumpdir'] = scanmeta.bfdsesdumpdir
-        # Map only args required by
-        obsargs = {k: scan_flat[k] for k in obsargs_sig}
-        # Setup Calibration tables on LCU:
-        CALTABLESRC = 'default'   # FIXME put this in args
-        ## (Only BST uses calibration tables)
-        # Choose between 'default' or 'local'
-        self.lcu_interface.selectCalTable(CALTABLESRC)
-
-        # Prepare for obs program.
-        try:
-            self.goto_observingstate()
-        except RuntimeError as e:
-            raise RuntimeError(e)
-
-        # Run the observation program:
-        obsinfolist = obsfun(**obsargs)
-        # Stop program beam
-        self.lcu_interface.stop_beam()
-
-        if obsinfolist is not None:
-            # Get some metadata about operational settings:
-            # e.g. caltables used
-            caltabinfos = []
-            freqbndobj = obsargs['freqbndobj']
-            for rcumode in freqbndobj.rcumodes:
-                caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
-                caltabinfos.append(caltabinfo)
-            for i in range(len(obsinfolist)):
-                obsinfolist[i].caltabinfos = caltabinfos
-            obsinfo = obsinfolist[0]
-            obsinfo.sb = freqbndobj.sb_range[0]
-
-            # Move data to archive
-            bsxSTobsEpoch, datapath = obsinfo.getobsdatapath(self.LOFARdataArchive)
-
-            self.movefromlcu(self.lcu_interface.lcuDumpDir + "/*.dat", datapath)
-            for curr_obsinfo in obsinfolist:
-                curr_obsinfo.create_LOFARst_header(datapath)
-            # Prepare metadata for session on this station.
-            scanmeta.scanrecs['bsx'].set_obsfolderinfo(obsinfo.LOFARdatTYPE,
-                bsxSTobsEpoch, freqbndobj.arg, obsinfo.integration, obsinfo.duration_scan,
-                obsinfo.pointing)
-            scanmeta.scanrecs['bsx'].write_scan_rec(datapath)
-            scanmeta.scanrecs['bsx'].datapath = datapath
-
 # TBBh5dumpDir="/home/tobia/lofar/data/tbb/h5/"
 # "/mnt/lane0/TBB/" #Should end with "/" character.
 # h5fileprefix="L"
