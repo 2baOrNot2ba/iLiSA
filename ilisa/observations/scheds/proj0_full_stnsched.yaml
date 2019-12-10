@@ -9,11 +9,6 @@ scans:
     beam:
       freqspec: '50e6:150e6'
       pointing: CasA
-    rec_stat:
-      type: sst
-      integration:  60
-    acc: True
+    rec: [acc, bfs, sst]
+    integration:  60
     duration_tot: 601
-    rec_bfs: True
-    pipeline:
-      type: None

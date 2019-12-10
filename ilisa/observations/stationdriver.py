@@ -330,8 +330,8 @@ class StationDriver(object):
         # No
         scan_mjd_id = modeparms.dt2mjd(datetime.datetime.strptime(scan_dt_id,
                                                                   "%Y%m%d_%H%M%S"))
-        scanpath = os.path.join(dumproot, "scan_{}".format(scan_mjd_id))
-        return scanpath
+        scan_id = "scan_{}".format(scan_mjd_id)
+        return scan_id
 
 # TBBh5dumpDir="/home/tobia/lofar/data/tbb/h5/"
 # "/mnt/lane0/TBB/" #Should end with "/" character.

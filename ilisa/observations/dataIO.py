@@ -79,16 +79,15 @@ class ScanRecInfo(object):
     data, namely the stn_id, the iLiSA scanrec parameters, and a list of ObsInfo objects
     called obsinfos that maps to each ldat within the scanrec.
     """
-    scanrecinfo_header = "SCANRECINFO.yml"
+    scanrecinfo_header = "SCANREC_INFO.yml"
 
-    def __init__(self, projectmeta={}):
+    def __init__(self):
         self.headerversion = 2
-        #self.projectmeta = projectmeta
-        #self.telescope = "LOFAR"
-        self.obsinfos = []
+        self.obsinfos = {}
 
-    def new_obsinfo(self):
-        self.obsinfos.append(ObsInfo())
+    def add_obs(self, obsinfo):
+        """Add an ObsInfo object to this ScanRecInfo."""
+        self.obsinfos[obsinfo.filenametime] = obsinfo
 
     def set_stnid(self, stnid):
         self.stnid = stnid
@@ -106,30 +105,25 @@ class ScanRecInfo(object):
                     raise RuntimeError('Station id not found.')
         return stnid
 
-    def get_datetime(self):
-        sti = self.scanrecparms['sessiontimeid']
-        sessiondatetime = datetime.datetime.strptime(sti, '%Y%m%d_%H%M%S')
-        return sessiondatetime
-
-    def set_scanrecparms(self, datatype, sessiontimeid, freqband, integration,
-                         duration_tot, pointing="None,None,None"):
+    def set_scanrecparms(self, datatype, freqband, duration_tot,
+                         pointing="None,None,None", integration=None, allsky=False):
+        """Record parameters used as arguments to record_scan program."""
         self.scanrecparms = {}
         self.scanrecparms['datatype'] = datatype
-        self.scanrecparms['sessiontimeid'] = sessiontimeid
         self.scanrecparms['freqband'] =  freqband
-        self.scanrecparms['integration'] = integration
         self.scanrecparms['duration_tot'] = duration_tot
         self.scanrecparms['pointing'] = pointing
+        self.scanrecparms['integration'] = integration
+        self.scanrecparms['allsky'] = allsky
 
     def write_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), "w") as f:
             f.write("# LOFAR local station project\n")
             f.write("# Created by {} version {}\n".format("iLiSA", ilisa.__version__))
             f.write("headerversion: {}\n".format(self.headerversion))
-            #f.write("telescope: {}\n".format(self.telescope))
             f.write("stnid: {}\n".format(self.stnid))
-            #f.write("projectmeta: {!r}\n".format(self.projectmeta))
             f.write("scanrec: {!r}\n".format(self.scanrecparms))
+            f.write("obs_ids: {!r}\n".format(self.obsinfos.keys()))
 
     def read_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), 'r') as hf:
@@ -138,10 +132,19 @@ class ScanRecInfo(object):
             except Exception as e:
                 print("Couldn't load yaml formatted scan header file.")
         self.headerversion = scanrecfiledict['headerversion']
-        #self.telescope = scanrecfiledict['telescope']
         self.stnid = scanrecfiledict['stnid']
-        #self.projectmeta = scanrecfiledict['projectmeta']
         self.scanrecparms = scanrecfiledict['scanrec']
+        self.obs_ids = scanrecfiledict['obs_ids']
+
+    def write(self, scanrecpath):
+        """Write scanrecinfo file and all obsinfo headers."""
+        self.write_scanrec(scanrecpath)
+        for obs_id in self.obsinfos:
+            self.obsinfos[obs_id].write_ldat_header(scanrecpath)
+
+    def scanrecfolder(self):
+        start_key = min(self.obsinfos)
+        return self.obsinfos[start_key].obsfoldername()
 
     def get_datatype(self):
         return self.scanrecparms['datatype']
@@ -202,55 +205,15 @@ class ObsInfo(object):
 
     Specifically an object should have:
 
-    file_datetime:
+    filename:
+
     """
-    def __init__(self):
-        pass
+    def __init__(self, lofardatatype, filenametime, beamctl_cmd, rspctl_cmd,
+                 caltabinfos="", septonconf=""):
+        """Create observation info from parameters."""
+        self.ldat_type = lofardatatype
 
-    def obsinfo_fromname(self, obsdatapath):
-        """This gets observational settings from the path name of an ldat file."""
-        foldername = os.path.basename(os.path.abspath(obsdatapath))
-        obsfolderinfo = {}
-        dataextstr = foldername.split('_')[-1]
-        if dataextstr == 'xst':
-            try:
-                (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, cvcextstr
-                ) = foldername.split('_')
-                obsfolderinfo['datetime'] = datetime.datetime.strptime(
-                                                Ymd+'T'+HMS, '%Y%m%dT%H%M%S')
-                obsfolderinfo['rcumode'] =     rcustr[3:]
-                obsfolderinfo['subband'] =     int(sbstr[2:])
-                obsfolderinfo['integration'] = float(intstr[3:])
-                obsfolderinfo['duration_scan'] = float(durstr[3:])
-                obsfolderinfo['pointing'] =    dirstr[3:].split(',')
-                obsfolderinfo['LOFARdatType'] = dataextstr
-            except:
-                raise ValueError("Foldername not in correct format.")
-        elif dataextstr == 'acc':
-            dirpat = re.compile(regex_ACCfolder)
-            obsdirinfo_m = dirpat.match(foldername)
-            if obsdirinfo_m is None:
-                raise ValueError("Calibration directory does not have correct syntax.")
-            obsdirinfo = obsdirinfo_m.groupdict()
-            obsfolderinfo['stnid'] = obsdirinfo['stnid']
-            d0 = datetime.datetime(int(obsdirinfo['year']),
-                                   int(obsdirinfo['month']),
-                                   int(obsdirinfo['day']),
-                                   int(obsdirinfo['hour']),
-                                   int(obsdirinfo['minute']),
-                                   int(obsdirinfo['second']))
-            obsfolderinfo['datetime'] = d0
-            obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
-            obsfolderinfo['calsrc'] = obsdirinfo['calsrc']
-            obsfolderinfo['duration_tot'] = float(obsdirinfo['duration_tot'])
-            obsfolderinfo['integration'] = modeparms.MIN_STATS_INTG
-        return obsfolderinfo
-
-    def setobsinfo_fromparams(self, lofardatatype, obsdatetime_stamp, beamctl_cmd,
-                              rspctl_cmd, caltabinfos="", septonconf=""):
-        """Set observation info from parameters"""
-        self.LOFARdatTYPE = lofardatatype
-        self.datetime = obsdatetime_stamp
+        self.filenametime = filenametime
         self.beamctl_cmd = beamctl_cmd
         if self.beamctl_cmd != "" and self.beamctl_cmd is not None:
             # FIXME better support for multiline beamctl cmds.
@@ -276,55 +239,51 @@ class ObsInfo(object):
             rspctl_cmd = 'rspctl'
         self.rspctl_cmd = rspctl_cmd
         rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmd)
-        if self.LOFARdatTYPE != 'bfs' and self.LOFARdatTYPE != 'acc':
+        if self.ldat_type != 'bfs' and self.ldat_type != 'acc':
             self.integration = float(rspctl_args['integration'])
             self.duration_scan = float(rspctl_args['duration'])
-        if self.LOFARdatTYPE == 'sst':
+        if self.ldat_type == 'sst':
             self.sb = ""
-        elif self.LOFARdatTYPE.startswith('xst'):
+        elif self.ldat_type.startswith('xst'):
             self.sb = str(rspctl_args['xcsubband'])
-        elif self.LOFARdatTYPE == 'bst':
+        elif self.ldat_type == 'bst':
             self.sb = self.sb
         self.caltabinfos = caltabinfos
         self.septonconf = septonconf
         if self.septonconf != "":
             self.rcumode = 5
 
-    def getobsdatapath(self, LOFARdataArchive, folder_name_beamctl_type = True):
+    def obsfoldername(self, folder_name_beamctl_type = True):
         """Create name and destination path for folders (on the DPU) in
         which to save the various LOFAR data products.
         """
-        #stDataArchive = os.path.join(LOFARdataArchive, self.LOFARdatTYPE)
-        stDataArchive = LOFARdataArchive
-        stObsEpoch = self.datetime
-        st_extName = stObsEpoch
+        obsextname = self.filenametime
         if folder_name_beamctl_type:
-            if self.LOFARdatTYPE == "bst-357":
-                st_extName += "_rcu357"
+            if self.ldat_type == "bst-357":
+                obsextname += "_rcu357"
             else:
                 if type(self.rcumode) is list:
                     rcumodestr = ''.join([str(rcumode) for rcumode in self.rcumode])
                 else:
                     rcumodestr = str(self.rcumode)
-                st_extName += "_rcu"+rcumodestr
+                obsextname += "_rcu"+rcumodestr
             if self.sb != [] and self.sb != '':
-                st_extName += "_sb"
-                st_extName += modeparms.seqlists2slicestr(self.sb)
+                obsextname += "_sb"
+                obsextname += modeparms.seqlists2slicestr(self.sb)
             if hasattr(self, 'integration'):
-                st_extName += "_int"+str(int(self.integration))
+                obsextname += "_int"+str(int(self.integration))
             if hasattr(self, 'duration_scan'):
-                st_extName += "_dur"+str(int(self.duration_scan))
-            if self.LOFARdatTYPE != 'sst':
+                obsextname += "_dur"+str(int(self.duration_scan))
+            if self.ldat_type != 'sst':
                 if str(self.pointing) != "":
-                    st_extName += "_dir"+str(self.pointing)
+                    obsextname += "_dir"+str(self.pointing)
                 else:
-                    st_extName += "_dir,,"
-        st_extName += "_"+self.LOFARdatTYPE
-        datapath = os.path.join(stDataArchive, st_extName)
-        return stObsEpoch, datapath
+                    obsextname += "_dir,,"
+        obsextname += "_"+self.ldat_type
+        return obsextname
 
     def read_ldat_header(self, headerpath):
-        """Parse a bsxST header file. Contains stnid and starttime."""
+        """Parse a ldat header file."""
         # TODO extract CalTable info.
         if os.path.isdir(headerpath):
             files = os.listdir(headerpath)
@@ -430,8 +389,8 @@ class ObsInfo(object):
 
     def write_ldat_header(self, datapath):
         """Create a header file for LOFAR standalone observation."""
-        LOFARstTYPE = self.LOFARdatTYPE
-        LOFARstObsEpoch = self.datetime
+        ldat_type = self.ldat_type
+        YMD_hms_xtra = self.filenametime
         if type(self.beamctl_cmd) is not list:
             beamctl_CMD = [self.beamctl_cmd]
         else:
@@ -444,17 +403,17 @@ class ObsInfo(object):
             indentstr = "  "
             return indentstr+txt.replace("\n","\n"+indentstr)
         headerversion = "3"
-        if not self.isLOFARdatatype(LOFARstTYPE):
+        if not self.isLOFARdatatype(ldat_type):
             raise ValueError("Unknown LOFAR statistic type {}.\
-                              ".format(LOFARstTYPE))
-        LOFARstHeaderFile = LOFARstObsEpoch+"_"+LOFARstTYPE+".h"
-        f = open(os.path.join(datapath, LOFARstHeaderFile), "w")
+                              ".format(ldat_type))
+        ldat_header_filename = YMD_hms_xtra+"_"+ldat_type+".h"
+        f = open(os.path.join(datapath, ldat_header_filename), "w")
         f.write("# HeaderType: bsxSTdata (YAML)\n")
         f.write("# Header version {}\n".format(headerversion))
-        f.write("datatype: {}\n".format(LOFARstTYPE))
-        filetime = LOFARstObsEpoch[0:4]+'-'+LOFARstObsEpoch[4:6]+'-'\
-                        + LOFARstObsEpoch[6:8]+'T'+LOFARstObsEpoch[9:11]+':'\
-                        + LOFARstObsEpoch[11:13]+':'+LOFARstObsEpoch[13:15]
+        f.write("datatype: {}\n".format(ldat_type))
+        filetime = YMD_hms_xtra[0:4]+'-'+YMD_hms_xtra[4:6]+'-'\
+                        + YMD_hms_xtra[6:8]+'T'+YMD_hms_xtra[9:11]+':'\
+                        + YMD_hms_xtra[11:13]+':'+YMD_hms_xtra[13:15]
         f.write("filetime: "+filetime+"\n")
         if septonconfig is not "":
             f.write("SEPTONconfig: {}\n".format(septonconfig))
@@ -466,7 +425,7 @@ class ObsInfo(object):
         if rspctl_CMD != "":
             f.write("rspctl_cmds: |-\n")
             f.write(indenttext(rspctl_CMD)+"\n")
-        if LOFARstTYPE == 'bst' or LOFARstTYPE == 'bfs':
+        if ldat_type == 'bst' or ldat_type == 'bfs':
             f.write("caltabinfos:\n")
             #f.write(indenttext(caltableInfo))
             for caltabinfo in caltabinfos:
@@ -757,7 +716,6 @@ class CVCfiles(object):
         where N is nominally the number of time samples and the len of data is
         the number of files in the folder.
         """
-        self.scanrecinfo.obsinfos = []
         try:
             self.scanrecinfo.read_scanrec(self.filefolder)
         except Exception as e:

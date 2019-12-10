@@ -33,7 +33,6 @@ class StationSession(object):
                  mockrun=False, halt_observingstate_when_finished=True):
         """Initialize Session."""
 
-
         self.LOFARdataArchive = ac_dru['LOFARdataArchive']
 
         # Initialize stationdriver :
@@ -71,7 +70,6 @@ class StationSession(object):
 
     def save_stnsessched(self, sched):
         sesspath = self.get_sesspath()
-        os.makedirs(sesspath)
         ses_sched_file = os.path.join(sesspath, 'STN_SESSION.yml')
         with open(ses_sched_file, 'w') as f:
             yaml.dump(sched, f, explicit_start=True)
@@ -144,32 +142,36 @@ class StationSession(object):
                 allsky = scan['beam']['allsky']
             except KeyError:
                 allsky = False
-            # - Record statistics
-            try:
-                scan['rec_stat']
-            except KeyError:
-                scan['rec_stat'] = None
-            if scan['rec_stat'] is not None:
-                rec_stat_type = scan['rec_stat']['type']
-                integration = eval(str(scan['rec_stat']['integration']))
-            else:
-                rec_stat_type = None
-                integration = 1
             # - Duration total
             duration_tot = eval(str(scan['duration_tot']))
+            # - Record
+            #     defaults
+            try:
+                scan['rec']
+            except KeyError:
+                scan['rec'] = None
+            bsx_type = None
+            integration = 1
+            rec_acc = False
+            rec_bfs = False
+            #     select recording a combination of acc, bfs, or bsx:
+            if scan['rec'] is not None and scan['rec'] is not []:
+                for chdat in scan['rec']:
+                    if chdat == 'acc':
+                        rec_acc = True
+                    elif chdat == 'bst' or chdat == 'sst' or chdat == 'xst':
+                        bsx_type = chdat
+                    elif chdat == 'bfs':
+                        rec_bfs = True
+            # - Integration for rec bsx
+            try:
+                scan['integration']
+            except KeyError:
+                scan['integration'] = 1.0
+            integration = eval(str(scan['integration']))
             if integration > duration_tot:
                 raise ValueError("integration {} is longer than duration_scan {}."
                                  .format(integration, duration_tot))
-            # - ACC
-            try:
-                do_acc = scan['acc']
-            except KeyError:
-                do_acc = False
-            # - BFS
-            try:
-                rec_bfs = scan['rec_bfs']
-            except KeyError:
-                rec_bfs = False
 
             # If dedicated observation program chosen, set it up
             # otherwise run main obs program
@@ -187,9 +189,9 @@ class StationSession(object):
                           'integration': integration,
                           'duration_tot': duration_tot,
                           'starttime': starttime,
-                          'rec_stat_type': rec_stat_type,
+                          'bsx_type': bsx_type,
                           'rec_bfs': rec_bfs,
-                          'do_acc': do_acc
+                          'rec_acc': rec_acc
                           }
             obsargs_in.update({'obsprog': obsprog})
             stn_ses_sched['scans'].append(obsargs_in)
@@ -201,7 +203,6 @@ class StationSession(object):
         stn_ses_sched = self.process_stn_ses_sched(stn_ses_sched_in, session_id)
         self.projectmeta, _ = projid2meta(stn_ses_sched['projectid'])
         self.set_stn_session_id(stn_ses_sched['session_id'])
-        self.save_stnsessched(stn_ses_sched)
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self.get_bfdsesdumpdir()
         # Boot Time handling
@@ -213,33 +214,40 @@ class StationSession(object):
         # Wait until it is time to bootup
         print("In stnsess: Wait until it is time to bootup")
         st = self.stndrv._waittoboot(bootupstart.strftime("%Y-%m-%dT%H:%M:%S"))
+        scans_done = []
         for scan in stn_ses_sched['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
             scanrecs={}
-            if scan['do_acc']:
-                scanrecs['acc'] = dataIO.ScanRecInfo(self.projectmeta)
+            if scan['rec_acc']:
+                scanrecs['acc'] = dataIO.ScanRecInfo()
             if scan['rec_bfs']:
-                scanrecs['bfs'] = dataIO.ScanRecInfo(self.projectmeta)
-            if scan['rec_stat_type']:
-                scanrecs['bsx'] = dataIO.ScanRecInfo(self.projectmeta)
+                scanrecs['bfs'] = dataIO.ScanRecInfo()
+            if scan['bsx_type']:
+                scanrecs['bsx'] = dataIO.ScanRecInfo()
             for k in scanrecs.keys():
                 scanrecs[k].set_stnid(self.stndrv.get_stnid())
             scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
             if scan['obsprog'] is not None:
                 programs.do_obsprog(self.stndrv, scan, scanmeta=scanmeta)
             else:
-                integration = scan['integration']
                 duration_tot = scan['duration_tot']
                 pointing = scan['beam']['pointing']
                 pointsrc = scan['beam']['pointsrc']
                 starttime = scan['starttime']
-                rec_stat_type = scan['rec_stat_type']
+                bsx_type = scan['bsx_type']
+                integration = scan['integration']
                 rec_bfs = scan['rec_bfs']
-                do_acc = scan['do_acc']
+                rec_acc = scan['rec_acc']
                 allsky = scan['beam']['allsky']
-                scanpaths = programs.record_scan(self.stndrv, freqbndobj, integration,
-                                                duration_tot, pointing, pointsrc,
-                                                starttime, rec_stat_type, rec_bfs=rec_bfs,
-                                                do_acc=do_acc, allsky=allsky,
-                                                scanmeta=scanmeta)
-                print "Saved scans here: ", scanpaths
+                scan_id, scanpath_sc, scanpath_bf \
+                    = programs.record_scan(self.stndrv, freqbndobj, duration_tot,
+                                                 pointing, pointsrc, starttime,
+                                                 bsx_type, integration,
+                                                 rec_bfs=rec_bfs, rec_acc=rec_acc,
+                                                 allsky=allsky, scanmeta=scanmeta)
+                print "Saved scans here: ", scanpath_sc, scanpath_bf
+            scan['id'] = scan_id
+            scans_done.append(scan)
+        #del stn_ses_sched['scans']
+        stn_ses_sched['scans'] = scans_done
+        self.save_stnsessched(stn_ses_sched)

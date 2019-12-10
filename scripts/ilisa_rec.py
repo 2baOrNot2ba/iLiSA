@@ -59,21 +59,21 @@ if __name__ == "__main__":
     scanrec = dataIO.ScanRecInfo()
     sesspath = accessconf['DRU']['LOFARdataArchive']
     if args.datatype == 'nil':
-        rec_stat_type = None
+        bsx_type = None
     elif args.datatype == 'acc':
         do_acc = True
-        rec_stat_type = None
+        bsx_type = None
         scanrecs['acc'] = scanrec
         sesspath = os.path.join(sesspath, 'acc')
     elif args.datatype == 'bfs':
         rec_bfs = True
-        rec_stat_type = None
+        bsx_type = None
         scanrecs['bfs'] = scanrec
         sesspath = os.path.join(sesspath, 'bfs')
     elif args.datatype == 'bst' or args.datatype == 'sst' or args.datatype == 'xst':
-        rec_stat_type = args.datatype
+        bsx_type = args.datatype
         scanrecs['bsx'] = scanrec
-        sesspath = os.path.join(sesspath, rec_stat_type)
+        sesspath = os.path.join(sesspath, bsx_type)
     elif args.datatype == 'tbb':
         pass
     else:
@@ -82,11 +82,12 @@ if __name__ == "__main__":
     if args.datatype != 'tbb':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
-        scanpath = programs.record_scan(stndrv, freqbndobj, args.integration, duration_tot, pointing,
-                             pointsrc, starttime=args.starttime,
-                             rec_stat_type=rec_stat_type, rec_bfs=rec_bfs,
-                             duration_frq=None, do_acc=do_acc, allsky=args.allsky,
-                             scanmeta=scanmeta)
+        scanpath = programs.record_scan(stndrv, freqbndobj, duration_tot, pointing,
+                                        pointsrc, starttime=args.starttime,
+                                        bsx_type=bsx_type,
+                                        integration=args.integration, rec_bfs=rec_bfs,
+                                        rec_acc=do_acc, allsky=args.allsky,
+                                        duration_frq=None, scanmeta=scanmeta)
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print "Finished"
