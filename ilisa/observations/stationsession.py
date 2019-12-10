@@ -228,7 +228,8 @@ class StationSession(object):
                 scanrecs[k].set_stnid(self.stndrv.get_stnid())
             scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
             if scan['obsprog'] is not None:
-                programs.do_obsprog(self.stndrv, scan, scanmeta=scanmeta)
+                scan_id, scanpath_sc, scanpath_bf \
+                    = programs.do_obsprog(self.stndrv, scan, scanmeta=scanmeta)
             else:
                 duration_tot = scan['duration_tot']
                 pointing = scan['beam']['pointing']
@@ -245,9 +246,8 @@ class StationSession(object):
                                                  bsx_type, integration,
                                                  rec_bfs=rec_bfs, rec_acc=rec_acc,
                                                  allsky=allsky, scanmeta=scanmeta)
-                print "Saved scans here: ", scanpath_sc, scanpath_bf
+            print "Saved scans here: ", scanpath_sc, scanpath_bf
             scan['id'] = scan_id
             scans_done.append(scan)
-        #del stn_ses_sched['scans']
         stn_ses_sched['scans'] = scans_done
         self.save_stnsessched(stn_ses_sched)

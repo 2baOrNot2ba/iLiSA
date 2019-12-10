@@ -245,24 +245,24 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
     freq = cvcobj.freqset[filestep][cubeslice]
     cvcdata_unc = cvcobj.getdata(filestep)
 
-    stnid = cvcobj.stnsesinfo.get_stnid()
-    bandarr = cvcobj.stnsesinfo.get_bandarr()
-    band = cvcobj.stnsesinfo.get_band()
-    rcumode = cvcobj.stnsesinfo.get_rcumode()
-    pointingstr = cvcobj.stnsesinfo.get_pointingstr()
+    stnid = cvcobj.scanrecinfo.get_stnid()
+    bandarr = cvcobj.scanrecinfo.get_bandarr()
+    band = cvcobj.scanrecinfo.get_band()
+    rcumode = cvcobj.scanrecinfo.get_rcumode()
+    pointingstr = cvcobj.scanrecinfo.get_pointingstr()
 
     # Get/Compute ant positions
     stnPos, stnRot, antpos, stnIntilePos \
                             = antennafieldlib.getArrayBandParams(stnid, bandarr)
-    septon = cvcobj.stnsesinfo.is_septon()
+    septon = cvcobj.scanrecinfo.is_septon()
     if septon:
-        elmap = cvcobj.stnsesinfo.get_septon_elmap()
+        elmap = cvcobj.scanrecinfo.get_septon_elmap()
         for tile, elem in enumerate(elmap):
             antpos[tile] = antpos[tile] + stnIntilePos[elem]
 
     # stn2Dcoord = stnRot.T * antpos.T
     # Apply calibration
-    datatype = cvcobj.stnsesinfo.get_datatype()
+    datatype = cvcobj.scanrecinfo.get_datatype()
     if datatype == 'acc':
         cvcdata, caltabhead = calibrationtables.calibrateACC(cvcdata_unc, rcumode, stnid,
                                                              t, docalibrate)

@@ -282,8 +282,83 @@ class ObsInfo(object):
         obsextname += "_"+self.ldat_type
         return obsextname
 
-    def read_ldat_header(self, headerpath):
-        """Parse a ldat header file."""
+
+    def isLOFARdatatype(self, obsdatatype):
+        """Test if a string 'obsdatatype' is one of iLiSA's recognized LOFAR data types"""
+        if (obsdatatype == 'acc' or
+            obsdatatype == 'bst' or
+            obsdatatype == 'bst-357' or
+            obsdatatype == 'sst' or
+            obsdatatype == 'xst' or
+            obsdatatype == 'xst-SEPTON' or
+            obsdatatype == 'bfs'):
+            return True
+        else:
+            return False
+
+    def write_ldat_header(self, datapath):
+        """Create a header file for LOFAR standalone observation."""
+        ldat_type = self.ldat_type
+        YMD_hms = self.filenametime
+        if type(self.beamctl_cmd) is not list:
+            beamctl_CMD = [self.beamctl_cmd]
+        else:
+            beamctl_CMD = self.beamctl_cmd
+        beamctl_CMD = '\n'.join(beamctl_CMD)
+        rspctl_CMD = self.rspctl_cmd
+        caltabinfos = self.caltabinfos
+        septonconfig = self.septonconf
+        def indenttext(txt):
+            indentstr = "  "
+            return indentstr+txt.replace("\n","\n"+indentstr)
+        headerversion = "3"
+        if not self.isLOFARdatatype(ldat_type):
+            raise ValueError("Unknown LOFAR statistic type {}.\
+                              ".format(ldat_type))
+        xtra = ''
+        if ldat_type == 'acc':
+            xtra = '_512x192x192'
+        ldat_header_filename = YMD_hms+"_"+ldat_type+xtra+".h"
+        f = open(os.path.join(datapath, ldat_header_filename), "w")
+        f.write("# HeaderType: bsxSTdata (YAML)\n")
+        f.write("# Header version {}\n".format(headerversion))
+        f.write("datatype: {}\n".format(ldat_type))
+        filetime = YMD_hms[0:4]+'-'+YMD_hms[4:6]+'-'\
+                        + YMD_hms[6:8]+'T'+YMD_hms[9:11]+':'\
+                        + YMD_hms[11:13]+':'+YMD_hms[13:15]
+        f.write("filetime: "+filetime+"\n")
+        if septonconfig is not "":
+            f.write("SEPTONconfig: {}\n".format(septonconfig))
+        f.write("beamctl_cmds: |-\n")
+        f.write(indenttext(beamctl_CMD)+"\n")
+        # f.write(rspsetup_CMD+"\n")
+        # FIX separation of beamctl and rspsetup
+        # (Currently rspsetup is in beamctl)
+        if rspctl_CMD != "":
+            f.write("rspctl_cmds: |-\n")
+            f.write(indenttext(rspctl_CMD)+"\n")
+        if ldat_type == 'bst' or ldat_type == 'bfs':
+            f.write("caltabinfos:\n")
+            #f.write(indenttext(caltableInfo))
+            for caltabinfo in caltabinfos:
+                f.write("  - ")
+                f.write(str(caltabinfo))
+                f.write("\n")
+        f.close()
+
+    def get_recfreq(self):
+        """Return data recording frequency in Hz."""
+        sb =self.rspctl_cmd['xcsubband']
+        if self.datatype != "xst-SEPTON" and  not self.septonconf:
+            rcumode = self.beamctl_cmd['rcumode']
+        else:
+            rcumode = 5
+        nz = modeparms.rcumode2nyquistzone(rcumode)
+        return modeparms.sb2freq(sb, nz)
+
+    @classmethod
+    def read_ldat_header(cls, headerpath):
+        """Parse a ldat header file and return it as an ObsInfo."""
         # TODO extract CalTable info.
         if os.path.isdir(headerpath):
             files = os.listdir(headerpath)
@@ -332,7 +407,8 @@ class ObsInfo(object):
                 datatype = contents['datatype']
                 starttime = contents['filetime']
                 beamctl_line = contents['beamctl_cmds']
-                rspctl_lines = contents['rspctl_cmds'].split('\n')
+                rspctl_lines_raw = contents['rspctl_cmds']
+                rspctl_lines  = rspctl_lines_raw.split('\n')
         multishellcmds = beamctl_line.split('&')
         beamctl_cmd = multishellcmds[0]
         if beamctl_cmd is not "":
@@ -354,95 +430,11 @@ class ObsInfo(object):
             for rspctl_line in rspctl_lines:
                 rspctl_args = modeparms.parse_rspctl_args(rspctl_line)
                 rspctl_cmd.update(rspctl_args)
-        # Allocate object attributes
-        try:
-            self.observer = observer
-        except:
-            pass
-        try:
-            self.project = project
-        except:
-            pass
-        try:
-            self.stnid = stnid
-        except:
-            pass
-        self.datatype = datatype
-        self.starttime = starttime
-        self.beamctl_cmd = beamctl_cmd
-        self.rspctl_cmd = rspctl_cmd
-        self.septonconf = septonconf
-        return starttime, stnid, beamctl_cmd
 
-    def isLOFARdatatype(self, obsdatatype):
-        """Test if a string 'obsdatatype' is one of iLiSA's recognized LOFAR data types"""
-        if (obsdatatype == 'acc' or
-            obsdatatype == 'bst' or
-            obsdatatype == 'bst-357' or
-            obsdatatype == 'sst' or
-            obsdatatype == 'xst' or
-            obsdatatype == 'xst-SEPTON' or
-            obsdatatype == 'bfs'):
-            return True
-        else:
-            return False
-
-    def write_ldat_header(self, datapath):
-        """Create a header file for LOFAR standalone observation."""
-        ldat_type = self.ldat_type
-        YMD_hms_xtra = self.filenametime
-        if type(self.beamctl_cmd) is not list:
-            beamctl_CMD = [self.beamctl_cmd]
-        else:
-            beamctl_CMD = self.beamctl_cmd
-        beamctl_CMD = '\n'.join(beamctl_CMD)
-        rspctl_CMD = self.rspctl_cmd
-        caltabinfos = self.caltabinfos
-        septonconfig = self.septonconf
-        def indenttext(txt):
-            indentstr = "  "
-            return indentstr+txt.replace("\n","\n"+indentstr)
-        headerversion = "3"
-        if not self.isLOFARdatatype(ldat_type):
-            raise ValueError("Unknown LOFAR statistic type {}.\
-                              ".format(ldat_type))
-        ldat_header_filename = YMD_hms_xtra+"_"+ldat_type+".h"
-        f = open(os.path.join(datapath, ldat_header_filename), "w")
-        f.write("# HeaderType: bsxSTdata (YAML)\n")
-        f.write("# Header version {}\n".format(headerversion))
-        f.write("datatype: {}\n".format(ldat_type))
-        filetime = YMD_hms_xtra[0:4]+'-'+YMD_hms_xtra[4:6]+'-'\
-                        + YMD_hms_xtra[6:8]+'T'+YMD_hms_xtra[9:11]+':'\
-                        + YMD_hms_xtra[11:13]+':'+YMD_hms_xtra[13:15]
-        f.write("filetime: "+filetime+"\n")
-        if septonconfig is not "":
-            f.write("SEPTONconfig: {}\n".format(septonconfig))
-        f.write("beamctl_cmds: |-\n")
-        f.write(indenttext(beamctl_CMD)+"\n")
-        # f.write(rspsetup_CMD+"\n")
-        # FIX separation of beamctl and rspsetup
-        # (Currently rspsetup is in beamctl)
-        if rspctl_CMD != "":
-            f.write("rspctl_cmds: |-\n")
-            f.write(indenttext(rspctl_CMD)+"\n")
-        if ldat_type == 'bst' or ldat_type == 'bfs':
-            f.write("caltabinfos:\n")
-            #f.write(indenttext(caltableInfo))
-            for caltabinfo in caltabinfos:
-                f.write("  - ")
-                f.write(str(caltabinfo))
-                f.write("\n")
-        f.close()
-
-    def get_recfreq(self):
-        """Return data recording frequency in Hz."""
-        sb =self.rspctl_cmd['xcsubband']
-        if self.datatype != "xst-SEPTON" and  not self.septonconf:
-            rcumode = self.beamctl_cmd['rcumode']
-        else:
-            rcumode = 5
-        nz = modeparms.rcumode2nyquistzone(rcumode)
-        return modeparms.sb2freq(sb, nz)
+        filenametime = starttime.strftime('%Y%m%d_%H%M%S')
+        obsinfo = cls(datatype, filenametime, beamctl_line, rspctl_lines_raw,
+                      caltabinfos="", septonconf=septonconf)
+        return obsinfo
 
 
 # BEGIN BST related code
@@ -737,12 +729,11 @@ class CVCfiles(object):
             self.filenames.append(cvcfile)
             # Try to get obsfile header
             try:
-                (d,t, _rest) = cvcfile.split('_', 2)
-                hfilename = '{}_{}_{}.h'.format(d, t, self.scanrecinfo.get_datatype())
+                (bfilename, _dat) = cvcfile.split('.')
+                hfilename = bfilename + '.h'
                 hfilepath = os.path.join(self.filefolder, hfilename)
-                obsinfo = ObsInfo()
-                obsinfo.read_ldat_header(hfilepath)
-                self.scanrecinfo.obsinfos.append(obsinfo)
+                obsinfo = ObsInfo.read_ldat_header(hfilepath)
+                self.scanrecinfo.add_obs(obsinfo)
             except:
                 print("Warning: Couldn't find a header file for {}".format(cvcfile))
             print("Reading cvcfile: {}".format(cvcfile))
