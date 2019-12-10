@@ -7,7 +7,7 @@ import ilisa.observations.modeparms
 import ilisa.observations.beamformedstreams
 
 
-dumpername = 'dump_udp_ow_11'
+dumpername = 'dump_udp_ow_12'
 pathtodumper = os.path.dirname(ilisa.observations.beamformedstreams.__file__)
 dumpercmd = os.path.join(pathtodumper, dumpername)
 # dumpercmd = 'echo'  # For testing purposes
@@ -26,10 +26,10 @@ def bfsfilepaths(lane, starttimestr, band, bf_data_dir, port0, stnid):
     datafileguess = outarg + '_' + str(port) + '.start.' + starttimestr + '.000'
     return outdumpdir, outarg, datafileguess, dumplogname
 
-def _startlanerec(lane, starttimestr, duration, band, bf_data_dir, port0, stnid):
+def _startlanerec(lane, starttimestr, duration, band, bf_data_dir, port0, stnid,
+                  compress=True):
     """Start recording a lane using an external dumper process.
     """
-    compress = True
     if compress:
         # Compress stored data using zstd.
         compress_flag = ' --compress'
