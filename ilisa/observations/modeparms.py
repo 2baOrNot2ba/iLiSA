@@ -376,7 +376,7 @@ class FrequencyBand(object):
     def freq2sb(self, freq, sampfreq):
         # Using round() but could have other truncation strategy...
         abs_sb = int(round(freq / sampfreq * self.nrffts))
-        sb = abs_sb % (self.nrffts/2)
+        sb = abs_sb % int(self.nrffts/2)
         return sb
 
     def rcumode_sb2freq(self, rcumode, sb):

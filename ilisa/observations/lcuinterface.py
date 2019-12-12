@@ -48,7 +48,7 @@ class LCUInterface(object):
         self.DryRun = accessconf['DryRun']
         self.verbose = True  # Write out LCU commands
         if self.checkaccess() and self.verbose:
-            print "Established access to LCU."
+            print("Established access to LCU.")
         pathOK, datadirsOK = self.checkLCUenv()
         assert pathOK, "Check $PATH on LCU. Needs to have {} and {}."\
             .format(self.lofarbin, self.lofaroperationsbin)
@@ -188,6 +188,7 @@ class LCUInterface(object):
             try:
                 output = subprocess.check_output(shellinvoc+" '"+cmdline+"'",
                                                  shell=True).rstrip()
+                output = str(output.decode('UTF8'))
             except subprocess.CalledProcessError as e:
                 raise e
         else:

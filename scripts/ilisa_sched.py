@@ -28,7 +28,7 @@ if __name__ == "__main__":
     projectmeta, accessfiles = projid2meta(projectid)
 
     # Just first element in list since single station cntrl:
-    acf_lclstn_name = accessfiles.pop().values().pop()
+    acf_lclstn_name = list(accessfiles.pop().values()).pop()
     userilisadir = ilisa.observations.user_conf_dir
     acf_lclstn_path = os.path.join(userilisadir, acf_lclstn_name)
     with open(acf_lclstn_path) as acffp:

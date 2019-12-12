@@ -246,7 +246,7 @@ class StationSession(object):
                                                  bsx_type, integration,
                                                  rec_bfs=rec_bfs, rec_acc=rec_acc,
                                                  allsky=allsky, scanmeta=scanmeta)
-            print "Saved scans here: ", scanpath_sc, scanpath_bf
+            print("Saved scans here: ", scanpath_sc, scanpath_bf)
             scan['id'] = scan_id
             scans_done.append(scan)
         stn_ses_sched['scans'] = scans_done

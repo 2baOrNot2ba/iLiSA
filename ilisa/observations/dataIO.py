@@ -522,7 +522,7 @@ def parse_sstfolder(SSTfolderpath):
         obsfolderinfo['integration'] = int(intstr[3:])
         obsfolderinfo['duration'] =    int(durstr[3:])
     except:
-        raise ValueError, "Folder name not in sst_ext format."
+        raise ValueError("Folder name not in sst_ext format.")
     return obsfolderinfo
 
 def parse_sstfilename(SSTfilepath):
@@ -535,7 +535,7 @@ def parse_sstfilename(SSTfilepath):
         (rcu, datext) = rcudatstr[3:].split('.')
         obsfileinfo['rcu'] = int(rcu)
     except:
-        raise ValueError, "File name not in sst format."
+        raise ValueError("File name not in sst format.")
     return obsfileinfo
 
 
@@ -850,10 +850,11 @@ def readacc2bst(anacc2bstfilepath, datformat = 'hdf'):
     return acc2bstvars, beginUTC, rcumode, calsrc, dur, caltabdate, stnid
 
 
-def saveacc2bst((bstXX, bstXY, bstYY), filestarttimes, calrunstarttime,
+def saveacc2bst(bst_pols, filestarttimes, calrunstarttime,
                 calrunduration, rcumode, calsrc, calibmeta, stnid, used_autocorr,
                 saveformat = "hdf5"):
     """Save acc2bst data to file. Dataformat can be hdf or numpy."""
+    (bstXX, bstXY, bstYY) = bst_pols
     version = '5'  # Version of this dataformat
     calrundurationstr = str(int(calrunduration.total_seconds()))
     caltabID = calibmeta['Date']
