@@ -99,8 +99,7 @@ class BasicObsPrograms(object):
         #       although it should not have to necessary.)
         print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
         self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band, pointing)
-        self.lcu_interface.rcusetup(bits,
-                                    attenuation)  # setting bits also seems necessary
+        self.lcu_interface.rcusetup(bits, attenuation)  # setting bits is necessary
         self.lcu_interface.stop_beam()
         # END Dummy or hot start
 
@@ -167,6 +166,9 @@ def do_obsprog(stationdriver, scan, scanmeta=None):
     stationdriver.lcu_interface.stop_beam()
 
     if obsinfolist is not None:
+        scan_id = stationdriver.get_scanpath(beamstarted)
+        scanpath_bfdat = os.path.join(scanmeta.bfdsesdumpdir, scan_id)
+        scanpath_scdat = os.path.join(scanmeta.sesspath, scan_id)
         # Get some metadata about operational settings:
         # e.g. caltables used
         caltabinfos = []
@@ -192,6 +194,9 @@ def do_obsprog(stationdriver, scan, scanmeta=None):
                                                   obsinfo.integration)
         scanmeta.scanrecs['bsx'].write_scanrec(datapath)
         scanmeta.scanrecs['bsx'].datapath = datapath
+    else:
+        scan_id, scanpath_scdat, scanpath_bfdat = None, None, None
+    return scan_id, scanpath_scdat, scanpath_bfdat
 
 
 def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
