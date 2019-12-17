@@ -150,18 +150,6 @@ class StationSession(object):
                 scan['rec']
             except KeyError:
                 scan['rec'] = []
-            # bsx_type = None
-            # rec_acc = False
-            # rec_bfs = False
-            # #    select recording a combination of acc, bfs, or bsx:
-            # if scan['rec'] is not None and scan['rec'] is not []:
-            #     for chdat in scan['rec']:
-            #         if chdat == 'acc':
-            #             rec_acc = True
-            #         elif chdat == 'bst' or chdat == 'sst' or chdat == 'xst':
-            #             bsx_type = chdat
-            #         elif chdat == 'bfs':
-            #             rec_bfs = True
             rec = scan['rec']
             # - Integration for rec bsx
             try:
@@ -190,9 +178,6 @@ class StationSession(object):
                           'integration': integration,
                           'duration_tot': duration_tot,
                           'starttime': starttime,
-                          #'bsx_type': bsx_type,
-                          #'rec_bfs': rec_bfs,
-                          #'rec_acc': rec_acc
                           }
             obsargs_in.update({'obsprog': obsprog})
             stn_ses_sched['scans'].append(obsargs_in)
@@ -234,10 +219,7 @@ class StationSession(object):
                 pointsrc = scan['beam']['pointsrc']
                 starttime = scan['starttime']
                 rec = scan['rec']
-                # bsx_type = scan['bsx_type']
                 integration = scan['integration']
-                #rec_bfs = scan['rec_bfs']
-                #rec_acc = scan['rec_acc']
                 allsky = scan['beam']['allsky']
                 scan_id, scanpath_sc, scanpath_bf \
                     = programs.record_scan(self.stndrv, freqbndobj, duration_tot,
