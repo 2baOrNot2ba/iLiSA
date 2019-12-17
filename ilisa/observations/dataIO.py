@@ -623,7 +623,7 @@ class CVCfiles(object):
             Ymd_HMS_acc_nrsbsxnrrcus0xnrrcus1.dat for acc file
 
         :param cvcfilepath: str
-        :return: filenamedatetime, cvcdim0, cvcdim1, cvcdim2
+        :return: datatype, filebegindatetime, cvcdim1, cvcdim2
         """
         cvcfilename = os.path.basename(cvcfilepath)
         (Ymd, HMS, cvcextrest) = cvcfilename.split('_',2)
@@ -638,6 +638,7 @@ class CVCfiles(object):
         self.cvcdim1 = nrrcus0
         self.cvcdim2 = nrrcus1
         filenamedatetime = datetime.datetime.strptime(Ymd + 'T' + HMS, '%Y%m%dT%H%M%S')
+        # NOTE: For ACC, filename is last obstime, while for XST, it is first.
         if datatype == 'acc':
             filebegindatetime = filenamedatetime - datetime.timedelta(seconds=_nr512)
         else:
@@ -783,7 +784,6 @@ class CVCfiles(object):
             datafromfile = numpy.fromfile(fin, dtype=cvc_dtype)
         return datafromfile, t_begin
 
-
     def getnrfiles(self):
         """Return number of data files in this filefolder."""
         return len(self.filenames)
@@ -795,7 +795,6 @@ class CVCfiles(object):
             return self.dataset
         else:
             return self.dataset[filenr]
-
 
 
 def cvc2cvpol(cvc):
