@@ -84,9 +84,6 @@ class ObsPrograms(object):
             rectime = datetime.datetime.utcnow()
         self.stationdriver._waittoboot(rectime, pause)
 
-        # From swlevel 0 it takes about 1:30min? to reach swlevel 3
-        print("Booting @ {}".format(datetime.datetime.utcnow()))
-
         # Necessary since fork creates multiple instances of myobs and each one
         # will call it's __del__ on completion and __del__ shutdown...
         shutdown = self.stationdriver.halt_observingstate_when_finished
@@ -94,11 +91,9 @@ class ObsPrograms(object):
         self.stationdriver.exit_check = False
 
         # BEGIN Dummy or hot beam start: (takes about 10sec)
-        # TODO: This seems necessary, otherwise beamctl will not start up next time,
-        #       although it should not have to necessary.)
         print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
-        self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band, pointing)
         self.lcu_interface.rcusetup(bits, attenuation)  # setting bits is necessary
+        self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band, pointing)
         self.lcu_interface.stop_beam()
         # END Dummy or hot start
 
@@ -107,9 +102,9 @@ class ObsPrograms(object):
 
         # Real beam start:
         print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+        rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         beamctl_cmd = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
                                                      pointing)
-        rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         beamstart = datetime.datetime.utcnow()
         timeleft = rectime - beamstart
         if timeleft.total_seconds() < 0.:
@@ -124,7 +119,6 @@ class ObsPrograms(object):
         if REC == True:
             port0 = self.stationdriver.bf_port0
             stnid = self.lcu_interface.stnid
-            print(type(rectime))
             bfbackend.rec_bf_streams(rectime, duration_tot, lanes, band, bfdsesdumpdir,
                                      port0, stnid)
             bfsdatapaths = []
