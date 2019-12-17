@@ -70,7 +70,7 @@ class StationSession(object):
 
     def save_stnsessched(self, sched):
         sesspath = self.get_sesspath()
-        ses_sched_file = os.path.join(sesspath, 'STN_SESSION.yml')
+        ses_sched_file = os.path.join(sesspath, 'StnSess.yml')
         with open(ses_sched_file, 'w') as f:
             yaml.dump(sched, f, explicit_start=True)
 
@@ -149,20 +149,20 @@ class StationSession(object):
             try:
                 scan['rec']
             except KeyError:
-                scan['rec'] = None
-            bsx_type = None
-            integration = 1
-            rec_acc = False
-            rec_bfs = False
-            #     select recording a combination of acc, bfs, or bsx:
-            if scan['rec'] is not None and scan['rec'] is not []:
-                for chdat in scan['rec']:
-                    if chdat == 'acc':
-                        rec_acc = True
-                    elif chdat == 'bst' or chdat == 'sst' or chdat == 'xst':
-                        bsx_type = chdat
-                    elif chdat == 'bfs':
-                        rec_bfs = True
+                scan['rec'] = []
+            # bsx_type = None
+            # rec_acc = False
+            # rec_bfs = False
+            # #    select recording a combination of acc, bfs, or bsx:
+            # if scan['rec'] is not None and scan['rec'] is not []:
+            #     for chdat in scan['rec']:
+            #         if chdat == 'acc':
+            #             rec_acc = True
+            #         elif chdat == 'bst' or chdat == 'sst' or chdat == 'xst':
+            #             bsx_type = chdat
+            #         elif chdat == 'bfs':
+            #             rec_bfs = True
+            rec = scan['rec']
             # - Integration for rec bsx
             try:
                 scan['integration']
@@ -186,12 +186,13 @@ class StationSession(object):
                                'pointsrc': pointsrc,
                                'pointing': pointing,
                                'allsky': allsky},
+                          'rec': rec,
                           'integration': integration,
                           'duration_tot': duration_tot,
                           'starttime': starttime,
-                          'bsx_type': bsx_type,
-                          'rec_bfs': rec_bfs,
-                          'rec_acc': rec_acc
+                          #'bsx_type': bsx_type,
+                          #'rec_bfs': rec_bfs,
+                          #'rec_acc': rec_acc
                           }
             obsargs_in.update({'obsprog': obsprog})
             stn_ses_sched['scans'].append(obsargs_in)
@@ -218,12 +219,9 @@ class StationSession(object):
         for scan in stn_ses_sched['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
             scanrecs={}
-            if scan['rec_acc']:
-                scanrecs['acc'] = dataIO.ScanRecInfo()
-            if scan['rec_bfs']:
-                scanrecs['bfs'] = dataIO.ScanRecInfo()
-            if scan['bsx_type']:
-                scanrecs['bsx'] = dataIO.ScanRecInfo()
+            scanrecs['acc'] = dataIO.ScanRecInfo()
+            scanrecs['bfs'] = dataIO.ScanRecInfo()
+            scanrecs['bsx'] = dataIO.ScanRecInfo()
             for k in scanrecs.keys():
                 scanrecs[k].set_stnid(self.stndrv.get_stnid())
             scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
@@ -235,17 +233,16 @@ class StationSession(object):
                 pointing = scan['beam']['pointing']
                 pointsrc = scan['beam']['pointsrc']
                 starttime = scan['starttime']
-                bsx_type = scan['bsx_type']
+                rec = scan['rec']
+                # bsx_type = scan['bsx_type']
                 integration = scan['integration']
-                rec_bfs = scan['rec_bfs']
-                rec_acc = scan['rec_acc']
+                #rec_bfs = scan['rec_bfs']
+                #rec_acc = scan['rec_acc']
                 allsky = scan['beam']['allsky']
                 scan_id, scanpath_sc, scanpath_bf \
                     = programs.record_scan(self.stndrv, freqbndobj, duration_tot,
-                                                 pointing, pointsrc, starttime,
-                                                 bsx_type, integration,
-                                                 rec_bfs=rec_bfs, rec_acc=rec_acc,
-                                                 allsky=allsky, scanmeta=scanmeta)
+                                           pointing, pointsrc, starttime, rec,
+                                           integration, allsky=allsky, scanmeta=scanmeta)
             print("Saved scans here: ", scanpath_sc, scanpath_bf)
             scan['id'] = scan_id
             scans_done.append(scan)

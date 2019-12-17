@@ -205,9 +205,14 @@ def record_obsprog(stationdriver, scan, scanmeta=None):
 
 
 def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
-                starttime='NOW', bsx_type=None, integration=1.0, rec_bfs=False,
-                rec_acc=False, allsky=False, duration_frq=None, scanmeta=None):
+                starttime='NOW', rec=[], integration=1.0, allsky=False,
+                duration_frq=None, scanmeta=None):
     """Run a generic scan.
+    
+    Note
+    ----
+
+
 
     Parameters
     ----------
@@ -225,28 +230,26 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
             The field name.
         starttime: str
             The time at which scan should start.
-        bsx_type: str
-            The type of LOFAR statistic to be recorded. Can be either: 'bst', 'sst', 'xst'
-            or None.
-        rec_bfs: bool
-            Record the beam-formed stream.
+        rec: [str]
+            The types of LOFAR data to record.
+            Is a list of up to three of the following data types:
+                'acc', 'bfs', 'bst', 'sst', 'xst'
+            of which 3 latter types are mutual exclusive.
+
+            'acc': Record autocovariance-cubes (ACC) files. The actual total duration will
+            at most be duration_tot. (Usually it will be shorter so it fits within the
+            cadence of whole ACC aquisition, which is 512+7=519 seconds). ACC files are
+            the covariance of all array elements with each as a function of subband.
+
+            'bfs': Record BeamFormed Stream data.
+
+            'bst': Record Beamlet STatistics data.
+
+            'sst': Record Subband STatistics data.
+
+            'xst': Record Xrosslet STatistics data.
         duration_frq: float
             Duration in seconds of a sampled frequency within a frequency sweep scan.
-        rec_acc: bool
-            Perform calibration observation mode on station. Also known as ACC
-            mode. The actual total duration will at most be duration_tot_req.
-            (Usually it will be shorter so it fits within the cadence of whole ACC
-            aquisition, which is 512+7=519 seconds).
-
-            Some technical details: swlevel needs to cycle down to 2 (or less) and then to 3.
-            If swlevel is kept at 3 (i.e. exit_obsstate=False), then ACC will continue to be
-            produced, until swlevel goes below 2.
-
-            ACC files are autocovariance-cubes: the covariance of all array
-            elements with each as a function of subband. These files are generated
-            by the MAC service called CalServer. It run at swlevel 3 and is
-            configured in the file lofar/etc/CalServer.conf. Note subband
-            integration is always 1s, so ACC file is dumped after 512 seconds.
         allsky: bool, optional
             HBA allsky mode.
         scanmeta: ScanMeta, optional
@@ -256,6 +259,14 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
             get updated with the actual ScanRec settings used.
     """
     starttime_req = starttime; del starttime
+    rec_acc = False; rec_bfs = False; bsx_type = None
+    for recreq in rec:
+        if recreq == 'acc':
+            rec_acc = True
+        elif recreq == 'bfs':
+            rec_bfs = True
+        else:
+            bsx_type = recreq
     arraytype = freqbndobj.antsets[-1][:3]
     # Mode logic
     todo_tof = False  # This is the case when arraytype=='LBA'
