@@ -211,8 +211,7 @@ class StationSession(object):
                 scanrecs[k].set_stnid(self.stndrv.get_stnid())
             scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
             if scan['obsprog'] is not None:
-                scan_id, scanpath_sc, scanpath_bf \
-                    = programs.record_obsprog(self.stndrv, scan, scanmeta=scanmeta)
+                programs.record_obsprog(self.stndrv, scan, scanmeta=scanmeta)
             else:
                 duration_tot = scan['duration_tot']
                 pointing = scan['beam']['pointing']
@@ -221,12 +220,19 @@ class StationSession(object):
                 rec = scan['rec']
                 integration = scan['integration']
                 allsky = scan['beam']['allsky']
-                scan_id, scanpath_sc, scanpath_bf \
-                    = programs.record_scan(self.stndrv, freqbndobj, duration_tot,
-                                           pointing, pointsrc, starttime, rec,
-                                           integration, allsky=allsky, scanmeta=scanmeta)
-            print("Saved scans here: ", scanpath_sc, scanpath_bf)
-            scan['id'] = scan_id
+                programs.record_scan(self.stndrv, freqbndobj, duration_tot, pointing,
+                                     pointsrc, starttime, rec, integration,
+                                     allsky=allsky, scanmeta=scanmeta)
+            # Write scanrecinfo files and ldat headers
+            for ldat in scanmeta.scanrecs.keys():
+                try:
+                    scanrecpath = scanmeta.scanrecs[ldat].path
+                except (AttributeError, KeyError):
+                    scanrecpath = None
+                if scanrecpath:
+                    scanmeta.scanrecs[ldat].write(scanrecpath)
+            print("Saved scan here: {}".format(scanrecpath))
+            scan['id'] = scanmeta.scan_id
             scans_done.append(scan)
         stn_ses_sched['scans'] = scans_done
         self.save_stnsessched(stn_ses_sched)

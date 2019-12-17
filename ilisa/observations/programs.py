@@ -169,10 +169,10 @@ def record_obsprog(stationdriver, scan, scanmeta=None):
     stationdriver.lcu_interface.stop_beam()
 
     if obsinfolist is not None:
-        scanrecs = dataIO.ScanRecInfo()
-        scanrecs.set_stnid(stationdriver.get_stnid())
-        datarectype = 'obsprog:' + scan['obsprog']
-        scanrecs.set_scanrecparms(datarectype, freqbndobj.arg,
+        datatype = 'sop:' + scan['obsprog']
+        scanrec = dataIO.ScanRecInfo()
+        scanrec.set_stnid(stationdriver.get_stnid())
+        scanrec.set_scanrecparms(datatype, freqbndobj.arg,
                                   scan['duration_tot'], scan['beam']['pointing'],
                                   allsky=False)
         beamstarted = datetime.datetime.strptime(obsinfolist[0].filenametime,
@@ -188,14 +188,16 @@ def record_obsprog(stationdriver, scan, scanmeta=None):
         # Add obsinfos to scanrecs
         for obsinfo in obsinfolist:
             obsinfo.caltabinfos = caltabinfos
-            scanrecs.add_obs(obsinfo)
+            scanrec.add_obs(obsinfo)
         # Move data to archive
         stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat",
                                   scanpath_scdat)
-        scanrecs.write(scanpath_scdat)
+        scanrec.path = scanpath_scdat
+        scanmeta.scanrecs[datatype] = scanrec
+        scanmeta.scan_id = scan_id
     else:
-        scan_id, scanpath_scdat, scanpath_bfdat = None, None, None
-    return scan_id, scanpath_scdat, scanpath_bfdat
+        scanmeta = None
+    return scanmeta
 
 
 def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
@@ -205,7 +207,6 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
     
     Note
     ----
-
 
 
     Parameters
@@ -358,6 +359,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
         beamstarted = None
 
     scan_id = stationdriver.get_scanid(beamstarted)
+    scanmeta.scan_id = scan_id
 
     if rec_bfs:
         scanpath_bfdat = os.path.join(scanmeta.bfdsesdumpdir, scan_id)
@@ -527,16 +529,7 @@ Will increase total duration to get 1 full repetition.""")
                                                   allsky=allsky)
         scanmeta.scanrecs['bfs'].path = scanrecpath
 
-    # Write scanrecinfo files and ldat headers
-    for ldat in ['acc', 'bfs', 'bsx']:
-        try:
-            scanrecpath = scanmeta.scanrecs[ldat].path
-        except (AttributeError, KeyError):
-            scanrecpath = None
-        if scanrecpath:
-            scanmeta.scanrecs[ldat].write(scanrecpath)
-
     stationdriver.lcu_interface.cleanup()
     # Necessary due to possible forking
     stationdriver.halt_observingstate_when_finished = shutdown
-    return scan_id,  scanpath_scdat, scanpath_bfdat
+    return scanmeta
