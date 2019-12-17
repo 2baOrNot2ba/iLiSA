@@ -189,15 +189,16 @@ class StationDriver(object):
             beamctl_cmds.append(beamctl_main)
         return rcu_setup_cmd, beamctl_cmds
 
-    def _waittoboot(self, starttimestr, pause=0):
-        """Before booting, wait until time given by starttimestr. """
+    def _waittoboot(self, starttime, pause=0):
+        """Before booting, wait until time given by starttime which includes
+        a pause . """
         nw = datetime.datetime.utcnow()
-        st = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S")
+        #st = datetime.datetime.strptime(starttime, "%Y-%m-%dT%H:%M:%S")
 
         maxminsetuptime = datetime.timedelta(seconds=105 + pause)  # Longest minimal time
         # before observation
         # start to set up (This includes a dummy beam warmup)
-        d = (st - maxminsetuptime) - nw
+        d = (starttime - maxminsetuptime) - nw
         timeuntilboot = d.total_seconds()
         if timeuntilboot < 0.:
             timeuntilboot = 0
@@ -205,7 +206,6 @@ class StationDriver(object):
         time.sleep(timeuntilboot)
         # From swlevel 0 it takes about 1:30min? to reach swlevel 3
         print("Booting @ {}".format(datetime.datetime.utcnow()))
-        return st
 
     def _setup_tof(self, elemsOn=modeparms.elOn_gILT):
         """Setup (HBA) tiling off mode."""
@@ -318,18 +318,18 @@ class StationDriver(object):
         self._startTBBdataStream(float(duration_scan))
         dalcap.join()
 
-    def get_scanpath(self, dumproot, beamstarted=None):
-        """Determine path where next scan should be stored."""
-        # - Make a scan ID. (Currently based on MJD start time of scan)
+    def get_scanid(self, beamstarted=None):
+        """Determine scan ID.
+        The ID is the MJD of the data file stamp time or when the beam started (datetime).
+        """
         try:
-            scan_dt_id = self.get_data_timestamp(-1)
+            scan_dt = datetime.datetime.strptime(self.get_data_timestamp(-1),
+                                                 "%Y%m%d_%H%M%S")
         except Exception:
             if beamstarted is None:
                 beamstarted = datetime.datetime.utcnow()
-            scan_dt_id = beamstarted.strftime("%Y%m%d_%H%M%S")
-        # No
-        scan_mjd_id = modeparms.dt2mjd(datetime.datetime.strptime(scan_dt_id,
-                                                                  "%Y%m%d_%H%M%S"))
+            scan_dt = beamstarted
+        scan_mjd_id = modeparms.dt2mjd(scan_dt)
         scan_id = "scan_{}".format(scan_mjd_id)
         return scan_id
 

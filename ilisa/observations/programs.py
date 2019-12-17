@@ -4,7 +4,6 @@ import time
 import datetime
 import shutil
 import warnings
-import copy
 import inspect
 
 import ilisa.observations.directions
@@ -13,7 +12,7 @@ import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 import ilisa.observations.dataIO as dataIO
 
 
-class BasicObsPrograms(object):
+class ObsPrograms(object):
 
     def __init__(self, stationdriver):
         self.stationdriver = stationdriver
@@ -80,10 +79,10 @@ class BasicObsPrograms(object):
         # Wait until it is time to start
         pause = 5  # Sufficient?
         if starttime != "NOW":
-            starttimestr = starttime.strftime("%Y-%m-%dT%H:%M:%S")
+            rectime = starttime
         else:
-            starttimestr = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-        st = self.stationdriver._waittoboot(starttimestr, pause)
+            rectime = datetime.datetime.utcnow()
+        self.stationdriver._waittoboot(rectime, pause)
 
         # From swlevel 0 it takes about 1:30min? to reach swlevel 3
         print("Booting @ {}".format(datetime.datetime.utcnow()))
@@ -108,32 +107,42 @@ class BasicObsPrograms(object):
 
         # Real beam start:
         print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-        beamctl_cmds = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
+        beamctl_cmd = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
                                                      pointing)
         rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         beamstart = datetime.datetime.utcnow()
-        timeleft = st - beamstart
+        timeleft = rectime - beamstart
         if timeleft.total_seconds() < 0.:
-            starttimestr = beamstart.strftime("%Y-%m-%dT%H:%M:%S")
+            rectime = beamstart
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
+        bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
+        obsinfo = dataIO.ObsInfo('bfs', bfsnametime, beamctl_cmd, rcu_setup_cmd,
+                                 caltabinfos="")
 
         REC = True
         if REC == True:
             port0 = self.stationdriver.bf_port0
             stnid = self.lcu_interface.stnid
-            bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band,
-                                     bfdsesdumpdir, port0, stnid)
+            print(type(rectime))
+            bfbackend.rec_bf_streams(rectime, duration_tot, lanes, band, bfdsesdumpdir,
+                                     port0, stnid)
+            bfsdatapaths = []
+            for lane in lanes:
+                outdumpdir, outarg, datafileguess, dumplogname = \
+                    bfbackend.bfsfilepaths(lane, rectime, band, bfdsesdumpdir, port0,
+                                           stnid)
+                bfsdatapaths.append(datafileguess)
         else:
             print("Not recording")
             time.sleep(duration_tot)
         sys.stdout.flush()
         self.lcu_interface.stop_beam()
         self.stationdriver.halt_observingstate_when_finished = shutdown
-        return None
+        return [obsinfo]
 
 
-def do_obsprog(stationdriver, scan, scanmeta=None):
+def record_obsprog(stationdriver, scan, scanmeta=None):
     """At starttime execute the observation program specified by the obsfun method
     pointer and run with arguments specified by obsargs dict.
     """
@@ -143,7 +152,7 @@ def do_obsprog(stationdriver, scan, scanmeta=None):
         scan_flat[k] = scan['beam'][k]
     freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
     scan_flat['freqbndobj'] = freqbndobj
-    prg = BasicObsPrograms(stationdriver)
+    prg = ObsPrograms(stationdriver)
     obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
     scan_flat['bfdsesdumpdir'] = scanmeta.bfdsesdumpdir
     # Map only args required by
@@ -166,34 +175,30 @@ def do_obsprog(stationdriver, scan, scanmeta=None):
     stationdriver.lcu_interface.stop_beam()
 
     if obsinfolist is not None:
-        scan_id = stationdriver.get_scanpath(beamstarted)
+        scanrecs = dataIO.ScanRecInfo()
+        scanrecs.set_stnid(stationdriver.get_stnid())
+        datarectype = 'obsprog:' + scan['obsprog']
+        scanrecs.set_scanrecparms(datarectype, freqbndobj.arg,
+                                  scan['duration_tot'], scan['beam']['pointing'],
+                                  allsky=False)
+        beamstarted = datetime.datetime.strptime(obsinfolist[0].filenametime,
+                                                 "%Y%m%d_%H%M%S")
+        scan_id = stationdriver.get_scanid(beamstarted)
         scanpath_bfdat = os.path.join(scanmeta.bfdsesdumpdir, scan_id)
         scanpath_scdat = os.path.join(scanmeta.sesspath, scan_id)
-        # Get some metadata about operational settings:
-        # e.g. caltables used
+        # Add caltables used
         caltabinfos = []
-        freqbndobj = obsargs['freqbndobj']
         for rcumode in freqbndobj.rcumodes:
             caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
             caltabinfos.append(caltabinfo)
-        for i in range(len(obsinfolist)):
-            obsinfolist[i].caltabinfos = caltabinfos
-        obsinfo = obsinfolist[0]
-        obsinfo.sb = freqbndobj.sb_range[0]
-
+        # Add obsinfos to scanrecs
+        for obsinfo in obsinfolist:
+            obsinfo.caltabinfos = caltabinfos
+            scanrecs.add_obs(obsinfo)
         # Move data to archive
-        scanrecfolder = obsinfo.obsfoldername()
-        datapath = os.path.join(stationdriver.LOFARdataArchive, scanrecfolder)
         stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat",
-                                  datapath)
-        for curr_obsinfo in obsinfolist:
-            curr_obsinfo.write_ldat_header(datapath)
-        # Prepare metadata for session on this station.
-        scanmeta.scanrecs['bsx'].set_scanrecparms(obsinfo.LOFARdatTYPE, freqbndobj.arg,
-                                                  obsinfo.duration_scan, obsinfo.pointing,
-                                                  obsinfo.integration)
-        scanmeta.scanrecs['bsx'].write_scanrec(datapath)
-        scanmeta.scanrecs['bsx'].datapath = datapath
+                                  scanpath_scdat)
+        scanrecs.write(scanpath_scdat)
     else:
         scan_id, scanpath_scdat, scanpath_bfdat = None, None, None
     return scan_id, scanpath_scdat, scanpath_bfdat
@@ -250,6 +255,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
             a dict of ScanRec for potential scan recordings. The ScanRec dict will
             get updated with the actual ScanRec settings used.
     """
+    starttime_req = starttime; del starttime
     arraytype = freqbndobj.antsets[-1][:3]
     # Mode logic
     todo_tof = False  # This is the case when arraytype=='LBA'
@@ -313,11 +319,10 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
 
     # Wait until it is time to start
     pause = 5  # Sufficient?
-    if starttime != "NOW":
-        starttimestr = starttime.strftime("%Y-%m-%dT%H:%M:%S")
+    if starttime_req == "NOW":
+        starttime = datetime.datetime.utcnow()
     else:
-        starttimestr = datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S")
-    st = stationdriver._waittoboot(starttimestr, pause)
+        starttime = starttime_req
 
     # Necessary since fork creates multiple instances of myobs and each one
     # will call it's __del__ on completion and __del__ shutdown...
@@ -331,17 +336,14 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
         for rcumode in freqbndobj.rcumodes:
             caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
             caltabinfos.append(caltabinfo)
-        # warmup used to be here
-        print("Pause {}s after boot.".format(pause))
-        time.sleep(pause)
 
         # Real beam start:
         print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
         rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, pointing)
         beamstarted = datetime.datetime.utcnow()
-        timeleft = st - beamstarted
+        timeleft = starttime - beamstarted
         if timeleft.total_seconds() < 0.:
-            starttimestr = beamstarted.strftime("%Y-%m-%dT%H:%M:%S")
+            starttime = beamstarted
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
     else:
@@ -350,16 +352,16 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
         beamctl_cmds = ""
         beamstarted = None
 
-    scan_id = stationdriver.get_scanpath(beamstarted)
+    scan_id = stationdriver.get_scanid(beamstarted)
 
     if rec_bfs:
         scanpath_bfdat = os.path.join(scanmeta.bfdsesdumpdir, scan_id)
         stnid = stationdriver.lcu_interface.stnid
         lanes = tuple(freqbndobj.getlanes().keys())
-        bfbackend.rec_bf_streams(starttimestr, duration_tot, lanes, band,
+        bfbackend.rec_bf_streams(starttime,
+                                 duration_tot, lanes, band,
                                  scanpath_bfdat, stationdriver.bf_port0, stnid)
-        bfsnametime = datetime.datetime.strptime(starttimestr, "%Y-%m-%dT%H:%M:%S"
-                                                ).strftime("%Y%m%d_%H%M%S")
+        bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
         this_obsinfo = dataIO.ObsInfo('bfs', bfsnametime, beamctl_cmds, rcu_setup_cmd,
                                       caltabinfos)
         scanmeta.scanrecs['bfs'].add_obs(this_obsinfo)
@@ -504,7 +506,8 @@ Will increase total duration to get 1 full repetition.""")
         bfslogpaths = []
         for lane in lanes:
             outdumpdir, outarg, datafileguess, dumplogname = \
-                bfbackend.bfsfilepaths(lane, starttimestr, band, scanpath_bfdat,
+                bfbackend.bfsfilepaths(lane, starttime,
+                                       band, scanpath_bfdat,
                                        stationdriver.bf_port0, stationdriver.get_stnid())
             bfsdatapaths.append(datafileguess)
             bfslogpaths.append(dumplogname)

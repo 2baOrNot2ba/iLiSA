@@ -207,13 +207,13 @@ class StationSession(object):
         bfdsesdumpdir = self.get_bfdsesdumpdir()
         # Boot Time handling
         nw = datetime.datetime.utcnow()
-        starttime = stn_ses_sched['scans'][0]['starttime']
-        if starttime == 'NOW':
-            starttime = nw
-        bootupstart = starttime - datetime.timedelta(seconds=10)
+        startscantime = stn_ses_sched['scans'][0]['starttime']
+        if startscantime == 'NOW':
+            startscantime = nw
+        bootupstart = startscantime - datetime.timedelta(seconds=10)
         # Wait until it is time to bootup
         print("In stnsess: Wait until it is time to bootup")
-        st = self.stndrv._waittoboot(bootupstart.strftime("%Y-%m-%dT%H:%M:%S"))
+        self.stndrv._waittoboot(bootupstart)
         scans_done = []
         for scan in stn_ses_sched['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
@@ -229,7 +229,7 @@ class StationSession(object):
             scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
             if scan['obsprog'] is not None:
                 scan_id, scanpath_sc, scanpath_bf \
-                    = programs.do_obsprog(self.stndrv, scan, scanmeta=scanmeta)
+                    = programs.record_obsprog(self.stndrv, scan, scanmeta=scanmeta)
             else:
                 duration_tot = scan['duration_tot']
                 pointing = scan['beam']['pointing']
