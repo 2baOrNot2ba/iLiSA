@@ -186,6 +186,7 @@ class StationSession(object):
         self.set_stn_session_id(stn_ses_sched['session_id'])
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self.get_bfdsesdumpdir()
+        self.stndrv.scanpath = sesspath
         # Boot Time handling
         nw = datetime.datetime.utcnow()
         startscantime = stn_ses_sched['scans'][0]['starttime']

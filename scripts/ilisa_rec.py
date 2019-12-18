@@ -77,6 +77,7 @@ if __name__ == "__main__":
 
     if args.datatype != 'tbb':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
+        stationdriver.scanpath = sesspath
         scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
         programs.record_scan(stndrv, freqbndobj, duration_tot, pointing,
                              starttime=args.starttime, rec=[args.datatype],

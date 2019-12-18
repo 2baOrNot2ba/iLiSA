@@ -21,6 +21,7 @@ class ScanMeta(object):
         self.sesspath = sesspath
         self.bfdsesdumpdir = bfdsesdumpdir
         self.scanrecs = scanrecs
+        self.scan_id = scan_id
 
     def write_scanrecs(self):
         """Write the scanrec for each recorded ldat."""

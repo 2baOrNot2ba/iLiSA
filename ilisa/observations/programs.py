@@ -440,7 +440,7 @@ Will increase total duration to get 1 full repetition.""")
         stationdriver.lcu_interface.set_swlevel(3)
 
     # Work out where station-correlated data should be stored:
-    scanpath_scdat = os.path.join(scanmeta.sesspath, scan_id)
+    scanpath_scdat = os.path.join(stationdriver.scanpath, scan_id)
 
     if rec_acc:
         # Switch back to normal state i.e. turn-off ACC dumping:
