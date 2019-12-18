@@ -17,7 +17,7 @@ import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 
 class ScanMeta(object):
     """Class containing metadata of a scan."""
-    def __init__(self, sesspath, bfdsesdumpdir, scanrecs):
+    def __init__(self, sesspath, bfdsesdumpdir, scanrecs, scan_id=None):
         self.sesspath = sesspath
         self.bfdsesdumpdir = bfdsesdumpdir
         self.scanrecs = scanrecs
@@ -78,7 +78,8 @@ class StationDriver(object):
         self.tbbh5dumpdir =     accessconf_dru['TBBh5dumpDir']
         bf_ports = self.get_laneports()
         self.bf_port0 = int(bf_ports[0])
-
+        # Path to folder that will contain scans:
+        self.scanpath = os.path.join(self.LOFARdataArchive, 'Scans')
         self.exit_check = True
         self.halt_observingstate_when_finished = True
         self.cleanup()
