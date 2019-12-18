@@ -218,13 +218,7 @@ class StationSession(object):
                                      pointing, starttime, rec, integration,
                                      allsky=allsky, scanmeta=scanmeta)
             # Write scanrecinfo files and ldat headers
-            for ldat in scanmeta.scanrecs.keys():
-                try:
-                    scanrecpath = scanmeta.scanrecs[ldat].path
-                except (AttributeError, KeyError):
-                    scanrecpath = None
-                if scanrecpath:
-                    scanmeta.scanrecs[ldat].write(scanrecpath)
+            scanrecpath = scanmeta.write_scanrecs()
             print("Saved scan here: {}".format(scanrecpath))
             scan['id'] = scanmeta.scan_id
             scans_done.append(scan)

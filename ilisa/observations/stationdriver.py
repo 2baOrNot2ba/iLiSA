@@ -8,15 +8,12 @@ import time
 import datetime
 import subprocess
 import os
-import sys
 import multiprocessing
 
 import ilisa.observations.directions
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
-import ilisa.observations.programs as programs
-
 
 class ScanMeta(object):
     """Class containing metadata of a scan."""
@@ -24,6 +21,17 @@ class ScanMeta(object):
         self.sesspath = sesspath
         self.bfdsesdumpdir = bfdsesdumpdir
         self.scanrecs = scanrecs
+
+    def write_scanrecs(self):
+        """Write the scanrec for each recorded ldat."""
+        for ldat in self.scanrecs.keys():
+            try:
+                scanrecpath = self.scanrecs[ldat].path
+            except (AttributeError, KeyError):
+                scanrecpath = None
+            if scanrecpath:
+                self.scanrecs[ldat].write(scanrecpath)
+        return scanrecpath
 
 
 class StationDriver(object):
