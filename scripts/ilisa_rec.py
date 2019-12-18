@@ -2,6 +2,7 @@
 """Record local station data with command-line arguments.
 """
 
+import sys
 import os
 import argparse
 import ilisa.observations
@@ -35,7 +36,7 @@ if __name__ == "__main__":
 
     accessconf = ilisa.observations.default_access_lclstn_conf()
     stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'], mockrun=False)
-    halt_observingstate_when_finished = True
+    halt_observingstate_when_finished = False
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
     freqbndobj = modeparms.FrequencyBand(args.freqspec)
     try:
@@ -85,6 +86,5 @@ if __name__ == "__main__":
         print("Saved scan here: {}".format(scanrecpath))
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
-    print "Finished"
-    import sys
+    print("Finished")
     sys.stdout.flush()
