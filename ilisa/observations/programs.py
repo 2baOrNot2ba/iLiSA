@@ -200,7 +200,7 @@ def record_obsprog(stationdriver, scan, scanmeta=None):
     return scanmeta
 
 
-def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
+def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
                 starttime='NOW', rec=[], integration=1.0, allsky=False,
                 duration_frq=None, scanmeta=None):
     """Run a generic scan.
@@ -219,10 +219,9 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
             Integration time in seconds.
         duration_tot: float
             Total duration of scan in seconds.
-        pointing:
-            Pointing direction of scan.
         pointsrc: str
-            The field name.
+            Pointing source direction of scan. Can be a source name or a beamctl
+            direction str.
         starttime: str
             The time at which scan should start.
         rec: [str]
@@ -266,7 +265,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
     # Mode logic
     todo_tof = False  # This is the case when arraytype=='LBA'
     if allsky and arraytype == 'HBA':
-        if pointing is not None:
+        if pointsrc is not None:
             raise ValueError('hba-allsky and beam cannot run simultaneously.')
         if bsx_type == 'bst':
             raise ValueError('bst and hba-allsky cannot be combined.')
@@ -275,7 +274,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
         if rec_bfs:
             raise ValueError('bfs and hba-allsky cannot be combined.')
         todo_tof = True
-    if not allsky and pointing is None:
+    if not allsky and pointsrc is None:
         pointsrc = 'Z'
 
     pointing = ilisa.observations.directions.normalizebeamctldir(pointsrc)
@@ -337,26 +336,20 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing, pointsrc,
     stationdriver.exit_check = False
 
     caltabinfos = []
-    if pointing is not None:
-        # Get metadata about caltables to be used
-        for rcumode in freqbndobj.rcumodes:
-            caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
-            caltabinfos.append(caltabinfo)
+    # Get metadata about caltables to be used
+    for rcumode in freqbndobj.rcumodes:
+        caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
+        caltabinfos.append(caltabinfo)
 
-        # Real beam start:
-        print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-        rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, pointing)
-        beamstarted = datetime.datetime.utcnow()
-        timeleft = starttime - beamstarted
-        if timeleft.total_seconds() < 0.:
-            starttime = beamstarted
-        print("(Beam started) Time left before recording: {}".format(
-            timeleft.total_seconds()))
-    else:
-        print("No pointing...")
-        rcu_setup_cmd = ""
-        beamctl_cmds = ""
-        beamstarted = None
+    # Real beam start:
+    print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+    rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, pointing)
+    beamstarted = datetime.datetime.utcnow()
+    timeleft = starttime - beamstarted
+    if timeleft.total_seconds() < 0.:
+        starttime = beamstarted
+    print("(Beam started) Time left before recording: {}".format(
+        timeleft.total_seconds()))
 
     scan_id = stationdriver.get_scanid(beamstarted)
     scanmeta.scan_id = scan_id
@@ -525,7 +518,7 @@ Will increase total duration to get 1 full repetition.""")
                                                             bfsdatapaths[lane])))
             shutil.move(bfslogpaths[lane], scanrecpath)
         scanmeta.scanrecs['bfs'].set_stnid(stationdriver.get_stnid())
-        scanmeta.scanrecs['bfs'].set_scanrecparms('bfs', band, duration_tot, pointing,
+        scanmeta.scanrecs['bfs'].set_scanrecparms('bfs', band, duration_tot, pointsrc,
                                                   allsky=allsky)
         scanmeta.scanrecs['bfs'].path = scanrecpath
 

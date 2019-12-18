@@ -133,10 +133,6 @@ class StationSession(object):
             except KeyError:
                 # No pointing specified so set to None
                 pointsrc = None
-            try:
-                pointing = ilisa.observations.directions.normalizebeamctldir(pointsrc)
-            except KeyError:
-                raise ValueError("Error: %s invalid pointing syntax".format(pointsrc))
             # -- Allsky
             try:
                 allsky = scan['beam']['allsky']
@@ -171,8 +167,7 @@ class StationSession(object):
             # Collect observation parameters specified
             obsargs_in = {'beam':
                               {'freqspec': freqspec,
-                               'pointsrc': pointsrc,
-                               'pointing': pointing,
+                               'pointing': pointsrc,
                                'allsky': allsky},
                           'rec': rec,
                           'integration': integration,
@@ -214,13 +209,12 @@ class StationSession(object):
                 programs.record_obsprog(self.stndrv, scan, scanmeta=scanmeta)
             else:
                 duration_tot = scan['duration_tot']
-                pointing = scan['beam']['pointing']
-                pointsrc = scan['beam']['pointsrc']
+                pointsrc = scan['beam']['pointing']
                 starttime = scan['starttime']
                 rec = scan['rec']
                 integration = scan['integration']
                 allsky = scan['beam']['allsky']
-                programs.record_scan(self.stndrv, freqbndobj, duration_tot, pointing,
+                programs.record_scan(self.stndrv, freqbndobj, duration_tot,
                                      pointsrc, starttime, rec, integration,
                                      allsky=allsky, scanmeta=scanmeta)
             # Write scanrecinfo files and ldat headers
