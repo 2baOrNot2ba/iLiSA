@@ -103,10 +103,11 @@ def plotxst(xstff):
         normcolor = None
     xstobj = dataIO.CVCfiles(xstff)
     XSTdataset = xstobj.getdata()
+    file_ids = xstobj.scanrecinfo.get_file_ids()
     for sbstepidx in range(len(XSTdataset)):
-        obsinfo = xstobj.scanrecinfo.obsinfos[sbstepidx]
-        intg = float(obsinfo.rspctl_cmd['integration'])
-        dur = float(obsinfo.rspctl_cmd['duration'])
+        obsinfo = xstobj.scanrecinfo.obsinfos[file_ids[sbstepidx]]
+        intg = obsinfo.integration
+        dur = obsinfo.duration_scan
 
         freq = obsinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
@@ -117,7 +118,7 @@ def plotxst(xstff):
                        interpolation='none')
             plt.title(
 """Time (from start {}) {}s
-@ freq={} MHz""".format(obsinfo.starttime, ts[tidx], freq/1e6))
+@ freq={} MHz""".format(obsinfo.get_starttime(), ts[tidx], freq/1e6))
             plt.xlabel('RCU [#]')
             plt.ylabel('RCU [#]')
             plt.colorbar()

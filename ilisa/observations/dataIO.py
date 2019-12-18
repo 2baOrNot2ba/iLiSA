@@ -87,7 +87,13 @@ class ScanRecInfo(object):
 
     def add_obs(self, obsinfo):
         """Add an ObsInfo object to this ScanRecInfo."""
-        self.obsinfos[obsinfo.filenametime] = obsinfo
+        file_id = obsinfo.filenametime
+        self.obsinfos[file_id] = obsinfo
+
+    def get_file_ids(self):
+        """Get list of file_ids.
+        A file_id is a key to the obsinfos list."""
+        return sorted(self.obsinfos.keys())
 
     def set_stnid(self, stnid):
         self.stnid = stnid
@@ -348,13 +354,23 @@ class ObsInfo(object):
 
     def get_recfreq(self):
         """Return data recording frequency in Hz."""
-        sb =self.rspctl_cmd['xcsubband']
-        if self.datatype != "xst-SEPTON" and  not self.septonconf:
-            rcumode = self.beamctl_cmd['rcumode']
+        sb = self.sb
+        if self.ldat_type != "xst-SEPTON" and  not self.septonconf:
+            rcumode = self.rcumode
         else:
             rcumode = 5
         nz = modeparms.rcumode2nyquistzone(rcumode)
         return modeparms.sb2freq(sb, nz)
+
+    def get_starttime(self):
+        """Return the datetime when this obs started."""
+        filetime = datetime.datetime.strptime(self.filenametime, "%Y%m%d_%H%M%S")
+        if self.ldat_type != 'acc':
+            starttime = filetime
+        else:
+            starttime =  filetime - datetime.timedelta(seconds=512)
+        return starttime
+
 
     @classmethod
     def read_ldat_header(cls, headerpath):
@@ -759,7 +775,7 @@ class CVCfiles(object):
             if self.scanrecinfo.get_datatype() == 'acc':
                 freqs = modeparms.rcumode2sbfreqs(rcumode)
             else:
-                sb = obsinfo.rspctl_cmd['xcsubband']
+                sb = obsinfo.sb
                 freq = modeparms.sb2freq(sb, nz)
                 freqs = [freq]*cvcdim_t
             self.freqset.append(freqs)
