@@ -39,18 +39,13 @@ if __name__ == "__main__":
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
     freqbndobj = modeparms.FrequencyBand(args.freqspec)
     try:
-        pointsrc = args.pointing
+        pointing = args.pointing
     except AttributeError:
-        pointsrc = None
-    try:
-        pointing = ilisa.observations.directions.std_pointings(pointsrc)
-    except KeyError:
-        try:
-            phi, theta, ref = pointsrc.split(',', 3)
-            pointing = pointsrc
-        except ValueError:
-            raise ValueError(
-                "Error: %s invalid pointing syntax".format(args.pointing))
+        pointing = None
+    dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
+    if not dir_bmctl:
+        raise ValueError(
+            "Error: %s invalid pointing syntax".format(args.pointing))
     duration_tot = eval(str(args.duration_tot))
 
     do_acc = False
@@ -82,12 +77,12 @@ if __name__ == "__main__":
     if args.datatype != 'tbb':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
-        scanpath = programs.record_scan(stndrv, freqbndobj, duration_tot, pointing,
-                                        pointsrc, starttime=args.starttime,
-                                        bsx_type=bsx_type,
-                                        integration=args.integration, rec_bfs=rec_bfs,
-                                        rec_acc=do_acc, allsky=args.allsky,
-                                        duration_frq=None, scanmeta=scanmeta)
+        programs.record_scan(stndrv, freqbndobj, duration_tot, pointing,
+                             starttime=args.starttime, rec=[args.datatype],
+                             integration=args.integration, allsky=args.allsky,
+                             duration_frq=None, scanmeta=scanmeta)
+        scanrecpath = scanmeta.write_scanrecs()
+        print("Saved scan here: {}".format(scanrecpath))
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print "Finished"
