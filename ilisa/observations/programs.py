@@ -180,7 +180,7 @@ def record_obsprog(stationdriver, scan, scanmeta=None):
                                                  "%Y%m%d_%H%M%S")
         scan_id = stationdriver.get_scanid(beamstarted)
         scanpath_bfdat = os.path.join(scanmeta.bfdsesdumpdir, scan_id)
-        scanpath_scdat = os.path.join(scanmeta.sesspath, scan_id)
+        scanpath_scdat = os.path.join(stationdriver.scanpath, scan_id)
         # Add caltables used
         caltabinfos = []
         for rcumode in freqbndobj.rcumodes:
