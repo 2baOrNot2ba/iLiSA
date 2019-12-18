@@ -327,7 +327,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         rectime = datetime.datetime.utcnow()
     else:
         rectime = starttime
-    self.stationdriver._waittoboot(rectime, pause)
+    stationdriver._waittoboot(rectime, pause)
 
     # Necessary since fork creates multiple instances of myobs and each one
     # will call it's __del__ on completion and __del__ shutdown...
