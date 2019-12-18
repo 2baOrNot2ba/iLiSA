@@ -47,7 +47,7 @@ class ObsPrograms(object):
         rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
-    def do_bfs_OW(self, freqbndobj, duration_tot, pointsrc, bfdsesdumpdir,
+    def do_bfs_OW(self, freqbndobj, duration_tot, pointing, bfdsesdumpdir,
                   starttime='NOW'):
         """Record BeamFormed Streams (BFS) with particular beamlet allocation."""
 
@@ -74,7 +74,6 @@ class ObsPrograms(object):
         else:
             raise ValueError(
                 "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
-        pointing = ilisa.observations.directions.normalizebeamctldir(pointsrc)
 
         # Wait until it is time to start
         pause = 5  # Sufficient?
@@ -90,10 +89,12 @@ class ObsPrograms(object):
         self.stationdriver.halt_observingstate_when_finished = False
         self.stationdriver.exit_check = False
 
+        dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
+
         # BEGIN Dummy or hot beam start: (takes about 10sec)
         print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
         self.lcu_interface.rcusetup(bits, attenuation)  # setting bits is necessary
-        self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band, pointing)
+        self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band, dir_bmctl)
         self.lcu_interface.stop_beam()
         # END Dummy or hot start
 
@@ -104,7 +105,7 @@ class ObsPrograms(object):
         print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
         rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
         beamctl_cmd = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
-                                                     pointing)
+                                                     dir_bmctl)
         beamstart = datetime.datetime.utcnow()
         timeleft = rectime - beamstart
         if timeleft.total_seconds() < 0.:
@@ -200,7 +201,7 @@ def record_obsprog(stationdriver, scan, scanmeta=None):
     return scanmeta
 
 
-def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
+def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
                 starttime='NOW', rec=[], integration=1.0, allsky=False,
                 duration_frq=None, scanmeta=None):
     """Run a generic scan.
@@ -219,7 +220,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
             Integration time in seconds.
         duration_tot: float
             Total duration of scan in seconds.
-        pointsrc: str
+        pointing: str
             Pointing source direction of scan. Can be a source name or a beamctl
             direction str.
         starttime: str
@@ -252,7 +253,6 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
             a dict of ScanRec for potential scan recordings. The ScanRec dict will
             get updated with the actual ScanRec settings used.
     """
-    starttime_req = starttime; del starttime
     rec_acc = False; rec_bfs = False; bsx_type = None
     for recreq in rec:
         if recreq == 'acc':
@@ -265,7 +265,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
     # Mode logic
     todo_tof = False  # This is the case when arraytype=='LBA'
     if allsky and arraytype == 'HBA':
-        if pointsrc is not None:
+        if pointing is not None:
             raise ValueError('hba-allsky and beam cannot run simultaneously.')
         if bsx_type == 'bst':
             raise ValueError('bst and hba-allsky cannot be combined.')
@@ -274,10 +274,9 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
         if rec_bfs:
             raise ValueError('bfs and hba-allsky cannot be combined.')
         todo_tof = True
-    if not allsky and pointsrc is None:
-        pointsrc = 'Z'
+    if not allsky and pointing is None:
+        pointing = 'Z'
 
-    pointing = ilisa.observations.directions.normalizebeamctldir(pointsrc)
 
     # Setup Calibration tables on LCU:
     CALTABLESRC = 'default'   # FIXME put this in args
@@ -324,10 +323,11 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
 
     # Wait until it is time to start
     pause = 5  # Sufficient?
-    if starttime_req == "NOW":
-        starttime = datetime.datetime.utcnow()
+    if starttime == "NOW":
+        rectime = datetime.datetime.utcnow()
     else:
-        starttime = starttime_req
+        rectime = starttime
+    self.stationdriver._waittoboot(rectime, pause)
 
     # Necessary since fork creates multiple instances of myobs and each one
     # will call it's __del__ on completion and __del__ shutdown...
@@ -343,11 +343,12 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
 
     # Real beam start:
     print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-    rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, pointing)
+    dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
+    rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, dir_bmctl)
     beamstarted = datetime.datetime.utcnow()
-    timeleft = starttime - beamstarted
+    timeleft = rectime - beamstarted
     if timeleft.total_seconds() < 0.:
-        starttime = beamstarted
+        rectime = beamstarted
     print("(Beam started) Time left before recording: {}".format(
         timeleft.total_seconds()))
 
@@ -358,10 +359,10 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointsrc,
         scanpath_bfdat = os.path.join(scanmeta.bfdsesdumpdir, scan_id)
         stnid = stationdriver.lcu_interface.stnid
         lanes = tuple(freqbndobj.getlanes().keys())
-        bfbackend.rec_bf_streams(starttime,
+        bfbackend.rec_bf_streams(rectime,
                                  duration_tot, lanes, band,
                                  scanpath_bfdat, stationdriver.bf_port0, stnid)
-        bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
+        bfsnametime = rectime.strftime("%Y%m%d_%H%M%S")
         this_obsinfo = dataIO.ObsInfo('bfs', bfsnametime, beamctl_cmds, rcu_setup_cmd,
                                       caltabinfos)
         scanmeta.scanrecs['bfs'].add_obs(this_obsinfo)
@@ -456,7 +457,7 @@ Will increase total duration to get 1 full repetition.""")
                                                     obsdatetime_stamp, rcumode,
                                                     duration_tot))
         if int(rcumode) > 4:  # rcumodes more than 4 need pointing
-            scanrecpath += "_"+pointsrc
+            scanrecpath += "_" + pointing
         scanrecpath += "_acc"
         if os.path.exists(scanrecpath):
             print("Appropriate directory exists already (will put data here)")
@@ -478,7 +479,7 @@ Will increase total duration to get 1 full repetition.""")
         # Set scanrecinfo
         acc_integration = 1.0
         scanmeta.scanrecs['acc'].set_stnid(stationdriver.get_stnid())
-        scanmeta.scanrecs['acc'].set_scanrecparms('acc', band, duration_tot, pointsrc,
+        scanmeta.scanrecs['acc'].set_scanrecparms('acc', band, duration_tot, pointing,
                                                   acc_integration, allsky)
         scanmeta.scanrecs['acc'].path = scanrecpath
 
@@ -492,7 +493,7 @@ Will increase total duration to get 1 full repetition.""")
         # Set scanrecinfo
         scanmeta.scanrecs['bsx'].set_stnid(stationdriver.get_stnid())
         scanmeta.scanrecs['bsx'].set_scanrecparms(bsx_type, freqbndobj.arg,
-                                                  duration_tot, pointsrc,
+                                                  duration_tot, pointing,
                                                   integration, allsky=allsky)
         scanmeta.scanrecs['bsx'].path = scanrecpath
 
@@ -506,7 +507,7 @@ Will increase total duration to get 1 full repetition.""")
         bfslogpaths = []
         for lane in lanes:
             outdumpdir, outarg, datafileguess, dumplogname = \
-                bfbackend.bfsfilepaths(lane, starttime,
+                bfbackend.bfsfilepaths(lane, rectime,
                                        band, scanpath_bfdat,
                                        stationdriver.bf_port0, stationdriver.get_stnid())
             bfsdatapaths.append(datafileguess)
@@ -518,7 +519,7 @@ Will increase total duration to get 1 full repetition.""")
                                                             bfsdatapaths[lane])))
             shutil.move(bfslogpaths[lane], scanrecpath)
         scanmeta.scanrecs['bfs'].set_stnid(stationdriver.get_stnid())
-        scanmeta.scanrecs['bfs'].set_scanrecparms('bfs', band, duration_tot, pointsrc,
+        scanmeta.scanrecs['bfs'].set_scanrecparms('bfs', band, duration_tot, pointing,
                                                   allsky=allsky)
         scanmeta.scanrecs['bfs'].path = scanrecpath
 

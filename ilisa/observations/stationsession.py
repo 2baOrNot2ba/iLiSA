@@ -129,10 +129,10 @@ class StationSession(object):
             freqspec = scan['beam']['freqspec']
             # -- Pointing
             try:
-                pointsrc = scan['beam']['pointing']
+                pointing = scan['beam']['pointing']
             except KeyError:
                 # No pointing specified so set to None
-                pointsrc = None
+                pointing = None
             # -- Allsky
             try:
                 allsky = scan['beam']['allsky']
@@ -167,7 +167,7 @@ class StationSession(object):
             # Collect observation parameters specified
             obsargs_in = {'beam':
                               {'freqspec': freqspec,
-                               'pointing': pointsrc,
+                               'pointing': pointing,
                                'allsky': allsky},
                           'rec': rec,
                           'integration': integration,
@@ -209,13 +209,13 @@ class StationSession(object):
                 programs.record_obsprog(self.stndrv, scan, scanmeta=scanmeta)
             else:
                 duration_tot = scan['duration_tot']
-                pointsrc = scan['beam']['pointing']
+                pointing = scan['beam']['pointing']
                 starttime = scan['starttime']
                 rec = scan['rec']
                 integration = scan['integration']
                 allsky = scan['beam']['allsky']
                 programs.record_scan(self.stndrv, freqbndobj, duration_tot,
-                                     pointsrc, starttime, rec, integration,
+                                     pointing, starttime, rec, integration,
                                      allsky=allsky, scanmeta=scanmeta)
             # Write scanrecinfo files and ldat headers
             for ldat in scanmeta.scanrecs.keys():
