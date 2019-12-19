@@ -148,6 +148,13 @@ class ScanRecInfo(object):
         for obs_id in self.obsinfos:
             self.obsinfos[obs_id].write_ldat_header(scanrecpath)
 
+    def note_post_calibration(self, caltab, scanrecpath):
+        """Add a note that this scanrec has been calibrated after station recording.
+        caltab is a LOFAR calibration table.
+        """
+        caltabpath = os.path.join(scanrecpath, "caltab.npy")
+        caltab.tofile(caltabpath)
+
     def scanrecfolder(self):
         start_key = min(self.obsinfos)
         return self.obsinfos[start_key].obsfoldername()
@@ -630,6 +637,10 @@ class CVCfiles(object):
         else:
             raise ValueError('Path does not exist')
 
+    def get_cvc_dtype(self):
+        cvc_dtype = numpy.dtype(('c16', (self.cvcdim1, self.cvcdim2)))
+        return cvc_dtype
+
     def _parse_cvcfile(self, cvcfilepath):
         """Parse the cvc file name. Sets fileobstimes and sets the dimensions of the
         visibility cube, which most generally is: dimtimes * dimrcu0 * dimrcu1.
@@ -739,11 +750,9 @@ class CVCfiles(object):
                 print("Read in filefolder meta.")
         cvcdirls = os.listdir(self.filefolder)
         # Select only data files in folder
-        cvcfiles = [f for f in cvcdirls if f.endswith('.dat')]
-        cvcfiles.sort()  # This enforces chronological order
-        self.filenames = []
-        for cvcfile in cvcfiles:
-            self.filenames.append(cvcfile)
+        self.filenames = [f for f in cvcdirls if f.endswith('.dat')]
+        self.filenames.sort()  # This enforces chronological order
+        for cvcfile in self.filenames:
             # Try to get obsfile header
             try:
                 (bfilename, _dat) = cvcfile.split('.')
@@ -795,10 +804,16 @@ class CVCfiles(object):
             self._parse_cvcfile(cvcfilepath)
         t_begin = filenamedatetime
         # Get cvc data from file.
-        cvc_dtype = numpy.dtype(('c16', (cvcdim_rcu1, cvcdim_rcu2)))
+        cvc_dtype = self.get_cvc_dtype()
         with open(cvcfilepath, 'rb') as fin:
             datafromfile = numpy.fromfile(fin, dtype=cvc_dtype)
         return datafromfile, t_begin
+
+    def save_ldat(self):
+        """Save CVC dataset as ldat file."""
+        for filenr, cvcfile in enumerate(self.filenames):
+            cvcpath = os.path.join(self.filefolder, cvcfile)
+            self.dataset[filenr].tofile(cvcpath)
 
     def getnrfiles(self):
         """Return number of data files in this filefolder."""

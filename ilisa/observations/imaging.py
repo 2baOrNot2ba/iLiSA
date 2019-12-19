@@ -2,6 +2,7 @@
 XST."""
 from __future__ import print_function
 import sys
+import shutil
 import casacore.measures
 import casacore.quanta.quantity
 import numpy
@@ -198,6 +199,36 @@ def nearfield_grd_image(vis_S0, stn2Dcoord, freq, include_autocorr=False):
     nfhimage = numpy.einsum('ijkl,kl->ij', bfbf, vis_S0)
     blankimage = numpy.zeros(nfhimage.shape)
     return (nfhimage, blankimage, blankimage, blankimage), xx, yy
+
+
+def cvcfiles_applycal(cvcpath, caltab):
+    ldat_type = dataIO.datafolder_type(cvcpath)
+    if ldat_type != "acc" and ldat_type != "xst":
+        raise ValueError("Not CVC data.")
+    # Copy CVC folder within parent folder and add the tag "_cal_" in the name right
+    # before ldat_type suffix:
+    spltpath = cvcpath.split("_")
+    cvccalpath = "_".join(spltpath[:-1]) + "_cal_" + spltpath[-1]
+    shutil.copytree(cvcpath, cvccalpath)
+    # Read in cvcobj:
+    cvcobj_cal = dataIO.CVCfiles(cvccalpath)
+    nrfiles = cvcobj_cal.getnrfiles()
+    # Loop over files in CVC folder:
+    for filestep in range(nrfiles):
+        if ldat_type == "xst":
+            freq = cvcobj_cal.freqset[filestep][0]  # Freq constant over xst file
+            sb, nz = modeparms.freq2sb(freq)
+        else:
+            sb = None  # Because this signals ACC data
+        # Get actual covariance cubes:
+        cvcdata_unc = cvcobj_cal.getdata(filestep)
+        # Apply calibration
+        cvcdata = calibrationtables.applycaltab_cvc(cvcdata_unc, caltab, sb)
+        # Replace uncalibrated data with calibrated:
+        cvcobj_cal.dataset[filestep] = cvcdata
+    cvcobj_cal.save_ldat()
+    # Note in ScanRecInfo about calibrating this dataset:
+    dataIO.ScanRecInfo().note_post_calibration(caltab, cvccalpath)
 
 
 def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
