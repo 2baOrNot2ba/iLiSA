@@ -16,6 +16,7 @@ import os
 import sys
 import numpy
 import datetime
+import argparse
 import matplotlib.pyplot as plt
 
 import ilisa.observations.modeparms
@@ -62,7 +63,6 @@ def findcaltabpath(rcumode, stnid, obsdatestr=None):
             adddatestr(cthist, ctfullpath, ctheader)
         # Get latest:
         ctfullpath = caltabdirstn+'/data/'+caltabfilename
-        print(ctfullpath)
         (caltab_latest, ctheader_latest) = readcaltab(ctfullpath)
         adddatestr(cthist, ctfullpath, ctheader_latest)
         obsdate = datetime.datetime.strptime(obsdatestr, "%Y%m%dT%H%M%S")
@@ -327,8 +327,22 @@ def getelemgainampdel(caltab):
 
 
 if __name__=="__main__":
-    caltab, header = readcaltab(sys.argv[1])
-    print(header)
-    print(caltab)
-    plotcaltab(caltab, header)
+    parser = argparse.ArgumentParser()
+    subparsers = parser.add_subparsers(dest='subparser_name', help='sub-command help')
+    parser_show = subparsers.add_parser('show', help='Show contents of caltab file.')
+    parser_show.add_argument('caltab_path', help="LOFAR calibration table file")
+    parser_find = subparsers.add_parser('find',
+                                        help="""find caltab file for rcumode, stnid, obsdate""")
+    parser_find.add_argument('rcumode', help="Band of observation.")
+    parser_find.add_argument('stnid', help="Station ID of observation.")
+    parser_find.add_argument('date', help="Date of observation.")
+    args = parser.parse_args()
+    if args.subparser_name == 'show':
+        caltab, header = readcaltab(args.caltab_path)
+        print(header)
+        print(caltab)
+        plotcaltab(caltab, header)
+    elif args.subparser_name == 'find':
+        obsdatestr = args.date + 'T000000'
+        print(findcaltabpath(args.rcumode, args.stnid, obsdatestr))
 
