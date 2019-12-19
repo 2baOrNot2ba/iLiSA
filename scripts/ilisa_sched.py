@@ -34,5 +34,5 @@ if __name__ == "__main__":
     with open(acf_lclstn_path) as acffp:
         acf = yaml.load(acffp)
     stnsess = StationSession(acf['LCU'], acf['DRU'], mockrun=mockrun,
-                             halt_observingstate_when_finished=True)
+                             halt_observingstate_when_finished=False)
     stnsess.run_lcl_sched(stn_ses_sched_in)
