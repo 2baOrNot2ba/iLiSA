@@ -1,5 +1,17 @@
 #!/usr/bin/python
-"""Provides support for handling LOFAR calibration tables."""
+"""Provides support for handling LOFAR calibration tables.
+
+LOFAR caltables are files on the station (and included in the './share/CalTables/'
+directory) that contain estimated corrective complex gains for each subband and each rcu
+per band. They also contain metadata about e.g. when they made.
+
+The format of a caltable is an complex array indexed by [subband,rcunr].
+To apply them to data, one uses the generic formula:
+    V' = g.*V.*g^H
+    g = C[subband,:]
+where the rcunr index is implicit, C is the full caltable, g is a vector of gains for one
+subband and V is a visibility matrix.
+"""
 import os
 import sys
 import numpy
@@ -50,7 +62,7 @@ def findcaltabpath(rcumode, stnid, obsdatestr=None):
             adddatestr(cthist, ctfullpath, ctheader)
         # Get latest:
         ctfullpath = caltabdirstn+'/data/'+caltabfilename
-        print ctfullpath
+        print(ctfullpath)
         (caltab_latest, ctheader_latest) = readcaltab(ctfullpath)
         adddatestr(cthist, ctfullpath, ctheader_latest)
         obsdate = datetime.datetime.strptime(obsdatestr, "%Y%m%dT%H%M%S")
@@ -106,8 +118,8 @@ def readcaltab(caltabfile):
     """
     
     try:
-        fin = open(caltabfile)
-        headline = fin.readline().rstrip()
+        fin = open(caltabfile, 'rb')
+        headline = fin.readline().decode('UTF-8').rstrip()
         if headline != 'HeaderStart':
           raise Exception("{} is not a CalTable file.".format(caltabfile))
     except :
@@ -116,7 +128,7 @@ def readcaltab(caltabfile):
     calibration = {}
     comment = []
     while True:
-        headline = fin.readline().rstrip()
+        headline = fin.readline().decode('UTF-8').rstrip()
         if headline == 'HeaderStop': break
         (caltabheadmark, caltableheadline) = headline.split('.',1)
         var, val = caltableheadline.split('=', 1)
@@ -185,8 +197,28 @@ def calibrateACC(accunc, rcumode, stnid, obsdate, docalibrate=True):
 
 
 def calibrateACCwithtab(accunc, caltab):
-    G = numpy.einsum('ij,il->ijl', caltab, numpy.conj(caltab))
-    acccal = G*accunc
+    """Apply a caltable to ACC data.
+
+    Note
+    ----
+    Formula used is:
+        G_ijk = g_ij*g^*_ik (no sum over i)
+        V'_ijk = G_ijk*V_ijk  (no sum over i,j,k)
+
+    Parameters
+    ----------
+    accunc : array [512,192,192]
+        Uncalibrated ACC array.
+    caltab: array [512,192]
+        Calibration table array to apply to accunc.
+
+    Returns
+    -------
+    acccal: array [512,192,192]
+        Calibrated ACC array.
+    """
+    gg = numpy.einsum('ij,ik->ijk', caltab, numpy.conj(caltab))
+    acccal = gg*accunc
     return acccal
 
 
@@ -203,8 +235,30 @@ def calibrateXST(xstunc, sb, rcumode, stnid, obsdate, docalibrate=True):
 
 
 def calibrateXSTwithtab(xstunc, sb, caltab):
-    G = numpy.einsum('ij,il->ijl', caltab, numpy.conj(caltab))
-    xstcal = G[sb,:,:]*xstunc
+    """Apply a caltable to XST data.
+
+    Note
+    ----
+    Formula used is:
+        G_ijk = g_ij*g^*_ik (no sum over i)
+        V'_ijk = G_s0jk*V_ijk  (no sum over j,k & s0 is explicitly given)
+
+    Parameter
+    ----------
+    xstunc : array [:,192,192]
+        Uncalibrated XST array, where 1st index is time.
+    sb : int
+        Subband in which the XST data was taken.
+    caltab: array [512,192]
+        Calibration table array to apply to xstunc.
+
+    Returns
+    -------
+    xstcal: array [:,192,192]
+        Calibrated XST array.
+    """
+    gg = numpy.einsum('ij,ik->ijk', caltab, numpy.conj(caltab))
+    xstcal = gg[sb,:,:]*xstunc
     return xstcal
 
 
@@ -230,6 +284,7 @@ def getelemgainampdel(caltab):
 
 if __name__=="__main__":
     caltab, header = readcaltab(sys.argv[1])
-    print header
+    print(header)
+    print(caltab)
     plotcaltab(caltab, header)
 
