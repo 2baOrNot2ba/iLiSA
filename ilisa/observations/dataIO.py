@@ -142,6 +142,12 @@ class ScanRecInfo(object):
         self.stnid = scanrecfiledict['stnid']
         self.scanrecparms = scanrecfiledict['scanrec']
         self.obs_ids = scanrecfiledict['obs_ids']
+        try:
+            scanrecfiledict['calibrationfile']
+        except KeyError:
+            self.calibrationfile = None
+        else:
+            self.calibrationfile = scanrecfiledict['calibrationfile']
 
     def write(self, scanrecpath):
         """Write scanrecinfo file and all obsinfo headers."""
@@ -161,6 +167,9 @@ class ScanRecInfo(object):
             Path to scanrec folder
         """
         shutil.copy(caltabpath, scanrecpath)
+        scanrecinfo_header_path  = os.path.join(scanrecpath, self.scanrecinfo_header)
+        with open(scanrecinfo_header_path, 'a') as h:
+            h.write("calibrationfile: "+os.path.basename(caltabpath))
 
     def scanrecfolder(self):
         start_key = min(self.obsinfos)
