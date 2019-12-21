@@ -172,6 +172,9 @@ def image(args):
                            .format(args.dataff))
     cvcobj = dataIO.CVCfiles(args.dataff)
     CVCdataset = cvcobj.getdata()
+    calibrated = False
+    if cvcobj.scanrecinfo.calibrationfile:
+        calibrated = True
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
         CVCdata = CVCdataset[fileidx]
@@ -181,10 +184,10 @@ def image(args):
             intgs = CVCdata.shape[0]
         for tidx in range(args.sampnr, intgs):
             ll, mm, skyimages, polrep, t, freq, stnid, phaseref = \
-                imaging.cvcimage(cvcobj, fileidx, tidx, args.phaseref,
+                imaging.bf_image(cvcobj, fileidx, tidx, args.phaseref,
                                  pbcor=args.correctpb)
             imaging.plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref,
-                                 integration, pbcor=args.correctpb)
+                                 integration, calibrated, pbcor=args.correctpb)
 
 
 if __name__ == "__main__":

@@ -248,9 +248,8 @@ def cvcfolder_applycal(cvcpath, caltabpath):
     cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
 
 
-def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
-             pbcor=False):
-    """Image a CVC object.
+def bf_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimage=True):
+    """Image a CVC object using beamformed synthesis.
 
     Parameters
     ----------
@@ -267,6 +266,8 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
         Perform calibration or not.
     pbcor : bool
         Perform primary beam correction or not.
+    skyimage: bool
+        Make image of sky if True, else make nearfield image.
 
     Returns
     -------
@@ -291,12 +292,11 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
     """
     t = cvcobj.samptimeset[filestep][cubeslice]
     freq = cvcobj.freqset[filestep][cubeslice]
-    cvcdata_unc = cvcobj.getdata(filestep)
+    cvcdata = cvcobj.getdata(filestep)
 
     stnid = cvcobj.scanrecinfo.get_stnid()
     bandarr = cvcobj.scanrecinfo.get_bandarr()
     band = cvcobj.scanrecinfo.get_band()
-    rcumode = cvcobj.scanrecinfo.get_rcumode()
     pointingstr = cvcobj.scanrecinfo.get_pointingstr()
 
     # Get/Compute ant positions
@@ -309,15 +309,6 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
             antpos[tile] = antpos[tile] + stnIntilePos[elem]
 
     # stn2Dcoord = stnRot.T * antpos.T
-    # Apply calibration
-    datatype = cvcobj.scanrecinfo.get_datatype()
-    if datatype == 'acc':
-        cvcdata, caltabhead = calibrationtables.calibrateACC(cvcdata_unc, rcumode, stnid,
-                                                             t, docalibrate)
-    else:
-        sb, nz = modeparms.freq2sb(freq)
-        cvcdata, caltabhead = calibrationtables.calibrateXST(cvcdata_unc, sb, rcumode,
-                                                             stnid, t, docalibrate)
     cvpol = dataIO.cvc2cvpol(cvcdata)
 
     # Determine if allsky FoV
@@ -335,7 +326,6 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
         pntstr = pointingstr
     phaseref = pntstr.split(',')
 
-    skyimage = True
     if skyimage:
         # Phase up visibilities
         cvpu, UVWxyz = phaseref_xstpol(cvpol[:,:,cubeslice,...].squeeze(),
@@ -363,7 +353,7 @@ def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
         if canuse_stokes and polrep == 'XY':
             images = convertxy2stokes(images[0], images[1], images[2], images[3])
             polrep = 'Stokes'
-    else:
+    else:  # Nearfield image
         vis_S0 = cvpol[0,0,cubeslice,...].squeeze() + cvpol[0,0,cubeslice,...].squeeze()
         nfhimages, ll, mm = nearfield_grd_image(vis_S0, antpos, freq,
                                                 include_autocorr=True)
@@ -421,7 +411,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr
 
 
 def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integration,
-                 pbcor=None):
+                 calibrated, pbcor=None):
     """Generic plot of images of Stokes components from sky map."""
 
     # Compute extent
@@ -496,7 +486,12 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
         plotcomp(numpy.real(skyimages[1]), 'Re(XY*)', 2)
         plotcomp(numpy.imag(skyimages[2]), 'Im(YX*)', 3)
         plotcomp(numpy.real(skyimages[3]), 'YY*', 4)
-    plt.suptitle('Sky Image: PhaseRef={} @ {} MHz\nStation {}, int={}s, UT={}, PbCor={}'\
-        .format(','.join(phaseref), freq/1e6, stnid, integration, t, pbcor))
+    if calibrated:
+        caltag = 'Cal'
+    else:
+        caltag = 'Raw'
+    plt.suptitle(
+        'Sky Image: PhaseRef={} @ {} MHz\nStation {}, int={}s, UT={}, PbCor={}, {}'\
+        .format(','.join(phaseref), freq/1e6, stnid, integration, t, pbcor, caltag))
     plt.tight_layout(rect=[0, 0.0, 1, 0.95])
     plt.show()
