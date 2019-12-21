@@ -225,7 +225,11 @@ class ScanRecInfo(object):
 
     def get_ldat_filenames(self):
         datatype = self.get_datatype()
-        return ["{}_{}.dat".format(obs_id, datatype) for obs_id in self.obs_ids]
+        if datatype == 'acc':
+            nameformat = "{}_{}_512x192x192.dat"
+        else:
+            nameformat = "{}_{}.dat"
+        return [nameformat.format(obs_id, datatype) for obs_id in self.obs_ids]
 
 
 class ObsInfo(object):
@@ -767,10 +771,8 @@ class CVCfiles(object):
                 self.scanrecinfo.scanrecparms = None
             else:
                 print("Read in filefolder meta.")
-        cvcdirls = os.listdir(self.filefolder)
         # Select only data files in folder
         self.filenames = self.scanrecinfo.get_ldat_filenames()
-        #self.filenames = [f for f in cvcdirls if f.endswith('.dat')]
         self.filenames.sort()  # This enforces chronological order
         for cvcfile in self.filenames:
             # Try to get obsfile header
@@ -901,13 +903,12 @@ def readacc2bst(anacc2bstfilepath, datformat = 'hdf'):
 
 
 def saveacc2bst(bst_pols, filestarttimes, calrunstarttime,
-                calrunduration, rcumode, calsrc, calibmeta, stnid, used_autocorr,
+                calrunduration, rcumode, calsrc, caltabID, stnid, used_autocorr,
                 saveformat = "hdf5"):
     """Save acc2bst data to file. Dataformat can be hdf or numpy."""
     (bstXX, bstXY, bstYY) = bst_pols
     version = '5'  # Version of this dataformat
     calrundurationstr = str(int(calrunduration.total_seconds()))
-    caltabID = calibmeta['Date']
     # Calculate start of ACC run.
     # Form self describing filename.
     dtlabel = 'acc2bst'
