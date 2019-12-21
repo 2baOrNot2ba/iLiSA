@@ -88,12 +88,12 @@ class ScanRecInfo(object):
 
     def add_obs(self, obsinfo):
         """Add an ObsInfo object to this ScanRecInfo."""
-        file_id = obsinfo.filenametime
-        self.obsinfos[file_id] = obsinfo
+        obs_id = obsinfo.filenametime
+        self.obsinfos[obs_id] = obsinfo
 
-    def get_file_ids(self):
-        """Get list of file_ids.
-        A file_id is a key to the obsinfos list."""
+    def get_obs_ids(self):
+        """Get list of obs_ids.
+        A obs_id is a key to the obsinfos list."""
         return sorted(self.obsinfos.keys())
 
     def set_stnid(self, stnid):
@@ -213,6 +213,10 @@ class ScanRecInfo(object):
     def get_septon_elmap(self, filenr=0):
         elmap = modeparms.str2elementMap2(self.obsinfos[filenr].septonconf)
         return elmap
+
+    def get_ldat_filenames(self):
+        datatype = self.get_datatype()
+        return ["{}_{}.dat".format(obs_id, datatype) for obs_id in self.obs_ids]
 
 
 class ObsInfo(object):
@@ -384,7 +388,6 @@ class ObsInfo(object):
         else:
             starttime =  filetime - datetime.timedelta(seconds=512)
         return starttime
-
 
     @classmethod
     def read_ldat_header(cls, headerpath):
@@ -757,7 +760,8 @@ class CVCfiles(object):
                 print("Read in filefolder meta.")
         cvcdirls = os.listdir(self.filefolder)
         # Select only data files in folder
-        self.filenames = [f for f in cvcdirls if f.endswith('.dat')]
+        self.filenames = self.scanrecinfo.get_ldat_filenames()
+        #self.filenames = [f for f in cvcdirls if f.endswith('.dat')]
         self.filenames.sort()  # This enforces chronological order
         for cvcfile in self.filenames:
             # Try to get obsfile header

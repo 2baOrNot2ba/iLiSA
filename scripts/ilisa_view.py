@@ -103,9 +103,9 @@ def plotxst(xstff):
         normcolor = None
     xstobj = dataIO.CVCfiles(xstff)
     XSTdataset = xstobj.getdata()
-    file_ids = xstobj.scanrecinfo.get_file_ids()
+    obs_ids = xstobj.scanrecinfo.get_obs_ids()
     for sbstepidx in range(len(XSTdataset)):
-        obsinfo = xstobj.scanrecinfo.obsinfos[file_ids[sbstepidx]]
+        obsinfo = xstobj.scanrecinfo.obsinfos[obs_ids[sbstepidx]]
         intg = obsinfo.integration
         dur = obsinfo.duration_scan
 
