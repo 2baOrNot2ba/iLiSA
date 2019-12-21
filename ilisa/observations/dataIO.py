@@ -14,6 +14,7 @@ These folders typically contain more than one datafile representing a dataset of
 the corresponding datatype.
 """
 import os
+import shutil
 import numpy
 import re
 import datetime
@@ -148,12 +149,18 @@ class ScanRecInfo(object):
         for obs_id in self.obsinfos:
             self.obsinfos[obs_id].write_ldat_header(scanrecpath)
 
-    def note_post_calibration(self, caltab, scanrecpath):
-        """Add a note that this scanrec has been calibrated after station recording.
-        caltab is a LOFAR calibration table.
+    def set_postcalibration(self, caltabpath, scanrecpath):
+        """Add the caltab file that was applied to this scanrec (typically CVC data)
+         after station recording.
+
+        Parameters
+        ----------
+        caltabpath: str
+            Path to caltab file
+        scanrecpath: str
+            Path to scanrec folder
         """
-        caltabpath = os.path.join(scanrecpath, "caltab.npy")
-        caltab.tofile(caltabpath)
+        shutil.copy(caltabpath, scanrecpath)
 
     def scanrecfolder(self):
         start_key = min(self.obsinfos)

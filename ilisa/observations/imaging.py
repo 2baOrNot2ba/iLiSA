@@ -201,7 +201,24 @@ def nearfield_grd_image(vis_S0, stn2Dcoord, freq, include_autocorr=False):
     return (nfhimage, blankimage, blankimage, blankimage), xx, yy
 
 
-def cvcfiles_applycal(cvcpath, caltab):
+def cvcfolder_applycal(cvcpath, caltabpath):
+    """Apply a calibration table file to a CVC folder.
+    This creates a copy of the folder pointed to by cvcpath renamed with a '_cal_'
+    before the ldat suffix. Then it applies the calibration table contained in the
+    caltab file pointed to by caltabpath, to the CVC dataset and copies the caltab
+    file used in the calibrated CVC folder.
+
+    Parameters
+    ----------
+    cvcpath: str
+        Path to CVC folder
+    caltabpath: str
+        Path to caltab file
+    """
+    try:
+        caltab, header = calibrationtables.readcaltab(caltabpath)
+    except:
+        raise
     ldat_type = dataIO.datafolder_type(cvcpath)
     if ldat_type != "acc" and ldat_type != "xst":
         raise ValueError("Not CVC data.")
@@ -228,7 +245,7 @@ def cvcfiles_applycal(cvcpath, caltab):
         cvcobj_cal.dataset[filestep] = cvcdata
     cvcobj_cal.save_ldat()
     # Note in ScanRecInfo about calibrating this dataset:
-    dataIO.ScanRecInfo().note_post_calibration(caltab, cvccalpath)
+    cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
 
 
 def cvcimage(cvcobj, filestep, cubeslice, req_calsrc=None, docalibrate=True,
