@@ -316,7 +316,6 @@ def bf_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimage
         allsky = True
     else:
         allsky = False
-
     # Determine phaseref
     if req_calsrc is not None:
         pntstr = ilisa.observations.directions.std_pointings(req_calsrc)

@@ -335,24 +335,28 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     stationdriver.halt_observingstate_when_finished = False
     stationdriver.exit_check = False
 
-    caltabinfos = []
+    caltabinfos = [""]
     # Get metadata about caltables to be used
-    for rcumode in freqbndobj.rcumodes:
-        caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
-        caltabinfos.append(caltabinfo)
+    if not allsky:
+        for rcumode in freqbndobj.rcumodes:
+            caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
+            caltabinfos.append(caltabinfo)
 
-    # Real beam start:
-    print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-    dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
-    rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, dir_bmctl)
-    beamstarted = datetime.datetime.utcnow()
-    timeleft = rectime - beamstarted
-    if timeleft.total_seconds() < 0.:
-        rectime = beamstarted
-    print("(Beam started) Time left before recording: {}".format(
-        timeleft.total_seconds()))
-
-    scan_id = stationdriver.get_scanid(beamstarted)
+    if pointing is not None:
+        # Real beam start:
+        print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+        dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
+        rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, dir_bmctl)
+        beamstarted = datetime.datetime.utcnow()
+        timeleft = rectime - beamstarted
+        if timeleft.total_seconds() < 0.:
+            rectime = beamstarted
+        print("(Beam started) Time left before recording: {}".format(
+            timeleft.total_seconds()))
+        scan_id = stationdriver.get_scanid(beamstarted)
+    else:
+        rcu_setup_cmd, beamctl_cmds = "", ""
+        scan_id = stationdriver.get_scanid()
     scanmeta.scan_id = scan_id
 
     if rec_bfs:
