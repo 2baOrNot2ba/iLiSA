@@ -34,5 +34,5 @@ setup(name='iLiSA',
           'h5py'
       ],
       scripts=['scripts/ilisa_adm.py', 'scripts/ilisa_rec.py',
-               'scripts/ilisa_sched.py', 'scripts/ilisa_view.py']
+               'scripts/ilisa_scans.py', 'scripts/ilisa_view.py']
       )

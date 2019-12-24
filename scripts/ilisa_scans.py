@@ -6,22 +6,22 @@ import os
 import argparse
 import yaml
 import ilisa.observations
-from ilisa.observations.stationsession import StationSession, projid2meta
+from ilisa.observations.scansession import ScanSession, projid2meta
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('file',
-                        help='station schedule specification file')
+                        help='Scan-session file')
     args = parser.parse_args()
 
     with open(args.file, 'r') as f:
-        stn_ses_sched_in = yaml.load(f)
+        scansess_in = yaml.load(f)
     try:
-        mockrun = stn_ses_sched_in['mockrun']
+        mockrun = scansess_in['mockrun']
     except KeyError:
         mockrun = False
     try:
-        projectid = stn_ses_sched_in['projectid']
+        projectid = scansess_in['projectid']
     except KeyError:
         projectid = None
 
@@ -33,6 +33,6 @@ if __name__ == "__main__":
     acf_lclstn_path = os.path.join(userilisadir, acf_lclstn_name)
     with open(acf_lclstn_path) as acffp:
         acf = yaml.load(acffp)
-    stnsess = StationSession(acf['LCU'], acf['DRU'], mockrun=mockrun,
-                             halt_observingstate_when_finished=False)
-    stnsess.run_lcl_sched(stn_ses_sched_in)
+    stnsess = ScanSession(acf['LCU'], acf['DRU'], mockrun=mockrun,
+                          halt_observingstate_when_finished=False)
+    stnsess.run_scansess(scansess_in)
