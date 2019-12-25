@@ -111,19 +111,51 @@ class ScanSession(object):
         if mockrun:
             sesscans['mockrun'] = True
 
-        starttime0 = sesscans_in['scans'][0]['starttime']
+        starttime0 = sesscans_in['start']
         if starttime0 == 'NOW':
             starttime0 = datetime.datetime.utcnow()
 
+        # Initialize "previous" values for scan loop
+        starttimeprev = starttime0
+        duration_totprev = 0
         for scan in sesscans_in['scans']:
             # Prepare observation arguments:
-            # - Starttime
-            starttime = scan['starttime']
-            #   Check for deltatime:
-            if starttime != 'NOW' and type(starttime) is not datetime.datetime:
-                if type(starttime) is str:
-                    starttime = starttime0 + datetime.timedelta(seconds=
-                                                                int(eval(starttime)))
+
+            # - Starttime computed based on previous starttime
+            # - - and after time:
+            try:
+                after = scan['after']
+            except:
+                after = None
+            #   if not aft:
+            #       st[n] = st[n-1] + aft + gap
+            #   else:
+            #       st[n] = st[n-1] + dur[n-1] + gap
+            if after:
+                after_t = datetime.datetime.strptime(after, "%Hh%Mm%Ss")
+                after_delta = datetime.timedelta(hours=after_t.hour,
+                                                 minutes=after_t.minute,
+                                                 seconds=after_t.second)
+                starttime = starttimeprev + after_delta
+            else:
+                dur_delta = datetime.timedelta(seconds=duration_totprev)
+                starttime = starttimeprev + dur_delta
+            # - - plus a gap:
+            try:
+                gap = scan['gap']
+            except:
+                gap = "00h00m00s"
+            gap_t = datetime.datetime.strptime(gap, "%Hh%Mm%Ss")
+            gap_delta = datetime.timedelta(hours=gap_t.hour, minutes=gap_t.minute,
+                                           seconds=gap_t.second)
+            starttime += gap_delta
+
+            # - Duration total
+            duration_tot = eval(str(scan['duration_tot']))
+            # Next scan use current time as previous time and current time
+            starttimeprev = starttime
+            duration_totprev = duration_tot
+
             # - Beam
             # -- Freq
             freqspec = scan['beam']['freqspec']
@@ -138,8 +170,7 @@ class ScanSession(object):
                 allsky = scan['beam']['allsky']
             except KeyError:
                 allsky = False
-            # - Duration total
-            duration_tot = eval(str(scan['duration_tot']))
+
             # - Record
             #     defaults
             try:
