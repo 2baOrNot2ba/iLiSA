@@ -2,15 +2,14 @@
 projectid: '0'
 mockrun: False
 stations: SE607
+start: NOW
 scans:
   - &id001
-    starttime: NOW
     beam:
       freqspec: 55.0e6
       pointing: Cas-A
     rec: [xst]
     integration:  1
     duration_tot: 10
-  -
-    <<: *id001
-    starttime: '1*60'  # Can always be NOW
+  - <<: *id001
+    after: '1*60'  # Can always be NOW

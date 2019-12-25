@@ -13,7 +13,7 @@ setup(name='iLiSA',
       package_data={
             'ilisa.observations': ['config/access_lclstn_DIST.conf',
                                    'config/project_0_DIST.conf',
-                                   'scheds/*.yaml'],
+                                   'scansess_examples/*.yaml'],
             'ilisa.antennameta': ['share/CalTables/*/data/*.dat',
                                   'share/StaticMetaData/*.conf']},
       license='ISC',

@@ -3,9 +3,9 @@
 projectid: '0'
 mockrun: False
 stations: SE607
+start: NOW
 scans:
-  - starttime: NOW
-    obsprog:
+  - obsprog:
     beam:
       freqspec: '50e6:150e6'
       pointing: CasA
