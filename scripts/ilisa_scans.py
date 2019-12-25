@@ -7,6 +7,8 @@ import argparse
 import yaml
 import ilisa.observations
 from ilisa.observations.scansession import ScanSession, projid2meta
+import ilisa.observations.stationdriver as stationdriver
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -33,6 +35,9 @@ if __name__ == "__main__":
     acf_lclstn_path = os.path.join(userilisadir, acf_lclstn_name)
     with open(acf_lclstn_path) as acffp:
         acf = yaml.load(acffp)
-    stnsess = ScanSession(acf['LCU'], acf['DRU'], mockrun=mockrun,
-                          halt_observingstate_when_finished=False)
-    stnsess.run_scansess(scansess_in)
+    # Initialize stationdriver :
+    stndrv = stationdriver.StationDriver(acf['LCU'], acf['DRU'], mockrun=mockrun,
+                                              goto_observingstate_when_starting=False)
+    stndrv.halt_observingstate_when_finished = False
+    scnsess = ScanSession(stndrv)
+    scnsess.run_scansess(scansess_in)

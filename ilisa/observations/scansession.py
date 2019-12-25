@@ -29,16 +29,9 @@ def projid2meta(projectid):
 
 class ScanSession(object):
     """Class that runs a session on a station."""
-    def __init__(self, ac_lcu, ac_dru, session_id=None,
-                 mockrun=False, halt_observingstate_when_finished=True):
+    def __init__(self, stndrv, session_id=None):
         """Initialize Session."""
-
-        self.LOFARdataArchive = ac_dru['LOFARdataArchive']
-
-        # Initialize stationdriver :
-        self.stndrv = stationdriver.StationDriver(ac_lcu, ac_dru, mockrun=mockrun,
-                                                  goto_observingstate_when_starting=False)
-        self.stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
+        self.stndrv = stndrv
         if session_id is None:
             session_id = session.create_session_id()
         self.session_id = session_id
@@ -55,7 +48,7 @@ class ScanSession(object):
         return session_id
 
     def get_datastorepath(self):
-        return self.LOFARdataArchive
+        return self.stndrv.LOFARdataArchive
 
     def get_projpath(self):
         projpath = os.path.join(self.get_datastorepath(),
