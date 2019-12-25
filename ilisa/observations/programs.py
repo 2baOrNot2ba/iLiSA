@@ -322,12 +322,14 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         stationdriver.lcu_interface.set_swlevel(3)
 
     # Wait until it is time to start
-    pause = 5  # Sufficient?
+    now = datetime.datetime.utcnow()
     if starttime == "NOW":
-        rectime = datetime.datetime.utcnow()
+        rectime = now
     else:
         rectime = starttime
-    stationdriver._waittoboot(rectime, pause)
+    timeleft = rectime - now
+    print("Waiting {}s to start scan ".format(int(timeleft.total_seconds())))
+    time.sleep(int(timeleft.total_seconds()))
 
     # Necessary since fork creates multiple instances of myobs and each one
     # will call it's __del__ on completion and __del__ shutdown...
