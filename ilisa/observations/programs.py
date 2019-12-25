@@ -328,8 +328,11 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     else:
         rectime = starttime
     timeleft = rectime - now
-    print("Waiting {}s to start scan ".format(int(timeleft.total_seconds())))
-    time.sleep(int(timeleft.total_seconds()))
+    secondsleft = int(timeleft.total_seconds())
+    if secondsleft < 0:
+        secondsleft = 0
+    print("Waiting {}s to start scan ".format(secondsleft))
+    time.sleep(secondsleft)
 
     # Necessary since fork creates multiple instances of myobs and each one
     # will call it's __del__ on completion and __del__ shutdown...
@@ -350,11 +353,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
         rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, dir_bmctl)
         beamstarted = datetime.datetime.utcnow()
-        timeleft = rectime - beamstarted
-        if timeleft.total_seconds() < 0.:
-            rectime = beamstarted
-        print("(Beam started) Time left before recording: {}".format(
-            timeleft.total_seconds()))
+        rectime = beamstarted
         scan_id = stationdriver.get_scanid(beamstarted)
     else:
         rcu_setup_cmd, beamctl_cmds = "", ""
