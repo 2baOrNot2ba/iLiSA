@@ -12,8 +12,7 @@ def getswlevel(args):
     print("The current swlevel of {} is {}".format(stndrv.get_stnid(), current_swl))
 
 def halt(args):
-    stndrv.halt_observingstate_when_finished = True
-    # FIXME refactor shutdown of lcu
+    stndrv.halt_observingstate()
 
 def up(args):
     stndrv.goto_observingstate()
@@ -43,7 +42,5 @@ if __name__ == "__main__":
     with open(acf_lclstn_path) as acffp:
         acf = yaml.load(acffp)
     # Initialize stationdriver :
-    stndrv = stationdriver.StationDriver(acf['LCU'], acf['DRU'], mockrun=False,
-                                         goto_observingstate_when_starting=False)
-    stndrv.halt_observingstate_when_finished = False
+    stndrv = stationdriver.StationDriver(acf['LCU'], acf['DRU'])
     args.func(args)
