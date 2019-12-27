@@ -5,7 +5,6 @@ import ilisa
 import ilisa.observations
 import ilisa.observations.dataIO as dataIO
 import ilisa.observations.directions
-import ilisa.observations.session as session
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.programs as programs
@@ -33,7 +32,7 @@ class ScanSession(object):
         """Initialize Session."""
         self.stndrv = stndrv
         if session_id is None:
-            session_id = session.create_session_id()
+            session_id = self.make_session_id()
         self.session_id = session_id
 
     def set_stn_session_id(self, parent_session_id):
@@ -43,7 +42,10 @@ class ScanSession(object):
         return self.stn_sess_id
 
     def make_session_id(self):
-        """Make a session ID based on time of creation."""
+        """Make a session ID based on time of creation.
+        session_id has format 'sid<CT>' where <CT> is the datetime
+         in the format '%Y%m%dT%H%M%S' of the time of creation.
+        """
         session_id = "sid{}".format(datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S'))
         return session_id
 
@@ -80,7 +82,7 @@ class ScanSession(object):
             try:
                 session_id = sesscans_in['session_id']
             except KeyError:
-                session_id = self.make_session_id()
+                session_id = self.session_id
         try:
             mockrun = sesscans_in['mockrun']
         except KeyError:
