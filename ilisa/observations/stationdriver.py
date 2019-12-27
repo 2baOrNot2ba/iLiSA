@@ -82,7 +82,7 @@ class StationDriver(object):
         # Path to folder that will contain scans:
         self.scanpath = os.path.join(self.LOFARdataArchive, 'Scans')
         self.exit_check = True
-        self.halt_observingstate_when_finished = True
+        self.halt_observingstate_when_finished = False
         self.cleanup()
         # Check whether the station is being used by someone else:
         if goto_observingstate_when_starting:
@@ -112,20 +112,18 @@ class StationDriver(object):
             self.lcu_interface.stop_beam()
             print("Finished warmup beam... @ {}".format(datetime.datetime.utcnow()))
 
-    def haltobservingstate(self):
+    def halt_observingstate(self):
         """Halt observing state on station."""
         if self.checkobservingallowed():
             self.lcu_interface.set_swlevel(0)
             self.cleanup()
             # Cleanup any data left on LCU.
             self.lcu_interface.cleanup()
-        # Close down stationcontroller:
-        del self.lcu_interface
 
     def __del__(self):
-        """Normally, shutdown observation mode on station."""
+        """May shutdown observation mode on station."""
         if self.halt_observingstate_when_finished:
-            self.haltobservingstate()
+            self.halt_observingstate()
         elif self.exit_check:
             if self.checkobservingallowed():
                 swlevel = self.lcu_interface.get_swlevel()
