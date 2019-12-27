@@ -77,7 +77,7 @@ class ScanRecInfo(object):
     results of an iLiSA scan. One scanrec is a group of one or more files of a unique
     LOFAR station data product (ldat), i.e. acc, bfs, bst, sst or xst.
     The info in a ScanRecInfo object consists of sufficient parameters to redo the
-    data, namely the stn_id, the iLiSA scanrec parameters, and a list of LCUobs objects
+    data, namely the stn_id, the iLiSA scanrec parameters, and a list of LDatInfo objects
     called obsinfos that maps to each ldat within the scanrec.
     """
     scanrecinfo_header = "SCANREC_INFO.yml"
@@ -87,7 +87,7 @@ class ScanRecInfo(object):
         self.obsinfos = {}
 
     def add_obs(self, obsinfo):
-        """Add an LCUobs object to this ScanRecInfo."""
+        """Add an LDatInfo object to this ScanRecInfo."""
         obs_id = obsinfo.filenametime
         self.obsinfos[obs_id] = obsinfo
 
@@ -234,7 +234,7 @@ class ScanRecInfo(object):
         return [nameformat.format(obs_id, datatype) for obs_id in self.obs_ids]
 
 
-class LCUobs(object):
+class LDatInfo(object):
     """Maintains a minimum of info for the physical interpretation of an LCU data product
     file (ldat). It consists of the LCU commands or settings that resulted in the ldat.
     An observation can update an object with LCU settings and the create a header file
@@ -406,7 +406,7 @@ class LCUobs(object):
 
     @classmethod
     def read_ldat_header(cls, headerpath):
-        """Parse a ldat header file and return it as an LCUobs."""
+        """Parse a ldat header file and return it as an LDatInfo."""
         # TODO extract CalTable info.
         if os.path.isdir(headerpath):
             files = os.listdir(headerpath)
@@ -782,7 +782,7 @@ class CVCfiles(object):
                 (bfilename, _dat) = cvcfile.split('.')
                 hfilename = bfilename + '.h'
                 hfilepath = os.path.join(self.filefolder, hfilename)
-                obsinfo = LCUobs.read_ldat_header(hfilepath)
+                obsinfo = LDatInfo.read_ldat_header(hfilepath)
                 self.scanrecinfo.add_obs(obsinfo)
             except:
                 print("Warning: Couldn't find a header file for {}".format(cvcfile))

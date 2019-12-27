@@ -113,8 +113,8 @@ class ObsPrograms(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
         bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
-        obsinfo = dataIO.LCUobs('bfs', bfsnametime, beamctl_cmd, rcu_setup_cmd,
-                                caltabinfos="")
+        obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmd, rcu_setup_cmd,
+                                  caltabinfos="")
 
         REC = True
         if REC == True:
@@ -368,8 +368,8 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
                                  duration_tot, lanes, band,
                                  scanpath_bfdat, stationdriver.bf_port0, stnid)
         bfsnametime = rectime.strftime("%Y%m%d_%H%M%S")
-        this_obsinfo = dataIO.LCUobs('bfs', bfsnametime, beamctl_cmds, rcu_setup_cmd,
-                                     caltabinfos)
+        this_obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmds, rcu_setup_cmd,
+                                       caltabinfos)
         scanmeta.scanrecs['bfs'].add_obs(this_obsinfo)
     else:
         scanpath_bfdat = None
@@ -383,15 +383,15 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
             # beamlet statistics also generate empty *01[XY].dat so remove:
             stationdriver.lcu_interface.rm(stationdriver.lcu_interface.lcuDumpDir + "/*01[XY].dat")
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
-            curr_obsinfo = dataIO.LCUobs('bst', obsdatetime_stamp, beamctl_cmds,
-                                         rspctl_cmd, caltabinfos)
+            curr_obsinfo = dataIO.LDatInfo('bst', obsdatetime_stamp, beamctl_cmds,
+                                           rspctl_cmd, caltabinfos)
             scanmeta.scanrecs['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'sst':
             caltabinfo = ""
             rspctl_cmd = stationdriver.lcu_interface.rec_sst(integration, duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
-            curr_obsinfo = dataIO.LCUobs('sst', obsdatetime_stamp, beamctl_cmds,
-                                         rspctl_cmd, caltabinfo)
+            curr_obsinfo = dataIO.LDatInfo('sst', obsdatetime_stamp, beamctl_cmds,
+                                           rspctl_cmd, caltabinfo)
             scanmeta.scanrecs['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'xst':
             caltabinfo = ""  # No need for caltab info for xst data
@@ -425,10 +425,10 @@ Will increase total duration to get 1 full repetition.""")
                                                                          integration,
                                                                          duration_frq)
                         obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
-                        curr_obsinfo = dataIO.LCUobs('xst', obsdatetime_stamp,
-                                                     beamctl_cmds, rspctl_cmd,
-                                                     caltabinfos=caltabinfo,
-                                                     septonconf=septonconf)
+                        curr_obsinfo = dataIO.LDatInfo('xst', obsdatetime_stamp,
+                                                       beamctl_cmds, rspctl_cmd,
+                                                       caltabinfos=caltabinfo,
+                                                       septonconf=septonconf)
                         scanmeta.scanrecs['bsx'].add_obs(curr_obsinfo)
         else:
             raise Exception('LOFAR statistic datatype "{}" unknown.\
@@ -478,7 +478,7 @@ Will increase total duration to get 1 full repetition.""")
         # Create obsinfo each ACC file
         for destfile in accdestfiles:
             obsid, _ = destfile.split('_acc_')
-            this_obsinfo =  dataIO.LCUobs('acc', obsid, beamctl_cmds, rcu_setup_cmd)
+            this_obsinfo =  dataIO.LDatInfo('acc', obsid, beamctl_cmds, rcu_setup_cmd)
             scanmeta.scanrecs['acc'].add_obs(this_obsinfo)
 
         # Set scanrecinfo
