@@ -25,18 +25,18 @@ if __name__ == "__main__":
     parser_swl = subparsers.add_parser('swlevel',
                                        help="Get LCU swlevel.")
     parser_swl.set_defaults(func=getswlevel)
-    parser_swl = subparsers.add_parser('halt',
+    parser_hlt = subparsers.add_parser('halt',
                                        help="Shutdown LCU observation state.")
-    parser_swl.set_defaults(func=halt)
-    parser_swl = subparsers.add_parser('up',
+    parser_hlt.set_defaults(func=halt)
+    parser_up = subparsers.add_parser('up',
                                        help="Put LCU into observation state.")
-    parser_swl.set_defaults(func=up)
+    parser_up.set_defaults(func=up)
 
     args = parser.parse_args()
     projectmeta, accessfiles = projid2meta('0')
 
     # Just first element in list since single station cntrl:
-    acf_lclstn_name = list(accessfiles.pop().values()).pop()
+    acf_lclstn_name = accessfiles.values().pop()
     userilisadir = ilisa.observations.user_conf_dir
     acf_lclstn_path = os.path.join(userilisadir, acf_lclstn_name)
     with open(acf_lclstn_path) as acffp:

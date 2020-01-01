@@ -29,8 +29,8 @@ if __name__ == "__main__":
 
     projectmeta, accessfiles = projid2meta(projectid)
 
-    # Just first element in list since single station cntrl:
-    acf_lclstn_name = list(accessfiles.pop().values()).pop()
+    # Just first element in dict since single station cntrl:
+    acf_lclstn_name = accessfiles.values().pop()
     userilisadir = ilisa.observations.user_conf_dir
     acf_lclstn_path = os.path.join(userilisadir, acf_lclstn_name)
     with open(acf_lclstn_path) as acffp:
@@ -38,6 +38,5 @@ if __name__ == "__main__":
     # Initialize stationdriver :
     stndrv = stationdriver.StationDriver(acf['LCU'], acf['DRU'], mockrun=mockrun,
                                               goto_observingstate_when_starting=False)
-    stndrv.halt_observingstate_when_finished = False
     scnsess = ScanSession(stndrv)
     scnsess.run_scansess(scansess_in)
