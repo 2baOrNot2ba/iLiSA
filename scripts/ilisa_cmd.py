@@ -82,8 +82,8 @@ if __name__ == "__main__":
     try:
         acf_name = accessfiles[args.station]
     except:
-        raise RuntimeError("Station {} not found for project {}".format(args.station))
-    print(args.time)
+        raise RuntimeError("Station {} not found for project {}".format(args.station,
+                                                                        args.project))
     userilisadir = ilisa.observations.user_conf_dir
     acf_path = os.path.join(userilisadir, acf_name)
     with open(acf_path) as acffp:
@@ -91,5 +91,10 @@ if __name__ == "__main__":
     # Initialize stationdriver :
     stndrv = stationdriver.StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
     args.func(args)
+    cmdargs = args.cmd
+    if cmdargs == 'adm':
+        cmdargs += ' ' + args.admcmd
+    else:
+        cmdargs += ' ' + args.file
     print("Performed: {} {} {} {}".format(args.time, args.project, args.station,
-                                          args.cmd))
+                                          cmdargs))
