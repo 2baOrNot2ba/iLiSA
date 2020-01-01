@@ -1,8 +1,4 @@
-# Example session schedule for bst recording
-projectid: '0'
-mockrun: False
-stations: SE607
-start: NOW
+# Example scan-session schedule for bst recording
 scans:
   - beam:
       freqspec: '52e6:148e6'

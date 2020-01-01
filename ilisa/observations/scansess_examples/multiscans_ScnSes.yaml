@@ -1,8 +1,4 @@
-# Example session schedule with multiple scans
-projectid: '0'
-mockrun: False
-stations: SE607
-start: NOW
+# Example scan-session schedule with multiple scans
 scans:
   - &id001
     beam:
