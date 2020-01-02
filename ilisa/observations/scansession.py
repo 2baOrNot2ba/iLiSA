@@ -210,9 +210,11 @@ class ScanSession(object):
         sesscans = self.process_scansess(sesscans_in, session_id)
         self.projectmeta, _ = projid2meta(sesscans['projectid'])
         self.set_stn_session_id(sesscans['session_id'])
+        # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self.get_bfdsesdumpdir()
         self.stndrv.scanpath = sesspath
+        self.stndrv.bf_data_dir = bfdsesdumpdir
         # Boot Time handling
         nw = datetime.datetime.utcnow()
         startscantime = sesscans['scans'][0]['starttime']
@@ -225,15 +227,9 @@ class ScanSession(object):
         scans_done = []
         for scan in sesscans['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
-            scanrecs={}
-            scanrecs['acc'] = dataIO.ScanRecInfo()
-            scanrecs['bfs'] = dataIO.ScanRecInfo()
-            scanrecs['bsx'] = dataIO.ScanRecInfo()
-            for k in scanrecs.keys():
-                scanrecs[k].set_stnid(self.stndrv.get_stnid())
-            scanmeta = stationdriver.ScanMeta(sesspath, bfdsesdumpdir, scanrecs)
+
             if scan['obsprog'] is not None:
-                programs.record_obsprog(self.stndrv, scan, scanmeta=scanmeta)
+                programs.record_obsprog(self.stndrv, scan)
             else:
                 duration_tot = scan['duration_tot']
                 pointing = scan['beam']['pointing']
@@ -241,13 +237,11 @@ class ScanSession(object):
                 rec = scan['rec']
                 integration = scan['integration']
                 allsky = scan['beam']['allsky']
-                programs.record_scan(self.stndrv, freqbndobj, duration_tot,
-                                     pointing, starttime, rec, integration,
-                                     allsky=allsky, scanmeta=scanmeta)
-            # Write scanrecinfo files and ldat headers
-            scanrecpath = scanmeta.write_scanrecs()
-            print("Saved scan here: {}".format(scanrecpath))
-            scan['id'] = scanmeta.scan_id
+                scan_id, scanpath_scdat = programs.record_scan(
+                    self.stndrv, freqbndobj, duration_tot, pointing, starttime, rec,
+                    integration, allsky=allsky)
+            print("Saved scan here: {}".format(scanpath_scdat))
+            scan['id'] = scan_id
             scans_done.append(scan)
         sesscans['scans'] = scans_done
         self.save_scansess(sesscans)

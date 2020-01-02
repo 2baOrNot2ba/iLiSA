@@ -13,26 +13,6 @@ import multiprocessing
 import ilisa.observations.directions
 import ilisa.observations.lcuinterface as stationcontrol
 import ilisa.observations.modeparms as modeparms
-import ilisa.observations.beamformedstreams.bfbackend as bfbackend
-
-class ScanMeta(object):
-    """Class containing metadata of a scan."""
-    def __init__(self, sesspath, bfdsesdumpdir, scanrecs, scan_id=None):
-        self.sesspath = sesspath
-        self.bfdsesdumpdir = bfdsesdumpdir
-        self.scanrecs = scanrecs
-        self.scan_id = scan_id
-
-    def write_scanrecs(self):
-        """Write the scanrec for each recorded ldat."""
-        for ldat in self.scanrecs.keys():
-            try:
-                scanrecpath = self.scanrecs[ldat].path
-            except (AttributeError, KeyError):
-                scanrecpath = None
-            if scanrecpath:
-                self.scanrecs[ldat].write(scanrecpath)
-        return scanrecpath
 
 
 class StationDriver(object):
