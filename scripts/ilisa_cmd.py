@@ -14,7 +14,7 @@ def getswlevel():
     print("The current swlevel of {} is {}".format(stndrv.get_stnid(), current_swl))
 
 
-def halt():
+def down():
     stndrv.halt_observingstate()
 
 
@@ -22,13 +22,19 @@ def up():
     stndrv.goto_observingstate()
 
 
+def handback():
+    down()
+
+
 def adm(args):
-    if args.admcmd == 'halt':
-        halt()
+    if args.admcmd == 'swlevel':
+        getswlevel()
     elif args.admcmd == 'up':
         up()
-    elif args.admcmd == 'swlevel':
-        getswlevel()
+    elif args.admcmd == 'down':
+        down()
+    elif args.admcmd == 'handback':
+        handback()
 
 
 def obs(args):
