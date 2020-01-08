@@ -222,14 +222,14 @@ class ScanSession(object):
             startscantime = nw
         bootupstart = startscantime - datetime.timedelta(seconds=10)
         # Wait until it is time to bootup
-        print("In stnsess: Wait until it is time to bootup")
+        print("In scansess: Wait until {} to bootup".format(bootupstart))
         self.stndrv._waittoboot(bootupstart)
         scans_done = []
         for scan in sesscans['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
 
             if scan['obsprog'] is not None:
-                programs.record_obsprog(self.stndrv, scan)
+                scan_id, scanpath_scdat = programs.record_obsprog(self.stndrv, scan)
             else:
                 duration_tot = scan['duration_tot']
                 pointing = scan['beam']['pointing']
