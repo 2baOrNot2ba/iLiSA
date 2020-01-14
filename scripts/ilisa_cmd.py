@@ -12,29 +12,30 @@ from ilisa.observations.scansession import ScanSession, projid2meta
 LOGFILE = "ilisa_cmds.log"
 
 
-def down(stndrv):
+def idle(stndrv):
     """Put station into idle state."""
     stndrv.halt_observingstate()
 
 
-def up(stndrv):
+def boot(stndrv):
     """Put station into ready to observe state."""
     stndrv.goto_observingstate()
 
 
 def handback(stndrv):
     """Handback station to ILT control."""
-    down(stndrv)
+    idle(stndrv)
 
 
 def adm(stndrv, args):
     """Dispatch admin commands."""
-    if args.admcmd == 'up':
-        up(stndrv)
-    elif args.admcmd == 'down':
-        down(stndrv)
+    if args.admcmd == 'boot':
+        boot(stndrv)
+    elif args.admcmd == 'idle':
+        idle(stndrv)
     elif args.admcmd == 'handback':
         handback(stndrv)
+    args.cmd = args.admcmd
 
 
 def obs(stndrv, args):
@@ -47,6 +48,7 @@ def obs(stndrv, args):
 
     scnsess = ScanSession(stndrv)
     scnsess.run_scansess(scansess_in)
+    args.cmd = 'obs:' + args.file
 
 
 def parse_cmdline(argv):
@@ -63,12 +65,10 @@ def parse_cmdline(argv):
                                              help='LOFAR commands:')
 
     parser_adm = cmdln_sbprsr.add_parser('adm', help="Admin")
-    parser_adm.set_defaults(cmd='adm')
     parser_adm.set_defaults(func=adm)
     parser_adm.add_argument('admcmd', help='Admin command')
 
     parser_obs = cmdln_sbprsr.add_parser('obs', help="Observe a scansession.")
-    parser_obs.set_defaults(cmd='obs')
     parser_obs.set_defaults(func=obs)
     parser_obs.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(argv)
@@ -104,20 +104,15 @@ def exec_cmdline(args):
     # Initialize stationdriver :
     stndrv = stationdriver.StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
     args.func(stndrv, args)
-    if args.cmd == 'adm':
-        args.state = args.admcmd
-    elif args.cmd == 'obs':
-        args.state = 'obs:' + args.file
-    return args
 
 
 if __name__ == "__main__":
     args = parse_cmdline(sys.argv[1:])
-    args = exec_cmdline(args)
+    exec_cmdline(args)
     with open(LOGFILE, 'a') as lgf:
         if args.mockrun:
             mockfld = 'M'
         else:
             mockfld = '1'
-        lgf.write("{} {} {} {}\n".format(args.time, mockfld, args.project, args.station,
-                                          args.state))
+        lgf.write("{} {} {} {} {}\n".format(args.time, mockfld, args.project,
+                                            args.station, args.cmd))
