@@ -73,7 +73,10 @@ def parse_cmdline(argv):
     parser_obs.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(argv)
     if args.time == 'NOW':
+        # Set time to nearest rounded second from now:
         args.time = datetime.datetime.utcnow()
+        args.time = args.time.replace(microsecond=0)
+        args.time += datetime.timedelta(seconds=1)
     else:
         try:
             args.time = datetime.datetime.strptime(args.time, '%Y-%m-%dT%H:%M:%S')
@@ -111,8 +114,8 @@ if __name__ == "__main__":
     exec_cmdline(args)
     with open(LOGFILE, 'a') as lgf:
         if args.mockrun:
-            mockfld = 'M'
+            priority_fld = 'M'
         else:
-            mockfld = '1'
-        lgf.write("{} {} {} {} {}\n".format(args.time, mockfld, args.project,
+            priority_fld = '0'
+        lgf.write("{} {} {} {} {}\n".format(args.time, priority_fld, args.project,
                                             args.station, args.cmd))
