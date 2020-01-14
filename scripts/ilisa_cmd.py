@@ -112,7 +112,7 @@ def exec_cmdline(args):
 
 
 if __name__ == "__main__":
-    args = parse_cmdline(sys.argv)
+    args = parse_cmdline(sys.argv[1:])
     args = exec_cmdline(args)
     with open(LOGFILE, 'a') as lgf:
         if args.mockrun:
