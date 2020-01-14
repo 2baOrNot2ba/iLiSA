@@ -119,5 +119,5 @@ if __name__ == "__main__":
             mockfld = 'M'
         else:
             mockfld = '1'
-        lgf.write("{} {} {} {}".format(args.time, mockfld, args.project, args.station,
+        lgf.write("{} {} {} {}\n".format(args.time, mockfld, args.project, args.station,
                                           args.state))
