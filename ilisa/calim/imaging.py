@@ -10,6 +10,7 @@ from scipy.constants import speed_of_light
 import matplotlib.pyplot as plt
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.antennameta.calibrationtables as calibrationtables
+import ilisa.calim.calibration
 import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.dataIO as dataIO
@@ -240,7 +241,7 @@ def cvcfolder_applycal(cvcpath, caltabpath):
         # Get actual covariance cubes:
         cvcdata_unc = cvcobj_cal.getdata(filestep)
         # Apply calibration
-        cvcdata = calibrationtables.applycaltab_cvc(cvcdata_unc, caltab, sb)
+        cvcdata = ilisa.calim.calibration.applycaltab_cvc(cvcdata_unc, caltab, sb)
         # Replace uncalibrated data with calibrated:
         cvcobj_cal.dataset[filestep] = cvcdata
     cvcobj_cal.save_ldat()

@@ -3,7 +3,7 @@
 """
 
 import argparse
-import ilisa.observations.imaging as imaging
+import ilisa.calim.imaging as imaging
 
 
 if __name__ == "__main__":

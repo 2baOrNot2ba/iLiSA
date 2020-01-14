@@ -8,7 +8,7 @@ import matplotlib.colors as colors
 import matplotlib.dates as mdates
 
 import ilisa.observations.dataIO as dataIO
-import ilisa.observations.imaging as imaging
+import ilisa.calim.imaging as imaging
 import ilisa.observations.modeparms as modeparms
 
 
