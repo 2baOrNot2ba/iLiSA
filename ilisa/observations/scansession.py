@@ -3,10 +3,8 @@ import datetime
 import yaml
 import ilisa
 import ilisa.observations
-import ilisa.observations.dataIO as dataIO
 import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
-import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.programs as programs
 
 
@@ -73,6 +71,16 @@ class ScanSession(object):
         ses_sched_file = os.path.join(sesspath, 'ScanSess.yml')
         with open(ses_sched_file, 'w') as f:
             yaml.dump(sched, f, explicit_start=True)
+
+    def _writescanrecs(self, scanrecs):
+        """Write the  scanrec for each recorded ldat."""
+        for ldat in scanrecs.keys():
+            try:
+                scanrecpath = scanrecs[ldat].path
+            except (AttributeError, KeyError):
+                scanrecpath = None
+            if scanrecpath:
+                scanrecs[ldat].write(scanrecpath)
 
     def process_scansess(self, sesscans_in, session_id=None):
         """Method for parsing a station session schedule."""
@@ -227,9 +235,8 @@ class ScanSession(object):
         scans_done = []
         for scan in sesscans['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
-
             if scan['obsprog'] is not None:
-                scan_id, scanpath_scdat = programs.record_obsprog(self.stndrv, scan)
+                scanresult = programs.record_obsprog(self.stndrv, scan)
             else:
                 duration_tot = scan['duration_tot']
                 pointing = scan['beam']['pointing']
@@ -237,11 +244,13 @@ class ScanSession(object):
                 rec = scan['rec']
                 integration = scan['integration']
                 allsky = scan['beam']['allsky']
-                scan_id, scanpath_scdat = programs.record_scan(
+                scanresult = programs.record_scan(
                     self.stndrv, freqbndobj, duration_tot, pointing, starttime, rec,
                     integration, allsky=allsky)
+            scan['id'] = scanresult.pop('scan_id', None)
+            scanpath_scdat = scanresult.pop('scanpath_scdat', None)
+            self._writescanrecs(scanresult)
             print("Saved scan here: {}".format(scanpath_scdat))
-            scan['id'] = scan_id
             scans_done.append(scan)
         sesscans['scans'] = scans_done
         self.save_scansess(sesscans)

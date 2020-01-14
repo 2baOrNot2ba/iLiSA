@@ -137,17 +137,6 @@ class ObsPrograms(object):
         return [obsinfo]
 
 
-def _writescanrecs(scanrecs):
-    """Write the scanrec for each recorded ldat."""
-    for ldat in scanrecs.keys():
-        try:
-            scanrecpath = scanrecs[ldat].path
-        except (AttributeError, KeyError):
-            scanrecpath = None
-        if scanrecpath:
-            scanrecs[ldat].write(scanrecpath)
-
-
 def record_obsprog(stationdriver, scan):
     """At starttime execute the observation program specified by the obsfun method
     pointer and run with arguments specified by obsargs dict.
@@ -179,7 +168,7 @@ def record_obsprog(stationdriver, scan):
     obsinfolist = obsfun(**obsargs)
     # Stop program beam
     stationdriver.lcu_interface.stop_beam()
-    scanrecs = {}
+    scanresult = {}
     if obsinfolist is not None:
         datatype = 'sop:' + scan['obsprog']
         scanrec = dataIO.ScanRecInfo()
@@ -204,9 +193,10 @@ def record_obsprog(stationdriver, scan):
         stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat",
                                   scanpath_scdat)
         scanrec.path = scanpath_scdat
-        scanrecs[datatype] = scanrec
-    _writescanrecs(scanrecs)
-    return scan_id, scanpath_scdat
+        scanresult[datatype] = scanrec
+    scanresult['scan_id'] = scan_id
+    scanresult['scanpath_scdat'] = scanpath_scdat
+    return scanresult
 
 
 def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
@@ -280,12 +270,12 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     if not allsky and pointing is None:
         pointing = 'Z'
 
-    scanrecs = {}
-    scanrecs['acc'] = dataIO.ScanRecInfo()
-    scanrecs['bfs'] = dataIO.ScanRecInfo()
-    scanrecs['bsx'] = dataIO.ScanRecInfo()
-    for k in scanrecs.keys():
-        scanrecs[k].set_stnid(stationdriver.get_stnid())
+    scanresult = {}
+    scanresult['acc'] = dataIO.ScanRecInfo()
+    scanresult['bfs'] = dataIO.ScanRecInfo()
+    scanresult['bsx'] = dataIO.ScanRecInfo()
+    for k in scanresult.keys():
+        scanresult[k].set_stnid(stationdriver.get_stnid())
 
     # Setup Calibration tables on LCU:
     CALTABLESRC = 'default'   # FIXME put this in args
@@ -378,7 +368,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         bfsnametime = rectime.strftime("%Y%m%d_%H%M%S")
         this_obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmds, rcu_setup_cmd,
                                        caltabinfos)
-        scanrecs['bfs'].add_obs(this_obsinfo)
+        scanresult['bfs'].add_obs(this_obsinfo)
     else:
         scanpath_bfdat = None
         print("Not recording bfs")
@@ -393,14 +383,14 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
             curr_obsinfo = dataIO.LDatInfo('bst', obsdatetime_stamp, beamctl_cmds,
                                            rspctl_cmd, caltabinfos)
-            scanrecs['bsx'].add_obs(curr_obsinfo)
+            scanresult['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'sst':
             caltabinfo = ""
             rspctl_cmd = stationdriver.lcu_interface.rec_sst(integration, duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
             curr_obsinfo = dataIO.LDatInfo('sst', obsdatetime_stamp, beamctl_cmds,
                                            rspctl_cmd, caltabinfo)
-            scanrecs['bsx'].add_obs(curr_obsinfo)
+            scanresult['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'xst':
             caltabinfo = ""  # No need for caltab info for xst data
             nrsubbands = freqbndobj.nrsubbands()
@@ -437,7 +427,7 @@ Will increase total duration to get 1 full repetition.""")
                                                        beamctl_cmds, rspctl_cmd,
                                                        caltabinfos=caltabinfo,
                                                        septonconf=septonconf)
-                        scanrecs['bsx'].add_obs(curr_obsinfo)
+                        scanresult['bsx'].add_obs(curr_obsinfo)
         else:
             raise Exception('LOFAR statistic datatype "{}" unknown.\
                             (Known are bst, sst, xst)'.format(bsx_type))
@@ -454,6 +444,8 @@ Will increase total duration to get 1 full repetition.""")
 
     # Work out where station-correlated data should be stored:
     scanpath_scdat = os.path.join(stationdriver.scanpath, scan_id)
+    # and create the directory: (may not have ldat if no rec but will have info files)
+    os.makedirs(scanpath_scdat)
 
     if rec_acc:
         # Switch back to normal state i.e. turn-off ACC dumping:
@@ -487,32 +479,32 @@ Will increase total duration to get 1 full repetition.""")
         for destfile in accdestfiles:
             obsid, _ = destfile.split('_acc_')
             this_obsinfo =  dataIO.LDatInfo('acc', obsid, beamctl_cmds, rcu_setup_cmd)
-            scanrecs['acc'].add_obs(this_obsinfo)
+            scanresult['acc'].add_obs(this_obsinfo)
 
         # Set scanrecinfo
         acc_integration = 1.0
-        scanrecs['acc'].set_stnid(stationdriver.get_stnid())
-        scanrecs['acc'].set_scanrecparms('acc', band, duration_tot, pointing,
+        scanresult['acc'].set_stnid(stationdriver.get_stnid())
+        scanresult['acc'].set_scanrecparms('acc', band, duration_tot, pointing,
                                                   acc_integration, allsky)
-        scanrecs['acc'].path = scanrecpath
+        scanresult['acc'].path = scanrecpath
 
     if bsx_type is not None:
         # Move data to archive
-        scanrecfolder = scanrecs['bsx'].scanrecfolder()
+        scanrecfolder = scanresult['bsx'].scanrecfolder()
         scanrecpath = os.path.join(scanpath_scdat, scanrecfolder)
         stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat",
                                   scanrecpath)
 
         # Set scanrecinfo
-        scanrecs['bsx'].set_stnid(stationdriver.get_stnid())
-        scanrecs['bsx'].set_scanrecparms(bsx_type, freqbndobj.arg,
+        scanresult['bsx'].set_stnid(stationdriver.get_stnid())
+        scanresult['bsx'].set_scanrecparms(bsx_type, freqbndobj.arg,
                                                   duration_tot, pointing,
                                                   integration, allsky=allsky)
-        scanrecs['bsx'].path = scanrecpath
+        scanresult['bsx'].path = scanrecpath
 
     if rec_bfs:
         # Make a project folder for BFS data
-        scanrecfolder = scanrecs['bfs'].scanrecfolder()
+        scanrecfolder = scanresult['bfs'].scanrecfolder()
         scanrecpath = os.path.join(scanpath_scdat, scanrecfolder)
         print("Creating BFS destination folder on DPU:\n{}".format(scanrecpath))
         os.makedirs(scanrecpath)
@@ -531,13 +523,14 @@ Will increase total duration to get 1 full repetition.""")
                                                         os.path.basename(
                                                             bfsdatapaths[lane])))
             shutil.move(bfslogpaths[lane], scanrecpath)
-        scanrecs['bfs'].set_stnid(stationdriver.get_stnid())
-        scanrecs['bfs'].set_scanrecparms('bfs', band, duration_tot, pointing,
+        scanresult['bfs'].set_stnid(stationdriver.get_stnid())
+        scanresult['bfs'].set_scanrecparms('bfs', band, duration_tot, pointing,
                                                   allsky=allsky)
-        scanrecs['bfs'].path = scanrecpath
+        scanresult['bfs'].path = scanrecpath
 
     stationdriver.lcu_interface.cleanup()
     # Necessary due to possible forking
     stationdriver.halt_observingstate_when_finished = shutdown
-    _writescanrecs(scanrecs)
-    return scan_id, scanpath_scdat
+    scanresult['scan_id'] = scan_id
+    scanresult['scanpath_scdat'] = scanpath_scdat
+    return scanresult
