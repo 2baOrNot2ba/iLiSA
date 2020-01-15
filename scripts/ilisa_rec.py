@@ -9,7 +9,6 @@ import ilisa.observations
 import ilisa.observations.directions
 import ilisa.observations.stationdriver as stationdriver
 import ilisa.observations.modeparms as modeparms
-import ilisa.observations.dataIO as dataIO
 import ilisa.observations.programs as programs
 
 
@@ -30,12 +29,12 @@ if __name__ == "__main__":
     parser.add_argument('duration_tot',
                         help='Duration in seconds. (Can be an arithmetic expression)',
                         type=str)
-    parser.add_argument('pointing', nargs='?',
+    parser.add_argument('pointing', nargs='?', default='Z',
                         help='A direction in az,el,ref (radians) or a source name.')
     args = parser.parse_args()
 
     accessconf = ilisa.observations.default_access_lclstn_conf()
-    stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'], mockrun=False)
+    stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'], mockrun=True)
     halt_observingstate_when_finished = False
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
     freqbndobj = modeparms.FrequencyBand(args.freqspec)
@@ -73,11 +72,12 @@ if __name__ == "__main__":
     if args.datatype != 'tbb':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         stndrv.scanpath = sesspath
-        scan_id, scanpath_scdat = programs.record_scan(
+        scanresult = programs.record_scan(
             stndrv, freqbndobj, duration_tot, pointing, starttime=args.starttime,
             rec=[args.datatype], integration=args.integration, allsky=args.allsky,
             duration_frq=None)
-        print("Saved scan here: {}".format(scanpath_scdat))
+        print("Saved scanrec here: {}".format(scanresult[args.datatype].get_scanrecpath()))
+        scanresult[args.datatype].write()
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print("Finished")
