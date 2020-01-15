@@ -149,8 +149,10 @@ class ScanRecInfo(object):
         else:
             self.calibrationfile = scanrecfiledict['calibrationfile']
 
-    def write(self, scanrecpath):
+    def write(self, scanrecpath=None):
         """Write scanrecinfo file and all obsinfo headers."""
+        if not scanrecpath:
+            scanrecpath = self.get_scanrecpath()
         self.write_scanrec(scanrecpath)
         for obs_id in self.obsinfos:
             self.obsinfos[obs_id].write_ldat_header(scanrecpath)
@@ -171,9 +173,18 @@ class ScanRecInfo(object):
         with open(scanrecinfo_header_path, 'a') as h:
             h.write("calibrationfile: "+os.path.basename(caltabpath))
 
-    def scanrecfolder(self):
+    def set_scanpath(self, scanpath):
+        """Set path where this scanrec is stored. scanpath is the path to parent folder.
+        """
+        self.scanpath = scanpath
+
+    def get_scanrecpath(self):
+        """Return path to this scanrec."""
         start_key = min(self.obsinfos)
-        return self.obsinfos[start_key].obsfoldername()
+        scanrecname = self.obsinfos[start_key].obsfoldername(stnid=self.get_stnid(),
+                                            source_name=self.scanrecparms['pointing'])
+        scanrecpath = os.path.join(self.scanpath, scanrecname)
+        return scanrecpath
 
     def get_datatype(self):
         return self.scanrecparms['datatype']
@@ -278,9 +289,13 @@ class LDatInfo(object):
             rspctl_cmd = 'rspctl'
         self.rspctl_cmd = rspctl_cmd
         rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmd)
-        if self.ldat_type != 'bfs' and self.ldat_type != 'acc':
-            self.integration = float(rspctl_args['integration'])
-            self.duration_scan = float(rspctl_args['duration'])
+        if self.ldat_type != 'bfs':
+            if self.ldat_type != 'acc':
+                self.integration = float(rspctl_args['integration'])
+                self.duration_scan = float(rspctl_args['duration'])
+            else:
+                self.integration = 1.0
+                self.duration_scan = 512
         if self.ldat_type == 'sst':
             self.sb = ""
         elif self.ldat_type.startswith('xst'):
@@ -292,12 +307,12 @@ class LDatInfo(object):
         if self.septonconf != "":
             self.rcumode = 5
 
-    def obsfoldername(self, folder_name_beamctl_type = True):
+    def obsfoldername(self, folder_name_beamctl_type=True, stnid=None, source_name=None):
         """Create name and destination path for folders (on the DPU) in
         which to save the various LOFAR data products.
         """
         obsextname = self.filenametime
-        if folder_name_beamctl_type:
+        if self.ldat_type != "acc":
             if self.ldat_type == "bst-357":
                 obsextname += "_rcu357"
             else:
@@ -318,6 +333,15 @@ class LDatInfo(object):
                     obsextname += "_dir"+str(self.pointing)
                 else:
                     obsextname += "_dir,,"
+        else:
+            # ACC:
+            rcumode = self.rcumode[0]
+            obsextname = '{}_{}_rcu{}_dur{}'.format(stnid, self.filenametime,
+                                                    rcumode, self.duration_scan)
+            if int(rcumode) > 4:  # rcumodes more than 4 need pointing
+                obsextname += "_" + source_name
+        if not folder_name_beamctl_type:
+            obsextname = self.filenametime
         obsextname += "_"+self.ldat_type
         return obsextname
 

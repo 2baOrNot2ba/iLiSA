@@ -76,7 +76,7 @@ class ScanSession(object):
         """Write the  scanrec for each recorded ldat."""
         for ldat in scanrecs.keys():
             try:
-                scanrecpath = scanrecs[ldat].path
+                scanrecpath = scanrecs[ldat].get_scanrecpath()
             except (AttributeError, KeyError):
                 scanrecpath = None
             if scanrecpath:

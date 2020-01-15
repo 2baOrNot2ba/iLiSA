@@ -117,6 +117,10 @@ class StationDriver(object):
         self._lcu_interface.rm(source)
         self._lcu_interface.DryRun = dryrun
 
+    def getdatalist(self):
+        dd_dir, acc_dir = self._lcu_interface.getdatalist()
+        return dd_dir, acc_dir
+
     def get_data_timestamp(self, order=0, ACC=False):
         """Get timestamp of datafiles on LCU. order is the temporal order of the data
         file, order=0 is oldest, order=-1 is newest."""
@@ -158,7 +162,7 @@ class StationDriver(object):
         """Clean up on LCU."""
         self._lcu_interface.cleanup()
 
-    def acc_mode(self, enable=True):
+    def acc_mode(self, enable=True, mock_dur=None):
         """Enable or Disable ACC mode."""
         if enable:
             # Make sure swlevel=<2
@@ -169,6 +173,10 @@ class StationDriver(object):
 
             # Boot to swlevel 3 so the calserver service starts
             self._lcu_interface.set_swlevel(3)
+
+            # Possibly make mock acc statistics:
+            if self.mockrun and mock_dur is not None:
+                self._lcu_interface.mockstatistics('acc', 1.0, mock_dur)
         else:
             self._lcu_interface.set_swlevel(2)
             self._lcu_interface.acc_mode(enable=False)

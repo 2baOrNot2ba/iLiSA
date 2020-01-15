@@ -269,12 +269,10 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     if not allsky and pointing is None:
         pointing = 'Z'
 
+    stnid = stationdriver.get_stnid()
+
+    # Initialize scanresult
     scanresult = {}
-    scanresult['acc'] = dataIO.ScanRecInfo()
-    scanresult['bfs'] = dataIO.ScanRecInfo()
-    scanresult['bsx'] = dataIO.ScanRecInfo()
-    for k in scanresult.keys():
-        scanresult[k].set_stnid(stationdriver.get_stnid())
 
     # Setup Calibration tables on LCU:
     CALTABLESRC = 'default'   # FIXME put this in args
@@ -298,6 +296,8 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         septonconf = None
 
     if rec_acc:
+        scanresult['acc'] = dataIO.ScanRecInfo()
+        scanresult['acc'].set_stnid(stnid)
         # Also duration of ACC sweep since each sb is 1 second.
         dur1acc = modeparms.TotNrOfsb  # Duration of one ACC
         interv2accs = 7  # time between end of one ACC and start of next one
@@ -309,7 +309,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         if duration_tot != duration_tot_req:
             print("""Note: will use total duration {}s to fit with ACC
                   cadence.""".format(duration_tot))
-        stationdriver.acc_mode(enable=True)
+        stationdriver.acc_mode(enable=True, mock_dur=duration_tot)
 
     # Wait until it is time to start
     now = datetime.datetime.utcnow()
@@ -350,8 +350,9 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         scan_id = stationdriver.get_scanid()
 
     if rec_bfs:
+        scanresult['bfs'] = dataIO.ScanRecInfo()
+        scanresult['bfs'].set_stnid(stnid)
         scanpath_bfdat = os.path.join(stationdriver.bf_data_dir, scan_id)
-        stnid = stationdriver.get_stnid()
         lanes = tuple(freqbndobj.getlanes().keys())
         bfbackend.rec_bf_streams(rectime,
                                  duration_tot, lanes, band,
@@ -366,6 +367,8 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     sys.stdout.flush()
 
     if bsx_type is not None:
+        scanresult['bsx'] = dataIO.ScanRecInfo()
+        scanresult['bsx'].set_stnid(stnid)
         # Record statistic for duration_tot seconds
         if bsx_type == 'bst':
             rspctl_cmd = stationdriver.rec_bst(integration, duration_tot)
@@ -439,17 +442,21 @@ Will increase total duration to get 1 full repetition.""")
         # Switch back to normal state i.e. turn-off ACC dumping:
         stationdriver.acc_mode(enable=False)
 
+        # Create obsinfo each ACC file
+        _, acc_files =  stationdriver.getdatalist()
+        for acc_file in acc_files:
+            obsid, _ = acc_file.split('_acc_')
+            this_obsinfo =  dataIO.LDatInfo('acc', obsid, beamctl_cmds, rcu_setup_cmd)
+            scanresult['acc'].add_obs(this_obsinfo)
+
+        # Set scanrecinfo
+        acc_integration = 1.0
+        scanresult['acc'].set_scanrecparms('acc', band, duration_tot, pointing,
+                                                  acc_integration, allsky)
+        scanresult['acc'].set_scanpath(scanpath_scdat)
+        scanrecpath = scanresult['acc'].get_scanrecpath()
+
         # Transfer data from LCU to DAU
-        obsdatetime_stamp = stationdriver.get_data_timestamp(ACC=True)
-        accsrcfiles = stationdriver.get_ACCsrcDir() + "/*.dat"
-        scanrecpath = \
-            os.path.join(scanpath_scdat,
-                         '{}_{}_rcu{}_dur{}'.format(stationdriver.get_stnid(),
-                                                    obsdatetime_stamp, rcumode,
-                                                    duration_tot))
-        if int(rcumode) > 4:  # rcumodes more than 4 need pointing
-            scanrecpath += "_" + pointing
-        scanrecpath += "_acc"
         if os.path.exists(scanrecpath):
             print("Appropriate directory exists already (will put data here)")
         else:
@@ -458,40 +465,25 @@ Will increase total duration to get 1 full repetition.""")
             os.makedirs(scanrecpath)
 
         # Move ACC dumps to storage
+        accsrcfiles = stationdriver.get_ACCsrcDir() + "/*.dat"
         stationdriver.movefromlcu(accsrcfiles, scanrecpath)
-        accdestfiles = os.listdir(scanrecpath)
-
-        # Create obsinfo each ACC file
-        for destfile in accdestfiles:
-            obsid, _ = destfile.split('_acc_')
-            this_obsinfo =  dataIO.LDatInfo('acc', obsid, beamctl_cmds, rcu_setup_cmd)
-            scanresult['acc'].add_obs(this_obsinfo)
-
-        # Set scanrecinfo
-        acc_integration = 1.0
-        scanresult['acc'].set_stnid(stationdriver.get_stnid())
-        scanresult['acc'].set_scanrecparms('acc', band, duration_tot, pointing,
-                                                  acc_integration, allsky)
-        scanresult['acc'].path = scanrecpath
 
     if bsx_type is not None:
+        # Set scanrecinfo
+        scanresult['bsx'].set_scanrecparms(bsx_type, freqbndobj.arg,
+                                           duration_tot, pointing,
+                                           integration, allsky=allsky)
+
         # Move data to archive
-        scanrecfolder = scanresult['bsx'].scanrecfolder()
-        scanrecpath = os.path.join(scanpath_scdat, scanrecfolder)
+        scanresult['bsx'].set_scanpath(scanpath_scdat)
+        scanrecpath = scanresult['bsx'].get_scanrecpath()
         stationdriver.movefromlcu(stationdriver.get_lcuDumpDir() + "/*.dat",
                                   scanrecpath)
 
-        # Set scanrecinfo
-        scanresult['bsx'].set_stnid(stationdriver.get_stnid())
-        scanresult['bsx'].set_scanrecparms(bsx_type, freqbndobj.arg,
-                                                  duration_tot, pointing,
-                                                  integration, allsky=allsky)
-        scanresult['bsx'].path = scanrecpath
-
     if rec_bfs:
         # Make a project folder for BFS data
-        scanrecfolder = scanresult['bfs'].scanrecfolder()
-        scanrecpath = os.path.join(scanpath_scdat, scanrecfolder)
+        scanresult['bfs'].set_scanpath(scanpath_scdat)
+        scanrecpath = scanresult['bfs'].get_scanrecpath()
         print("Creating BFS destination folder on DPU:\n{}".format(scanrecpath))
         os.makedirs(scanrecpath)
         bfsdatapaths = []
@@ -512,7 +504,6 @@ Will increase total duration to get 1 full repetition.""")
         scanresult['bfs'].set_stnid(stationdriver.get_stnid())
         scanresult['bfs'].set_scanrecparms('bfs', band, duration_tot, pointing,
                                                   allsky=allsky)
-        scanresult['bfs'].path = scanrecpath
 
     stationdriver.cleanup()
     # Necessary due to possible forking
