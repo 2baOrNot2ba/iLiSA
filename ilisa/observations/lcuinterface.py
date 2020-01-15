@@ -494,15 +494,20 @@ class LCUInterface(object):
     def mockstatistics(self, statistics, integration, duration, directory=None):
         """Make mock statistics data file(s)."""
         if directory is None:
-            directory = self.lcuDumpDir
+            if statistics != 'acc':
+                directory = self.lcuDumpDir
+            else:
+                directory = self.ACCsrcDir
+        dryrun = self.DryRun
         self.DryRun = False
         nrtimsamps = int(duration/integration)
         import ilisa.observations.modeparms as modeparms
         import datetime
         dd_cmdbase = 'dd if=/dev/zero'
-        bits = self.get_bits()
-        dtstamp = datetime.datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+        now = datetime.datetime.utcnow()
+        dtstamp = now.strftime('%Y%m%d_%H%M%S')
         if statistics == 'bst':
+            bits = self.get_bits()
             # Write mock bst files. (mock files contain just zeros)
             nrbls = modeparms.FrequencyBand().get_maxbeamletsbybits(bits)
             dd_bs = 8
@@ -534,7 +539,23 @@ class LCUInterface(object):
             fpath = os.path.join(directory, xstfilename)
             dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
             self.exec_lcu(dd_cmd)
-        self.DryRun = True
+        elif statistics == 'acc':
+            # Write mock acc files
+            integration = 1
+            nrrcus = modeparms.nrofrcus
+            dd_bs = 2*8
+            dd_count = nrrcus*nrrcus * 512
+            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
+            nraccfiles, restsamp = divmod(duration+7, 519)
+            filetime = now
+            for accnr in range(nraccfiles):
+                dtstamp = filetime.strftime('%Y%m%d_%H%M%S')
+                accfilename = "{}_acc_512x196x196.dat".format(dtstamp)
+                fpath = os.path.join(directory, accfilename)
+                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
+                self.exec_lcu(dd_cmd)
+                filetime += datetime.timedelta(seconds=519)
+        self.DryRun = dryrun
 
     def run_tbbctl(self, select=None, alloc=False, free=False, record=False, stop=False,
                    mode=None, storage=None, readall=None, cepdelay=None,
