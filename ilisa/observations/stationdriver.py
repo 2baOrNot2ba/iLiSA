@@ -16,11 +16,8 @@ import ilisa.observations.modeparms as modeparms
 
 
 class StationDriver(object):
-    """observing.Session class is a client type class typically running on the
-    compute node."""
-
-    def cleanup(self):
-        pass
+    """StationDriver is a client type class that allows one to observe with LCU
+    and record data and metadata from these observations on a DRU."""
 
     def checkobservingallowed(self):
         """Check whether observations are allowed. This occurs is someone else
