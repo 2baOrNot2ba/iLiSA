@@ -158,6 +158,53 @@ class StationDriver(object):
         port3 = rspdriver_conf['RSPDriver']['LANE_03_DSTPORT']
         return port0, port1, port2, port3
 
+    def get_ACCsrcDir(self):
+        """Get ACC src directory from LCU."""
+        return self.lcu_interface.ACCsrcDir
+
+    def get_lcuDumpDir(self):
+        """Get LCU dump directory from LCU."""
+        return  self.lcu_interface.lcuDumpDir
+
+    def cleanup(self):
+        """Clean up on LCU."""
+        self.lcu_interface.cleanup()
+
+    def acc_mode(self, enable=True):
+        """Enable or Disable ACC mode."""
+        if enable:
+            # Make sure swlevel=<2
+            self.lcu_interface.set_swlevel(2)
+
+            # Set CalServ.conf to dump ACCs:
+            self.lcu_interface.acc_mode(enable=True)
+
+            # Boot to swlevel 3 so the calserver service starts
+            self.lcu_interface.set_swlevel(3)
+        else:
+            self.lcu_interface.set_swlevel(2)
+            self.lcu_interface.acc_mode(enable=False)
+            self.lcu_interface.set_swlevel(3)
+
+    def set_caltable(self, which):
+        """Select a calibration table on LCU to use."""
+        self.lcu_interface.selectCalTable(which)
+
+    def get_caltableinfo(self, rcumode):
+        """Get Calibration Table Info."""
+        caltabinfo = self.lcu_interface.getCalTableInfo(rcumode)
+        return caltabinfo
+
+    def _rcusetup(self, bits, attenuation):
+        """Setup RCUs on LCU."""
+        rcu_setup_cmds = self.lcu_interface.rcusetup(bits, attenuation)
+        return rcu_setup_cmds
+
+    def _run_beamctl(self, beamlets, subbands, band, anadigdir):
+        """Run beamctl command on LCU."""
+        beamctl_cmd = self.lcu_interface.run_beamctl(beamlets, subbands, band, anadigdir)
+        return beamctl_cmd
+
     def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
                     attenuation=0, DUMMYWARMUP=False):
         """Form beams with station."""
@@ -177,6 +224,27 @@ class StationDriver(object):
             beamctl_cmds.append(beamctl_main)
         return rcu_setup_cmd, beamctl_cmds
 
+    def stop_beam(self):
+        """Turn off beam."""
+        self.lcu_interface.stop_beam()
+
+    def rec_bst(self, integration, duration):
+        """Record BST data."""
+        rspctl_cmd = self.lcu_interface.rec_bst(integration, duration)
+        # beamlet statistics also generate empty *01[XY].dat so remove:
+        self.lcu_interface.rm(self.lcu_interface.lcuDumpDir + "/*01[XY].dat")
+        return rspctl_cmd
+
+    def rec_sst(self, integration, duration):
+        """Record SST data."""
+        rspctl_cmd = self.lcu_interface.rec_sst(integration, duration)
+        return rspctl_cmd
+
+    def rec_xst(self, subband, integration, duration):
+        """Record XST data."""
+        rspctl_cmd = self.lcu_interface.rec_xst(subband, integration, duration)
+        return rspctl_cmd
+
     def _waittoboot(self, starttime, pause=0):
         """Before booting, wait until time given by starttime which includes
         a pause . """
@@ -195,7 +263,7 @@ class StationDriver(object):
         # From swlevel 0 it takes about 1:30min? to reach swlevel 3
         print("Booting @ {}".format(datetime.datetime.utcnow()))
 
-    def _setup_tof(self, elemsOn=modeparms.elOn_gILT):
+    def setup_tof(self, elemsOn=modeparms.elOn_gILT):
         """Setup (HBA) tiling off mode."""
         # NOTE: LCU must be in swlevel=2 to run SEPTON!
         self.lcu_interface.set_swlevel(2)
@@ -203,6 +271,10 @@ class StationDriver(object):
         self.lcu_interface.turnoffElinTile_byEl(elemsOn)
         septonconf = modeparms.elementMap2str(elemsOn)
         return septonconf
+
+    def stop_tof(self):
+        """Stop tiling off mode."""
+        self.lcu_interface.set_swlevel(2)
 
     def _setupTBBs(self):
         """Setup transient buffer boards and start recording."""

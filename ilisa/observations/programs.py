@@ -16,7 +16,6 @@ class ObsPrograms(object):
 
     def __init__(self, stationdriver):
         self.stationdriver = stationdriver
-        self.lcu_interface = stationdriver.lcu_interface
 
     def getprogram(self, programname):
         programpointer = getattr(self, programname)
@@ -38,13 +37,13 @@ class ObsPrograms(object):
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
             antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
-            beamletIDs = freqbndobj.beamlets[bandbeamidx]
+            beamlets = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
             rcusel = freqbndobj.rcusel[bandbeamidx]
-            beamctl_main = self.lcu_interface.run_beamctl(beamletIDs, subbands,
-                                                              rcumode, pointing, rcusel)
+            beamctl_main = self.stationdriver._run_beamctl(beamlets, subbands, rcumode,
+                                                           pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
-        rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
+        rcu_setup_cmd = self.stationdriver._rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
     def do_bfs_OW(self, freqbndobj, duration_tot, pointing, bfdsesdumpdir,
@@ -59,18 +58,18 @@ class ObsPrograms(object):
         if band == '10_90' or band == '30_90':
             # LBA
             lanes = (0, 1)  # (0,1)
-            beamletIDs = '0:243'  # '0:243'
-            subbandNrs = '164:407'  # '164:407'
+            beamlets = '0:243'  # '0:243'
+            subbands = '164:407'  # '164:407'
         elif band == '110_190':
             # HBAlo
             lanes = (0, 1, 2, 3)  # Normally (0,1,2,3) for all 4 lanes.
-            beamletIDs = '0:487'
-            subbandNrs = '12:499'
+            beamlets = '0:487'
+            subbands = '12:499'
         elif band == '210_250':
             # HBAhi
             lanes = (0, 1)
-            beamletIDs = '0:243'
-            subbandNrs = '12:255'
+            beamlets = '0:243'
+            subbands = '12:255'
         else:
             raise ValueError(
                 "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
@@ -93,9 +92,9 @@ class ObsPrograms(object):
 
         # BEGIN Dummy or hot beam start: (takes about 10sec)
         print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
-        self.lcu_interface.rcusetup(bits, attenuation)  # setting bits is necessary
-        self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band, dir_bmctl)
-        self.lcu_interface.stop_beam()
+        self.stationdriver._rcusetup(bits, attenuation)  # setting bits is necessary
+        self.stationdriver._run_beamctl(beamlets, subbands, band, dir_bmctl)
+        self.stationdriver.stop_beam()
         # END Dummy or hot start
 
         print("Pause {}s after boot.".format(pause))
@@ -103,9 +102,9 @@ class ObsPrograms(object):
 
         # Real beam start:
         print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
-        rcu_setup_cmd = self.lcu_interface.rcusetup(bits, attenuation)
-        beamctl_cmd = self.lcu_interface.run_beamctl(beamletIDs, subbandNrs, band,
-                                                     dir_bmctl)
+        rcu_setup_cmd = self.stationdriver._rcusetup(bits, attenuation)
+        beamctl_cmd = self.stationdriver._run_beamctl(beamlets, subbands, band,
+                                                      dir_bmctl)
         beamstart = datetime.datetime.utcnow()
         timeleft = rectime - beamstart
         if timeleft.total_seconds() < 0.:
@@ -119,7 +118,7 @@ class ObsPrograms(object):
         REC = True
         if REC == True:
             port0 = self.stationdriver.bf_port0
-            stnid = self.lcu_interface.stnid
+            stnid = self.stationdriver.get_stnid()
             bfbackend.rec_bf_streams(rectime, duration_tot, lanes, band, bfdsesdumpdir,
                                      port0, stnid)
             bfsdatapaths = []
@@ -132,7 +131,7 @@ class ObsPrograms(object):
             print("Not recording")
             time.sleep(duration_tot)
         sys.stdout.flush()
-        self.lcu_interface.stop_beam()
+        self.stationdriver.stop_beam()
         self.stationdriver.halt_observingstate_when_finished = shutdown
         return [obsinfo]
 
@@ -156,7 +155,7 @@ def record_obsprog(stationdriver, scan):
     CALTABLESRC = 'default'   # FIXME put this in args
     ## (Only BST uses calibration tables)
     # Choose between 'default' or 'local'
-    stationdriver.lcu_interface.selectCalTable(CALTABLESRC)
+    stationdriver.set_caltable(CALTABLESRC)
 
     # Prepare for obs program.
     try:
@@ -167,7 +166,7 @@ def record_obsprog(stationdriver, scan):
     # Run the observation program:
     obsinfolist = obsfun(**obsargs)
     # Stop program beam
-    stationdriver.lcu_interface.stop_beam()
+    stationdriver.stop_beam()
     scanresult = {}
     if obsinfolist is not None:
         datatype = 'sop:' + scan['obsprog']
@@ -183,14 +182,14 @@ def record_obsprog(stationdriver, scan):
         # Add caltables used
         caltabinfos = []
         for rcumode in freqbndobj.rcumodes:
-            caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
+            caltabinfo = stationdriver.get_caltableinfo(rcumode)
             caltabinfos.append(caltabinfo)
         # Add obsinfos to scanrecs
         for obsinfo in obsinfolist:
             obsinfo.caltabinfos = caltabinfos
             scanrec.add_obs(obsinfo)
         # Move data to archive
-        stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat",
+        stationdriver.movefromlcu(stationdriver.get_lcuDumpDir() + "/*.dat",
                                   scanpath_scdat)
         scanrec.path = scanpath_scdat
         scanresult[datatype] = scanrec
@@ -281,7 +280,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     CALTABLESRC = 'default'   # FIXME put this in args
     ## (Only BST uses calibration tables)
     # Choose between 'default' or 'local'
-    stationdriver.lcu_interface.selectCalTable(CALTABLESRC)
+    stationdriver.set_caltable(CALTABLESRC)
 
     # Prepare for obs program.
     try:
@@ -294,7 +293,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     rcumode = freqbndobj.rcumodes[0]
 
     if todo_tof:
-        septonconf = stationdriver._setup_tof()
+        septonconf = stationdriver.setup_tof()
     else:
         septonconf = None
 
@@ -310,15 +309,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         if duration_tot != duration_tot_req:
             print("""Note: will use total duration {}s to fit with ACC
                   cadence.""".format(duration_tot))
-
-        # Make sure swlevel=<2
-        stationdriver.lcu_interface.set_swlevel(2)
-
-        # Set CalServ.conf to dump ACCs:
-        stationdriver.lcu_interface.acc_mode(enable=True)
-
-        # Boot to swlevel 3 so the calserver service starts
-        stationdriver.lcu_interface.set_swlevel(3)
+        stationdriver.acc_mode(enable=True)
 
     # Wait until it is time to start
     now = datetime.datetime.utcnow()
@@ -343,7 +334,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     # Get metadata about caltables to be used
     if not allsky:
         for rcumode in freqbndobj.rcumodes:
-            caltabinfo = stationdriver.lcu_interface.getCalTableInfo(rcumode)
+            caltabinfo = stationdriver.get_caltableinfo(rcumode)
             caltabinfos.append(caltabinfo)
 
     if pointing is not None:
@@ -360,7 +351,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
 
     if rec_bfs:
         scanpath_bfdat = os.path.join(stationdriver.bf_data_dir, scan_id)
-        stnid = stationdriver.lcu_interface.stnid
+        stnid = stationdriver.get_stnid()
         lanes = tuple(freqbndobj.getlanes().keys())
         bfbackend.rec_bf_streams(rectime,
                                  duration_tot, lanes, band,
@@ -377,16 +368,14 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     if bsx_type is not None:
         # Record statistic for duration_tot seconds
         if bsx_type == 'bst':
-            rspctl_cmd = stationdriver.lcu_interface.rec_bst(integration, duration_tot)
-            # beamlet statistics also generate empty *01[XY].dat so remove:
-            stationdriver.lcu_interface.rm(stationdriver.lcu_interface.lcuDumpDir + "/*01[XY].dat")
+            rspctl_cmd = stationdriver.rec_bst(integration, duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
             curr_obsinfo = dataIO.LDatInfo('bst', obsdatetime_stamp, beamctl_cmds,
                                            rspctl_cmd, caltabinfos)
             scanresult['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'sst':
             caltabinfo = ""
-            rspctl_cmd = stationdriver.lcu_interface.rec_sst(integration, duration_tot)
+            rspctl_cmd = stationdriver.rec_sst(integration, duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
             curr_obsinfo = dataIO.LDatInfo('sst', obsdatetime_stamp, beamctl_cmds,
                                            rspctl_cmd, caltabinfo)
@@ -419,9 +408,8 @@ Will increase total duration to get 1 full repetition.""")
                         subbands = [int(sb) for sb in sb_rcumode.split(',')]
                     for subband in subbands:
                         # Record data
-                        rspctl_cmd = stationdriver.lcu_interface.rec_xst(subband,
-                                                                         integration,
-                                                                         duration_frq)
+                        rspctl_cmd = stationdriver.rec_xst(subband, integration,
+                                                           duration_frq)
                         obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
                         curr_obsinfo = dataIO.LDatInfo('xst', obsdatetime_stamp,
                                                        beamctl_cmds, rspctl_cmd,
@@ -437,10 +425,10 @@ Will increase total duration to get 1 full repetition.""")
         time.sleep(duration_tot)
 
     # Finished recording
-    stationdriver.lcu_interface.stop_beam()
+    stationdriver.stop_beam()
 
     if todo_tof:
-        stationdriver.lcu_interface.set_swlevel(3)
+        stationdriver.stop_tof()
 
     # Work out where station-correlated data should be stored:
     scanpath_scdat = os.path.join(stationdriver.scanpath, scan_id)
@@ -449,16 +437,14 @@ Will increase total duration to get 1 full repetition.""")
 
     if rec_acc:
         # Switch back to normal state i.e. turn-off ACC dumping:
-        stationdriver.lcu_interface.set_swlevel(2)
-        stationdriver.lcu_interface.acc_mode(enable=False)
-        stationdriver.lcu_interface.set_swlevel(3)
+        stationdriver.acc_mode(enable=False)
 
         # Transfer data from LCU to DAU
         obsdatetime_stamp = stationdriver.get_data_timestamp(ACC=True)
-        accsrcfiles = stationdriver.lcu_interface.ACCsrcDir + "/*.dat"
+        accsrcfiles = stationdriver.get_ACCsrcDir() + "/*.dat"
         scanrecpath = \
             os.path.join(scanpath_scdat,
-                         '{}_{}_rcu{}_dur{}'.format(stationdriver.lcu_interface.stnid,
+                         '{}_{}_rcu{}_dur{}'.format(stationdriver.get_stnid(),
                                                     obsdatetime_stamp, rcumode,
                                                     duration_tot))
         if int(rcumode) > 4:  # rcumodes more than 4 need pointing
@@ -492,7 +478,7 @@ Will increase total duration to get 1 full repetition.""")
         # Move data to archive
         scanrecfolder = scanresult['bsx'].scanrecfolder()
         scanrecpath = os.path.join(scanpath_scdat, scanrecfolder)
-        stationdriver.movefromlcu(stationdriver.lcu_interface.lcuDumpDir + "/*.dat",
+        stationdriver.movefromlcu(stationdriver.get_lcuDumpDir() + "/*.dat",
                                   scanrecpath)
 
         # Set scanrecinfo
@@ -528,7 +514,7 @@ Will increase total duration to get 1 full repetition.""")
                                                   allsky=allsky)
         scanresult['bfs'].path = scanrecpath
 
-    stationdriver.lcu_interface.cleanup()
+    stationdriver.cleanup()
     # Necessary due to possible forking
     stationdriver.halt_observingstate_when_finished = shutdown
     scanresult['scan_id'] = scan_id
