@@ -39,12 +39,9 @@ class StationDriver(object):
             print("         (You are running as {})".format(self.lcu_interface.user))
             return False
 
-    def __init__(self, accessconf_lcu, accessconf_dru, mockrun=False,
-                 goto_observingstate_when_starting=False):
+    def __init__(self, accessconf_lcu, accessconf_dru, mockrun=False):
         """Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
-        When goto_observingstate_when_starting is True, boot the station to swlevel 3,
-        but only if observations are allowed on the station.
         """
 
         self.mockrun = mockrun
@@ -64,12 +61,6 @@ class StationDriver(object):
         self.exit_check = True
         self.halt_observingstate_when_finished = False
         self.cleanup()
-        # Check whether the station is being used by someone else:
-        if goto_observingstate_when_starting:
-            try:
-                self.goto_observingstate()
-            except RuntimeError:
-                raise RuntimeError('Observations not allowed on this station')
 
     def goto_observingstate(self, warmup=False):
         """Put station into the main observing state.
