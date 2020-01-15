@@ -382,21 +382,21 @@ class LCUInterface(object):
     def rcusetup(self, bits, attenuation):
         """Setup basic RCU setting: bits is 8 or 16, and attenuation is 0 to 31
         (0 means no attenuation & increasing number means more attenutation)"""
-        rcu_setup_CMDs = ""
-        rcu_setup_CMDs += "rspctl --bitmode="+str(bits)+" ; "
+        rcu_setup_cmds = ""
+        rcu_setup_cmds += "rspctl --bitmode="+str(bits)+" ; "
         # NOTE Looks like bitmode and rcuattenuation have to be set in separate
         #      commands.
         if attenuation:
             # NOTE attenuation only set when beamctl is runnning.
-            rcu_setup_CMDs += "rspctl --rcuattenuation="+str(attenuation)+" ; "
+            rcu_setup_cmds += "rspctl --rcuattenuation="+str(attenuation)+" ; "
         #rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
-        self.exec_lcu(rcu_setup_CMDs)
+        self.exec_lcu(rcu_setup_cmds)
         if self.DryRun:
             self.bits = bits
         waittime = 1
         print("Waiting {}s for rspctl to settle...".format(waittime))
         time.sleep(waittime)  # Wait for rspctl to settle
-        return rcu_setup_CMDs
+        return rcu_setup_cmds
 
     def get_bits(self):
         """Get rcu sample bit-depth."""
@@ -428,68 +428,68 @@ class LCUInterface(object):
         except ValueError:
             pass    # It's not an rcumode. Assume it's a proper band descriptor
         antset = band2antset(band)
-        beamctl_CMD = ("beamctl --antennaset=" + antset +" --rcus=" + rcus
+        beamctl_cmd = ("beamctl --antennaset=" + antset +" --rcus=" + rcus
                        + " --band=" + band +" --beamlets=" + beamlets
                        + " --subbands=" + subbands
                        + " --anadir=" + anadir + beamdurstr
                        + " --digdir=" + digdir + beamdurstr)
-        return beamctl_CMD
+        return beamctl_cmd
 
-    def run_beamctl(self, beamlets, subbands, rcumode, anadigdir, rcus='0:191',
+    def run_beamctl(self, beamlets, subbands, band, anadigdir, rcus='0:191',
                     beamdurstr='', backgroundJOB=True):
         """Start a beam using beamctl command. Blocks until ready."""
-        beamctl_CMD = self._setup_beamctl(beamlets, subbands, rcumode, anadigdir, rcus,
+        beamctl_cmd = self._setup_beamctl(beamlets, subbands, band, anadigdir, rcus,
                                           beamdurstr)
-        self.exec_lcu(beamctl_CMD, backgroundJOB)
+        self.exec_lcu(beamctl_cmd, backgroundJOB)
         waittime = 11
         print("Waiting {}s for beam to settle...".format(waittime))
         time.sleep(waittime)  # Wait for beam to settle
-        return beamctl_CMD
+        return beamctl_cmd
 
     def rec_bst(self, integration, duration, directory=None):
         """Convenience function to record BST data on LCU."""
         if directory is None:
             directory = self.lcuDumpDir
-        rspctl_CMD = ("rspctl --statistics=beamlet"
+        rspctl_cmd = ("rspctl --statistics=beamlet"
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
                       + " --directory="+directory)
-        self.outfromLCU(rspctl_CMD, integration, duration)
+        self.outfromLCU(rspctl_cmd, integration, duration)
         if self.DryRun:
             self.mockstatistics('bst', integration, duration, directory)
-        return rspctl_CMD
+        return rspctl_cmd
 
     def rec_sst(self, integration, duration, directory=None):
         """Convenience function to record SST data on LCU."""
         if directory is None:
             directory = self.lcuDumpDir
-        rspctl_CMD = ("rspctl --statistics=subband"
+        rspctl_cmd = ("rspctl --statistics=subband"
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
                       + " --directory="+directory)
-        self.exec_lcu(rspctl_CMD)
+        self.exec_lcu(rspctl_cmd)
         if self.DryRun:
             self.mockstatistics('sst', integration, duration, directory)
-        return rspctl_CMD
+        return rspctl_cmd
 
     def rec_xst(self, sb, integration, duration, directory=None):
         """Convenience function to record BST data on LCU."""
         if directory is None:
             directory = self.lcuDumpDir
-        rspctl_CMDs = ""
+        rspctl_cmds = ""
         # NOTE:  Seems like this has to be sent before xstats
-        rspctl_CMD = ("rspctl --xcsubband="+str(sb))
-        self.exec_lcu(rspctl_CMD)
-        rspctl_CMDs += rspctl_CMD + "\n"
-        rspctl_CMD = ("rspctl --xcstatistics"
+        rspctl_cmd = ("rspctl --xcsubband="+str(sb))
+        self.exec_lcu(rspctl_cmd)
+        rspctl_cmds += rspctl_cmd + "\n"
+        rspctl_cmd = ("rspctl --xcstatistics"
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
                       + " --directory="+directory)
-        self.exec_lcu(rspctl_CMD)
+        self.exec_lcu(rspctl_cmd)
         if self.DryRun:
             self.mockstatistics('xst', integration, duration, directory)
-        rspctl_CMDs += rspctl_CMD
-        return rspctl_CMDs
+        rspctl_cmds += rspctl_cmd
+        return rspctl_cmds
 
     def mockstatistics(self, statistics, integration, duration, directory=None):
         """Make mock statistics data file(s)."""
