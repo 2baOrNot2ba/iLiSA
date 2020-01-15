@@ -48,9 +48,9 @@ class StationDriver(object):
         """
 
         self.mockrun = mockrun
-        if self.mockrun:
-            accessconf_lcu['DryRun'] = True  # mockrun overrides DryRun
         self.lcu_interface = stationcontrol.LCUInterface(accessconf_lcu)
+        if self.mockrun:
+            self.lcu_interface.DryRun = self.mockrun
 
         self.LOFARdataArchive = accessconf_dru['LOFARdataArchive']
         self.bf_data_dir =      accessconf_dru['BeamFormDataDir']

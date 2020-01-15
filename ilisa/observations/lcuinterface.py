@@ -45,7 +45,7 @@ class LCUInterface(object):
         # TODO Remove dependency on scriptsDir:
         # (scripts should run on system-wide PATH)
         self.scriptsDir = "/data/home/"+accessconf['user']+"/scripts/"
-        self.DryRun = accessconf['DryRun']
+        self.DryRun = False  # DryRun means that commands to LCU are not really executed
         self.verbose = True  # Write out LCU commands
         if self.checkaccess() and self.verbose:
             print("Established access to LCU.")
