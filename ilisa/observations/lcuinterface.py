@@ -653,16 +653,15 @@ class LCUInterface(object):
             # TODO Implement select CalTable without using script on lcu
             pass
 
-    def turnoffLBA_LNAs(self,):
-        """Turn-off the LNAs on LBA. (Used as an indication of system
-        temperature."""
-        # TODO allow selection of rcus rather than always all.
-        rspctl_CMD = "rspctl --rcu=0x00034880 --sel=0:191"
+    def turnoffLBA_LNAs(self, select="0:191"):
+        """Turn-off the LNAs on LBA.
+        (Used as an indication of system temperature)"""
+        rspctl_cmd = "rspctl --rcu=0x00034880 --select=" + select
+        self.exec_lcu(rspctl_cmd)
+        if self.verbose:
+            print("Turning OFF LBA LNAs...")
         time.sleep(30)
-        self.exec_lcu(rspctl_CMD)
-        print("Warning: Turning OFF LBA LNAs.")
-        time.sleep(30)
-        return rspctl_CMD
+        return rspctl_cmd
 
     # **SEPTON
     setElem_ON = 128
