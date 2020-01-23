@@ -20,6 +20,7 @@ ALIGNMENT_DEST = os.path.join(os.path.dirname(__file__),'share/alignment/')
 
 
 def _get_casacfg_header(tier, bandarr=None, stnid=None):
+    """Make a casa config header."""
     header = "observatory=LOFAR\n"
     columnlabels = "X Y Z Diam Name"
     if tier == 'ILT':
@@ -43,10 +44,8 @@ def _get_casacfg_header(tier, bandarr=None, stnid=None):
                   )
         columnlabels = "x_hat y_hat z_hat"
     else:
-        print("Tier {} not valid.".format(tier))
-        raise
+        raise ValueError("Tier {} not valid.".format(tier))
     header += ("\n"
-              #+"Created by {}\n".format(os.path.basename(__file__))
               +"Created with {}\n".format("iLiSA")
               +"Created at {}\n".format(datetime.datetime.utcnow())
               +"\n"
