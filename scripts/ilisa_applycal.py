@@ -3,7 +3,8 @@
 """
 
 import argparse
-import ilisa.calim.imaging as imaging
+
+import ilisa.calim.calibration
 
 
 if __name__ == "__main__":
@@ -13,4 +14,4 @@ if __name__ == "__main__":
     parser.add_argument('caltabpath', help="""Path to caltab file""")
     args = parser.parse_args()
 
-    imaging.cvcfolder_applycal(args.cvcpath, args.caltabpath)
+    ilisa.calim.calibration.cvcfolder_applycal(args.cvcpath, args.caltabpath)

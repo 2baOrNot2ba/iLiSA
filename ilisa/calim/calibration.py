@@ -1,4 +1,10 @@
+import shutil
+
 import numpy
+
+import ilisa.calim
+from ilisa.antennameta import calibrationtables as calibrationtables
+from ilisa.observations import dataIO as dataIO, modeparms as modeparms
 
 
 def applycaltab_cvc(cvcunc, caltab, sb=None):
@@ -43,3 +49,50 @@ def applycaltab_cvc(cvcunc, caltab, sb=None):
         g_apply = gg[sb,:,:]
     cvccal = g_apply*cvcunc
     return cvccal
+
+
+def cvcfolder_applycal(cvcpath, caltabpath):
+    """Apply a calibration table file to a CVC folder.
+    This creates a copy of the folder pointed to by cvcpath renamed with a '_cal_'
+    before the ldat suffix. Then it applies the calibration table contained in the
+    caltab file pointed to by caltabpath, to the CVC dataset and copies the caltab
+    file used in the calibrated CVC folder.
+
+    Parameters
+    ----------
+    cvcpath: str
+        Path to CVC folder
+    caltabpath: str
+        Path to caltab file
+    """
+    try:
+        caltab, header = calibrationtables.readcaltab(caltabpath)
+    except:
+        raise
+    ldat_type = dataIO.datafolder_type(cvcpath)
+    if ldat_type != "acc" and ldat_type != "xst":
+        raise ValueError("Not CVC data.")
+    # Copy CVC folder within parent folder and add the tag "_cal_" in the name right
+    # before ldat_type suffix:
+    spltpath = cvcpath.split("_")
+    cvccalpath = "_".join(spltpath[:-1]) + "_cal_" + spltpath[-1]
+    shutil.copytree(cvcpath, cvccalpath)
+    # Read in cvcobj:
+    cvcobj_cal = dataIO.CVCfiles(cvccalpath)
+    nrfiles = cvcobj_cal.getnrfiles()
+    # Loop over files in CVC folder:
+    for filestep in range(nrfiles):
+        if ldat_type == "xst":
+            freq = cvcobj_cal.freqset[filestep][0]  # Freq constant over xst file
+            sb, nz = modeparms.freq2sb(freq)
+        else:
+            sb = None  # Because this signals ACC data
+        # Get actual covariance cubes:
+        cvcdata_unc = cvcobj_cal.getdata(filestep)
+        # Apply calibration
+        cvcdata = ilisa.calim.calibration.applycaltab_cvc(cvcdata_unc, caltab, sb)
+        # Replace uncalibrated data with calibrated:
+        cvcobj_cal.dataset[filestep] = cvcdata
+    cvcobj_cal.save_ldat()
+    # Note in ScanRecInfo about calibrating this dataset:
+    cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
