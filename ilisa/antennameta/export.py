@@ -12,7 +12,7 @@ from ilisa.antennameta.antennafieldlib import parseAntennaField, parseiHBADeltas
 
 BANDARRS = ['LBA', 'HBA']
 CASA_CFG_DTYPE = [('X', float), ('Y', float), ('Z', float), ('Diam', float),
-                  ('Name', 'S5')]
+                  ('Name', 'S7')]
 CASA_CFG_FMT = '%12f %12f %12f %4.1f %s'
 CASA_CFG_DEST = os.path.join(os.path.dirname(__file__), 'share/simmos/')
 ALIGNMENT_DEST = os.path.join(os.path.dirname(__file__), 'share/alignment/')
@@ -212,7 +212,6 @@ def main():
     if args.bandarr is not None:
         bandarrs = [args.bandarr]
 
-    nrstns = len(stnId_list)
     the_maxbaselines = max_stn_baselines()
     for bandarr in bandarrs:
         header = _get_casacfg_header('ILT', bandarr)
@@ -220,18 +219,20 @@ def main():
         #            diam = 55.5
         #        else:
         #            diam = 63.3
-        outtable = np.zeros(nrstns, dtype=CASA_CFG_DTYPE)
+        outtable = np.zeros(0, dtype=CASA_CFG_DTYPE)
         for stnnr, stnid in enumerate(stnId_list):
             if not (stnid == 'NenuFAR' and bandarr == 'HBA'):
                 print('Doing {} {}'.format(stnid, bandarr))
+                row = np.zeros(1, dtype=CASA_CFG_DTYPE)
                 AntFld = parseAntennaField(stnid)
                 position = AntFld[bandarr]['POSITION']
-                outtable['X'][stnnr], outtable['Y'][stnnr], outtable['Z'][stnnr] = position
+                row['X'], row['Y'], row['Z'] = position
                 try:
-                    outtable['Diam'][stnnr] = the_maxbaselines[stnid][bandarr]
+                    row['Diam'] = the_maxbaselines[stnid][bandarr]
                 except KeyError:
-                    outtable['Diam'][stnnr] = the_maxbaselines[stnid]['HBA0']
-                outtable['Name'][stnnr] = stnid
+                    row['Diam'] = the_maxbaselines[stnid]['HBA0']
+                row['Name'] = stnid
+                outtable = np.append(outtable, row)
                 output_arrcfg_station(stnid, bandarr)
                 output_rotmat_station(stnid, bandarr)
             if bandarr == 'HBA' and stnid != 'NenuFAR':
