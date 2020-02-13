@@ -53,7 +53,8 @@ def plotsst(sstff, freqreq):
         show = 'mean'
     intg = obsfolderinfo['integration']
     dur = obsfolderinfo['duration']
-    ts = [starttime + datetime.timedelta(seconds=td) for td in numpy.arange(0., dur, intg)]
+    ts = [starttime + datetime.timedelta(seconds=td) for td in numpy.arange(0., dur, intg
+                                                                            )]
     if show == 'mean':
         meandynspec = numpy.mean(SSTdata, axis=0)
         res = meandynspec
@@ -65,19 +66,19 @@ def plotsst(sstff, freqreq):
             plt.ylabel('Time [h]')
         else:
             # Only one integration so show it as 2D spectrum
-            plt.plot(freqs/1e6, res[0,:])
+            plt.plot(freqs/1e6, res[0, :])
             plt.yscale('log')
             plt.xlabel('Frequency [MHz]')
             plt.ylabel('Power [arb. unit]')
     elif show == 'persb':
         ampVStime = True
-        res = SSTdata[:,:,sbreq]
-        resX = res[0::2,:]
-        resY = res[1::2,:]
+        res = SSTdata[:, :, sbreq]
+        resX = res[0::2, :]
+        resY = res[1::2, :]
         plt.subplot(211)
         if ampVStime:
             plt.plot(ts, numpy.transpose(resX))
-            #plt.gcf().autofmt_xdate()
+            # plt.gcf().autofmt_xdate()
         else:
             plt.pcolormesh(ts, numpy.arange(96), resX, norm=colors.LogNorm())
         plt.title('X pol')
@@ -116,9 +117,9 @@ def plotxst(xstff):
             print("Kill plot window for next plot...")
             plt.imshow(numpy.abs(XSTdata[tidx,...]), norm=normcolor,
                        interpolation='none')
-            plt.title(
-"""Time (from start {}) {}s
-@ freq={} MHz""".format(obsinfo.get_starttime(), ts[tidx], freq/1e6))
+            plt.title("""Time (from start {}) {}s
+                      @ freq={} MHz""".format(obsinfo.get_starttime(), ts[tidx], freq/1e6)
+                      )
             plt.xlabel('RCU [#]')
             plt.ylabel('RCU [#]')
             plt.colorbar()
@@ -133,7 +134,7 @@ def plotacc(accff):
         args.freq = 0.0
     sb, nqzone = modeparms.freq2sb(args.freq)
     for fileidx in range(0, dataobj.getnrfiles()):
-        while sb<512:
+        while sb < 512:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
             absdatplt = ax1.pcolormesh(numpy.abs(data[fileidx][sb]))
             ax1.set_title('Abs value')
@@ -167,8 +168,9 @@ def _plot_bsxst(args):
 
 def image(args):
     """Image visibility-type data."""
+    fluxperbeam = not args.fluxpersterradian
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
-        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."\
+        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
                            .format(args.dataff))
     cvcobj = dataIO.CVCfiles(args.dataff)
     CVCdataset = cvcobj.getdata()
@@ -184,10 +186,11 @@ def image(args):
             intgs = CVCdata.shape[0]
         for tidx in range(args.sampnr, intgs):
             ll, mm, skyimages, polrep, t, freq, stnid, phaseref = \
-                imaging.bf_image(cvcobj, fileidx, tidx, args.phaseref,
-                                 pbcor=args.correctpb)
+                imaging.cvc_image(cvcobj, fileidx, tidx, args.phaseref,
+                                  pbcor=args.correctpb, fluxperbeam=fluxperbeam)
             imaging.plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref,
-                                 integration, calibrated, pbcor=args.correctpb)
+                                 integration, calibrated, pbcor=args.correctpb,
+                                 maskhrz=False, fluxperbeam=fluxperbeam)
 
 
 if __name__ == "__main__":
@@ -202,10 +205,13 @@ if __name__ == "__main__":
     parser_image = subparsers.add_parser('image', help='image help')
     parser_image.set_defaults(func=image)
     parser_image.add_argument('dataff', help="acc or xst filefolder")
-    parser_image.add_argument('-p','--phaseref', type=str, default=None)
-    parser_image.add_argument('-n','--filenr', type=int, default=0)
-    parser_image.add_argument('-s','--sampnr', type=int, default=0)
-    parser_image.add_argument('-c','--correctpb', help="Correct for primary beam",
+    parser_image.add_argument('-p', '--phaseref', type=str, default=None)
+    parser_image.add_argument('-n', '--filenr', type=int, default=0)
+    parser_image.add_argument('-s', '--sampnr', type=int, default=0)
+    parser_image.add_argument('-c', '--correctpb', help="Correct for primary beam",
+                              action="store_true")
+    parser_image.add_argument('-f', '--fluxpersterradian',
+                              help="Normalize flux per sterradian",
                               action="store_true")
 
     args = parser.parse_args()

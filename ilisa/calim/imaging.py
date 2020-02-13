@@ -101,9 +101,9 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     return accphasedup
 
 
-def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=False,
-                         polrep_req='Stokes'):
-    """Image XSTpol data.
+def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=False,
+                     polrep_req='Stokes', fluxperbeam=True):
+    """Beamformed image XSTpol data.
 
     Parameters
     ----------
@@ -122,6 +122,8 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky
         Requested type of representation for the polarimetric data.
         Can be 'Stokes' or 'XY'. (If dreamBeam package not accessible only 'XY' is
         possible)
+    fluxperbeam : bool
+        If True, then the flux is per beam, else the flux is per sterradian.
 
     Returns
     -------
@@ -141,6 +143,7 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky
 
     """
     if not include_autocorr:
+        # Set Autocorrelations to zero:
         for indi in range(2):
             for indj in range(2):
                 numpy.fill_diagonal(xstpol[indi,indj,:,:],0.0)
@@ -161,6 +164,16 @@ def xst2skyim_stn2Dcoord(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky
     skyimag_xy = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 1, ...].squeeze())
     skyimag_yx = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 0, ...].squeeze())
     skyimag_yy = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 1, ...].squeeze())
+    if not fluxperbeam:
+        ll2mm2 = ll**2+mm**2
+        beyond_horizon = ll2mm2 >= 1.0
+        nn = numpy.sqrt(1-ll2mm2.astype('complex'))
+        # Weight values beyond horizon to zero
+        nn[beyond_horizon] = 0.0
+        skyimag_xx = skyimag_xx * nn
+        skyimag_xy = skyimag_xy * nn
+        skyimag_yx = skyimag_yx * nn
+        skyimag_yy = skyimag_yy * nn
     if polrep_req == 'Stokes' and canuse_stokes:
         skyimag_si, skyimag_sq, skyimag_su, skyimag_sv = convertxy2stokes(
             skyimag_xx, skyimag_xy, skyimag_yx, skyimag_yy)
@@ -199,7 +212,8 @@ def nearfield_grd_image(vis_S0, stn2Dcoord, freq, include_autocorr=False):
     return (nfhimage, blankimage, blankimage, blankimage), xx, yy
 
 
-def bf_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimage=True):
+def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimage=True,
+              fluxperbeam=True):
     """Image a CVC object using beamformed synthesis.
 
     Parameters
@@ -282,8 +296,9 @@ def bf_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimage
                                        t, freq, stnPos, antpos, phaseref)
 
         # Make image on phased up visibilities
-        polrep, images, ll, mm = xst2skyim_stn2Dcoord(
-            cvpu, UVWxyz.T, freq, include_autocorr=False, allsky=allsky, polrep_req='XY')
+        polrep, images, ll, mm = beamformed_image(
+            cvpu, UVWxyz.T, freq, include_autocorr=False, allsky=allsky, polrep_req='XY',
+            fluxperbeam=fluxperbeam)
         if pbcor and canuse_dreambeam:
             # Get dreambeam jones:
             pointing = (float(phaseref[0]), float(phaseref[1]), 'STN')
@@ -361,7 +376,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr
 
 
 def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integration,
-                 calibrated, pbcor=None):
+                 calibrated, pbcor=None, maskhrz=True, fluxperbeam=True):
     """Generic plot of images of Stokes components from sky map."""
 
     # Compute extent
@@ -381,31 +396,38 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
         ax_dt_mm.set_title('mm')
         fig_dt.colorbar(im_mm, ax=ax_dt_mm)
         plt.show()
-    hrzrgn = (numpy.sqrt(ll**2+mm**2)>.99)
+    hrzrgn = (ll**2+mm**2>=1.0)
+    pbeamfld = (ll**2+mm**2<0.75**2)  # Primary beam field  (used for color scaling,
+                                     # thus choosen slightly larger than 0.5)
 
-    #norm=colors.LogNorm()
-    norm=None
     xlabel = 'Easting (dir. cos) []'
     ylabel = 'Northing (dir. cos) []'
+    if fluxperbeam:
+        fluxnrmlabel = 'beam'
+    else:
+        fluxnrmlabel = 's.r.'
 
     def plotcomp(compmap, compname, pos):
-        # Avoid horizon:
-        compmap = numpy.ma.masked_where(hrzrgn, compmap)
-        plt.subplot(2, 2, pos)
-        if pos == 1:
-            vmax = None
-            vmin = None
-        else:
-            vmax = 1
-            vmin = -1
+        if maskhrz:
+            # Avoid horizon:
+            compmap = numpy.ma.masked_where(hrzrgn, compmap)
+        plt.subplot(2, 2, pos+1)
+        vmax = numpy.amax(compmap[pbeamfld])
+        vmin = numpy.amin(compmap[pbeamfld])
+        # if pos > 1:
+        #     if vmax > +1:
+        #         vmax = +1
+        #     if vmin < -1:
+        #         vmin = -1
         plt.imshow(compmap, origin='lower', extent=[lmin, lmax, mmin, mmax],
-                   interpolation='none') #, vmax=vmax, vmin=vmin)
+                   interpolation='none', cmap=plt.get_cmap("jet"),
+                   vmax=vmax,vmin=vmin)
         plt.gca().invert_xaxis()
         if pos == 3 or pos == 4:
             plt.xlabel(xlabel)
         if pos == 1 or pos == 3:
             plt.ylabel(ylabel)
-        plt.colorbar()
+        plt.colorbar(label="flux/"+fluxnrmlabel)
         if polrep == 'Stokes':
             polrepstr = 'Stokes'
         else:
@@ -415,22 +437,34 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
     if polrep == 'Stokes':
         # Stokes I
         sI = skyimages[0]  # numpy.ma.masked_where(skyimages[0]<0.0, skyimages[0])
-        plotcomp(sI, 'I', 1)
-
-        # Stokes V
-        sV = skyimages[3]
-        sv = sV / sI
-        plotcomp(sV, 'V', 3)
 
         # Stokes Q
         sQ = skyimages[1]
         sq = sQ / sI
-        plotcomp(sQ, 'Q', 4)
 
         # Stokes U
         sU = skyimages[2]
         su = sU / sI
-        plotcomp(sU, 'U', 2)
+
+        # Stokes V
+        sV = skyimages[3]
+        sv = sV / sI
+
+        s0, s0lbl = sI, 'I'
+        if numpy.amin(sI) > 0.0:
+            s1, s1lbl = sq, 'q'
+            s2, s2lbl = su, 'u'
+            s3, s3lbl = su, 'v'
+        else:
+            # If we have negative Stokes I values then relative Stokes are not meaningful
+            s1, s1lbl = sQ, 'Q'
+            s2, s2lbl = sU, 'U'
+            s3, s3lbl = sV, 'V'
+        plotcomp(s0, s0lbl, 0)
+        plotcomp(s1, s1lbl, 1)
+        plotcomp(s2, s2lbl, 2)
+        plotcomp(s3, s3lbl, 3)
+
     elif polrep == 'XY':
         plotcomp(numpy.real(skyimages[0]), 'XX*', 1)
         plotcomp(numpy.real(skyimages[1]), 'Re(XY*)', 2)
@@ -441,7 +475,9 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
     else:
         caltag = 'Raw'
     plt.suptitle(
-        'Sky Image: PhaseRef={} @ {} MHz\nStation {}, int={}s, UT={}, PbCor={}, {}'\
-        .format(','.join(phaseref), freq/1e6, stnid, integration, t, pbcor, caltag))
+        """Sky Image: PhaseRef={} @ {} MHz,
+        Station {}, int={}s, UT={}, PbCor={}, {}
+        """.format(','.join(phaseref), freq/1e6, stnid, integration, t, pbcor, caltag,
+                   fluxnrmlabel))
     plt.tight_layout(rect=[0, 0.0, 1, 0.95])
     plt.show()
