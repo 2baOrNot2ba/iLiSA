@@ -35,9 +35,9 @@ def fov(freq):
 def phaseref_xstpol(xstpol, obstime0, freq, stnPos, antpos, pointing):
     """ """
     (pntRA, pntDEC, pntref) = pointing
-    pos_ITRF_X = str(stnPos[0,0])+'m'
-    pos_ITRF_Y = str(stnPos[1,0])+'m'
-    pos_ITRF_Z = str(stnPos[2,0])+'m'
+    pos_ITRF_X = str(stnPos[0, 0])+'m'
+    pos_ITRF_Y = str(stnPos[1, 0])+'m'
+    pos_ITRF_Z = str(stnPos[2, 0])+'m'
     obsme = casacore.measures.measures()
     where = obsme.position("ITRF", pos_ITRF_X, pos_ITRF_Y, pos_ITRF_Z)
     what = obsme.direction(pntref, pntRA+"rad", pntDEC+"rad")
@@ -49,14 +49,15 @@ def phaseref_xstpol(xstpol, obstime0, freq, stnPos, antpos, pointing):
     UVWxyz = numpy.zeros((nrant,3))
     for idx in range(nrant):
         bl = obsme.baseline("ITRF",
-            *[str(comp)+'m' for comp in numpy.asarray(antpos[idx,:]).squeeze()])
+                            *[str(comp)+'m' for comp in numpy.asarray(antpos[idx, :]
+                                                                      ).squeeze()])
         UVWxyz[idx,:] = numpy.asarray(obsme.to_uvw(bl)["xyz"].get_value('m'))
     lambda0 = c/freq
     phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
     PP = numpy.einsum('i,k->ik',phasefactors, numpy.conj(phasefactors))
     xstpupol = \
-      numpy.array([[PP*xstpol[0,0,...].squeeze(), PP*xstpol[0,1,...].squeeze()],
-                  [PP*xstpol[1,0,...].squeeze(), PP*xstpol[1,1,...].squeeze()]])
+      numpy.array([[PP*xstpol[0, 0, ...].squeeze(), PP*xstpol[0, 1, ...].squeeze()],
+                  [PP*xstpol[1, 0, ...].squeeze(), PP*xstpol[1, 1, ...].squeeze()]])
     return xstpupol, UVWxyz
 
 
@@ -109,7 +110,10 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=Fal
     ----------
 
     xstpol : array
-        The crosslet statistics data.
+        The crosslet statistics data. Should have format:
+        xstpol[polport1, polport2, elemnr1, elemnr2] where polport1 and polport2 are the
+        two polarization ports, e.g. X and Y, and elemnr1 and elemnr2 are two elements
+        of the interferometer array configuration.
     stn2Dcoord: array
         The 2D array configuration matrix.
     freq : float
@@ -146,8 +150,8 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=Fal
         # Set Autocorrelations to zero:
         for indi in range(2):
             for indj in range(2):
-                numpy.fill_diagonal(xstpol[indi,indj,:,:],0.0)
-    posU, posV = stn2Dcoord[0,:].squeeze(), stn2Dcoord[1,:].squeeze()
+                numpy.fill_diagonal(xstpol[indi, indj, :, :], 0.0)
+    posU, posV = stn2Dcoord[0, :].squeeze(), stn2Dcoord[1, :].squeeze()
     lambda0 = c / freq
     k = 2 * numpy.pi / lambda0
     if not allsky:
@@ -156,7 +160,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=Fal
         lmext = 1.0
     nrpix = 101
     l, m = numpy.linspace(-lmext, lmext, nrpix), numpy.linspace(-lmext, lmext, nrpix)
-    ll, mm = numpy.meshgrid(l,m)
+    ll, mm = numpy.meshgrid(l, m)
     bf = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU)
                            + numpy.einsum('ij,k->ijk', mm, posV)))
     bfbf = numpy.einsum('ijk,ijl->ijkl', bf, numpy.conj(bf))
@@ -178,7 +182,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=Fal
         skyimag_si, skyimag_sq, skyimag_su, skyimag_sv = convertxy2stokes(
             skyimag_xx, skyimag_xy, skyimag_yx, skyimag_yy)
         polrep = 'Stokes'
-        return  polrep, (skyimag_si, skyimag_sq, skyimag_su, skyimag_sv), ll, mm
+        return polrep, (skyimag_si, skyimag_sq, skyimag_su, skyimag_sv), ll, mm
     else:
         polrep = 'XY'
         return polrep, (skyimag_xx, skyimag_xy, skyimag_yx, skyimag_yy), ll, mm
@@ -202,9 +206,6 @@ def nearfield_grd_image(vis_S0, stn2Dcoord, freq, include_autocorr=False):
     yy1 = yy[...,numpy.newaxis]
     rvec = numpy.array([xx1 - posU, yy1 - posV])
     r = numpy.linalg.norm(rvec, axis=0)
-    #plt.imshow(r[:,:,50])
-    #plt.colorbar()
-    #plt.show()
     bf = numpy.exp(-1.j*k*r)
     bfbf = numpy.einsum('ijk,ijl->ijkl', bf, numpy.conj(bf))
     nfhimage = numpy.einsum('ijkl,kl->ij', bfbf, vis_S0)
@@ -266,7 +267,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
 
     # Get/Compute ant positions
     stnPos, stnRot, antpos, stnIntilePos \
-                            = antennafieldlib.getArrayBandParams(stnid, bandarr)
+        = antennafieldlib.getArrayBandParams(stnid, bandarr)
     septon = cvcobj.scanrecinfo.is_septon()
     if septon:
         elmap = cvcobj.scanrecinfo.get_septon_elmap()
@@ -292,7 +293,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
 
     if skyimage:
         # Phase up visibilities
-        cvpu, UVWxyz = phaseref_xstpol(cvpol[:,:,cubeslice,...].squeeze(),
+        cvpu, UVWxyz = phaseref_xstpol(cvpol[:, :, cubeslice, ...].squeeze(),
                                        t, freq, stnPos, antpos, phaseref)
 
         # Make image on phased up visibilities
@@ -304,7 +305,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
             pointing = (float(phaseref[0]), float(phaseref[1]), 'STN')
             jonesfld, stnbasis, j2000basis = primarybeampat(
                 'LOFAR', stnid, bandarr, 'Hamaker', freq, pointing=pointing, obstime=t,
-                lmgrid=(ll,mm))
+                lmgrid=(ll, mm))
             ijones = numpy.linalg.inv(jonesfld)
             bri_ant = numpy.array([[images[0], images[1]],
                                    [images[2], images[3]]])
@@ -319,7 +320,8 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
             images = convertxy2stokes(images[0], images[1], images[2], images[3])
             polrep = 'Stokes'
     else:  # Nearfield image
-        vis_S0 = cvpol[0,0,cubeslice,...].squeeze() + cvpol[0,0,cubeslice,...].squeeze()
+        vis_S0 = cvpol[0, 0, cubeslice, ...].squeeze() \
+                 + cvpol[0, 0, cubeslice, ...].squeeze()
         nfhimages, ll, mm = nearfield_grd_image(vis_S0, antpos, freq,
                                                 include_autocorr=True)
         polrep = 'S0'
@@ -353,9 +355,9 @@ def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
     """Convert xst data to bst data"""
     xst, nrbaselinestot = rm_redundant_bls(xst)
     xstpu, UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos, pointing)
-    bstXX = numpy.sum(xstpu[0,0,...].squeeze(), axis=(0,1))/nrbaselinestot
-    bstXY = numpy.sum(xstpu[0,1,...].squeeze(), axis=(0,1))/nrbaselinestot
-    bstYY = numpy.sum(xstpu[1,1,...].squeeze(), axis=(0,1))/nrbaselinestot
+    bstXX = numpy.sum(xstpu[0, 0, ...].squeeze(), axis=(0, 1))/nrbaselinestot
+    bstXY = numpy.sum(xstpu[0, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
+    bstYY = numpy.sum(xstpu[1, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     return bstXX, bstXY, bstYY
 
 
@@ -454,7 +456,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
         if numpy.amin(sI) > 0.0:
             s1, s1lbl = sq, 'q'
             s2, s2lbl = su, 'u'
-            s3, s3lbl = su, 'v'
+            s3, s3lbl = sv, 'v'
         else:
             # If we have negative Stokes I values then relative Stokes are not meaningful
             s1, s1lbl = sQ, 'Q'
