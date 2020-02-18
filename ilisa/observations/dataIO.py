@@ -296,6 +296,9 @@ class LDatInfo(object):
             else:
                 self.integration = 1.0
                 self.duration_scan = 512
+        self.septonconf = septonconf
+        if self.septonconf is not None:
+            self.rcumode = ['5']
         if self.ldat_type == 'sst':
             self.sb = ""
         elif self.ldat_type.startswith('xst'):
@@ -304,9 +307,7 @@ class LDatInfo(object):
         elif self.ldat_type == 'bst':
             self.sb = self.sb
         self.caltabinfos = caltabinfos
-        self.septonconf = septonconf
-        if self.septonconf is not None:
-            self.rcumode = '5'
+
 
     def obsfoldername(self, folder_name_beamctl_type=True, stnid=None, source_name=None):
         """Create name and destination path for folders (on the DPU) in
