@@ -473,7 +473,6 @@ Will increase total duration to get 1 full repetition.""")
         scanresult['bsx'].set_scanrecparms(bsx_type, freqbndobj.arg,
                                            duration_tot, pointing,
                                            integration, allsky=allsky)
-
         # Move data to archive
         scanresult['bsx'].set_scanpath(scanpath_scdat)
         scanrecpath = scanresult['bsx'].get_scanrecpath()
@@ -481,6 +480,9 @@ Will increase total duration to get 1 full repetition.""")
                                   scanrecpath)
 
     if rec_bfs:
+        scanresult['bfs'].set_stnid(stationdriver.get_stnid())
+        scanresult['bfs'].set_scanrecparms('bfs', band, duration_tot, pointing,
+                                           allsky=allsky)
         # Make a project folder for BFS data
         scanresult['bfs'].set_scanpath(scanpath_scdat)
         scanrecpath = scanresult['bfs'].get_scanrecpath()
@@ -501,9 +503,6 @@ Will increase total duration to get 1 full repetition.""")
                                                         os.path.basename(
                                                             bfsdatapaths[lane])))
             shutil.move(bfslogpaths[lane], scanrecpath)
-        scanresult['bfs'].set_stnid(stationdriver.get_stnid())
-        scanresult['bfs'].set_scanrecparms('bfs', band, duration_tot, pointing,
-                                                  allsky=allsky)
 
     stationdriver.cleanup()
     # Necessary due to possible forking
