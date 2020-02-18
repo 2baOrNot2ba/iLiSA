@@ -228,7 +228,7 @@ class StationDriver(object):
         """Record BST data."""
         rspctl_cmd = self._lcu_interface.rec_bst(integration, duration)
         # beamlet statistics also generate empty *01[XY].dat so remove:
-        self._lcu_interface.rm(self._lcu_interface.lcuDumpDir + "/*01[XY].dat")
+        #self._lcu_interface.rm(self._lcu_interface.lcuDumpDir + "/*01[XY].dat")
         return rspctl_cmd
 
     def rec_sst(self, integration, duration):

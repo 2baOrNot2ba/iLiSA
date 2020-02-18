@@ -113,7 +113,7 @@ class LCUInterface(object):
         if backgroundJOB is True:
             cmdline = "(( "+cmdline+" ) > "+self.lcuHome+"lofarctl.log 2>&1) &"
         if self.verbose:
-            print("{} {} {}".format(preprompt,lcuprompt,cmdline))
+            print("{} {} {}".format(preprompt, lcuprompt, cmdline))
 
         client = paramiko.SSHClient()
         client.load_system_host_keys()
@@ -451,6 +451,8 @@ class LCUInterface(object):
         if directory is None:
             directory = self.lcuDumpDir
         rspctl_cmd = ("rspctl --statistics=beamlet"
+                      + " --select=0,1"  # For ILT stations --select=0,1 is sufficient
+                                         # for both X- and Y- polarisation
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
                       + " --directory="+directory)
@@ -596,12 +598,16 @@ class LCUInterface(object):
         """
         if enable:
             self.exec_lcu(
-        r"sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/ ; s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/ ; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}"\
-            .format(self.ACCsrcDir, self.CalServer_conf), quotes='"')
+            r"""sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/;\
+            s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/;\
+            s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}"""
+                .format(self.ACCsrcDir, self.CalServer_conf), quotes='"')
         else:
             self.exec_lcu(
-        r"sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/; s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/; s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}"\
-            .format(self.CalServer_conf), quotes='"')
+            r"""sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/;\
+            s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/;\
+            s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}"""
+                .format(self.CalServer_conf), quotes='"')
 
     def getCalTableInfo(self, rcumode):
         """Fetch and return the caltable info from the LCU."""
