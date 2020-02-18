@@ -259,7 +259,7 @@ class LDatInfo(object):
 
     """
     def __init__(self, lofardatatype, filenametime, beamctl_cmd, rspctl_cmd,
-                 caltabinfos="", septonconf=""):
+                 caltabinfos="", septonconf=None):
         """Create observation info from parameters."""
         self.ldat_type = lofardatatype
 
@@ -300,12 +300,13 @@ class LDatInfo(object):
             self.sb = ""
         elif self.ldat_type.startswith('xst'):
             self.sb = str(rspctl_args['xcsubband'])
+            self.rcumode = self.rcumode[0]
         elif self.ldat_type == 'bst':
             self.sb = self.sb
         self.caltabinfos = caltabinfos
         self.septonconf = septonconf
-        if self.septonconf != "":
-            self.rcumode = 5
+        if self.septonconf is not None:
+            self.rcumode = '5'
 
     def obsfoldername(self, folder_name_beamctl_type=True, stnid=None, source_name=None):
         """Create name and destination path for folders (on the DPU) in
@@ -412,7 +413,7 @@ class LDatInfo(object):
     def get_recfreq(self):
         """Return data recording frequency in Hz."""
         sb = self.sb
-        if self.ldat_type != "xst-SEPTON" and  not self.septonconf:
+        if self.ldat_type != "xst-SEPTON" and not self.septonconf:
             rcumode = self.rcumode
         else:
             rcumode = 5
