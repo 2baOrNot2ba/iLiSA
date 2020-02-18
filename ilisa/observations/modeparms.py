@@ -58,9 +58,10 @@ def parse_rspctl_args(rspctl_strs):
     Note that rspctl has persistent flags, i.e. multiple rspctl calls add up flags."""
     # TODO: Add the rest of the arguments
     rspctl_args ={}
-    rspctl_parser = argparse.ArgumentParser()
+    rspctl_parser = argparse.ArgumentParser(prog='rspctl')
     rspctl_parser.add_argument('--statistics')
     rspctl_parser.add_argument('--xcstatistics', action='store_true')
+    rspctl_parser.add_argument('--select')
     rspctl_parser.add_argument('--integration')
     rspctl_parser.add_argument('--duration')
     rspctl_parser.add_argument('--xcsubband')
