@@ -287,8 +287,8 @@ class LCUInterface(object):
     def cleanup(self):
         """Clean up all local data dumps. It is usually the ObsSession()
         objects responsibility to call this."""
-        self.exec_lcu("rm -fr " + self.lcuDumpDir + "/*")
-        self.exec_lcu("rm " + self.ACCsrcDir + "/*.dat")
+        self.exec_lcu("rm -f " + self.lcuDumpDir + "/*.dat")
+        self.exec_lcu("rm -f " + self.ACCsrcDir + "/*.dat")
 
     def get_RSPDriver_conf(self):
         """Get RSPDriver configuration settings."""
