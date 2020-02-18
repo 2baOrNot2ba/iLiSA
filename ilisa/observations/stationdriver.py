@@ -84,9 +84,8 @@ class StationDriver(object):
         """Halt observing state on station."""
         if self.checkobservingallowed():
             self._lcu_interface.set_swlevel(0)
-            self.cleanup()
             # Cleanup any data left on LCU.
-            self._lcu_interface.cleanup()
+            self.cleanup()
 
     def __del__(self):
         """May shutdown observation mode on station."""
@@ -111,11 +110,11 @@ class StationDriver(object):
         if self._lcu_interface.verbose:
             print("{} {}".format(cmdprompt, fullcmd))
         subprocess.call(fullcmd, shell=True)
-        # Override DryRun temporarily to really remove source files
-        dryrun = self._lcu_interface.DryRun
-        self._lcu_interface.DryRun = False
-        self._lcu_interface.rm(source)
-        self._lcu_interface.DryRun = dryrun
+        # # Override DryRun temporarily to really remove source files
+        # dryrun = self._lcu_interface.DryRun
+        # self._lcu_interface.DryRun = False
+        # self._lcu_interface.rm(source)
+        # self._lcu_interface.DryRun = dryrun
 
     def getdatalist(self):
         dd_dir, acc_dir = self._lcu_interface.getdatalist()
@@ -158,9 +157,15 @@ class StationDriver(object):
         """Get LCU dump directory from LCU."""
         return  self._lcu_interface.lcuDumpDir
 
-    def cleanup(self):
+    def cleanup(self, forced=False):
         """Clean up on LCU."""
+        if forced:
+            # Override DryRun temporarily to really remove source files
+            dryrun = self._lcu_interface.DryRun
+            self._lcu_interface.DryRun = False
         self._lcu_interface.cleanup()
+        if forced:
+            self._lcu_interface.DryRun = dryrun
 
     def acc_mode(self, enable=True, mock_dur=None):
         """Enable or Disable ACC mode."""
