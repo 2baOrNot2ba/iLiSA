@@ -72,9 +72,10 @@ def parse_rspctl_args(rspctl_strs):
         for rspctl_str in rspctl_line.split(';'):
             rspctl_str_normalized = rspctl_str.replace('=', ' ')
             argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
-            argsdict = { k:v for (k,v) in argsdict.items() if v is not None }
+            argsdict = {k: v for (k, v) in argsdict.items() if v is not None}
             rspctl_args.update(argsdict)
     return rspctl_args
+
 
 def parse_lofar_conf_files(filetext):
     """Parse LOFAR .conf files. Input file text, output dict of content.
