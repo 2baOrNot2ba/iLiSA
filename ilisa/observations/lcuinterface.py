@@ -227,8 +227,8 @@ class LCUInterface(object):
             else:
                 # print got
                 if "shape(stats)=" in got:
-                    if count % 4 == 0:
-                        print(str(int(round(duration-count/4.0*integration, 0)
+                    if count % 2 == 0:
+                        print(str(int(round(duration-count/2.0*integration, 0)
                                       )) + "sec left out of " + str(duration))
                     count += 1
 
@@ -280,7 +280,7 @@ class LCUInterface(object):
         stationmode = getstationmode_out.split()[-1]
         return stationmode
 
-    def rm(self, source):
+    def _rm(self, source):
         """Remove specified source file(s) on LCU."""
         self.exec_lcu("rm -fr " + source)
 
