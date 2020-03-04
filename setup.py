@@ -33,5 +33,12 @@ setup(name='iLiSA',
           'PyYAML',
           'h5py'
       ],
-      scripts=['scripts/ilisa_cmd.py', 'scripts/ilisa_rec.py', 'scripts/ilisa_view.py']
+      entry_points={
+          'console_scripts': [
+              'ilisa_rec = scripts.ilisa_rec:main',
+              'ilisa_cmd = scripts.ilisa_cmd:main',
+              'ilisa_view = scripts.ilisa_view:main',
+          ]
+      }
+      #,scripts=['scripts/ilisa_cmd.py', 'scripts/ilisa_rec.py', 'scripts/ilisa_view.py']
       )

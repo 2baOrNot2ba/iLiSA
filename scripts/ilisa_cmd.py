@@ -91,7 +91,7 @@ def exec_cmdline(args):
     if args.station is None:
         # Try to get station from accessfiles in project config file
         try:
-            args.station = accessfiles.keys().pop()
+            args.station = list(accessfiles.keys()).pop()
         except:
             raise RuntimeError("No stations found for project {}".format(args.project))
     try:
@@ -109,7 +109,9 @@ def exec_cmdline(args):
     args.func(stndrv, args)
 
 
-if __name__ == "__main__":
+def main():
+    """CLI to send hi-level commands to a LOFAR station.
+    """
     args = parse_cmdline(sys.argv[1:])
     exec_cmdline(args)
     with open(LOGFILE, 'a') as lgf:
@@ -119,3 +121,7 @@ if __name__ == "__main__":
             priority_fld = '0'
         lgf.write("{} {} {} {} {}\n".format(args.time, priority_fld, args.project,
                                             args.station, args.cmd))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 """Record local station data with command-line arguments.
 """
 
@@ -12,7 +12,7 @@ import ilisa.observations.modeparms as modeparms
 import ilisa.observations.programs as programs
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-a', '--allsky', help="Set allsky FoV", action='store_true')
     parser.add_argument('-s', '--starttime',
@@ -34,7 +34,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     accessconf = ilisa.observations.default_access_lclstn_conf()
-    stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'], mockrun=True)
+    stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'],
+                                         mockrun=True)
     halt_observingstate_when_finished = False
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
     freqbndobj = modeparms.FrequencyBand(args.freqspec)
@@ -76,9 +77,14 @@ if __name__ == "__main__":
             stndrv, freqbndobj, duration_tot, pointing, starttime=args.starttime,
             rec=[args.datatype], integration=args.integration, allsky=args.allsky,
             duration_frq=None)
-        print("Saved scanrec here: {}".format(scanresult[args.datatype].get_scanrecpath()))
+        print("Saved scanrec here: {}".format(
+            scanresult[args.datatype].get_scanrecpath()))
         scanresult[args.datatype].write()
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print("Finished")
     sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    main()
