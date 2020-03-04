@@ -221,7 +221,7 @@ class LCUInterface(object):
             else:
                 raise ValueError("Unknown output name {}".format(outstrname))
             try:
-                got = cmd.stderr.readline()
+                got = cmd.stderr.readline().decode('utf8')
             except IOError:
                 raise IOError()
             else:
