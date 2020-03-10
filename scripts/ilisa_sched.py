@@ -67,7 +67,7 @@ def sched2at(schedfile):
             cmd, arg = 'obs', scansesfile
         else:
             cmd, arg = 'adm', schedline_cmd
-        cmdline = './ilisa_cmd.py -t {} -p {} -s {} {} {} {}'.format(schedline['start'],
+        cmdline = 'ilisa_cmd -t {} -p {} -s {} {} {} {}'.format(schedline['start'],
                     proj, station, mockflag, cmd, arg)
         # Send ilisa cmds to pipe
         p.communicate(input='{} > err.log\n'.format(cmdline))
