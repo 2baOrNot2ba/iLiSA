@@ -83,7 +83,7 @@ def main():
             ret_dattyp = args.datatype
         print("Saved {} scanrec here: {}".format(args.datatype,
                 scanresult[ret_dattyp].get_scanrecpath()))
-        scanresult['bsx'].write()
+        scanresult[ret_dattyp].write()
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print("Finished")
