@@ -35,7 +35,7 @@ def main():
 
     accessconf = ilisa.observations.default_access_lclstn_conf()
     stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'],
-                                         mockrun=True)
+                                         mockrun=False)
     halt_observingstate_when_finished = False
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
     freqbndobj = modeparms.FrequencyBand(args.freqspec)
@@ -77,9 +77,13 @@ def main():
             stndrv, freqbndobj, duration_tot, pointing, starttime=args.starttime,
             rec=[args.datatype], integration=args.integration, allsky=args.allsky,
             duration_frq=None)
-        print("Saved scanrec here: {}".format(
-            scanresult[args.datatype].get_scanrecpath()))
-        scanresult[args.datatype].write()
+        if bsx_type:
+            ret_dattyp = 'bsx'
+        else:
+            ret_dattyp = args.datatype
+        print("Saved {} scanrec here: {}".format(args.datatype,
+                scanresult[ret_dattyp].get_scanrecpath()))
+        scanresult['bsx'].write()
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print("Finished")
