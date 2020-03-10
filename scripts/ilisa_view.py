@@ -153,7 +153,8 @@ def plotacc(accff):
             sb += 1
 
 
-def _plot_bsxst(args):
+def plot_bsxst(args):
+    lofar_datatype = dataIO.datafolder_type(args.dataff)
     if lofar_datatype =='acc':
         plotacc(args.dataff)
     if lofar_datatype=='bst' or lofar_datatype=='bst-357':
@@ -168,6 +169,7 @@ def _plot_bsxst(args):
 
 def image(args):
     """Image visibility-type data."""
+    lofar_datatype = dataIO.datafolder_type(args.dataff)
     fluxperbeam = not args.fluxpersterradian
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
@@ -193,12 +195,12 @@ def image(args):
                                  maskhrz=False, fluxperbeam=fluxperbeam)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(help='sub-command help')
 
     parser_plot = subparsers.add_parser('plot', help='plot help')
-    parser_plot.set_defaults(func=_plot_bsxst)
+    parser_plot.set_defaults(func=plot_bsxst)
     parser_plot.add_argument('dataff', help="acc, bst, sst or xst filefolder")
     parser_plot.add_argument('freq', type=float, nargs='?', default=None)
 
@@ -216,5 +218,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     args.dataff = os.path.normpath(args.dataff)
-    lofar_datatype = dataIO.datafolder_type(args.dataff)
     args.func(args)
+
+
+if __name__ == "__main__":
+    main()
