@@ -35,8 +35,9 @@ setup(name='iLiSA',
       ],
       entry_points={
           'console_scripts': [
-              'ilisa_rec = scripts.ilisa_rec:main',
               'ilisa_cmd = scripts.ilisa_cmd:main',
+              'ilisa_rec = scripts.ilisa_rec:main',
+              'ilisa_sched = scripts.ilisa_sched:main',
               'ilisa_view = scripts.ilisa_view:main',
           ]
       }
