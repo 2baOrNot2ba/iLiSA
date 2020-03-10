@@ -130,7 +130,7 @@ class ScanRecInfo(object):
             f.write("headerversion: {}\n".format(self.headerversion))
             f.write("stnid: {}\n".format(self.stnid))
             f.write("scanrec: {!r}\n".format(self.scanrecparms))
-            f.write("obs_ids: {!r}\n".format(self.obsinfos.keys()))
+            f.write("obs_ids: {!r}\n".format(list(self.obsinfos.keys())))
 
     def read_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), 'r') as hf:
