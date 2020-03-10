@@ -425,9 +425,9 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
                    interpolation='none', cmap=plt.get_cmap("jet"),
                    vmax=vmax,vmin=vmin)
         plt.gca().invert_xaxis()
-        if pos == 3 or pos == 4:
+        if pos == 2 or pos == 3:
             plt.xlabel(xlabel)
-        if pos == 1 or pos == 3:
+        if pos == 0 or pos == 2:
             plt.ylabel(ylabel)
         plt.colorbar(label="flux/"+fluxnrmlabel)
         if polrep == 'Stokes':
@@ -468,10 +468,10 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
         plotcomp(s3, s3lbl, 3)
 
     elif polrep == 'XY':
-        plotcomp(numpy.real(skyimages[0]), 'XX*', 1)
-        plotcomp(numpy.real(skyimages[1]), 'Re(XY*)', 2)
-        plotcomp(numpy.imag(skyimages[2]), 'Im(YX*)', 3)
-        plotcomp(numpy.real(skyimages[3]), 'YY*', 4)
+        plotcomp(numpy.real(skyimages[0]), 'XX*', 0)
+        plotcomp(numpy.real(skyimages[1]), 'Re(XY*)', 1)
+        plotcomp(numpy.imag(skyimages[2]), 'Im(YX*)', 2)
+        plotcomp(numpy.real(skyimages[3]), 'YY*', 3)
     if calibrated:
         caltag = 'Cal'
     else:
