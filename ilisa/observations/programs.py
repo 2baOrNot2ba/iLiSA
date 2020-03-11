@@ -199,7 +199,7 @@ def record_obsprog(stationdriver, scan):
 
 
 def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
-                starttime='NOW', rec=[], integration=1.0, allsky=False,
+                starttime='NOW', rec=(None,), integration=1.0, allsky=False,
                 duration_frq=None):
     """Run a generic scan.
     
@@ -222,9 +222,9 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
             direction str.
         starttime: str
             The time at which scan should start.
-        rec: [str]
+        rec: tuple
             The types of LOFAR data to record.
-            Is a list of up to three of the following data types:
+            This is a tuple of up to three of the following data types:
                 'acc', 'bfs', 'bst', 'sst', 'xst'
             of which 3 latter types are mutual exclusive.
 
@@ -240,19 +240,22 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
             'sst': Record Subband STatistics data.
 
             'xst': Record Xrosslet STatistics data.
+
+            None: No recording of data.
         duration_frq: float
             Duration in seconds of a sampled frequency within a frequency sweep scan.
         allsky: bool, optional
             HBA allsky mode.
     """
     rec_acc = False; rec_bfs = False; bsx_type = None
-    for recreq in rec:
-        if recreq == 'acc':
-            rec_acc = True
-        elif recreq == 'bfs':
-            rec_bfs = True
-        else:
-            bsx_type = recreq
+    if rec:
+        for recreq in rec:
+            if recreq == 'acc':
+                rec_acc = True
+            elif recreq == 'bfs':
+                rec_bfs = True
+            elif recreq == 'bst' or recreq == 'sst' or recreq == 'xst':
+                bsx_type = recreq
     arraytype = freqbndobj.antsets[-1][:3]
     # Mode logic
     todo_tof = False  # This is the case when arraytype=='LBA'
@@ -272,7 +275,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     stnid = stationdriver.get_stnid()
 
     # Initialize scanresult
-    scanresult = {}
+    scanresult = {'rec': []}
 
     # Setup Calibration tables on LCU:
     CALTABLESRC = 'default'   # FIXME put this in args
@@ -296,6 +299,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         septonconf = None
 
     if rec_acc:
+        scanresult['rec'].append('acc')
         scanresult['acc'] = dataIO.ScanRecInfo()
         scanresult['acc'].set_stnid(stnid)
         # Also duration of ACC sweep since each sb is 1 second.
@@ -350,6 +354,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         scan_id = stationdriver.get_scanid()
 
     if rec_bfs:
+        scanresult['rec'].append('bfs')
         scanresult['bfs'] = dataIO.ScanRecInfo()
         scanresult['bfs'].set_stnid(stnid)
         scanpath_bfdat = os.path.join(stationdriver.bf_data_dir, scan_id)
@@ -367,6 +372,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
     sys.stdout.flush()
 
     if bsx_type is not None:
+        scanresult['rec'].append('bsx')
         scanresult['bsx'] = dataIO.ScanRecInfo()
         scanresult['bsx'].set_stnid(stnid)
         # Record statistic for duration_tot seconds

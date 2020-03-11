@@ -52,7 +52,8 @@ def main():
     do_acc = False
     rec_bfs = False
     sesspath = accessconf['DRU']['LOFARdataArchive']
-    if args.datatype == 'nil':
+    if args.datatype == 'None':
+        args.datatype = None
         bsx_type = None
     elif args.datatype == 'acc':
         do_acc = True
@@ -75,15 +76,14 @@ def main():
         stndrv.scanpath = sesspath
         scanresult = programs.record_scan(
             stndrv, freqbndobj, duration_tot, pointing, starttime=args.starttime,
-            rec=[args.datatype], integration=args.integration, allsky=args.allsky,
+            rec=(args.datatype,), integration=args.integration, allsky=args.allsky,
             duration_frq=None)
-        if bsx_type:
-            ret_dattyp = 'bsx'
-        else:
-            ret_dattyp = args.datatype
-        print("Saved {} scanrec here: {}".format(args.datatype,
-                scanresult[ret_dattyp].get_scanrecpath()))
-        scanresult[ret_dattyp].write()
+        for res in scanresult['rec']:
+            print("Saved {} scanrec here: {}".format(res,
+                                                     scanresult[res].get_scanrecpath()))
+            scanresult[res].write()
+        if not scanresult['rec']:
+            print("No data recorded ('None' selected)")
     else:
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     print("Finished")
