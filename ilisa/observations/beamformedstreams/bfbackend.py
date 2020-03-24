@@ -98,7 +98,7 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
     """Basically a wrapper that runs dump_udp processes to capture beamformed data streams.
     It sets up multiple forked processes that record one lane each."""
     usefork = False
-    use_python_recorder = True
+    use_python_recorder = False
     if usefork:
         child_pids = []
         child_lanes = []
@@ -121,7 +121,7 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
             for lane in lanes:
                 laneproc = multiprocessing.Process(target=_startlanerec,
                                                    args=(lane, starttime, duration, band,
-                                                         bf_data_dir, port0, stnid, False,
+                                                         bf_data_dir, port0, stnid, True,
                                                          retvalq)
                                                    )
                 laneproc.start()
