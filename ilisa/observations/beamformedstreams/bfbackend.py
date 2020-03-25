@@ -14,7 +14,7 @@ dumpercmd = os.path.join(pathtodumper, dumpername)
 # dumpercmd = 'echo'  # For testing purposes
 
 
-def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid):
+def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid, compress):
     """Generate paths and name for BFS recording.
 
     Parameters
@@ -33,6 +33,8 @@ def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid):
         The port number of lane 0.
     stnid :
         Station ID.
+    compress: bool
+        Whether or not compression is used.
 
     Returns
     -------
@@ -60,6 +62,8 @@ def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid):
                                                                         rcumode))
     datafileguess = outarg + '_' + str(port) + '.start.'\
                     + starttime.strftime("%Y-%m-%dT%H:%M:%S") + '.000'
+    if compress:
+        datafileguess += '.zst'
     return outdumpdir, outarg, datafileguess, dumplogname
 
 
@@ -75,18 +79,18 @@ def _startlanerec(lane, starttime, duration, band, bf_data_dir, port0, stnid,
     port = port0 + lane
     outdumpdir, outarg, datafileguess, dumplogname = bfsfilepaths(lane, starttime,
                                                                   band, bf_data_dir,
-                                                                  port0, stnid)
+                                                                  port0, stnid, compress)
     if not os.path.exists(outdumpdir):
         os.mkdir(outdumpdir)
-    subprocess.call(dumpercmd + ' --ports ' + str(port) + ' --check '
-                    + ' --Start ' + starttime.strftime("%Y-%m-%dT%H:%M:%S")
-                    + ' --duration ' + str(duration)
-                    + ' --timeout 9999'
-                    + compress_flag
-                    + ' --out ' + outarg
-                    + ' > ' + dumplogname,
-                    shell=True
-                    )
+    cmdline_full_shell = (dumpercmd + ' --ports ' + str(port) + ' --check '
+                         + ' --Start ' + starttime.strftime("%Y-%m-%dT%H:%M:%S")
+                         + ' --duration ' + str(duration)
+                         + ' --timeout 9999'
+                         + compress_flag
+                         + ' --out ' + outarg
+                         + ' > ' + dumplogname)
+    print("Running: {}".format(cmdline_full_shell))
+    subprocess.call(cmdline_full_shell, shell=True)
     print("{}".format(datafileguess))
     print("{}".format(dumplogname))
     if threadqueue:
