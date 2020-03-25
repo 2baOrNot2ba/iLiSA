@@ -14,7 +14,7 @@ dumpercmd = os.path.join(pathtodumper, dumpername)
 # dumpercmd = 'echo'  # For testing purposes
 
 
-def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid, compress):
+def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid, compress=True):
     """Generate paths and name for BFS recording.
 
     Parameters
