@@ -445,6 +445,7 @@ Will increase total duration to get 1 full repetition.""")
                             (Known are bst, sst, xst)'.format(bsx_type))
 
     if not rec_acc and not rec_bfs and bsx_type is None:
+        print("Will run beam with no active recording for {} seconds.".format(duration_tot))
         # Since we're not recording anything, just do nothing for the duration_tot.
         time.sleep(duration_tot)
 
