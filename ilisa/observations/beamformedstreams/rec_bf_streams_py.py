@@ -39,7 +39,10 @@ def startlane(lane, port, dumppath, dur=None, threadqueue=None):
         print("...got some data at {}".format(start_time))
         datapath = None
         if REC_SET:
-            print("Recording until data-stream times-out.")
+            if not dur:
+                print("Recording until data-stream times-out.")
+            else:
+                print("Recording {} s of data.".format(dur))
             datapath = os.path.join(dumppath,
                                     "{}{}_{}.{}".format(filename_base,
                                                         start_time_near_sec.isoformat(),
@@ -83,7 +86,7 @@ def cli_main():
                         help = "Port number for lane 0"
                         )
     parser.add_argument('-b', '--bfdatadir',
-                        type=str, default='/mnt/lane?/BF/SE607/',
+                        type=str, default='/mnt/lane?/BF/SE607/Scans/',
                         help="Template directory for BF data"
                         )
     parser.add_argument('-d', '--dur',
