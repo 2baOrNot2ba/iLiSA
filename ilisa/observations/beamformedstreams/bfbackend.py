@@ -122,6 +122,7 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
             retvalq = multiprocessing.Queue()
             datafiles = []
             logfiles = []
+            laneprocs = []
             for lane in lanes:
                 laneproc = multiprocessing.Process(target=_startlanerec,
                                                    args=(lane, starttime, duration, band,
@@ -129,6 +130,9 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
                                                          retvalq)
                                                    )
                 laneproc.start()
+                laneprocs.append(laneproc)
+            for laneproc in laneprocs:
+                laneproc.join()
                 datafileguess, dumplogname = retvalq.get()
                 datafiles.append(datafileguess)
                 logfiles.append(dumplogname)
