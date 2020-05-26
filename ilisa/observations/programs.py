@@ -10,6 +10,7 @@ import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.beamformedstreams.bfbackend as bfbackend
 import ilisa.observations.dataIO as dataIO
+from ilisa.observations.stationdriver import waituntil
 
 
 class ObsPrograms(object):
@@ -75,12 +76,14 @@ class ObsPrograms(object):
                 "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
 
         # Wait until it is time to start
-        pause = 5  # Sufficient?
-        if starttime != "NOW":
-            rectime = starttime
-        else:
-            rectime = datetime.datetime.utcnow()
-        self.stationdriver._waittoboot(rectime, pause)
+        starttime_req = starttime
+        warmuptime = 14
+        pause = 0  # Sufficient?
+        beaminittime = 13
+        #self.stationdriver._waittoboot(rectime, pause)
+        margin = datetime.timedelta(seconds=(warmuptime + pause + beaminittime))
+        starttime = waituntil(starttime_req, margin)
+        rectime = starttime
 
         # Necessary since fork creates multiple instances of myobs and each one
         # will call it's __del__ on completion and __del__ shutdown...
@@ -90,7 +93,7 @@ class ObsPrograms(object):
 
         dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
 
-        # BEGIN Dummy or hot beam start: (takes about 10sec)
+        # BEGIN Dummy or hot beam start: (takes about 14sec)
         print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
         self.stationdriver._rcusetup(bits, attenuation)  # setting bits is necessary
         self.stationdriver._run_beamctl(beamlets, subbands, band, dir_bmctl)
@@ -319,17 +322,8 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         stationdriver.acc_mode(enable=True, mock_dur=duration_tot)
 
     # Wait until it is time to start
-    now = datetime.datetime.utcnow()
-    if starttime == "NOW":
-        rectime = now
-    else:
-        rectime = starttime
-    timeleft = rectime - now
-    secondsleft = int(timeleft.total_seconds())
-    if secondsleft < 0:
-        secondsleft = 0
-    print("Waiting {}s to start scan ".format(secondsleft))
-    time.sleep(secondsleft)
+    starttime_req = starttime
+    starttime = waituntil(starttime_req)
 
     # Necessary since fork creates multiple instances of myobs and each one
     # will call it's __del__ on completion and __del__ shutdown...
@@ -354,6 +348,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         scan_id = stationdriver.get_scanid(beamstarted)
     else:
         rcu_setup_cmd, beamctl_cmds = "", ""
+        rectime = starttime
         scan_id = stationdriver.get_scanid()
 
     if rec_bfs:

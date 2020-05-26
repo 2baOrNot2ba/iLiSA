@@ -1,11 +1,13 @@
 import os
 import datetime
+
 import yaml
 import ilisa
 import ilisa.observations
 import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 import ilisa.observations.programs as programs
+from ilisa.observations.stationdriver import waituntil
 
 
 def projid2meta(projectid):
@@ -228,15 +230,26 @@ class ScanSession(object):
         startscantime = sesscans['scans'][0]['starttime']
         if startscantime == 'NOW':
             startscantime = nw
-        bootupstart = startscantime - datetime.timedelta(seconds=10)
+        beaminittime = 13
+        bootupstart = startscantime - datetime.timedelta(seconds=beaminittime)
+
         # Wait until it is time to bootup
-        print("In scansess: Wait until {} to bootup".format(bootupstart))
-        self.stndrv._waittoboot(bootupstart)
+        print("In scansess: Will try to start scansession @ {}".format(bootupstart))
+        if not self.stndrv.isin_observingstate():
+            self.stndrv._waittoboot(bootupstart)
+            self.stndrv.goto_observingstate()
+        else:
+            waituntil(bootupstart)
         scans_done = []
         for scan in sesscans['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
             if scan['obsprog'] is not None:
-                scanresult = programs.record_obsprog(self.stndrv, scan)
+                print("scan", scan)
+                _mockrun = False
+                if not _mockrun:
+                    scanresult = programs.record_obsprog(self.stndrv, scan)
+                else:
+                    scanresult = {}
             else:
                 duration_tot = scan['duration_tot']
                 pointing = scan['beam']['pointing']
@@ -251,6 +264,9 @@ class ScanSession(object):
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)
             self._writescanrecs(scanresult)
             print("Saved scan here: {}".format(scanpath_scdat))
+            print("Finished scan @ {}".format(datetime.datetime.utcnow()))
             scans_done.append(scan)
         sesscans['scans'] = scans_done
         self.save_scansess(sesscans)
+
+

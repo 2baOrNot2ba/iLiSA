@@ -59,6 +59,18 @@ class StationDriver(object):
         self.halt_observingstate_when_finished = False
         self.cleanup()
 
+    def isin_observingstate(self):
+        """Check if station is in main observing state for user.
+        Returns True if it is else False.
+        """
+        if not self.checkobservingallowed():
+            return False
+        swlevel = self._lcu_interface.get_swlevel()
+        if swlevel == 3:
+            return True
+        else:
+            return False
+
     def goto_observingstate(self, warmup=False):
         """Put station into the main observing state.
 
@@ -427,3 +439,20 @@ def capture_data_DAL1(tbbraw2h5cmd, TBBh5dumpDir, observer, antennaSet,
                      + grdcmd)
     print("DPU> {}".format(cmdline))
     subprocess.call(cmdline, shell=True)
+
+
+def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
+    """Wait until datetime. If datetime is 'now' then this is interpreted as current
+     time."""
+    now = datetime.datetime.utcnow()
+    if starttime_req == "NOW":
+        starttime = now
+    else:
+        starttime = starttime_req
+    timeleft = (starttime - margin) - now
+    secondsleft = int(timeleft.total_seconds())
+    if secondsleft < 0:
+        secondsleft = 0
+    print("Waiting {}s before starting.".format(secondsleft))
+    time.sleep(secondsleft)
+    return starttime
