@@ -3,6 +3,7 @@ import sys
 import os
 import subprocess
 import multiprocessing
+import platform
 
 import ilisa.observations.modeparms
 import ilisa.observations.beamformedstreams
@@ -60,7 +61,7 @@ def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid, compress=True
     dumplogname = os.path.join(outdumpdir, '{}_lane{}_rcu{}.log'.format(dumpername,
                                                                         lane,
                                                                         rcumode))
-    datafileguess = outarg + '_' + str(port) + '.start.'\
+    datafileguess = outarg + '_' + str(port) + platform.node()\
                     + starttime.strftime("%Y-%m-%dT%H:%M:%S") + '.000'
     if compress:
         datafileguess += '.zst'
@@ -100,7 +101,7 @@ def _startlanerec(lane, starttime, duration, band, bf_data_dir, port0, stnid,
 
 def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
     """Basically a wrapper that runs dump_udp processes to capture beamformed data streams.
-    It sets up multiple forked processes that record one lane each."""
+    It sets up multiple processes that record one lane each."""
     usefork = False
     use_python_recorder = False
     if usefork:
