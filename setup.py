@@ -22,6 +22,7 @@ setup(name='iLiSA',
           'Intended Audience :: Science/Research',
           'License :: OSI Approved :: ISC License',
           'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3.6',
           'Topic :: Scientific/Engineering :: Astronomy',
           'Topic :: Scientific/Engineering :: Mathematics',
           'Topic :: Scientific/Engineering :: Visualization'
