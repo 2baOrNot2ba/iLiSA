@@ -944,7 +944,7 @@ def saveacc2bst(bst_pols, filestarttimes, calrunstarttime,
         stnid, calrunstarttime.strftime("%Y%m%dT%H%M%S"), rcumode, calsrc,
         calrundurationstr, caltabID, version, dtlabel)
     #acc2bstsuffix = '.dat'
-    pntstr = ilisa.observations.directions.std_pointings(calsrc)
+    pntstr = ilisa.observations.directions.normalizebeamctldir(calsrc)
     # Write out the data.
     if saveformat == 'hdf5':
         hf = h5py.File(acc2bstbase+".hdf5", "w")
