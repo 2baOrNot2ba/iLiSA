@@ -1,7 +1,7 @@
 import os
 import math
-
 import numpy
+import re
 import yaml
 
 import ilisa.observations
@@ -97,7 +97,10 @@ def std_pointings(directionterm='?'):
     elif directionterm is None:
         return None
     else:
-        raise KeyError('Requested source {} unknown.'.format(directionterm))
+        pointing = lookupsource(directionterm)
+        if not pointing:
+            raise KeyError('Requested source {} unknown.'.format(directionterm))
+        return pointing
 
 
 def normalizebeamctldir(gendirstr):
@@ -144,19 +147,65 @@ def lookupsource(src_name):
 
     """
     src_database = {}
-    user_srcs_dir = os.path.join(ilisa.observations.user_data_dir, 'sources')
+    user_srcs_dir = os.path.join(ilisa.observations.user_data_dir, 'source_catalogs')
     user_srcs_files = os.listdir(user_srcs_dir)
 
     for user_srcs_file in user_srcs_files:
         with open(os.path.join(user_srcs_dir, user_srcs_file)) as usf:
-            srcs_data = yaml.load(usf)
+            srcs_cat = yaml.load(usf)
+        srcs_data = srcs_cat['sources']
         for source_entry in srcs_data:
-            source_name = source_entry['source']
-            pointingstr = source_entry['pointing']
-            src_database[source_name] = pointing_str2tuple(pointingstr)
+            source_names = source_entry['name']
+            direction_str = source_entry['direction']
+            if type(source_names) is not list:
+                source_names = [source_names]
+            for source_name in source_names:
+                # No conversion:
+                src_database[source_name] = direction_str
     try:
         pointing = src_database[src_name]
     except KeyError:
-        raise RuntimeError('Source {} not found in {}.'.format(src_name,
-                                                               user_srcs_files))
+        # User query term not found. Return None.
+        return None
     return pointing
+
+
+def read_sched_srccatre(filename):
+    """Read a sched keyin free formatted source catalogue."""
+    with open(filename) as f:
+        srccat_raw = f.read()
+    srccat_bl = re.sub('!.*\n', '\n', srccat_raw)  # Remove comments on lines
+    srccat = re.sub('^\s*\n', '', srccat_bl)  # Remove blank lines
+    srclistentries_split = re.split('/', srccat, re.MULTILINE)
+    srclistentries_el = [line.replace('\n', ' ') for line in srclistentries_split]
+    srclistentries = [line for line in srclistentries_el if line != '']
+    keywords = ['source', 'equinox', 'flux', 'fluxref', 'ra', 'raerr', 'dec', 'decerr',
+                'calcode', 'remarks']
+    keywordsre = '(' + ')('.join(keywords) + ')'
+    valre = '[^' + keywordsre + '($)]+'
+    equinox_default = None
+    for srclistentry in srclistentries:
+        src_ent = {}
+        equinox = None
+        for kw in keywords:
+            kifreefrmt = r"{0}\s*[\s=]\s*({1})".format(kw, valre)
+            m=re.search(kifreefrmt, srclistentry, re.MULTILINE | re.IGNORECASE)
+            if m:
+                val = m.group(1).rstrip()
+                if kw == 'equinox':
+                    equinox =  val
+                if kw == 'source':
+                    # TODO Be a bit more careful here
+                    val = val.replace("'","")
+                    val = val.split(',')
+                src_ent[kw] = val
+        if equinox:
+            equinox_default = equinox
+        else:
+            equinox = equinox_default
+        src_ent['equinox'] = equinox
+        print(src_ent)
+
+if __name__=="__main__":
+    import sys
+    read_sched_srccatre(sys.argv[1])
