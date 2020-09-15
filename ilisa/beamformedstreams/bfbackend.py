@@ -6,11 +6,11 @@ import multiprocessing
 import platform
 
 import ilisa.observations.modeparms
-import ilisa.observations.beamformedstreams
-import ilisa.observations.beamformedstreams.rec_bf_streams_py as rec_bf_streams_py
+import ilisa.beamformedstreams
+import ilisa.beamformedstreams.rec_bf_streams_py as rec_bf_streams_py
 
 dumpername = 'dump_udp_ow_12'
-pathtodumper = os.path.dirname(ilisa.observations.beamformedstreams.__file__)
+pathtodumper = os.path.dirname(ilisa.beamformedstreams.__file__)
 dumpercmd = os.path.join(pathtodumper, dumpername)
 # dumpercmd = 'echo'  # For testing purposes
 
