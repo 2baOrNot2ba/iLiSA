@@ -192,14 +192,14 @@ def nearfield_grd_image(vis_S0, stn2Dcoord, freq, include_autocorr=False):
     """Make a nearfield image along the ground from Stokes I visibility.
     (Useful for RFI)."""
     if not include_autocorr:
-        numpy.fill_diagonal(vis_S0[:,:],0.0)
+        numpy.fill_diagonal(vis_S0[: ,:], 0.0)
     stn2Dcoord = numpy.squeeze(numpy.asarray( stn2Dcoord))
-    posU, posV = stn2Dcoord[:,0].squeeze(), stn2Dcoord[:,1].squeeze()
+    posU, posV = stn2Dcoord[: ,0].squeeze(), stn2Dcoord[: ,1].squeeze()
     lambda0 = c / freq
     k = 2 * numpy.pi / lambda0
-    r_ext = 500.0
+    r_ext = 100.0
     print(r_ext)
-    nrpix = 101
+    nrpix = 2*101
     x, y = numpy.linspace(-r_ext, r_ext, nrpix), numpy.linspace(-r_ext, r_ext, nrpix)
     xx, yy = numpy.meshgrid(x,y)
     xx1 = xx[...,numpy.newaxis]
@@ -320,10 +320,9 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
             images = convertxy2stokes(images[0], images[1], images[2], images[3])
             polrep = 'Stokes'
     else:  # Nearfield image
-        vis_S0 = cvpol[0, 0, cubeslice, ...].squeeze() \
-                 + cvpol[0, 0, cubeslice, ...].squeeze()
-        nfhimages, ll, mm = nearfield_grd_image(vis_S0, antpos, freq,
-                                                include_autocorr=True)
+        vis_S0 = numpy.squeeze(cvpol[0, 0, cubeslice, ...].squeeze()
+                 + cvpol[1, 1, cubeslice, ...].squeeze())
+        nfhimages, ll, mm = nearfield_grd_image(vis_S0, antpos, freq)
         polrep = 'S0'
         images = numpy.real(nfhimages)
 
@@ -472,6 +471,12 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
         plotcomp(numpy.real(skyimages[1]), 'Re(XY*)', 1)
         plotcomp(numpy.imag(skyimages[2]), 'Im(YX*)', 2)
         plotcomp(numpy.real(skyimages[3]), 'YY*', 3)
+    elif polrep == 'S0':
+        print(skyimages.shape)
+        plt.imshow(skyimages[0], origin='lower', extent=[lmin, lmax, mmin, mmax],
+                   interpolation='none', cmap=plt.get_cmap("jet")) #,
+                   #vmax=vmax, vmin=vmin)
+        plt.gca().invert_xaxis()
     if calibrated:
         caltag = 'Cal'
     else:
