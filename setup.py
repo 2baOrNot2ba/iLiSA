@@ -42,5 +42,4 @@ setup(name='iLiSA',
               'ilisa_view = scripts.ilisa_view:main',
           ]
       }
-      #,scripts=['scripts/ilisa_cmd.py', 'scripts/ilisa_rec.py', 'scripts/ilisa_view.py']
       )
