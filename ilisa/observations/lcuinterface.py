@@ -268,7 +268,8 @@ class LCUInterface(object):
         return sb_user
 
     def getstationswitchmode(self):
-        """Get mode of station switch. Can be 'ILT' or 'local' mode."""
+        """Get mode of station switch. Can be 'ILT' or 'local' mode,
+        or `None` if undefined."""
         if self.DryRun:
             return 'local'
         try:
@@ -276,8 +277,9 @@ class LCUInterface(object):
         except:
             # Can happen if no ServiceBroker process running
             print("Warning: ServiceBroker not running")
-            getstationmode_out = ""
-        stationmode = getstationmode_out.split()[-1]
+            stationmode = None
+        else:
+            stationmode = getstationmode_out.split()[-1]
         return stationmode
 
     def _rm(self, source):
@@ -611,6 +613,8 @@ class LCUInterface(object):
 
     def getCalTableInfo(self, rcumode):
         """Fetch and return the caltable info from the LCU."""
+        if self.DryRun:
+            return ""
         if int(rcumode) == 4:
             # Band 30_90 not correctly implemented in "beamctl --calinfo".
             # It uses the 10_90 caltab anyways so:
@@ -628,7 +632,10 @@ class LCUInterface(object):
             # Convert output into a list of dict per antset
             calinfolist = []
             # Strip off first initial lines and split on blank lines
-            calinfooutlist = (''.join(calinfoout.splitlines(1)[2:])).split('\n\n')
+            calinfooutlist = (''.join(calinfoout.splitlines(True)[2:])).split('\n\n')
+            if calinfooutlist[0] == '':
+                # No calinfo. Return blank
+                return ""
             for calinfooutlistitem in calinfooutlist:
                 calinfolistitem = {}
                 for calinfolistitemline in calinfooutlistitem.split('\n'):
