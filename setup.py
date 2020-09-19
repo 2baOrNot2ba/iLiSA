@@ -29,6 +29,7 @@ setup(name='iLiSA',
       ],
       install_requires=[
           'numpy',
+          'scipy',
           'python-casacore',
           'matplotlib',
           'PyYAML',
