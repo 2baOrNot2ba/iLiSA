@@ -43,6 +43,8 @@ def plotbst(bstff):
 def plotsst(sstff, freqreq):
     """Plot SST data."""
     SSTdata, obsfolderinfo = dataIO.readsstfolder(sstff)
+    scanrecinfo = dataIO.ScanRecInfo()
+    scanrecinfo.read_scanrec(sstff)
     starttime = obsfolderinfo['datetime']
     SSTdata = numpy.array(SSTdata)
     freqs = modeparms.rcumode2sbfreqs(obsfolderinfo['rcumode'])
@@ -61,7 +63,9 @@ def plotsst(sstff, freqreq):
         if res.shape[0] > 1:
             plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm())
             plt.colorbar()
-            plt.title('Mean (over RCUs) dynamicspectrum')
+            plt.title('Mean (over RCUs) dynamicspectrum\n'
+                      +'Starttime: {} Station: {}'
+                      .format(starttime, scanrecinfo.stnid))
             plt.xlabel('Frequency [MHz]')
             plt.ylabel('Time [h]')
         else:
