@@ -23,7 +23,8 @@ import ilisa.observations.modeparms
 __version__ = '0.1'
 CALTABDIRROOT = os.path.join(os.path.dirname(__file__), 'share/CalTables/')
 
-def findcaltabpath(rcumode, stnid, obsdatestr=None):
+
+def _findcaltabpath(rcumode, stnid, obsdatestr=None):
     """Find appropriate caltab file based on rcumode stnid and observation
     date.
     """
@@ -65,8 +66,8 @@ def findcaltabpath(rcumode, stnid, obsdatestr=None):
         (caltab_latest, ctheader_latest) = readcaltab(ctfullpath)
         adddatestr(cthist, ctfullpath, ctheader_latest)
         obsdate = datetime.datetime.strptime(obsdatestr, "%Y%m%dT%H%M%S")
-        cthistdates = cthist.keys()
-        caltabdates = [datetime.datetime.strptime(d,"%Y%m%dT%H%M%S") for d in cthistdates]
+        cthistdates = list(cthist.keys())
+        caltabdates = [datetime.datetime.strptime(d, "%Y%m%dT%H%M%S") for d in cthistdates]
         difobscal = [abs(obsdate - d) for d in caltabdates]
         caltabpath = cthist[cthistdates[difobscal.index(min(difobscal))]]
     else:
@@ -95,7 +96,7 @@ def getcaltab(rcumode, stnid, obsdatestr=None):
         The header of the calibration table file.
     """
     rcumode = str(rcumode)
-    caltabpath = findcaltabpath(rcumode, stnid, obsdatestr)
+    caltabpath = _findcaltabpath(rcumode, stnid, obsdatestr)
     (caltab, header) = readcaltab(caltabpath)
     return caltab, header
 
@@ -120,23 +121,24 @@ def readcaltab(caltabfile):
         fin = open(caltabfile, 'rb')
         headline = fin.readline().decode('UTF-8').rstrip()
         if headline != 'HeaderStart':
-          raise Exception("{} is not a CalTable file.".format(caltabfile))
-    except :
+            raise Exception("{} is not a CalTable file.".format(caltabfile))
+    except:
         raise Exception("Cannot use {} as CalTable file.".format(caltabfile))
     observation = {}
     calibration = {}
     comment = []
     while True:
         headline = fin.readline().decode('UTF-8').rstrip()
-        if headline == 'HeaderStop': break
-        (caltabheadmark, caltableheadline) = headline.split('.',1)
+        if headline == 'HeaderStop':
+            break
+        (caltabheadmark, caltableheadline) = headline.split('.', 1)
         var, val = caltableheadline.split('=', 1)
         var = var.rstrip(' ')
         val = val.lstrip(' ')
         if var == 'Comment':
             comment.append(val)
         else:
-            cat, key = var.split('.',1)
+            cat, key = var.split('.', 1)
             if cat == 'Observation':
                 observation[key] = val
             elif cat == 'Calibration':
@@ -151,26 +153,9 @@ def readcaltab(caltabfile):
     return caltab, header
 
 
-def plotcaltab(caltab, header):
-    """Plot a calibration table."""
-    plt.subplot(211)
-    plt.pcolormesh(numpy.abs(caltab.T))
-    plt.xlabel('subband [#]')
-    plt.ylabel('RCU [#]')
-    plt.title('Gain (Abs)\nRCU mode: '+header['Observation']['Mode'])
-    plt.colorbar()
-    plt.subplot(212)
-    plt.pcolormesh(numpy.rad2deg(numpy.angle(caltab.T)))
-    plt.xlabel('subband [#]')
-    plt.ylabel('RCU [#]')
-    plt.title('Gain (Phase)\nRCU mode: '+header['Observation']['Mode'])
-    plt.colorbar()
-    plt.show()
-
-
-def writecaltab(caltabfile, caltab, observation, calibration, comments):
+def writecaltab(filename, caltab, observation, calibration, comments):
     """Write a calibration table to file. Inverse of readcaltab()."""
-    fout = open(caltabfile,'w')
+    fout = open(filename, 'w')
     fout.write('HeaderStart\n')
     for k in observation.keys():
         fout.write('CalTableHeader.Observation.'+k+' = '+observation[k]+'\n')
@@ -194,16 +179,33 @@ def getelemgainampdel(caltab):
     o = numpy.ones((nrsbs,))
     beta = numpy.asarray([fs, o]).T
     betainv = numpy.linalg.pinv(beta)
-    delayNphasercu = numpy.dot(betainv,argsrcusb)
+    delayNphasercu = numpy.dot(betainv, argsrcusb)
     reconstruct = True
     if reconstruct:
-        caltabr=numpy.outer(numpy.ones((nrsbs,)), ampsrcu) * numpy.exp(1j*(
-                        delayNphasercu[1,:]+numpy.outer(fs, delayNphasercu[0,:])))
-        assert numpy.allclose(caltab,caltabr)
+        caltabr = numpy.outer(numpy.ones((nrsbs,)), ampsrcu) * numpy.exp(
+            1j*(delayNphasercu[1, :]+numpy.outer(fs, delayNphasercu[0, :])))
+        assert numpy.allclose(caltab, caltabr)
     return ampsrcu, delayNphasercu
 
 
-if __name__=="__main__":
+def plotcaltab(caltab, header):
+    """Plot a calibration table."""
+    plt.subplot(211)
+    plt.pcolormesh(numpy.abs(caltab.T))
+    plt.xlabel('subband [#]')
+    plt.ylabel('RCU [#]')
+    plt.title('Gain (Abs)\nRCU mode: '+header['Observation']['Mode'])
+    plt.colorbar()
+    plt.subplot(212)
+    plt.pcolormesh(numpy.rad2deg(numpy.angle(caltab.T)))
+    plt.xlabel('subband [#]')
+    plt.ylabel('RCU [#]')
+    plt.title('Gain (Phase)\nRCU mode: '+header['Observation']['Mode'])
+    plt.colorbar()
+    plt.show()
+
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='subparser_name', help='sub-command help')
     parser_show = subparsers.add_parser('show', help='Show contents of caltab file.')
@@ -215,11 +217,10 @@ if __name__=="__main__":
     parser_find.add_argument('date', help="Date of observation.")
     args = parser.parse_args()
     if args.subparser_name == 'show':
-        caltab, header = readcaltab(args.caltab_path)
-        print(header)
-        print(caltab)
-        plotcaltab(caltab, header)
+        caltab_cur, header_cur = readcaltab(args.caltab_path)
+        print(header_cur)
+        print(caltab_cur)
+        plotcaltab(caltab_cur, header_cur)
     elif args.subparser_name == 'find':
         obsdatestr = args.date + 'T000000'
-        print(findcaltabpath(args.rcumode, args.stnid, obsdatestr))
-
+        print(_findcaltabpath(args.rcumode, args.stnid, obsdatestr))
