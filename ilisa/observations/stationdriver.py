@@ -8,6 +8,7 @@ import time
 import datetime
 import subprocess
 import os
+from pathlib import Path
 import multiprocessing
 
 import ilisa.observations.directions
@@ -208,6 +209,40 @@ class StationDriver(object):
         caltabinfo = self._lcu_interface.getCalTableInfo(rcumode)
         return caltabinfo
 
+    def __load_user_rcu_disable_list(self, rcumode):
+        """Load list of rcus that the user wants to disable.
+        This is analogous to the rcu_disable_list() method of LCUinterface,
+        but is defined by user on DRU.
+        """
+        path2disableddir = ilisa.observations.user_conf_dir
+        filename = (path2disableddir + "DISABLED/disabled-mode" + str(rcumode)
+                    + ".txt")
+        fp = Path(filename)
+        if fp.is_file():
+            filecontents = fp.read_text()
+        disabledrcus = filecontents.split(',')
+        return disabledrcus
+
+    def allowed_rcus(self, rcumode):
+        """Get allowed rcus as a flag argument."""
+        nrofrcus = modeparms.nrofrcus
+        #disabledrcu_lcu = self._lcu_interface.rcu_disable_list(rcumode)
+        disabledrcu_usr = self.__load_user_rcu_disable_list(rcumode)
+        disabledrcu_tot = disabledrcu_usr
+        if disabledrcu_tot[0] != '':
+            disabledrcus = [int(rcustr) for rcustr in disabledrcu_tot]
+            allrcus = range(nrofrcus)
+            enabledrcus = [rcu for rcu in allrcus if rcu not in disabledrcus]
+            enabledrcuflagstr = str(enabledrcus[0]) + ":"
+            for rcuidx in range(1, len(enabledrcus) - 1):
+                if enabledrcus[rcuidx] - enabledrcus[rcuidx - 1] != 1:
+                    enabledrcuflagstr += str(enabledrcus[rcuidx - 1]) + "," \
+                                         + str(enabledrcus[rcuidx]) + ":"
+            enabledrcuflagstr += str(enabledrcus[-1])
+        else:
+            enabledrcuflagstr = "0:{}".format(nrofrcus - 1)
+        return enabledrcuflagstr
+
     def _rcusetup(self, bits, attenuation):
         """Setup RCUs on LCU."""
         rcu_setup_cmds = self._lcu_interface.rcusetup(bits, attenuation)
@@ -221,9 +256,9 @@ class StationDriver(object):
     def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
                     attenuation=0, DUMMYWARMUP=False):
         """Form beams with station."""
-        bits = freqbndobj.bits
         if DUMMYWARMUP:
             print("Warning warnup not currently implemented")
+        bits = freqbndobj.bits
         rcu_setup_cmd = self._lcu_interface.rcusetup(bits, attenuation)
         beamctl_cmds = []
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
@@ -231,9 +266,17 @@ class StationDriver(object):
             rcumode = freqbndobj.rcumodes[bandbeamidx]
             beamletIDs = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
-            rcusel = freqbndobj.rcusel[bandbeamidx]
-            beamctl_main = self._lcu_interface.run_beamctl(beamletIDs, subbands,
-                                                           rcumode, pointing, rcusel)
+            # Select RCUs
+            rcus_allowed_set = set(modeparms.seqarg2list(
+                self.allowed_rcus(rcumode)))
+            rcus_desired_set = set(modeparms.seqarg2list(
+                freqbndobj.rcusel[bandbeamidx]))
+            rcu_list = list(rcus_desired_set.intersection(rcus_allowed_set))
+            rcusel = modeparms.seqlists2slicestr(','.join(map(str,rcu_list)))
+            # Run beamctl
+            beamctl_main = self._lcu_interface.run_beamctl(beamletIDs,
+                                                           subbands, rcumode,
+                                                           pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
         return rcu_setup_cmd, beamctl_cmds
 

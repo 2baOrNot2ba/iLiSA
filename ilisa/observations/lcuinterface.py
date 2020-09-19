@@ -20,12 +20,12 @@ from ilisa.observations.modeparms import nrofrcus, band2antset, rcumode2band
 class LCUInterface(object):
     """This class provides an interface to the Local Control Unit (LCU) of an
        International LOFAR station."""
-    lofarroot = "/opt/lofar_local/"
+    lofarroot = "/opt/lofar_local/"  # "/opt/lofar/"
     lofarbin = "/opt/lofar/bin"
     lofaroperationsbin = "/opt/operations/bin"
     lofarstationtestdir = "/localhome/stationtest/"
     # ACCsrcDir is set in CalServer.conf and used when CalServer is running.
-    ACCsrcDir = "/localhome/data/ACCdata/"
+    ACCsrcDir = "/localhome/data/ACCdata/"  # "/data/home/user4/ACCdata/"
     CalServer_conf = lofarroot + "/etc/CalServer.conf"
     RSPDriver_conf = lofarroot + "/etc/RSPDriver.conf"
 
@@ -282,6 +282,11 @@ class LCUInterface(object):
             stationmode = getstationmode_out.split()[-1]
         return stationmode
 
+    def _get_filecontent(self, file):
+        """Get contents of certain file on LCU by name."""
+        filecontents = self._stdoutLCU("cat " + file)
+        return filecontents
+
     def _rm(self, source):
         """Remove specified source file(s) on LCU."""
         self.exec_lcu("rm -fr " + source)
@@ -294,35 +299,19 @@ class LCUInterface(object):
 
     def get_RSPDriver_conf(self):
         """Get RSPDriver configuration settings."""
-        filecontents = self._stdoutLCU("cat "+self.RSPDriver_conf)
+        filecontents = self._get_filecontent(self.RSPDriver_conf)
         rspdriver = parse_lofar_conf_files(filecontents)
         return rspdriver
 
-    def getDISABLEDRCUs(self, rcumode):
-        """Return list of RCUs to be disabled (as determined by ASTRON)."""
+    def rcu_disable_list(self, rcumode):
+        """Return list of RCUs to be disabled.
+         Looks for list in files on LCU (determined by ASTRON).
+        """
         filename = (self.lofarstationtestdir + "DISABLED/disabled-mode"
                     + str(rcumode) + ".txt")
-        filecontents = self._stdoutLCU("cat "+filename)
+        filecontents = self._get_filecontent(filename)
         disabledrcus = filecontents.split(',')
         return disabledrcus
-
-    def selectrcustr(self, rcumode):
-        disabledrcustr = self.getDISABLEDRCUs(rcumode)
-        if disabledrcustr[0] != '':
-            disabledrcus = [int(rcustr) for rcustr in disabledrcustr]
-            allrcus = range(nrofrcus)
-            enabledrcus = [rcu for rcu in allrcus if rcu not in disabledrcus]
-            # difenabrcu = numpy.diff(enabledrcus)
-            enabledrcuflagstr = str(enabledrcus[0])+":"
-            for rcuidx in range(1, len(enabledrcus)-1):
-                if enabledrcus[rcuidx]-enabledrcus[rcuidx-1] != 1:
-                    enabledrcuflagstr += \
-                      str(enabledrcus[rcuidx-1])+","+str(enabledrcus[rcuidx])\
-                      + ":"
-            enabledrcuflagstr += str(enabledrcus[-1])
-        else:
-            enabledrcuflagstr = "0:{}".format(nrofrcus-1)
-        return enabledrcuflagstr
 
     def get_mac_version(self):
         """Get MAC version of station."""
