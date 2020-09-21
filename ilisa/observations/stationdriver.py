@@ -215,8 +215,8 @@ class StationDriver(object):
         but is defined by user on DRU.
         """
         path2disableddir = ilisa.observations.user_conf_dir
-        filename = (path2disableddir + "DISABLED/disabled-mode" + str(rcumode)
-                    + ".txt")
+        filename = os.path.join(path2disableddir, self._lcu_interface.stnid,
+                                "DISABLED", "disabled-mode{}.txt" .format(rcumode))
         fp = Path(filename)
         if fp.is_file():
             filecontents = fp.read_text()
