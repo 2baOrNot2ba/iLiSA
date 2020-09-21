@@ -220,6 +220,8 @@ class StationDriver(object):
         fp = Path(filename)
         if fp.is_file():
             filecontents = fp.read_text()
+        else:
+            filecontents = ""
         disabledrcus = filecontents.split(',')
         return disabledrcus
 
