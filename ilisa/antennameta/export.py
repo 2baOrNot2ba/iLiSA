@@ -6,11 +6,9 @@ import os
 import datetime
 import argparse
 import numpy as np
-import matplotlib.pyplot as plt
-from ilisa.antennameta.antennafieldlib import parseAntennaField, parseiHBADeltasfile,\
-    getArrayBandParams, list_stations
+from ilisa.antennameta.antennafieldlib import parseAntennaField, parseiHBADeltasfile, \
+    getArrayBandParams, list_stations, BANDARRS
 
-BANDARRS = ['LBA', 'HBA']
 CASA_CFG_DTYPE = [('X', float), ('Y', float), ('Z', float), ('Diam', float),
                   ('Name', 'S7')]
 CASA_CFG_FMT = '%12f %12f %12f %4.1f %s'
@@ -133,51 +131,6 @@ def max_stn_baselines():
             #print stnid, bandarr, nrelems, max(absuvwelemnr)
             the_maxbaselines[stnid][bandarr] = max(absuvwelemnr)
     return the_maxbaselines
-
-
-def plot_arrayconfiguration(stnid, bandarr, coordsys='local'):
-    """Plot different kinds of array configurations. """
-    if stnid == 'ILT':
-        tier = 'ILT'
-        stnId_list = list_stations()
-        pos = []
-        names = []
-        for stnid_ in stnId_list:
-            names.append(stnid_)
-            stnpos, stnrot, stnrelpos, stnintilepos = getArrayBandParams(stnid_, bandarr)
-            pos.append(np.asarray(stnpos).squeeze().tolist())
-        pos = np.array(pos)
-    else:
-        if bandarr == 'tile':
-            tier = 'tile'
-            bandarr = 'HBA'
-        stnpos, stnrot, stnrelpos, stnintilepos = getArrayBandParams(stnid, bandarr)
-        if coordsys == 'local':
-            stnrelpos = stnrelpos * stnrot
-            stnintilepos = stnintilepos * stnrot
-        if tier == 'tile':
-            pos = np.asarray(stnintilepos)
-            nameprefix = 'elem'
-        else:
-            pos = np.asarray(stnrelpos)
-            nameprefix = 'ant'
-        names = [nameprefix+str(elem) for elem in range(pos.shape[0])]
-    # Plot
-    from mpl_toolkits.mplot3d import Axes3D  # Needed for projection='3d' to work.
-    fig = plt.figure()
-    ax = fig.gca(projection='3d')
-    ax.set_title("Array configuration of {} {} in coordsys {}".format(stnid, bandarr,
-                                                                      coordsys))
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-    ax.set_aspect('equal')
-    ax.plot(pos[:, 0], pos[:, 1], pos[:, 2], '*')
-    for idx, name in enumerate(names):
-        ax.text(pos[idx,0],pos[idx,1],pos[idx,2], name, fontsize=7)
-    if stnid != 'ILT':
-        ax.set_zlim(1e5*ax.get_zlim3d())
-    plt.show()
 
 
 def print_maxbaselines():

@@ -7,17 +7,17 @@ such that
     r_ITRF = ROTATION_MATRIX * r_stn where r are 3-element column vectors.
 """
 
-import sys
 import numpy as np
 import os
 from os.path import dirname
-import argparse
 
-__version__ = 0.1
+__version__ = 0.2
+
 STATICMETADATA = os.path.join(dirname(__file__),'share/StaticMetaData/')
 ANTENNAFIELDDIR = STATICMETADATA
 IHBADELTASDIR = os.path.join(dirname(__file__),'share/iHBADeltas/')
 IHBADELTASDIR = STATICMETADATA
+
 COMMENT_CHAR = '#'
 AFfileNameType = 3
 
@@ -216,15 +216,6 @@ def getArrayBandParams(stnid, arrband):
     return stnpos, stnrot, stnrelpos, stnintilepos
 
 
-def printantennafieldfile():
-    parser = argparse.ArgumentParser()
-    #parser.add_argument("antenna_field_file")
-    parser.add_argument("stnid")
-    args = parser.parse_args()
-    AFD  = parseAntennaField(args.stnid)
-    print(AFD)
-
-
 def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
     """List all the available LOFAR station-ids.
     """
@@ -238,21 +229,4 @@ def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
     return stnId_list
 
 
-def main():
-    stnId_list = list_stations()
-    parser = argparse.ArgumentParser()
-    parser.add_argument("stnid", help='Choose a station: {}'.format(','.join(stnId_list)))
-    parser.add_argument("bandarr", help='Choose HBA or LBA')
-    args = parser.parse_args()
-    stnpos, stnrot, stnrelpos, stnintilepos = \
-            getArrayBandParams(args.stnid, args.bandarr)
-    print("Position:\n{}".format(stnpos))
-    print("Rotation:\n{}".format(stnrot))
-    print("Relative positions:\n{}".format(stnrelpos))
-    print("In-tile positions:\n{}".format(stnintilepos))
-
-
-if __name__ == '__main__':
-    #main()
-    printantennafieldfile()
-
+BANDARRS = ['LBA', 'HBA']
