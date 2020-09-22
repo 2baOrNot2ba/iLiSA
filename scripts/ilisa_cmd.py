@@ -27,6 +27,21 @@ def handback(stndrv):
     idle(stndrv)
 
 
+def checkobs(stndrv):
+    """Check if user can observe on LCU."""
+    is_inobsstate = stndrv.isin_observingstate()
+    print("User can observe on station {} now: {}".format(stndrv.get_stnid(),
+          is_inobsstate))
+    if not is_inobsstate:
+        obs_allowed = stndrv.checkobservingallowed()
+        if obs_allowed:
+
+            reason = "swlevel not 3"
+        else:
+            reason = "Observing not allowed now"
+        print("Reason: {}.".format(reason))
+
+
 def adm(stndrv, args):
     """Dispatch admin commands."""
     if args.admcmd == 'boot':
@@ -35,6 +50,8 @@ def adm(stndrv, args):
         idle(stndrv)
     elif args.admcmd == 'handback':
         handback(stndrv)
+    elif args.admcmd == 'checkobs':
+        checkobs(stndrv)
     args.cmd = args.admcmd
 
 
