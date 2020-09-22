@@ -323,26 +323,26 @@ class LCUInterface(object):
     def get_swlevel(self):
         """Get current Software Level of station. Returns a string which
         under normal local mode operations is an integer between 0-3."""
-        swlevel = self._stdoutLCU("swlevel -S")
-        if self.DryRun:
-            swlevel = 'Mock 3'
+        if not self.DryRun:
+            swlevel = int(self._stdoutLCU("swlevel -S"))
+        else:
+            swlevel = 3
         return swlevel
 
-    def set_swlevel(self, swleveltarget=3, FullReboot=False):
+    def set_swlevel(self, swleveltarget=3, fullreboot=False):
         """Set station's software level. swleveltarget=3 is the swlevel for which
         most observations take place."""
         swlevel_changed = False
-        if not FullReboot:
-            print("Checking swlevel (prior to running observations)")
-            if not self.DryRun:
+        if not self.DryRun:
+            if not fullreboot:
                 swlevel = self.get_swlevel()
-                if swlevel != str(swleveltarget):
-                    self.exec_lcu("swlevel " + str(swleveltarget))
+                if swlevel != swleveltarget:
+                    self.exec_lcu("swlevel {}".format(swleveltarget))
                     swlevel_changed = True
-        else:
-            # For completeness swlevel 0, but swlevel 1 is faster
-            self.exec_lcu("swlevel 0; swlevel " + str(swleveltarget))
-            swlevel_changed = True
+            else:
+                # For completeness swlevel 0, but swlevel 1 is faster
+                self.exec_lcu("swlevel 0; swlevel {}".format(swleveltarget))
+                swlevel_changed = True
         return swlevel_changed
 
     def stop_beam(self):

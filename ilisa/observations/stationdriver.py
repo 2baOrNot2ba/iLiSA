@@ -107,7 +107,7 @@ class StationDriver(object):
         elif self.exit_check:
             if self.checkobservingallowed():
                 swlevel = self._lcu_interface.get_swlevel()
-                if int(swlevel) != 0:
+                if swlevel != 0:
                     print("Warning: You are leaving station in swlevel {} != 0"
                           .format(swlevel))
 
