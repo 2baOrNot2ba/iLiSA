@@ -235,7 +235,7 @@ class ScanSession(object):
 
         # Wait until it is time to bootup
         print("In scansess: Will try to start scansession @ {}".format(bootupstart))
-        if not self.stndrv.isin_observingstate():
+        if not self.stndrv.is_in_observingstate():
             self.stndrv._waittoboot(bootupstart)
             self.stndrv.goto_observingstate()
         else:

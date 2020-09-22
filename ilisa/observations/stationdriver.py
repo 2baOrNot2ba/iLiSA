@@ -60,7 +60,7 @@ class StationDriver(object):
         self.halt_observingstate_when_finished = False
         self.cleanup()
 
-    def isin_observingstate(self):
+    def is_in_observingstate(self):
         """Check if station is in main observing state for user.
         Returns True if it is else False.
         """
