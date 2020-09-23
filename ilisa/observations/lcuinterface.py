@@ -14,7 +14,7 @@ except ImportError:
 import ilisa.observations
 from ilisa.observations.modeparms import parse_lofar_conf_files
 # LOFAR constants
-from ilisa.observations.modeparms import nrofrcus, band2antset, rcumode2band
+from ilisa.observations.modeparms import band2antset, rcumode2band
 
 
 class LCUInterface(object):
@@ -30,37 +30,37 @@ class LCUInterface(object):
     RSPDriver_conf = lofarroot + "/etc/RSPDriver.conf"
 
     def checkLCUenv(self):
-        """Check the LCU environment, especially for datataking assumptions."""
+        """Check the LCU environment, especially for data taking assumptions."""
         if self.DryRun:
             return True, True
         envpath = self._stdoutLCU("env | grep '^PATH'")
         envpath = envpath.split("=")[1].split(":")
         if self.lofarbin in envpath and self.lofaroperationsbin in envpath:
-            pathOK = True
+            path_ok = True
         else:
-            pathOK = False
+            path_ok = False
         try:
-            ls_lcuDumpDir, ls_ACCsrcDir = self.getdatalist()
-        except OSError as err:
-            datadirsOK = False
+            self.getdatalist()
+        except OSError:
+            datadirs_ok = False
         else:
-            datadirsOK = True
-        return pathOK, datadirsOK
+            datadirs_ok = True
+        return path_ok, datadirs_ok
 
     def checkaccess(self):
         """Check that this object has access to LCU.
         Note: It does this by trying to get the MAC version number."""
-        self.MACversion = ""
+        mac_version = ""
         try:
-            self.MACversion = self.get_mac_version()
+            mac_version = self.get_mac_version()
         except Exception:
             print("Error: Station object cannot access station with URL: "
                   + self.lcuURL)
-        if self.MACversion is not "":
-            self.accessible = True
+        if mac_version is not "":
+            accessible = True
         else:
-            self.accessible = False
-        return self.accessible
+            accessible = False
+        return accessible
 
     def __init__(self, lcuaccessconf=None):
         if lcuaccessconf is None:
@@ -84,12 +84,13 @@ class LCUInterface(object):
         self.scriptsDir = "/data/home/" + lcuaccessconf['user'] + "/scripts/"
         self.DryRun = False  # DryRun means commands to LCU are not executed
         self.verbose = True  # Write out LCU commands
-        if self.checkaccess() and self.verbose:
+        self.accessible = self.checkaccess()
+        if self.accessible and self.verbose:
             print("Established access to LCU.")
-        pathOK, datadirsOK = self.checkLCUenv()
-        assert pathOK, "Check $PATH on LCU. Needs to have {} and {}." \
+        path_ok, datadirs_ok = self.checkLCUenv()
+        assert path_ok, "Check $PATH on LCU. Needs to have {} and {}." \
             .format(self.lofarbin, self.lofaroperationsbin)
-        assert datadirsOK, "Check that data folders {} and {} on LCU." \
+        assert datadirs_ok, "Check that data folders {} and {} on LCU." \
             .format(self.lcuDumpDir, self.ACCsrcDir)
 
     def __del__(self):
@@ -205,8 +206,8 @@ class LCUInterface(object):
             print(prePrompt+LCUprompt+cmdline)
         if self.DryRun is False:
             cmd = subprocess.Popen(shellinvoc+" '"+cmdline+"'",
-                               stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                               stderr=subprocess.PIPE, shell=True)
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, shell=True)
         else:
             return None
         count = 0
@@ -280,9 +281,9 @@ class LCUInterface(object):
             stationmode = getstationmode_out.split()[-1]
         return stationmode
 
-    def _get_filecontent(self, file):
+    def _get_filecontent(self, filename):
         """Get contents of certain file on LCU by name."""
-        filecontents = self._stdoutLCU("cat " + file)
+        filecontents = self._stdoutLCU("cat " + filename)
         return filecontents
 
     def _rm(self, source):
@@ -378,7 +379,7 @@ class LCUInterface(object):
         if attenuation:
             # NOTE attenuation only set when beamctl is runnning.
             rcu_setup_cmds += "rspctl --rcuattenuation="+str(attenuation)+" ; "
-        #rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
+        # #rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
         self.exec_lcu(rcu_setup_cmds)
         if self.DryRun:
             self.bits = bits
@@ -397,11 +398,10 @@ class LCUInterface(object):
             for l in ans:
                 rsplnnr, head1684,  bitsstr = l.split(':', 2)
                 rsp_nr = int(rsplnnr[4:6])
-                rspbits.append( (rsp_nr, int(bitsstr.lstrip())) )
+                rspbits.append((rsp_nr, int(bitsstr.lstrip())))
             # Will assume all rsp board have same bit depth:
             bits = rspbits[0][1]
-        self.bits = bits
-        return self.bits
+        return bits
 
     def _setup_beamctl(self, beamlets, subbands, band, anadigdir, rcus,
                        beamdurstr=''):
@@ -417,8 +417,8 @@ class LCUInterface(object):
         except ValueError:
             pass    # It's not an rcumode. Assume it's a proper band descriptor
         antset = band2antset(band)
-        beamctl_cmd = ("beamctl --antennaset=" + antset +" --rcus=" + rcus
-                       + " --band=" + band +" --beamlets=" + beamlets
+        beamctl_cmd = ("beamctl --antennaset=" + antset + " --rcus=" + rcus
+                       + " --band=" + band + " --beamlets=" + beamlets
                        + " --subbands=" + subbands
                        + " --anadir=" + anadir + beamdurstr
                        + " --digdir=" + digdir + beamdurstr)
@@ -550,7 +550,7 @@ class LCUInterface(object):
 
     def run_tbbctl(self, select=None, alloc=False, free=False, record=False, stop=False,
                    mode=None, storage=None, readall=None, cepdelay=None,
-                   backgroundJOB = False):
+                   backgroundJOB=False):
         """Run the tbbctl command on the LCU with arguments given."""
         tbbctl_args = ""
 
@@ -600,6 +600,7 @@ class LCUInterface(object):
 
     def getCalTableInfo(self, rcumode):
         """Fetch and return the caltable info from the LCU."""
+        calinfo = None
         if self.DryRun:
             return ""
         if int(rcumode) == 4:
@@ -607,11 +608,9 @@ class LCUInterface(object):
             # It uses the 10_90 caltab anyways so:
             rcumode = 3
         if self.usescriptonlcu:
-            calinfo = subprocess.check_output("ssh "
-                                                   + self.lcuURL
-                                                   + " "+"infoCalTable.sh"+" "
-                                                   + str(rcumode),
-                                                   shell=True)
+            calinfo = subprocess.check_output("ssh " + self.lcuURL + " "
+                                              + "infoCalTable.sh"+ " "
+                                              + str(rcumode), shell=True)
         else:
             calinfoout =self._stdoutLCU("beamctl --calinfo")
             if self.DryRun:
@@ -638,17 +637,18 @@ class LCUInterface(object):
                     break
         return calinfo
 
-    def selectCalTable(self, which):
+    def selectCalTable(self, which='default'):
         """This is specific to an lcu which has the script SelectCalTable.sh
         with which a user can switch between different caltables. se607c has
         this at /opt/lofar_local/bin/
         """
         if self.usescriptonlcu:
-            if which == 'default':
-                SelCalTabArg = "0"
-            elif which == 'local':
-                SelCalTabArg = "1"
-            self.exec_lcu("SelectCalTable.sh" + " " + SelCalTabArg)
+            if which == 'local':
+                selcaltabarg = "1"
+            else:
+                # default
+                selcaltabarg = "0"
+            self.exec_lcu("SelectCalTable.sh" + " " + selcaltabarg)
         else:
             # TODO Implement select CalTable without using script on lcu
             pass
@@ -690,18 +690,18 @@ class LCUInterface(object):
                      + " --select="+str(2*tileNr)+","+str(2*tileNr+1)
             self.exec_lcu(lcucmd)
 
-    def turnoffElinTile_byEl(self, elemsOn):
+    def turnoffElinTile_byEl(self, elems_on):
         """"Turn off all elements per tile except the one specificied in list.
         Execution is done by element, which is less intuitive but faster."""
         self.run_rspctl(mode='5')
         for elNr in range(self.elementsInTile):
-            tiles = [ind for ind in range(self.nrTiles) if elNr == elemsOn[ind]]
+            tiles = [ind for ind in range(self.nrTiles) if elNr == elems_on[ind]]
             if len(tiles) == 0:
                 continue
-            tileMap = [self.setElem_OFF for elemNr in range(self.elementsInTile)]
-            tileMap[elNr] = self.setElem_ON
+            tile_map = [self.setElem_OFF for elemNr in range(self.elementsInTile)]
+            tile_map[elNr] = self.setElem_ON
             rcus = self._tiles2rcus(tiles)
             lcucmd = "rspctl --hbadelay="\
-                     + str(tileMap).strip('[]').replace(" ", "")\
+                     + str(tile_map).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
             self.exec_lcu(lcucmd)
