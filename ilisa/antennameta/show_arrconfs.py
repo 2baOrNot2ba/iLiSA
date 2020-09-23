@@ -28,14 +28,6 @@ def inspect_arrayconfiguration(view, stnid, bandarr, coordsys='local'):
         if coordsys == 'local':
             stnrelpos = stnrelpos * stnrot
             stnintilepos = stnintilepos * stnrot
-            xlbl = 'p'
-            ylbl = 'q'
-            zlbl = 'r'
-        else:
-            # ITRF
-            xlbl = 'X'
-            ylbl = 'Y'
-            zlbl = 'Z'
         if tier == 'tile':
             pos = np.asarray(stnintilepos)
             nameprefix = 'elem'
@@ -47,7 +39,19 @@ def inspect_arrayconfiguration(view, stnid, bandarr, coordsys='local'):
             pos = np.asarray(stnrelpos)
 
         names = [nameprefix+str(elem) for elem in range(pos.shape[0])]
-    if view=='print':
+
+    # Set coord. labels:
+    if coordsys == 'local':
+        xlbl = 'p'
+        ylbl = 'q'
+        zlbl = 'r'
+    else:
+        # ITRF
+        xlbl = 'X'
+        ylbl = 'Y'
+        zlbl = 'Z'
+
+    if view == 'print':
         for idx in range(len(names)):
             print(names[idx], pos[idx, 0], pos[idx, 1], pos[idx, 2])
     else:
@@ -72,11 +76,11 @@ def inspect_arrayconfiguration(view, stnid, bandarr, coordsys='local'):
 
 
 def printantennafieldfile(stnid):
-    AFD  = parseAntennaField(stnid)
-    print(AFD)
+    afd = parseAntennaField(stnid)
+    print(afd)
 
 
-def print_arrayconfiguration(stnid, bandarr, coordsys='local'):
+def print_arrayconfiguration(stnid, bandarr):
     stnpos, stnrot, stnrelpos, stnintilepos = \
             getArrayBandParams(stnid, bandarr)
     print("Position:\n{}".format(stnpos))
