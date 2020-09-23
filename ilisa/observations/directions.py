@@ -152,7 +152,7 @@ def lookupsource(src_name):
 
     for user_srcs_file in user_srcs_files:
         with open(os.path.join(user_srcs_dir, user_srcs_file)) as usf:
-            srcs_cat = yaml.load(usf)
+            srcs_cat = yaml.safe_load(usf)
         srcs_data = srcs_cat['sources']
         for source_entry in srcs_data:
             source_names = source_entry['name']

@@ -17,7 +17,7 @@ def projid2meta(projectid):
         projectfile =  "project_"+projectid+".yml"
         projectfile = os.path.join(ilisa.observations.user_conf_dir, projectfile)
         with open(projectfile) as projectfilep:
-            projectprofile = yaml.load(projectfilep)
+            projectprofile = yaml.safe_load(projectfilep)
         projectmeta = projectprofile['project']
         accessfiles = projectprofile['accessfiles']
     else:

@@ -13,7 +13,7 @@ DEFAULT_PROJ = 0
 
 def sched2at(schedfile):
     with open(schedfile, 'rb') as file:
-        schedtab = yaml.load(file)
+        schedtab = yaml.safe_load(file)
     # Setup possible global schedule variables
     mockflag = ''
     try:

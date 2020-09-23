@@ -58,7 +58,7 @@ def adm(stndrv, args):
 def obs(stndrv, args):
     """Observe a scansession from ScanSes file."""
     with open(args.file, 'r') as f:
-        scansess_in = yaml.load(f)
+        scansess_in = yaml.safe_load(f)
     scansess_in['start'] = args.time
     scansess_in['mockrun'] = args.mockrun
     scansess_in['projectid'] = args.project
@@ -120,7 +120,7 @@ def exec_cmdline(args):
     userilisadir = ilisa.observations.user_conf_dir
     acf_path = os.path.join(userilisadir, acf_name)
     with open(acf_path) as acffp:
-        ac = yaml.load(acffp)
+        ac = yaml.safe_load(acffp)
     # Initialize stationdriver :
     stndrv = stationdriver.StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
     args.func(stndrv, args)

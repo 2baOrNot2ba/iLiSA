@@ -8,5 +8,5 @@ def default_access_lclstn_conf():
     """Return the default access local station configuration."""
     accessconffile = os.path.join(user_conf_dir, 'access_lclstn.conf')
     with open(accessconffile) as cfigfilep:
-        accessconf = yaml.load(cfigfilep)
+        accessconf = yaml.safe_load(cfigfilep)
     return accessconf

@@ -135,7 +135,7 @@ class ScanRecInfo(object):
     def read_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), 'r') as hf:
             try:
-                scanrecfiledict = yaml.load(hf)
+                scanrecfiledict = yaml.safe_load(hf)
             except Exception as e:
                 print("Couldn't load yaml formatted scan header file.")
         self.headerversion = scanrecfiledict['headerversion']
@@ -468,7 +468,7 @@ class LDatInfo(object):
                     if "rspctl" in line:
                         rspctl_lines.append(line)
             elif headerversion == '2':
-                contents = yaml.load(hf)
+                contents = yaml.safe_load(hf)
                 observer = contents['Observer']
                 project = contents['Project']
                 datatype = contents['DataType']
@@ -477,7 +477,7 @@ class LDatInfo(object):
                 beamctl_line = contents['BeamctlCmds']
                 rspctl_lines = contents['RspctlCmds'].split('\n')
             else:
-                contents = yaml.load(hf)
+                contents = yaml.safe_load(hf)
                 datatype = contents['datatype']
                 starttime = contents['filetime']
                 beamctl_line = contents['beamctl_cmds']
