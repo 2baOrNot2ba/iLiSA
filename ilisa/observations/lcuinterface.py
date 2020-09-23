@@ -29,32 +29,6 @@ class LCUInterface(object):
     CalServer_conf = lofarroot + "/etc/CalServer.conf"
     RSPDriver_conf = lofarroot + "/etc/RSPDriver.conf"
 
-    def setupaccess(self, accessconf):
-        """Initialize with user-station configuration."""
-        self.stnid = accessconf['stnid']
-        self.user = accessconf['user']
-        self.hostname = accessconf['hostname']
-        self.lcuURL = self.user+"@"+self.hostname
-        self.lcuHome = accessconf['home']
-        # This where the statistics data goes:
-        self.lcuDumpDir = accessconf['dumpdir']
-        # Should lcu scripts be used?:
-        self.usescriptonlcu = accessconf['usescriptonlcu']
-        # TODO Implement condition: if self.usescriptonlcu:
-        # This is where the scripts are:
-        # TODO Remove dependency on scriptsDir:
-        # (scripts should run on system-wide PATH)
-        self.scriptsDir = "/data/home/"+accessconf['user']+"/scripts/"
-        self.DryRun = False  # DryRun means that commands to LCU are not really executed
-        self.verbose = True  # Write out LCU commands
-        if self.checkaccess() and self.verbose:
-            print("Established access to LCU.")
-        pathOK, datadirsOK = self.checkLCUenv()
-        assert pathOK, "Check $PATH on LCU. Needs to have {} and {}."\
-            .format(self.lofarbin, self.lofaroperationsbin)
-        assert datadirsOK, "Check that data folders {} and {} on LCU."\
-            .format(self.lcuDumpDir, self.ACCsrcDir)
-
     def checkLCUenv(self):
         """Check the LCU environment, especially for datataking assumptions."""
         if self.DryRun:
@@ -92,7 +66,31 @@ class LCUInterface(object):
         if lcuaccessconf is None:
             accessconf = ilisa.observations.default_access_lclstn_conf()
             lcuaccessconf = accessconf['LCU']
-        self.setupaccess(lcuaccessconf)
+
+        # Initialize with user-station configuration:
+        self.stnid = lcuaccessconf['stnid']
+        self.user = lcuaccessconf['user']
+        self.hostname = lcuaccessconf['hostname']
+        self.lcuURL = self.user + "@" + self.hostname
+        self.lcuHome = lcuaccessconf['home']
+        # This where the statistics data goes:
+        self.lcuDumpDir = lcuaccessconf['dumpdir']
+        # Should lcu scripts be used?:
+        self.usescriptonlcu = lcuaccessconf['usescriptonlcu']
+        # TODO Implement condition: if self.usescriptonlcu:
+        # This is where the scripts are:
+        # TODO Remove dependency on scriptsDir:
+        # (scripts should run on system-wide PATH)
+        self.scriptsDir = "/data/home/" + lcuaccessconf['user'] + "/scripts/"
+        self.DryRun = False  # DryRun means commands to LCU are not executed
+        self.verbose = True  # Write out LCU commands
+        if self.checkaccess() and self.verbose:
+            print("Established access to LCU.")
+        pathOK, datadirsOK = self.checkLCUenv()
+        assert pathOK, "Check $PATH on LCU. Needs to have {} and {}." \
+            .format(self.lofarbin, self.lofaroperationsbin)
+        assert datadirsOK, "Check that data folders {} and {} on LCU." \
+            .format(self.lcuDumpDir, self.ACCsrcDir)
 
     def __del__(self):
         pass
