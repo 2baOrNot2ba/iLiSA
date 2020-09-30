@@ -16,6 +16,7 @@ import os
 import numpy
 import datetime
 import argparse
+import warnings
 import matplotlib.pyplot as plt
 
 import ilisa.observations.modeparms
@@ -44,13 +45,14 @@ def _findcaltabpath(rcumode, stnid, obsdatestr=None):
     # So map accordingly
     if rcumode == '4':
         rcumode = '3'
-        print("Warning: using caltab for rcumode 3 instead.")
+        warnings.warn("Using caltab for rcumode 3 instead.")
     if rcumode == '6':
         rcumode = '5'
-        print("Warning: using caltab for rcumode 5 instead.")
+        warnings.warn("Using caltab for rcumode 5 instead.")
     caltabfilename = 'CalTable_'+stnid[2:]+'_mode'+rcumode+'.dat'
     caltabarchive = os.path.join(caltabdirstn, 'old_data/')
-    if obsdatestr is not None and os.path.isdir(caltabarchive):
+    caltabarchive_exists = os.path.isdir(caltabarchive)
+    if obsdatestr is not None and caltabarchive_exists:
         # Need to determine most appropriate caltab to use
         caltabstndatestr = os.listdir(caltabarchive)
         cthist = {}
@@ -65,12 +67,14 @@ def _findcaltabpath(rcumode, stnid, obsdatestr=None):
         ctfullpath = caltabdirstn+'/data/'+caltabfilename
         (caltab_latest, ctheader_latest) = readcaltab(ctfullpath)
         adddatestr(cthist, ctfullpath, ctheader_latest)
-        obsdate = datetime.datetime.strptime(obsdatestr, "%Y%m%dT%H%M%S")
+        obsdate = datetime.datetime.strptime(obsdatestr, "%Y-%m-%d")
         cthistdates = list(cthist.keys())
         caltabdates = [datetime.datetime.strptime(d, "%Y%m%dT%H%M%S") for d in cthistdates]
         difobscal = [abs(obsdate - d) for d in caltabdates]
         caltabpath = cthist[cthistdates[difobscal.index(min(difobscal))]]
     else:
+        if obsdatestr is not None and not caltabarchive_exists:
+            warnings.warn('No archived caltables; getting default caltable.')
         caltabpath = os.path.join(caltabdirstn, 'data', caltabfilename)
     return caltabpath
 
@@ -86,7 +90,8 @@ def getcaltab(rcumode, stnid, obsdatestr=None):
     stnid : str
         The station id, e.g. 'SE607'.
     obsdatestr : str
-        Date of the observation. If None (default), will use latest.
+        Date of the observation. The format is 'YYYY-mm-dd'.
+        If None (default), will use latest.
 
     Returns
     -------
@@ -208,13 +213,16 @@ def plotcaltab(caltab, header):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='subparser_name', help='sub-command help')
+    # 'show' command
     parser_show = subparsers.add_parser('show', help='Show contents of caltab file.')
     parser_show.add_argument('caltab_path', help="LOFAR calibration table file")
+    # 'find' command
     parser_find = subparsers.add_parser('find',
                                         help="""find caltab file for rcumode, stnid, obsdate""")
     parser_find.add_argument('rcumode', help="Band of observation.")
     parser_find.add_argument('stnid', help="Station ID of observation.")
-    parser_find.add_argument('date', help="Date of observation.")
+    parser_find.add_argument('date', nargs='?', default=None,
+                             help="Date of observation. Format: YYYY-mm-dd")
     args = parser.parse_args()
     if args.subparser_name == 'show':
         caltab_cur, header_cur = readcaltab(args.caltab_path)
@@ -222,5 +230,4 @@ if __name__ == "__main__":
         print(caltab_cur)
         plotcaltab(caltab_cur, header_cur)
     elif args.subparser_name == 'find':
-        obsdatestr = args.date + 'T000000'
-        print(_findcaltabpath(args.rcumode, args.stnid, obsdatestr))
+        print(_findcaltabpath(args.rcumode, args.stnid, args.date))
