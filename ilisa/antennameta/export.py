@@ -21,60 +21,56 @@ def _get_casacfg_header(tier, bandarr=None, stnid=None):
     header = "observatory=LOFAR\n"
     columnlabels = "X Y Z Diam Name"
     if tier == 'ILT':
-        header += ("coordsys=XYZ"+"\n"
-                  )
+        header += "coordsys=XYZ" + "\n"
     elif tier == 'station':
         header += ("station="+stnid+"\n"
-                  +"arrayband="+bandarr+"\n"
-                  +"coordsys=XYZ"+"\n"
-                  )
+                   + "arrayband="+bandarr+"\n"
+                   + "coordsys=XYZ"+"\n")
     elif tier == 'tile' and bandarr == 'HBA':
         header += ("station="+stnid+"\n"
-                  +"arrayband="+bandarr+"\n"
-                  +"coordsys=XYZ"+"\n"
-                  )
+                   + "arrayband="+bandarr+"\n"
+                   + "coordsys=XYZ"+"\n")
     elif tier == 'rot':
         header += ("station="+stnid+"\n"
-                  +"arrayband="+bandarr+"\n"
-                  +"coordsys=XYZ"+"\n"
-                  +"Rotation matrix (alignment station frame w.r.t. ITRF)"+"\n"
-                  )
+                   + "arrayband="+bandarr+"\n"
+                   + "coordsys=XYZ"+"\n"
+                   + "Rotation matrix (alignment station frame w.r.t. ITRF)"+"\n")
         columnlabels = "x_hat y_hat z_hat"
     else:
         raise ValueError("Tier {} not valid.".format(tier))
     header += ("\n"
-              +"Created with {}\n".format("iLiSA")
-              +"Created at {}\n".format(datetime.datetime.utcnow())
-              +"\n"
-              +columnlabels
-              )
+               + "Created with {}\n".format("iLiSA")
+               + "Created at {}\n".format(datetime.datetime.utcnow())
+               + "\n"
+               + columnlabels)
     return header
 
 
 def output_arrcfg_station(stnid, bandarr, output='default'):
-    """Output a station array (given by stnid and bandarr) configuration in a CASA simmos
-    .cfg format.
+    """Output a station array (given by stnid and bandarr) configuration in
+    a CASA simmos .cfg format.
     """
-    stnPos, stnRot, stnRelPos, stnIntilePos = getArrayBandParams(stnid, bandarr)
+    _pos, stn_rot, stn_relpos, _intile_pos = getArrayBandParams(stnid, bandarr)
     header = _get_casacfg_header('station', bandarr, stnid)
-    nrelems = stnRelPos.shape[0]
+    nrelems = stn_relpos.shape[0]
     outtable = np.zeros(nrelems, dtype=CASA_CFG_DTYPE)
     if bandarr == 'LBA':
         diam = 1.5
-    elif bandarr == 'HBA':
+    else:  # bandarr == 'HBA'
         diam = 3.0
-    outtable['X'] = np.squeeze(stnRelPos[:,0])
-    outtable['Y'] = np.squeeze(stnRelPos[:,1])
-    outtable['Z'] = np.squeeze(stnRelPos[:,2])
+    outtable['X'] = np.squeeze(stn_relpos[:, 0])
+    outtable['Y'] = np.squeeze(stn_relpos[:, 1])
+    outtable['Z'] = np.squeeze(stn_relpos[:, 2])
     outtable['Diam'] = diam
     outtable['Name'] = ['ANT'+str(elem) for elem in range(nrelems)]
-    if output=='default':
+    if output == 'default':
         output = os.path.join(CASA_CFG_DEST, stnid+"_"+bandarr+'.cfg')
     np.savetxt(output, outtable, fmt=CASA_CFG_FMT, header=header)
 
 
 def output_arrcfg_tile(stnid):
-    """Output a station's HBA tile array configuration in CASA simobs .cfg format.
+    """Output a station's HBA tile array configuration in
+    CASA simobs .cfg format.
     """
     bandarr = 'HBA'
     hbadeltas = np.asarray(parseiHBADeltasfile(stnid))
@@ -82,9 +78,9 @@ def output_arrcfg_tile(stnid):
     nrelems = len(hbadeltas)
     diam = 0.5
     outtable = np.zeros(nrelems, dtype=CASA_CFG_DTYPE)
-    outtable['X'] = hbadeltas[:,0]
-    outtable['Y'] = hbadeltas[:,1]
-    outtable['Z'] = hbadeltas[:,2]
+    outtable['X'] = hbadeltas[:, 0]
+    outtable['Y'] = hbadeltas[:, 1]
+    outtable['Z'] = hbadeltas[:, 2]
     outtable['Diam'] = diam
     outtable['Name'] = ['ELM'+str(elem) for elem in range(nrelems)]
     filename = os.path.join(CASA_CFG_DEST, stnid+'_tiles.cfg')
@@ -99,36 +95,37 @@ def output_rotmat_station(stnid, bandarr, output='default'):
     :param output: Name of output file. If set to 'default', will use default name
                    convention, i.e. '<stnid>_<bandarr>.txt'.
     """
-    stnpos, stnrot, stnrelpos, stnintilepos = \
-                         getArrayBandParams(stnid, bandarr)
-    if output=='default':
-        output = os.path.join(ALIGNMENT_DEST, '{}_{}.txt'.format(stnid, bandarr))
+    stnpos, stnrot, stnrelpos, stnintilepos = getArrayBandParams(stnid,
+                                                                 bandarr)
+    if output == 'default':
+        output = os.path.join(ALIGNMENT_DEST, '{}_{}.txt'.format(stnid,
+                                                                 bandarr))
     header = _get_casacfg_header('rot', bandarr, stnid)
     np.savetxt(output, stnrot, fmt="%12f %12f %12f", header=header)
 
 
 def max_stn_baselines():
     """Compute max baseline length of each station."""
-    stnId_list = list_stations()
+    stn_id_list = list_stations()
     the_maxbaselines = {}
-    for stnnr, stnid in enumerate(stnId_list):
+    for stnnr, stnid in enumerate(stn_id_list):
         the_maxbaselines[stnid] = {}
-        AntFld = parseAntennaField(stnid)
-        if AntFld['HBA0']['POSITION']:
-            nrelems = len(AntFld['HBA']['REL_POS'])
-            AntFld['HBA0']['REL_POS'] = AntFld['HBA']['REL_POS'][:nrelems/2]
-            AntFld['HBA1']['REL_POS'] = AntFld['HBA']['REL_POS'][nrelems/2:]
-            del AntFld['HBA']
+        ant_fld = parseAntennaField(stnid)
+        if ant_fld['HBA0']['POSITION']:
+            nrelems = len(ant_fld['HBA']['REL_POS'])
+            ant_fld['HBA0']['REL_POS'] = ant_fld['HBA']['REL_POS'][:nrelems/2]
+            ant_fld['HBA1']['REL_POS'] = ant_fld['HBA']['REL_POS'][nrelems/2:]
+            del ant_fld['HBA']
         else:
-            del AntFld['HBA0']
-            del AntFld['HBA1']
-        for bandarr in AntFld.keys():
-            stnRelPos = np.array(AntFld[bandarr]['REL_POS'])
-            nrelems = stnRelPos.shape[0]
+            del ant_fld['HBA0']
+            del ant_fld['HBA1']
+        for bandarr in ant_fld.keys():
+            stn_rel_pos = np.array(ant_fld[bandarr]['REL_POS'])
+            nrelems = stn_rel_pos.shape[0]
             absuvwelemnr = []
             for elemnr in range(nrelems):
-                absuvwelemnr.append(np.amax(np.linalg.norm(stnRelPos - stnRelPos[elemnr,:], ord=2, axis=1)))
-            #print stnid, bandarr, nrelems, max(absuvwelemnr)
+                absuvwelemnr.append(np.amax(np.linalg.norm(
+                    stn_rel_pos - stn_rel_pos[elemnr, :], ord=2, axis=1)))
             the_maxbaselines[stnid][bandarr] = max(absuvwelemnr)
     return the_maxbaselines
 
@@ -142,16 +139,17 @@ def print_maxbaselines():
 
 
 def main():
-    """Export AntennaField data for all or selected stations to casa CSV files."""
-    stnId_list = list_stations()
-    stnId_list.sort(key=lambda stnid: stnid[2:])
+    """Export AntennaField data for all or selected stations to casa CSV files.
+    """
+    stn_id_list = list_stations()
+    stn_id_list.sort(key=lambda _stnid: _stnid[2:])
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--stationid',
                         help="""Station ID to process.
                         Choose from {}
                         If not given, do all.
-                        """.format(stnId_list))
+                        """.format(stn_id_list))
     parser.add_argument('-b', '--bandarr',
                         help="""Band array to process.
                                 Choose from {}.
@@ -160,7 +158,7 @@ def main():
     args = parser.parse_args()
 
     if args.stationid is not None:
-        stnId_list = [args.stationid]
+        stn_id_list = [args.stationid]
     bandarrs = BANDARRS
     if args.bandarr is not None:
         bandarrs = [args.bandarr]
@@ -173,12 +171,12 @@ def main():
         #        else:
         #            diam = 63.3
         outtable = np.zeros(0, dtype=CASA_CFG_DTYPE)
-        for stnnr, stnid in enumerate(stnId_list):
+        for stnnr, stnid in enumerate(stn_id_list):
             if not (stnid == 'NenuFAR' and bandarr == 'HBA'):
                 print('Doing {} {}'.format(stnid, bandarr))
                 row = np.zeros(1, dtype=CASA_CFG_DTYPE)
-                AntFld = parseAntennaField(stnid)
-                position = AntFld[bandarr]['POSITION']
+                ant_fld = parseAntennaField(stnid)
+                position = ant_fld[bandarr]['POSITION']
                 row['X'], row['Y'], row['Z'] = position
                 try:
                     row['Diam'] = the_maxbaselines[stnid][bandarr]
@@ -197,4 +195,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
