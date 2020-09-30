@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 
 import ilisa.observations.modeparms
 
-__version__ = '0.1'
+__version__ = '0.2'
 CALTABDIRROOT = os.path.join(os.path.dirname(__file__), 'share/CalTables/')
 
 
@@ -220,13 +220,13 @@ def getelemgainampdel(caltab):
     o = numpy.ones((nrsbs,))
     beta = numpy.asarray([fs, o]).T
     betainv = numpy.linalg.pinv(beta)
-    delayNphasercu = numpy.dot(betainv, argsrcusb)
+    delay_n_phasercu = numpy.dot(betainv, argsrcusb)
     reconstruct = True
     if reconstruct:
-        caltabr = numpy.outer(numpy.ones((nrsbs,)), ampsrcu) * numpy.exp(
-            1j*(delayNphasercu[1, :]+numpy.outer(fs, delayNphasercu[0, :])))
+        caltabr = numpy.outer(numpy.ones((nrsbs,)), ampsrcu) * numpy.exp(1j*(
+                delay_n_phasercu[1, :]+numpy.outer(fs, delay_n_phasercu[0, :])))
         assert numpy.allclose(caltab, caltabr)
-    return ampsrcu, delayNphasercu
+    return ampsrcu, delay_n_phasercu
 
 
 def plotcaltab(caltab, header):
@@ -248,20 +248,26 @@ def plotcaltab(caltab, header):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(dest='subparser_name', help='sub-command help')
+    subparsers = parser.add_subparsers(dest='subparser_name',
+                                       help='sub-command help')
     # 'show' command
-    parser_show = subparsers.add_parser('show', help='Show contents of caltab file.')
-    parser_show.add_argument('caltab_path', help="LOFAR calibration table file")
+    parser_show = subparsers.add_parser('show',
+                                        help='Show contents of caltab file.')
+    parser_show.add_argument('caltab_path',
+                             help="LOFAR calibration table file")
     # 'find' command
     parser_find = subparsers.add_parser('find',
-                                        help="""find caltab file for rcumode, stnid, obsdate""")
+                                        help="""Find caltab file for
+                                         rcumode, stnid, obsdate""")
     parser_find.add_argument('rcumode', help="Band of observation.")
     parser_find.add_argument('stnid', help="Station ID of observation.")
     parser_find.add_argument('date', nargs='?', default=None,
                              help="Date of observation. Format: YYYY-mm-dd")
     # 'create' command
-    parser_create = subparsers.add_parser('create', help='Create a caltab file.')
-    parser_create.add_argument('rcumode', help="Rcumode of calibration table file")
+    parser_create = subparsers.add_parser('create',
+                                          help='Create a caltab file.')
+    parser_create.add_argument('rcumode',
+                               help="Rcumode of calibration table file")
     parser_create.add_argument('stnid', help="Station ID of observation.")
 
     args = parser.parse_args()
