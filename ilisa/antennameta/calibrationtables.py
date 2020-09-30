@@ -36,15 +36,15 @@ def _findcaltabpath(rcumode, stnid, obsdatestr=None):
     """Find appropriate caltab file based on rcumode stnid and observation
     date.
     """
-    def adddatestr(cthist, ctfilename, ct_header):
+    def adddatestr(_cthist, _ctfilename, _ctheader):
         use_date = 'Calibration'
         if use_date == 'Observation':
-            datestr = ct_header['Observation']['Date']
+            datestr = _ctheader['Observation']['Date']
             datestr = datestr[:8]+'T'+datestr[8:]+'00'
         else:
-            datestr = ct_header['Calibration']['Date']
+            datestr = _ctheader['Calibration']['Date']
             datestr = datestr+'T120000'
-        cthist[datestr] = ctfilename
+        _cthist[datestr] = _ctfilename
     caltabdirroot = CALTABDIRROOT
     caltabdirstn = os.path.join(caltabdirroot, stnid)
     # In practice rcumode 4 uses rcumode 3's caltab
@@ -155,13 +155,16 @@ def readcaltab(caltabfile):
                 observation[key] = val
             elif cat == 'Calibration':
                 calibration[key] = val
-    caltab = numpy.fromfile(fin, dtype=('c16', (ilisa.observations.modeparms.nrofrcus,)),
-                            count=ilisa.observations.modeparms.TotNrOfsb)
+    # Assume that max nr of subbands (ilisa.observations.modeparms.TotNrOfsb)
+    # is always 512, while nr of RCUs (ilisa.observations.modeparms.nrofrcus)
+    # may differ:
+    caltab = numpy.fromfile(fin, dtype='c16').reshape(
+        (ilisa.observations.modeparms.TotNrOfsb, -1))
+    # nrrcus = caltab.shape[1]
     fin.close()
     header = {'Observation': observation,
               'Calibration': calibration,
               'Comment':     comment}
-
     return caltab, header
 
 
@@ -197,8 +200,9 @@ def initcaltab(stnid, rcumode):
                           'AntennaSet': antset, 'Band': band, 'Source': '',
                           'Date': ''}
     user = os.environ.get('USER')
+    now = datetime.datetime.utcnow()
     header_calibration = {'Version': '0', 'Name': user,
-                          'Date': datetime.datetime.utcnow().isoformat(),
+                          'Date': now.strftime('YYYYmmdd'),
                           'PPSDelay': '[]'}
     header_comment = ['Initial CalTable created with iLiSA']
     writecaltab(ctfname, caltab, header_observation, header_calibration,
