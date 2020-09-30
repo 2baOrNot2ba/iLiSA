@@ -25,6 +25,13 @@ __version__ = '0.1'
 CALTABDIRROOT = os.path.join(os.path.dirname(__file__), 'share/CalTables/')
 
 
+def _default_caltab_filename(stnid, rcumode):
+    """Get default filename of a LOFAR station calibration table.
+    """
+    caltabfilename = 'CalTable_'+stnid[2:]+'_mode'+rcumode+'.dat'
+    return caltabfilename
+
+
 def _findcaltabpath(rcumode, stnid, obsdatestr=None):
     """Find appropriate caltab file based on rcumode stnid and observation
     date.
@@ -49,7 +56,7 @@ def _findcaltabpath(rcumode, stnid, obsdatestr=None):
     if rcumode == '6':
         rcumode = '5'
         warnings.warn("Using caltab for rcumode 5 instead.")
-    caltabfilename = 'CalTable_'+stnid[2:]+'_mode'+rcumode+'.dat'
+    caltabfilename = _default_caltab_filename(stnid, rcumode)
     caltabarchive = os.path.join(caltabdirstn, 'old_data/')
     caltabarchive_exists = os.path.isdir(caltabarchive)
     if obsdatestr is not None and caltabarchive_exists:
@@ -173,6 +180,31 @@ def writecaltab(filename, caltab, observation, calibration, comments):
     fout.close()
 
 
+def initcaltab(stnid, rcumode):
+    """Initialize a calibration table file.
+    Sets gains for all rcus and all subbands to 1.
+    """
+    # Default filename
+    ctfname = _default_caltab_filename(stnid, rcumode)
+    # Init caltab
+    nrrcus = ilisa.observations.modeparms.nrofrcus
+    nrsbs = ilisa.observations.modeparms.TotNrOfsb
+    caltab = numpy.ones((nrrcus, nrsbs), dtype='c16')
+    # Init header
+    band = ilisa.observations.modeparms.rcumode2band(rcumode)
+    antset = ilisa.observations.modeparms.band2antset(band)
+    header_observation = {'Station': stnid, 'Mode': rcumode,
+                          'AntennaSet': antset, 'Band': band, 'Source': '',
+                          'Date': ''}
+    user = os.environ.get('USER')
+    header_calibration = {'Version': '0', 'Name': user,
+                          'Date': datetime.datetime.utcnow().isoformat(),
+                          'PPSDelay': '[]'}
+    header_comment = ['Initial CalTable created with iLiSA']
+    writecaltab(ctfname, caltab, header_observation, header_calibration,
+                header_comment)
+
+
 def getelemgainampdel(caltab):
     """Get the amplitudes and delays for the element (rcu) gains in the given
     calibration table."""
@@ -223,6 +255,11 @@ if __name__ == "__main__":
     parser_find.add_argument('stnid', help="Station ID of observation.")
     parser_find.add_argument('date', nargs='?', default=None,
                              help="Date of observation. Format: YYYY-mm-dd")
+    # 'create' command
+    parser_create = subparsers.add_parser('create', help='Create a caltab file.')
+    parser_create.add_argument('rcumode', help="Rcumode of calibration table file")
+    parser_create.add_argument('stnid', help="Station ID of observation.")
+
     args = parser.parse_args()
     if args.subparser_name == 'show':
         caltab_cur, header_cur = readcaltab(args.caltab_path)
@@ -231,3 +268,5 @@ if __name__ == "__main__":
         plotcaltab(caltab_cur, header_cur)
     elif args.subparser_name == 'find':
         print(_findcaltabpath(args.rcumode, args.stnid, args.date))
+    elif args.subparser_name == 'create':
+        initcaltab(args.stnid, args.rcumode)
