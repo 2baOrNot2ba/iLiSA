@@ -64,19 +64,20 @@ def _findcaltabpath(rcumode, stnid, obsdatestr=None):
         caltabstndatestr = os.listdir(caltabarchive)
         cthist = {}
         for ctdir in caltabstndatestr:
-            ctfullpath = caltabarchive+ctdir+'/'+caltabfilename
+            ctfullpath = os.path.join(caltabarchive, ctdir, caltabfilename)
             try:
                 (cttable, ctheader) = readcaltab(ctfullpath)
-            except:
+            except RuntimeError:
                 continue
             adddatestr(cthist, ctfullpath, ctheader)
         # Get latest:
-        ctfullpath = caltabdirstn+'/data/'+caltabfilename
+        ctfullpath = os.path.join(caltabdirstn, 'data', caltabfilename)
         (caltab_latest, ctheader_latest) = readcaltab(ctfullpath)
         adddatestr(cthist, ctfullpath, ctheader_latest)
         obsdate = datetime.datetime.strptime(obsdatestr, "%Y-%m-%d")
         cthistdates = list(cthist.keys())
-        caltabdates = [datetime.datetime.strptime(d, "%Y%m%dT%H%M%S") for d in cthistdates]
+        caltabdates = [datetime.datetime.strptime(d, "%Y%m%dT%H%M%S")
+                       for d in cthistdates]
         difobscal = [abs(obsdate - d) for d in caltabdates]
         caltabpath = cthist[cthistdates[difobscal.index(min(difobscal))]]
     else:
@@ -133,9 +134,9 @@ def readcaltab(caltabfile):
         fin = open(caltabfile, 'rb')
         headline = fin.readline().decode('UTF-8').rstrip()
         if headline != 'HeaderStart':
-            raise Exception("{} is not a CalTable file.".format(caltabfile))
-    except:
-        raise Exception("Cannot use {} as CalTable file.".format(caltabfile))
+            raise RuntimeError("{} is not a CalTable file.".format(caltabfile))
+    except (OSError, RuntimeError):
+        raise RuntimeError("Cannot use {} as CalTable file.".format(caltabfile))
     observation = {}
     calibration = {}
     comment = []
