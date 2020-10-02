@@ -274,7 +274,7 @@ class StationDriver(object):
             rcus_desired_set = set(modeparms.seqarg2list(
                 freqbndobj.rcusel[bandbeamidx]))
             rcu_list = list(rcus_desired_set.intersection(rcus_allowed_set))
-            rcusel = modeparms.seqlists2slicestr(','.join(map(str,rcu_list)))
+            rcusel = ','.join(map(str, list(rcu_list)))
             # Run beamctl
             beamctl_main = self._lcu_interface.run_beamctl(beamletIDs,
                                                            subbands, rcumode,
