@@ -472,11 +472,39 @@ def seqarg2list(seqarg):
 
 
 def seqlists2slicestr(seqlists):
-    """Convert a sequence list to slice format"""
-    # Instead of comma separated list format (e.g. 202,204,206),
-    # try to construct subband slice syntax (e.g. 202:2:206), if
-    # possible, to avoid file names that are potentially longer than 255
-    # (not allowed in linux filesyst)
+    """Convert a sequence list to slice format.
+    Instead of comma separated list format (e.g. 202,204,206), try to construct
+    subband slice syntax (e.g. 202:2:206), if possible. One use-case is in the
+    construction of file names containing subband selection, in order to avoid
+    file names that are potentially longer than 255 chars.
+
+    Parameters
+    ----------
+    seqlists : list or str
+        List of strings with comma separated numbers that are monotonically
+        increasing by a constant increment.
+
+    Returns
+    -------
+    slicestr : str
+        Slice expression string.
+
+    Examples
+    --------
+    >>> import ilisa.observations.modeparms as mp
+    Simple string with comma separated numbers:
+    >>> mp.seqlists2slicestr('2,3,4,5,6')
+    '2:6'
+
+    Lists of strings with comma separated numbers:
+    >>> mp.seqlists2slicestr(['1,2,3','11,12,13'])
+    '1:3+11:13'
+
+    If number sequences increment by more than 1:
+    >>> mp.seqlists2slicestr(['1,3,5','12,15,18'])
+    '1:2:5+12:3:18'
+
+    """
     def seqlist2slice(seqlist):
         seqlistcanon = []
         for seqel in seqlist.split(','):
@@ -485,7 +513,7 @@ def seqlists2slicestr(seqlists):
             seqlistcanon.extend(seq)
         seqsteps = set(numpy.diff(seqlistcanon))
         if len(seqsteps) > 1:
-            raise ValueError('Subband spec too complicated.')
+            raise ValueError('Subband spec {} too complicated.'.format(seqlist))
         elif len(seqsteps) == 0:
             slicestr = "{}".format(seqlistcanon[0])
         else:
