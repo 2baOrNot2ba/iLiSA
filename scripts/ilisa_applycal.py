@@ -14,4 +14,4 @@ if __name__ == "__main__":
     parser.add_argument('caltabpath', help="""Path to caltab file""")
     args = parser.parse_args()
 
-    ilisa.calim.calibration.cvcfolder_applycal(args.cvcpath, args.caltabpath)
+    ilisa.calim.calibration.applycal_cvcfolder(args.cvcpath, args.caltabpath)

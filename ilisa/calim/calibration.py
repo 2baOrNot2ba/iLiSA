@@ -24,19 +24,19 @@ def applycaltab_cvc(cvcunc, caltab, sb=None):
 
     Parameter
     ----------
-    cvcunc : array [:,192,192]
-        Uncalibrated CVC array, where 1st index is time.
+    cvcunc : array [:,nr_rcus_0,nr_rcus_1]
+        Uncalibrated CVC array, where 1st index is time. nr_rcus is usually 192.
     sb : int
         Subband in which the XST data was taken.
-    caltab: array [512,192]
+    caltab: array [512,nr_rcus]
         Calibration table array to apply to xstunc.
 
     Returns
     -------
-    cvccal: array [:,192,192]
+    cvccal: array [:,nr_rcus,nr_rcus]
         Calibrated XST array.
     """
-    nrsbs, nrrcus0, nrrcus1 = cvcunc.shape
+    nrsbs = cvcunc.shape[0]
     if not sb and nrsbs != 512:
         # Cannot assume its an ACC
         raise ValueError("Must give sb for XST data.")
@@ -46,12 +46,12 @@ def applycaltab_cvc(cvcunc, caltab, sb=None):
         g_apply = gg
     else:
         # It's an XST
-        g_apply = gg[sb,:,:]
+        g_apply = gg[sb, :, :]
     cvccal = g_apply*cvcunc
     return cvccal
 
 
-def cvcfolder_applycal(cvcpath, caltabpath):
+def applycal_cvcfolder(cvcpath, caltabpath):
     """Apply a calibration table file to a CVC folder.
     This creates a copy of the folder pointed to by cvcpath renamed with a '_cal_'
     before the ldat suffix. Then it applies the calibration table contained in the
