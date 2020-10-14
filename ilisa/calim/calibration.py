@@ -16,16 +16,17 @@ def applycaltab_cvc(cvcunc, caltab, sb=None):
         G_ijk = g_ij*g^*_ik (no sum over i)
         V'_ijk = G_s0jk*V_ijk  (no sum over j,k & s0 is explicitly given)
 
-    (Note that since function was designed for simplicity, it determines whether the
-    CVC is an ACC (with all subbands) or XST (only one given subband) based on if
-    no subband is given and its first index has size 512. There is a very small
-    chance for the user to make a mistake by not setting 'sb' and the data happens to
-    be a 512 samples XST.)
+    (Note that since function was designed for simplicity, it determines
+    whether the CVC is an ACC (with all subbands) or XST (only one given
+    subband) based on if no subband is given and its first index has size 512.
+    There is a very small chance for the user to make a mistake by not
+    setting 'sb' and the data happens to be a 512 samples XST.)
 
     Parameter
     ----------
     cvcunc : array [:,nr_rcus_0,nr_rcus_1]
-        Uncalibrated CVC array, where 1st index is time. nr_rcus is usually 192.
+        Uncalibrated CVC array, where 1st index is time. nr_rcus is
+        usually 192.
     sb : int
         Subband in which the XST data was taken.
     caltab: array [512,nr_rcus]
@@ -53,10 +54,11 @@ def applycaltab_cvc(cvcunc, caltab, sb=None):
 
 def applycal_cvcfolder(cvcpath, caltabpath):
     """Apply a calibration table file to a CVC folder.
-    This creates a copy of the folder pointed to by cvcpath renamed with a '_cal_'
-    before the ldat suffix. Then it applies the calibration table contained in the
-    caltab file pointed to by caltabpath, to the CVC dataset and copies the caltab
-    file used in the calibrated CVC folder.
+
+    This creates a copy of the folder pointed to by cvcpath renamed with
+    a '_cal_' before the ldat suffix. Then it applies the calibration table
+    contained in the caltab file pointed to by caltabpath, to the CVC dataset
+    and copies the caltab file used in the calibrated CVC folder.
 
     Parameters
     ----------
@@ -72,8 +74,8 @@ def applycal_cvcfolder(cvcpath, caltabpath):
     ldat_type = dataIO.datafolder_type(cvcpath)
     if ldat_type != "acc" and ldat_type != "xst":
         raise ValueError("Not CVC data.")
-    # Copy CVC folder within parent folder and add the tag "_cal_" in the name right
-    # before ldat_type suffix:
+    # Copy CVC folder within parent folder and add the tag "_cal_" in the name
+    # right before ldat_type suffix:
     spltpath = cvcpath.split("_")
     cvccalpath = "_".join(spltpath[:-1]) + "_cal_" + spltpath[-1]
     shutil.copytree(cvcpath, cvccalpath)
@@ -83,16 +85,85 @@ def applycal_cvcfolder(cvcpath, caltabpath):
     # Loop over files in CVC folder:
     for filestep in range(nrfiles):
         if ldat_type == "xst":
-            freq = cvcobj_cal.freqset[filestep][0]  # Freq constant over xst file
+            freq = cvcobj_cal.freqset[filestep][0]  # Freq const. over xst file
             sb, nz = modeparms.freq2sb(freq)
         else:
             sb = None  # Because this signals ACC data
         # Get actual covariance cubes:
         cvcdata_unc = cvcobj_cal.getdata(filestep)
         # Apply calibration
-        cvcdata = ilisa.calim.calibration.applycaltab_cvc(cvcdata_unc, caltab, sb)
+        cvcdata = ilisa.calim.calibration.applycaltab_cvc(cvcdata_unc, caltab,
+                                                          sb)
         # Replace uncalibrated data with calibrated:
         cvcobj_cal.dataset[filestep] = cvcdata
     cvcobj_cal.save_ldat()
     # Note in ScanRecInfo about calibrating this dataset:
     cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
+
+
+def stefcal(r, m, niter=100):
+    """
+    Compute solution to the quadratic matrix equation using the StefCal
+    algorithm [stefs]_.
+
+    Returns a solution, up to a phase factor, to the equation
+    .. math:: g r g^H = m
+    where g is a column vector and r, m are Hermitian matrices. 
+
+    Parameters
+    ----------
+    r: array [nr_rcus, nr_rcus]
+        The measured covariance matrix.
+    m: array [nr_rcus, nr_rcus]
+        The model covariance matrix.
+    niter: int, optional
+        Number of iterations. Default equal to 100.
+    
+    Returns
+    -------
+    g: array [nr_rcus]
+        Complex gain solution vector, unnormalized.
+    
+    Examples
+    --------
+    >>> from ilisa.calim.calibration import stefcal
+    >>> import numpy as np
+    >>> dim = 3
+    >>> gtrue = np.random.randn(dim)+1j*np.random.randn(dim)
+    >>> m = np.ones((dim, dim))
+    >>> r = gtrue[:, np.newaxis]*m*np.conj(gtrue)
+    >>> g = stefcal(r,m)
+
+    Normalize w.r.t to first component and check result:
+
+    >>> np.allclose(g/g[0],gtrue/gtrue[0])
+    True
+
+    Notes
+    -----
+    As pointed out in [Bhatnagar]_, StefCal is essentially equivalent to the
+    'antsol' algorithm used in CASA and APES.
+    
+    References
+    ----------
+    .. [stefs]: S. Salvini, & S. J. Wijnholds,
+       "Fast gain calibration in radio astronomy using alternating direction
+       implicit methods: Analysis and applications", A&A 571 A97, 2014.
+       DOI: 10.1051/0004-6361/201424487
+    .. [Bhatnagar]: S. Bhatnagar,
+       "StefCal vs. Classical antsol: A critique", 2013.
+       URL: http://www.aoc.nrao.edu/~sbhatnag/misc/stefcal.pdf
+    """
+    dim = r.shape[0]
+    g_prev = numpy.ones((dim,), dtype=complex)
+    g_curr = numpy.zeros((dim,), dtype=complex)
+    for indi in range(2, niter):
+        for indp in range(dim):
+            z = g_prev*m[:, indp]
+            g_curr[indp] = (numpy.inner(numpy.conj(r[:, indp]), z)
+                            /numpy.inner(numpy.conj(z), z))
+        if indi % 2 == 0:
+            g_curr = (g_curr+g_prev)/2.0
+        g_prev = g_curr
+    g = g_curr
+    return g
