@@ -266,7 +266,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
     pointingstr = cvcobj.scanrecinfo.get_pointingstr()
 
     # Get/Compute ant positions
-    stnPos, stnRot, antpos, stnIntilePos \
+    stnPos, _stnRot, antpos, stnIntilePos \
         = antennafieldlib.getArrayBandParams(stnid, bandarr)
     septon = cvcobj.scanrecinfo.is_septon()
     if septon:
@@ -303,7 +303,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
         if pbcor and canuse_dreambeam:
             # Get dreambeam jones:
             pointing = (float(phaseref[0]), float(phaseref[1]), 'STN')
-            jonesfld, stnbasis, j2000basis = primarybeampat(
+            jonesfld, _stnbasis, _j2000basis = primarybeampat(
                 'LOFAR', stnid, bandarr, 'Hamaker', freq, pointing=pointing, obstime=t,
                 lmgrid=(ll, mm))
             ijones = numpy.linalg.inv(jonesfld)
@@ -353,7 +353,7 @@ def rm_redundant_bls(cvc, rmconjbl=True, use_autocorr=False):
 def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
     """Convert xst data to bst data"""
     xst, nrbaselinestot = rm_redundant_bls(xst)
-    xstpu, UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos, pointing)
+    xstpu, _UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos, pointing)
     bstXX = numpy.sum(xstpu[0, 0, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     bstXY = numpy.sum(xstpu[0, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     bstYY = numpy.sum(xstpu[1, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
@@ -484,7 +484,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
     plt.suptitle(
         """Sky Image: PhaseRef={} @ {} MHz,
         Station {}, int={}s, UT={}, PbCor={}, {}
-        """.format(','.join(phaseref), freq/1e6, stnid, integration, t, pbcor, caltag,
-                   fluxnrmlabel))
+        """.format(','.join(phaseref), freq/1e6, stnid, integration, t, pbcor,
+                   caltag))
     plt.tight_layout(rect=[0, 0.0, 1, 0.95])
     plt.show()
