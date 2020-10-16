@@ -105,7 +105,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--coordsys',
                         help="""Coordinate system to use.
                         Choose from 'local' or 'ITRF'.
-                        """.format(BANDARRS))
+                        """)
     args = parser.parse_args()
     inspect_arrayconfiguration(args.view, args.stnid, args.bandarr,
                                args.coordsys)
