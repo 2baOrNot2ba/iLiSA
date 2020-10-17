@@ -25,20 +25,20 @@ import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 
 regex_ACCfolder = (
-    "^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
-    "_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-    "_rcu(?P<rcumode>\d+)_dur(?P<duration_tot>\d+)(_(?P<calsrc>\w+))?_acc$")
+    r"^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
+    r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
+    r"_rcu(?P<rcumode>\d+)_dur(?P<duration_tot>\d+)(_(?P<calsrc>\w+))?_acc$")
 regex_ACCfilename = (
-    "^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
-    "_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-    "_acc_(?P<totnrsb>\d+)x(?P<nrrcu0>\d+)x(?P<nrrcu1>\d+)"
-    ".dat$")
+    r"^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
+    r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
+    r"_acc_(?P<totnrsb>\d+)x(?P<nrrcu0>\d+)x(?P<nrrcu1>\d+)"
+    r".dat$")
 regex_xstfilename = (
-    "^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
-    "_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-    "_rcu(?P<rcumode>\d+)_int(?P<integration>\d+)_dur(?P<duration_scan>\d+)"
-    "_dir(?P<RAint>\d+).(?P<RAdecimal>\d+),(?P<DECint>\d+).(?P<DECdecimal>\d+),(?P<ref>\s+)"
-    "_xst.dat$")
+    r"^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
+    r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
+    r"_rcu(?P<rcumode>\d+)_int(?P<integration>\d+)_dur(?P<duration_scan>\d+)"
+    r"_dir(?P<RAint>\d+).(?P<RAdecimal>\d+),(?P<DECint>\d+).(?P<DECdecimal>\d+),(?P<ref>\s+)"
+    r"_xst.dat$")
 
 
 def datafolder_type(datafolderpath):
@@ -277,14 +277,14 @@ class LDatInfo(object):
                 self.sb = []
                 self.bl = []
                 for beamctl_cmd in self.beamctl_cmd:
-                    (antset, rcus, rcumode, beamlets, subbands, anadir, digdir
-                     ) = modeparms.parse_beamctl_args(beamctl_cmd)
+                    (_antset, _rcus, rcumode, beamlets, subbands, _anadir,
+                     digdir) = modeparms.parse_beamctl_args(beamctl_cmd)
                     self.rcumode.append(int(rcumode))
                     self.sb.append(subbands)
                     self.bl.append(beamlets)
             else:
-                (antset, rcus, rcumode, beamlets, subbands, anadir, digdir
-                 ) = modeparms.parse_beamctl_args(beamctl_cmd)
+                (_antset, _rcus, rcumode, beamlets, subbands, _anadir,
+                 digdir) = modeparms.parse_beamctl_args(beamctl_cmd)
                 self.rcumode = [rcumode]
                 self.sb = [subbands]
             self.pointing = digdir
@@ -456,16 +456,16 @@ class LDatInfo(object):
                 rspctl_lines = []
                 for line in hf:
                     if "Observer" in line:
-                        label, observer = line.split('=')
+                        _label, _observer = line.split('=')
                     if "Project" in line:
-                        label, project = line.split('=')
+                        _label, _project = line.split('=')
                     if "DataType" in line:
-                        label, datatype = line.split('=')
+                        _label, datatype = line.split('=')
                     if "StationID" in line:
-                        label, stnid = line.split('=')
+                        _label, stnid = line.split('=')
                         stnid = stnid.strip()
                     if "StartTime" in line:
-                        label, starttime = line.split('=')
+                        _label, starttime = line.split('=')
                         starttime = starttime.strip()
                     if "beamctl" in line:
                         # HACK
@@ -474,8 +474,8 @@ class LDatInfo(object):
                         rspctl_lines.append(line)
             elif headerversion == '2':
                 contents = yaml.safe_load(hf)
-                observer = contents['Observer']
-                project = contents['Project']
+                _observer = contents['Observer']
+                _project = contents['Project']
                 datatype = contents['DataType']
                 stnid = contents['StationID']
                 starttime = contents['StartTime']
@@ -522,7 +522,7 @@ def parse_bstfolder(BSTfilepath):
     BSTfilename = os.path.basename(BSTfilepath)
     obsfileinfo = {}
     try:
-        (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, bststr
+        (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, _bststr
          ) = BSTfilename.split('_')
         obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                              '%Y%m%dT%H%M%S')
@@ -536,7 +536,8 @@ def parse_bstfolder(BSTfilepath):
     if len(obsfileinfo['rcumode']) > 1:
         obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
     if modeparms.rcusbsep in obsfileinfo['subbands']:
-        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(modeparms.rcusbsep)
+        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(
+            modeparms.rcusbsep)
     return obsfileinfo
 
 
@@ -595,7 +596,7 @@ def parse_sstfolder(SSTfolderpath):
     SSTfoldername = os.path.basename(os.path.normpath(SSTfolderpath))
     obsfolderinfo = {}
     try:
-        (Ymd, HMS, rcustr, intstr, durstr, sststr) = SSTfoldername.split('_')
+        (Ymd, HMS, rcustr, intstr, durstr, _sststr) = SSTfoldername.split('_')
         obsfolderinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                                '%Y%m%dT%H%M%S')
         obsfolderinfo['rcumode'] = rcustr[3:]
@@ -610,10 +611,10 @@ def parse_sstfilename(SSTfilepath):
     SSTfilename = os.path.basename(SSTfilepath)
     obsfileinfo = {}
     try:
-        (Ymd, HMS, sststr, rcudatstr) = SSTfilename.split('_')
+        (Ymd, HMS, _sststr, rcudatstr) = SSTfilename.split('_')
         obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                              '%Y%m%dT%H%M%S')
-        (rcu, datext) = rcudatstr[3:].split('.')
+        (rcu, _datext) = rcudatstr[3:].split('.')
         obsfileinfo['rcu'] = int(rcu)
     except:
         raise ValueError("File name not in sst format.")
@@ -714,7 +715,7 @@ class CVCfiles(object):
         cvcfilename = os.path.basename(cvcfilepath)
         (Ymd, HMS, cvcextrest) = cvcfilename.split('_', 2)
         datatype, restdat = cvcextrest[0:3], cvcextrest[3:]
-        (rest, datstr) = restdat.split('.')
+        (rest, _datstr) = restdat.split('.')
         if datatype == 'acc':
             rest = rest.lstrip('_')
             (_nr512, nrrcus0, nrrcus1) = map(int, rest.split('x'))
@@ -782,7 +783,7 @@ class CVCfiles(object):
             obsfolderinfo['pointing'] = ilisa.observations.directions.std_pointings(
                 obsfolderinfo['source'])
         else:
-            raise (ValueError, "Folder not expected xst or acc format.")
+            raise ValueError("Folder not expected xst or acc format.")
         obsfolderinfo['datatype'] = cvcextstr
         return obsfolderinfo
 
@@ -798,9 +799,7 @@ class CVCfiles(object):
         """
         try:
             self.scanrecinfo.read_scanrec(self.filefolder)
-        except Exception as e:
-            print(e.message)
-            print(e.__doc__)
+        except Exception:
             print("Warning: Could not read session header. Will try filefolder name...")
             try:
                 self.scanrecinfo.scanrecparms = self._parse_cvcfolder(self.filefolder)
@@ -824,7 +823,7 @@ class CVCfiles(object):
             print("Reading cvcfile: {}".format(cvcfile))
             datafromfile, t_begin = self._readcvcfile(
                 os.path.join(self.filefolder, cvcfile))
-            cvcdim_t, cvcdim_rcu1, cvcdim_rcu2 = datafromfile.shape
+            cvcdim_t, _cvcdim_rcu1, _cvcdim_rcu2 = datafromfile.shape
             self.dataset.append(datafromfile)
 
             # Compute time of each autocovariance matrix sample per subband
@@ -859,7 +858,7 @@ class CVCfiles(object):
         ----------
         cvcfilepath : str
         """
-        datatype, filenamedatetime, cvcdim_rcu1, cvcdim_rcu2 = \
+        _datatype, filenamedatetime, _cvcdim_rcu1, _cvcdim_rcu2 = \
             self._parse_cvcfile(cvcfilepath)
         t_begin = filenamedatetime
         # Get cvc data from file.
@@ -919,7 +918,7 @@ def readacc2bst(anacc2bstfilepath, datformat='hdf'):
     anacc2bstfilepath = os.path.abspath(anacc2bstfilepath)
     acc2bstfiledir = os.path.dirname(anacc2bstfilepath)
     anacc2bstfilename = os.path.basename(anacc2bstfilepath)
-    (stnid, beginUTCstr, rcuarg, calsrc, durarg, caltabdate, acc2bst, version
+    (stnid, beginUTCstr, rcuarg, calsrc, durarg, caltabdate, acc2bst, _version
      ) = anacc2bstfilename.split('_')
     beginUTC = datetime.datetime.strptime(beginUTCstr, "%Y%m%dT%H%M%S")
     rcumode = rcuarg[3]
