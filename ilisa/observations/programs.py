@@ -28,28 +28,31 @@ class ObsPrograms(object):
         programargs = inspect.getargspec(programpointer).args[1:defargstart]
         return programpointer, programargs
 
-    def _streambeams_mltfreq(self, freqbndobj, pointing, recDuration=float('inf'),
-                             attenuation=0, DUMMYWARMUP=False):
+    def _streambeams_mltfreq(self, freqbndobj, pointing,
+                             recDuration=float('inf'), attenuation=0,
+                             DUMMYWARMUP=False):
         """Form beams with station."""
         bits = freqbndobj.bits
         if DUMMYWARMUP:
             print("Warning warnup not currently implemented")
         beamctl_cmds = []
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
-            antset = freqbndobj.antsets[bandbeamidx]
+            _antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
             beamlets = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
             rcusel = freqbndobj.rcusel[bandbeamidx]
-            beamctl_main = self.stationdriver._run_beamctl(beamlets, subbands, rcumode,
-                                                           pointing, rcusel)
+            beamctl_main = self.stationdriver._run_beamctl(beamlets, subbands,
+                                                           rcumode, pointing,
+                                                           rcusel)
             beamctl_cmds.append(beamctl_main)
         rcu_setup_cmd = self.stationdriver._rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
     def do_bfs_OW(self, freqbndobj, duration_tot, pointing, bfdsesdumpdir,
                   starttime='NOW'):
-        """Record BeamFormed Streams (BFS) with particular beamlet allocation."""
+        """Record BeamFormed Streams (BFS) with particular beamlet allocation.
+        """
 
         band = freqbndobj.rcubands[0]
         ###
@@ -122,16 +125,16 @@ class ObsPrograms(object):
         if REC == True:
             port0 = self.stationdriver.bf_port0
             stnid = self.stationdriver.get_stnid()
-            datafiles, logfiles = bfbackend.rec_bf_streams(rectime, duration_tot, lanes,
-                                                           band, bfdsesdumpdir, port0,
-                                                           stnid)
+            datafiles, _logfiles = bfbackend.rec_bf_streams(
+                rectime, duration_tot, lanes, band, bfdsesdumpdir, port0,
+                stnid)
             bfsdatapaths = []
             for lane in lanes:
                 datafileguess = datafiles.pop()
                 if not datafileguess:
-                    outdumpdir, outarg, datafileguess, dumplogname = \
-                        bfbackend.bfsfilepaths(lane, rectime, band, bfdsesdumpdir, port0,
-                                               stnid)
+                    _outdumpdir, _outarg, datafileguess, _dumplogname = \
+                        bfbackend.bfsfilepaths(lane, rectime, band,
+                                               bfdsesdumpdir, port0, stnid)
                 bfsdatapaths.append(datafileguess)
         else:
             print("Not recording")
@@ -143,8 +146,8 @@ class ObsPrograms(object):
 
 
 def record_obsprog(stationdriver, scan):
-    """At starttime execute the observation program specified by the obsfun method
-    pointer and run with arguments specified by obsargs dict.
+    """At starttime execute the observation program specified by the obsfun
+    method pointer and run with arguments specified by obsargs dict.
     """
     scan_flat = dict(scan)
     del scan_flat['beam']
@@ -224,8 +227,8 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         duration_tot: float
             Total duration of scan in seconds.
         pointing: str
-            Pointing source direction of scan. Can be a source name or a beamctl
-            direction str.
+            Pointing source direction of scan. Can be a source name or a
+            beamctl direction str.
         starttime: str
             The time at which scan should start.
         rec: tuple
@@ -234,10 +237,11 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
                 'acc', 'bfs', 'bst', 'sst', 'xst'
             of which 3 latter types are mutual exclusive.
 
-            'acc': Record autocovariance-cubes (ACC) files. The actual total duration will
-            at most be duration_tot. (Usually it will be shorter so it fits within the
-            cadence of whole ACC aquisition, which is 512+7=519 seconds). ACC files are
-            the covariance of all array elements with each as a function of subband.
+            'acc': Record autocovariance-cubes (ACC) files. The actual total
+                duration will at most be duration_tot. (Usually it will be
+                shorter so it fits within the cadence of whole ACC aquisition,
+                which is 512+7=519 seconds). ACC files are the covariance of
+                all array elements with each as a function of subband.
 
             'bfs': Record BeamFormed Stream data.
 
@@ -249,7 +253,8 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
 
             None: No recording of data.
         duration_frq: float
-            Duration in seconds of a sampled frequency within a frequency sweep scan.
+            Duration in seconds of a sampled frequency within a frequency sweep
+            scan.
         allsky: bool, optional
             HBA allsky mode.
     """
@@ -311,7 +316,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         # Also duration of ACC sweep since each sb is 1 second.
         dur1acc = modeparms.TotNrOfsb  # Duration of one ACC
         interv2accs = 7  # time between end of one ACC and start of next one
-        acc_cadence = dur1acc+interv2accs  # =519s time between start of two ACCs
+        acc_cadence = dur1acc+interv2accs  # =519s time between start of 2 ACCs
         (nraccs, timrest) = divmod(duration_tot_req, acc_cadence)
         if timrest > dur1acc:
             nraccs += 1
@@ -340,9 +345,11 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
 
     if pointing is not None:
         # Real beam start:
-        print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+        print("Now running real beam... @ {}".format(
+                                                datetime.datetime.utcnow()))
         dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
-        rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj, dir_bmctl)
+        rcu_setup_cmd, beamctl_cmds = stationdriver.streambeams(freqbndobj,
+                                                                dir_bmctl)
         beamstarted = datetime.datetime.utcnow()
         rectime = beamstarted
         scan_id = stationdriver.get_scanid(beamstarted)
@@ -357,12 +364,14 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         scanresult['bfs'].set_stnid(stnid)
         scanpath_bfdat = os.path.join(stationdriver.bf_data_dir, scan_id)
         lanes = tuple(freqbndobj.getlanes().keys())
-        datafiles, logfiles = bfbackend.rec_bf_streams(rectime, duration_tot, lanes, band,
+        datafiles, logfiles = bfbackend.rec_bf_streams(rectime, duration_tot,
+                                                       lanes, band,
                                                        scanpath_bfdat,
-                                                       stationdriver.bf_port0, stnid)
+                                                       stationdriver.bf_port0,
+                                                       stnid)
         bfsnametime = rectime.strftime("%Y%m%d_%H%M%S")
-        this_obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmds, rcu_setup_cmd,
-                                       caltabinfos)
+        this_obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmds,
+                                       rcu_setup_cmd, caltabinfos)
         scanresult['bfs'].add_obs(this_obsinfo)
         bfsdatapaths = []
         bfslogpaths = []
@@ -370,7 +379,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
             datafileguess = datafiles.pop()
             dumplogname = logfiles.pop()
             if not datafileguess:
-                outdumpdir, outarg, datafileguess, dumplogname = \
+                _outdumpdir, _outarg, datafileguess, dumplogname = \
                     bfbackend.bfsfilepaths(lane, rectime, band, scanpath_bfdat,
                                            stationdriver.bf_port0,
                                            stationdriver.get_stnid())
@@ -409,7 +418,7 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
                     duration_frq = duration_tot
             # TODO Consider that specified duration is not the same as actual
             #  duration. Each step in frequency sweep take about 6s for 1s int.
-            (rep, rst) = divmod(duration_tot, duration_frq * nrsubbands)
+            (rep, _rst) = divmod(duration_tot, duration_frq * nrsubbands)
             rep = int(rep)
             if rep == 0:
                 warnings.warn("""Total duration too short for 1 full repetition.
@@ -417,7 +426,7 @@ Will increase total duration to get 1 full repetition.""")
                 duration_tot = duration_frq * nrsubbands
                 rep = 1
             # Repeat rep times (freq sweep)
-            for itr in range(rep):
+            for _itr in range(rep):
                 # Start freq sweep
                 for sb_rcumode in freqbndobj.sb_range:
                     if ':' in sb_rcumode:
@@ -440,8 +449,10 @@ Will increase total duration to get 1 full repetition.""")
                             (Known are bst, sst, xst)'.format(bsx_type))
 
     if not rec_acc and not rec_bfs and bsx_type is None:
-        print("Will run beam with no active recording for {} seconds.".format(duration_tot))
-        # Since we're not recording anything, just do nothing for the duration_tot.
+        print("Will run beam with no active recording for {} seconds.".format(
+                                                                duration_tot))
+        # Since we're not recording anything, just do nothing for the
+        # duration_tot.
         time.sleep(duration_tot)
 
     # Finished recording
@@ -452,7 +463,8 @@ Will increase total duration to get 1 full repetition.""")
 
     # Work out where station-correlated data should be stored:
     scanpath_scdat = os.path.join(stationdriver.scanpath, scan_id)
-    # and create the directory: (may not have ldat if no rec but will have info files)
+    # and create the directory: (may not have ldat if no rec but will have info
+    # files)
     os.makedirs(scanpath_scdat)
 
     if rec_acc:
@@ -463,7 +475,8 @@ Will increase total duration to get 1 full repetition.""")
         _, acc_files =  stationdriver.getdatalist()
         for acc_file in acc_files:
             obsid, _ = acc_file.split('_acc_')
-            this_obsinfo =  dataIO.LDatInfo('acc', obsid, beamctl_cmds, rcu_setup_cmd)
+            this_obsinfo =  dataIO.LDatInfo('acc', obsid, beamctl_cmds,
+                                            rcu_setup_cmd)
             scanresult['acc'].add_obs(this_obsinfo)
 
         # Set scanrecinfo
@@ -477,8 +490,8 @@ Will increase total duration to get 1 full repetition.""")
         if os.path.exists(scanrecpath):
             print("Appropriate directory exists already (will put data here)")
         else:
-            print("Creating directory "+scanrecpath+" for ACC "+str(duration_tot)
-                  + " s rcumode="+str(rcumode)+" calibration")
+            print("Creating directory "+scanrecpath+" for ACC "
+                  +str(duration_tot)+" s rcumode="+str(rcumode)+" calibration")
             os.makedirs(scanrecpath)
 
         # Move ACC dumps to storage
@@ -509,8 +522,8 @@ Will increase total duration to get 1 full repetition.""")
         # Make soft links to actual BFS files and move logs to scanrec folder
         for lane in lanes:
             if bfsdatapaths[lane] is not None:
-                os.symlink(bfsdatapaths[lane], os.path.join(scanrecpath, os.path.basename(
-                    bfsdatapaths[lane])))
+                os.symlink(bfsdatapaths[lane], os.path.join(scanrecpath,
+                                        os.path.basename(bfsdatapaths[lane])))
             if bfslogpaths[lane] is not None:
                 shutil.move(bfslogpaths[lane], scanrecpath)
 

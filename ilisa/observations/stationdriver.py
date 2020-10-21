@@ -143,7 +143,7 @@ class StationDriver(object):
              the_dir = dd_dir
         else:
             the_dir = acc_dir
-        obsdate, obstime, obssuff = the_dir[order].split('_', 2)
+        obsdate, obstime, _obssuff = the_dir[order].split('_', 2)
         obsdatetime_stamp = obsdate+'_'+obstime
         return obsdatetime_stamp
 
@@ -264,7 +264,7 @@ class StationDriver(object):
         rcu_setup_cmd = self._lcu_interface.rcusetup(bits, attenuation)
         beamctl_cmds = []
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
-            antset = freqbndobj.antsets[bandbeamidx]
+            _antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
             beamletIDs = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
