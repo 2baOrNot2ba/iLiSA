@@ -33,7 +33,7 @@ def startlane(lane, port, dumppath, dur=None, threadqueue=None):
 
         # Wait until I get some data:
         print("Lane %d waiting..." % lane)
-        recv_msg, addr = clientsock.recvfrom(bufsize)
+        recv_msg, _addr = clientsock.recvfrom(bufsize)
         start_time = datetime.datetime.utcnow()
         start_time_near_sec = start_time.replace(microsecond=0)
         print("...got some data at {}".format(start_time))
@@ -52,7 +52,7 @@ def startlane(lane, port, dumppath, dur=None, threadqueue=None):
         clientsock.settimeout(1.0)
         while True:
             try:
-                recv_msg, addr = clientsock.recvfrom(bufsize)
+                recv_msg, _addr = clientsock.recvfrom(bufsize)
             except socket.timeout:
                 clientsock.close()
                 if REC_SET:
@@ -66,8 +66,8 @@ def startlane(lane, port, dumppath, dur=None, threadqueue=None):
                     break
         return start_time, datapath
 
-    start_time, recdatapath = get_databurst()
-    stop_time = datetime.datetime.utcnow()
+    _start_time, recdatapath = get_databurst()
+    _stop_time = datetime.datetime.utcnow()
 
     print("{}: Created file: {}".format(os.path.basename(__file__), recdatapath))
     if threadqueue:

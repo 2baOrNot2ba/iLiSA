@@ -106,7 +106,7 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
     use_python_recorder = False
     if usefork:
         child_pids = []
-        child_lanes = []
+        _child_lanes = []
         for lane in lanes:
             newpid = os.fork()
             if newpid == 0:
@@ -115,7 +115,7 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
             else:
                 child_pids.append(newpid)
         for lane in lanes:
-            pid, status = os.waitpid(child_pids[lane], 0)
+            _pid, status = os.waitpid(child_pids[lane], 0)
             print("lane {} finished with status {}.".format(lane, status))
         datafiles, logfiles = [None]*len(lanes), [None]*len(lanes)
     else:
