@@ -20,6 +20,7 @@ import re
 import datetime
 import h5py
 import yaml
+import warnings
 import ilisa
 import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
@@ -73,12 +74,13 @@ def datafolder_type(datafolderpath):
 
 
 class ScanRecInfo(object):
-    """This class maintains info on a scan recording (scanrec), which is one of the
-    results of an iLiSA scan. One scanrec is a group of one or more files of a unique
-    LOFAR station data product (ldat), i.e. acc, bfs, bst, sst or xst.
-    The info in a ScanRecInfo object consists of sufficient parameters to redo the
-    data, namely the stn_id, the iLiSA scanrec parameters, and a list of LDatInfo objects
-    called obsinfos that maps to each ldat within the scanrec.
+    """This class maintains info on a scan recording (scanrec), which is one
+    of the results of an iLiSA scan. One scanrec is a group of one or more
+    files of a unique LOFAR station data product (ldat), i.e. acc, bfs, bst,
+    sst or xst. The info in a ScanRecInfo object consists of sufficient
+    parameters to redo the data, namely the stn_id, the iLiSA scanrec
+    parameters, and a list of LDatInfo objects called obsinfos that maps to
+    each ldat within the scanrec.
     """
     scanrecinfo_header = "SCANREC_INFO.yml"
 
@@ -113,7 +115,8 @@ class ScanRecInfo(object):
         return stnid
 
     def set_scanrecparms(self, datatype, freqband, duration_tot,
-                         pointing="None,None,None", integration=None, allsky=False):
+                         pointing="None,None,None", integration=None,
+                         allsky=False):
         """Record parameters used as arguments to record_scan program."""
         self.scanrecparms = {}
         self.scanrecparms['datatype'] = datatype
@@ -126,7 +129,8 @@ class ScanRecInfo(object):
     def write_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), "w") as f:
             f.write("# LOFAR local station project\n")
-            f.write("# Created by {} version {}\n".format("iLiSA", ilisa.__version__))
+            f.write("# Created by {} version {}\n".format("iLiSA",
+                                                          ilisa.__version__))
             f.write("headerversion: {}\n".format(self.headerversion))
             f.write("stnid: {}\n".format(self.stnid))
             f.write("scanrec: {!r}\n".format(self.scanrecparms))
@@ -158,8 +162,8 @@ class ScanRecInfo(object):
             self.obsinfos[obs_id].write_ldat_header(scanrecpath)
 
     def set_postcalibration(self, caltabpath, scanrecpath):
-        """Add the caltab file that was applied to this scanrec (typically CVC data)
-         after station recording.
+        """Add the caltab file that was applied to this scanrec (typically CVC
+        data) after station recording.
 
         Parameters
         ----------
@@ -175,8 +179,8 @@ class ScanRecInfo(object):
             h.write("calibrationfile: " + os.path.basename(caltabpath))
 
     def set_scanpath(self, scanpath):
-        """Set path where this scanrec is stored. scanpath is the path to parent
-        folder.
+        """Set path where this scanrec is stored. scanpath is the path to
+        parent folder.
         """
         self.scanpath = scanpath
 
@@ -236,7 +240,8 @@ class ScanRecInfo(object):
 
     def get_septon_elmap(self, filenr=0):
         obs_ids = self.get_obs_ids()
-        elmap = modeparms.str2elementMap2(self.obsinfos[obs_ids[filenr]].septonconf)
+        elmap = modeparms.str2elementMap2(
+                    self.obsinfos[obs_ids[filenr]].septonconf)
         return elmap
 
     def get_ldat_filenames(self):
@@ -249,12 +254,12 @@ class ScanRecInfo(object):
 
 
 class LDatInfo(object):
-    """Maintains a minimum of info for the physical interpretation of an LCU data product
-    file (ldat). It consists of the LCU commands or settings that resulted in the ldat.
-    An observation can update an object with LCU settings and the create a header file
-    associated with the resulting ldat file of the observation. Later when ingesting
-    the ldat file, an object can read-in the associated header file to get physically
-    meaningful data.
+    """Maintains a minimum of info for the physical interpretation of an LCU
+    data product file (ldat). It consists of the LCU commands or settings that
+    resulted in the ldat. An observation can update an object with LCU settings
+    and the create a header file associated with the resulting ldat file of the
+    observation. Later when ingesting the ldat file, an object can read-in the
+    associated header file to get physically meaningful data.
 
     Specifically an object should have:
 
@@ -313,7 +318,8 @@ class LDatInfo(object):
             self.sb = self.sb
         self.caltabinfos = caltabinfos
 
-    def obsfoldername(self, folder_name_beamctl_type=True, stnid=None, source_name=None):
+    def obsfoldername(self, folder_name_beamctl_type=True, stnid=None,
+                      source_name=None):
         """Create name and destination path for folders (on the DPU) in
         which to save the various LOFAR data products.
         """
@@ -323,7 +329,8 @@ class LDatInfo(object):
                 obsextname += "_rcu357"
             else:
                 if type(self.rcumode) is list:
-                    rcumodestr = ''.join([str(rcumode) for rcumode in self.rcumode])
+                    rcumodestr = \
+                        ''.join([str(rcumode) for rcumode in self.rcumode])
                 else:
                     rcumodestr = str(self.rcumode)
                 obsextname += "_rcu" + rcumodestr
@@ -343,7 +350,8 @@ class LDatInfo(object):
             # ACC:
             rcumode = self.rcumode[0]
             obsextname = '{}_{}_rcu{}_dur{}'.format(stnid, self.filenametime,
-                                                    rcumode, self.duration_scan)
+                                                    rcumode,
+                                                    self.duration_scan)
             if int(rcumode) > 4:  # rcumodes more than 4 need pointing
                 obsextname += "_" + source_name
         if not folder_name_beamctl_type:
@@ -428,7 +436,8 @@ class LDatInfo(object):
 
     def get_starttime(self):
         """Return the datetime when this obs started."""
-        filetime = datetime.datetime.strptime(self.filenametime, "%Y%m%d_%H%M%S")
+        filetime = datetime.datetime.strptime(self.filenametime,
+                                              "%Y%m%d_%H%M%S")
         if self.ldat_type != 'acc':
             starttime = filetime
         else:
@@ -558,11 +567,14 @@ def readbstfolder(BSTfilefolder):
         freqlo = modeparms.sb2freq(sblo, nz)
         freqhi = modeparms.sb2freq(sbhi, nz)
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
-                                                  numpy.linspace(freqlo, freqhi, nrsbs))
+                                                  numpy.linspace(freqlo,
+                                                                 freqhi,
+                                                                 nrsbs))
         totnrsbs += nrsbs
 
-    # When the beamlets allocated is less than the maximum (given by bit depth) the
-    # RSPs fill the remaining ones regardless. Hence we have to account for them:
+    # When the beamlets allocated is less than the maximum (given by bit depth)
+    # the RSPs fill the remaining ones regardless. Hence we have to account for
+    # them:
     if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
         maxnrsbs = modeparms.BASE_NR_BEAMLETS
     elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
@@ -577,7 +589,9 @@ def readbstfolder(BSTfilefolder):
         freqlo = modeparms.sb2freq(sblo, nz)
         freqhi = modeparms.sb2freq(sbhi, nz)
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
-                                                  numpy.linspace(freqlo, freqhi, nrsbs))
+                                                  numpy.linspace(freqlo,
+                                                                 freqhi,
+                                                                 nrsbs))
         totnrsbs += nrsbs
     BSTdirls = os.listdir(BSTfilefolder)
     BSTfiles = [f for f in BSTdirls if f.endswith('.dat')]
@@ -667,14 +681,15 @@ def readsstfolder(SSTfolder):
 
 
 class CVCfiles(object):
-    """Provides functionality for covariance cube (CVC) files. (CVC is essentially
-    visiblity cubes.) CVC files from a LOFAR station includes ACC and XST files.
+    """Provides functionality for covariance cube (CVC) files. (CVC is
+    essentially visiblity cubes.) CVC files from a LOFAR station includes ACC
+    and XST files.
 
     Attributes
     ----------
     dataset: list of array_like
-        Each item in list corresponds to one CVC file and is the actual covariance matrix
-        cube with shape cvcdim0 x cvcdim1 x cvcdim2.
+        Each item in list corresponds to one CVC file and is the actual
+        covariance matrix cube with shape cvcdim0 x cvcdim1 x cvcdim2.
     fileobstimes: list of str
         A list of datetimes as specified by the CVC filename.
     samptimeset: list of datetimes
@@ -702,8 +717,9 @@ class CVCfiles(object):
         return cvc_dtype
 
     def _parse_cvcfile(self, cvcfilepath):
-        """Parse the cvc file name. Sets fileobstimes and sets the dimensions of the
-        visibility cube, which most generally is: dimtimes * dimrcu0 * dimrcu1.
+        """Parse the cvc file name. Sets fileobstimes and sets the dimensions
+        of the visibility cube, which most generally is: 
+        dimtimes * dimrcu0 * dimrcu1.
 
         The file name should have the format:
             Ymd_HMS_xst.dat for xst file
@@ -725,10 +741,12 @@ class CVCfiles(object):
             nrrcus1 = 192
         self.cvcdim1 = nrrcus0
         self.cvcdim2 = nrrcus1
-        filenamedatetime = datetime.datetime.strptime(Ymd + 'T' + HMS, '%Y%m%dT%H%M%S')
+        filenamedatetime = datetime.datetime.strptime(Ymd + 'T' + HMS,
+                                                      '%Y%m%dT%H%M%S')
         # NOTE: For ACC, filename is last obstime, while for XST, it is first.
         if datatype == 'acc':
-            filebegindatetime = filenamedatetime - datetime.timedelta(seconds=_nr512)
+            filebegindatetime = filenamedatetime - datetime.timedelta(
+                seconds=_nr512)
         else:
             filebegindatetime = filenamedatetime
         # Save the observation datetime of file and the cvc dims.
@@ -765,7 +783,8 @@ class CVCfiles(object):
             obsdirinfo_m = dirpat.match(cvcfoldername)
             if obsdirinfo_m is None:
                 print("Cal error")
-                raise ValueError("Calibration directory does not have correct syntax.")
+                raise ValueError(
+                        "Calibration directory does not have correct syntax.")
             obsdirinfo = obsdirinfo_m.groupdict()
             obsfolderinfo['stnid'] = obsdirinfo['stnid']
             d0 = datetime.datetime(int(obsdirinfo['year']),
@@ -780,8 +799,9 @@ class CVCfiles(object):
             obsfolderinfo['integration'] = 1.0
             obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
             obsfolderinfo['source'] = obsdirinfo['calsrc']
-            obsfolderinfo['pointing'] = ilisa.observations.directions.std_pointings(
-                obsfolderinfo['source'])
+            obsfolderinfo['pointing'] = \
+                ilisa.observations.directions.std_pointings(
+                    obsfolderinfo['source'])
         else:
             raise ValueError("Folder not expected xst or acc format.")
         obsfolderinfo['datatype'] = cvcextstr
@@ -800,9 +820,11 @@ class CVCfiles(object):
         try:
             self.scanrecinfo.read_scanrec(self.filefolder)
         except Exception:
-            print("Warning: Could not read session header. Will try filefolder name...")
+            warnings.warn("Could not read session header."
+                          +" Will try filefolder name...")
             try:
-                self.scanrecinfo.scanrecparms = self._parse_cvcfolder(self.filefolder)
+                self.scanrecinfo.scanrecparms = \
+                    self._parse_cvcfolder(self.filefolder)
             except ValueError:
                 self.scanrecinfo.scanrecparms = None
             else:
@@ -819,7 +841,8 @@ class CVCfiles(object):
                 obsinfo = LDatInfo.read_ldat_header(hfilepath)
                 self.scanrecinfo.add_obs(obsinfo)
             except:
-                print("Warning: Couldn't find a header file for {}".format(cvcfile))
+                warnings.warn(
+                    "Couldn't find a header file for {}".format(cvcfile))
             print("Reading cvcfile: {}".format(cvcfile))
             datafromfile, t_begin = self._readcvcfile(
                 os.path.join(self.filefolder, cvcfile))
@@ -889,7 +912,8 @@ class CVCfiles(object):
 
 
 def cvc2cvpol(cvc):
-    """Convert a covariance cube into an array indexed by polarization channels.
+    """Convert a covariance cube into an array indexed by polarization
+    channels.
 
     Parameters
     ----------
@@ -938,13 +962,14 @@ def readacc2bst(anacc2bstfilepath, datformat='hdf'):
                                         durarg, caltabdate))
             acc2bstfilename += '_' + varstr
             acc2bstfilename += '.npy'
-            acc2bstvars[varstr] = numpy.load(acc2bstfiledir + '/' + acc2bstfilename)
+            acc2bstvars[varstr] = numpy.load(acc2bstfiledir + '/'
+                                             + acc2bstfilename)
     return acc2bstvars, beginUTC, rcumode, calsrc, dur, caltabdate, stnid
 
 
 def saveacc2bst(bst_pols, filestarttimes, calrunstarttime,
-                calrunduration, rcumode, calsrc, caltab_id, stnid, used_autocorr,
-                saveformat="hdf5"):
+                calrunduration, rcumode, calsrc, caltab_id, stnid,
+                used_autocorr, saveformat="hdf5"):
     """Save acc2bst data to file. Dataformat can be hdf or numpy."""
     (bstXX, bstXY, bstYY) = bst_pols
     version = '5'  # Version of this dataformat
