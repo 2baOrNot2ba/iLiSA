@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""Python based recorder for beamformed data streams."""
+"""Record beamformed streams."""
 import multiprocessing
 import subprocess
 import socket
@@ -22,7 +22,11 @@ bufsize = 1048576
 
 
 def startlane(lane, port, dumppath, dur=None, threadqueue=None):
-    """Monitor a streaming lane of beamformed data."""
+    """
+    Python based recorder for beamformed data streams
+
+    Monitor a streaming lane of beamformed data and save data to file.
+    """
 
     def get_databurst():
         try:
@@ -44,9 +48,8 @@ def startlane(lane, port, dumppath, dur=None, threadqueue=None):
             else:
                 print("Recording {} s of data.".format(dur))
             datapath = os.path.join(dumppath,
-                                    "{}{}_{}.{}".format(filename_base,
-                                                        start_time_near_sec.isoformat(),
-                                                        lane, ext))
+                "{}{}_{}.{}".format(filename_base,
+                                    start_time_near_sec.isoformat(), lane, ext))
             f = open(datapath, "wb")
             f.write(recv_msg)
         clientsock.settimeout(1.0)
@@ -79,8 +82,37 @@ def startlane(lane, port, dumppath, dur=None, threadqueue=None):
         )
 
 
+def main(port0, datadir, duration):
+    lanes = range(nr_lanes)
+    retvalq = multiprocessing.Queue()
+    datafiles = [None]*nr_lanes
+    logfiles = [None]*nr_lanes
+    laneprocs = []
+    for lane in lanes:
+        dumppath = datadir.replace('?', str(lane))
+        if not os.path.exists(dumppath):
+            os.mkdir(dumppath)
+        port = port0 + lane
+        laneproc = multiprocessing.Process(target=startlane,
+                                           args=(lane, port, dumppath,
+                                                 duration, retvalq))
+        laneproc.start()
+        laneprocs.append(laneproc)
+    for laneproc in laneprocs:
+        laneproc.join()
+        lane_ret, datafileguess = retvalq.get()
+        datafiles[lane_ret] = datafileguess
+        dumplogname = None
+        logfiles.append(dumplogname)
+    return datafiles, logfiles
+
+
 def cli_main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--starttime',
+                        type=str, default='NOW',
+                        help = "Start-time,: (iso format) YYYY-mm-ddTHH:MM:SS"
+                        )
     parser.add_argument('-p', '--port0',
                         type=int, default=4346,
                         help = "Port number for lane 0"
@@ -93,32 +125,12 @@ def cli_main():
                         type=int, default=None,
                         help="Duration of recording in seconds"
                         )
+    parser.add_argument('-w', '--which',
+                        type=str, default='ow',
+                        help="Which backend recorder: ow or py",
+                        )
     args = parser.parse_args()
     main(args.port0, args.bfdatadir, args.dur)
-
-
-def main(port0, datadir, duration):
-    lanes = range(nr_lanes)
-    retvalq = multiprocessing.Queue()
-    datafiles = [None]*nr_lanes
-    logfiles = [None]*nr_lanes
-    laneprocs = []
-    for lane in lanes:
-        dumppath = datadir.replace('?', str(lane))
-        if not os.path.exists(dumppath):
-            os.mkdir(dumppath)
-        port = port0 + lane
-        laneproc = multiprocessing.Process(target=startlane, args=(lane, port, dumppath,
-                                                                   duration, retvalq))
-        laneproc.start()
-        laneprocs.append(laneproc)
-    for laneproc in laneprocs:
-        laneproc.join()
-        lane_ret, datafileguess = retvalq.get()
-        datafiles[lane_ret] = datafileguess
-        dumplogname = None
-        logfiles.append(dumplogname)
-    return datafiles, logfiles
 
 
 if __name__=="__main__":

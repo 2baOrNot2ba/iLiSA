@@ -76,7 +76,8 @@ class ObsPrograms(object):
             subbands = '12:255'
         else:
             raise ValueError(
-                "Wrong band: should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
+                "Wrong band: "
+                "should be 10_90 (LBA), 110_190 (HBAlo) or 210_250 (HBAhi).")
 
         # Wait until it is time to start
         starttime_req = starttime
@@ -98,7 +99,8 @@ class ObsPrograms(object):
 
         # BEGIN Dummy or hot beam start: (takes about 14sec)
         print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
-        self.stationdriver._rcusetup(bits, attenuation)  # setting bits is necessary
+        # Setting bits is necessary:
+        self.stationdriver._rcusetup(bits, attenuation)  
         self.stationdriver._run_beamctl(beamlets, subbands, band, dir_bmctl)
         self.stationdriver.stop_beam()
         # END Dummy or hot start
@@ -107,7 +109,7 @@ class ObsPrograms(object):
         time.sleep(pause)
 
         # Real beam start:
-        print("Now running real beam... @ {}".format(datetime.datetime.utcnow()))
+        print("Beam started @ UT {}".format(datetime.datetime.utcnow()))
         rcu_setup_cmd = self.stationdriver._rcusetup(bits, attenuation)
         beamctl_cmd = self.stationdriver._run_beamctl(beamlets, subbands, band,
                                                       dir_bmctl)
@@ -118,8 +120,8 @@ class ObsPrograms(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
         bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
-        obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmd, rcu_setup_cmd,
-                                  caltabinfos="")
+        obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmd,
+                                  rcu_setup_cmd, caltabinfos="")
 
         REC = True
         if REC == True:
@@ -182,8 +184,8 @@ def record_obsprog(stationdriver, scan):
         scanrec = dataIO.ScanRecInfo()
         scanrec.set_stnid(stationdriver.get_stnid())
         scanrec.set_scanrecparms(datatype, freqbndobj.arg,
-                                  scan['duration_tot'], scan['beam']['pointing'],
-                                  allsky=False)
+                                 scan['duration_tot'], scan['beam']['pointing'],
+                                 allsky=False)
         beamstarted = datetime.datetime.strptime(obsinfolist[0].filenametime,
                                                  "%Y%m%d_%H%M%S")
         scan_id = stationdriver.get_scanid(beamstarted)
@@ -398,15 +400,17 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         if bsx_type == 'bst':
             rspctl_cmd = stationdriver.rec_bst(integration, duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
-            curr_obsinfo = dataIO.LDatInfo('bst', obsdatetime_stamp, beamctl_cmds,
-                                           rspctl_cmd, caltabinfos)
+            curr_obsinfo = dataIO.LDatInfo('bst', obsdatetime_stamp,
+                                           beamctl_cmds, rspctl_cmd,
+                                           caltabinfos)
             scanresult['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'sst':
             caltabinfo = ""
             rspctl_cmd = stationdriver.rec_sst(integration, duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
-            curr_obsinfo = dataIO.LDatInfo('sst', obsdatetime_stamp, beamctl_cmds,
-                                           rspctl_cmd, caltabinfo)
+            curr_obsinfo = dataIO.LDatInfo('sst', obsdatetime_stamp,
+                                           beamctl_cmds, rspctl_cmd,
+                                           caltabinfo)
             scanresult['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'xst':
             caltabinfo = ""  # No need for caltab info for xst data

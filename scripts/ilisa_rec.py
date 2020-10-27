@@ -14,7 +14,8 @@ import ilisa.observations.programs as programs
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', '--allsky', help="Set allsky FoV", action='store_true')
+    parser.add_argument(
+        '-a', '--allsky', help="Set allsky FoV", action='store_true')
     parser.add_argument('-s', '--starttime',
                         help="Start Time (format: YYYY-mm-ddTHH:MM:SS)",
                         type=str, default='NOW')
@@ -22,12 +23,14 @@ def main():
                         help="Integration time [s]",
                         type=float, default=modeparms.MIN_STATS_INTG)
     parser.add_argument('datatype',
-                        help="""lofar data type to record.
-                        Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
+                        help="""\
+lofar data type to record.
+Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
     parser.add_argument('freqspec',
                         help='Frequency spec in Hz.')
     parser.add_argument('duration_tot',
-                        help='Duration in seconds. (Can be an arithmetic expression)',
+                        help='Duration in seconds. '
+                             '(Can be an arithmetic expression)',
                         type=str)
     parser.add_argument('pointing', nargs='?', default='Z',
                         help='A direction in az,el,ref (radians) or a source name.')
@@ -45,8 +48,7 @@ def main():
         pointing = None
     dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
     if not dir_bmctl:
-        raise ValueError(
-            "Error: %s invalid pointing syntax".format(args.pointing))
+        raise ValueError("Invalid pointing syntax: {}".format(args.pointing))
     duration_tot = eval(str(args.duration_tot))
 
     do_acc = False

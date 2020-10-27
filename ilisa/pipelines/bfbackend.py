@@ -15,7 +15,8 @@ dumpercmd = os.path.join(pathtodumper, dumpername)
 # dumpercmd = 'echo'  # For testing purposes
 
 
-def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid, compress=True):
+def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid,
+                 compress=True):
     """Generate paths and name for BFS recording.
 
     Parameters
@@ -58,11 +59,11 @@ def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid, compress=True
     outfilepre = "udp_" + stnid
     rcumode = ilisa.observations.modeparms.band2rcumode(band)
     outarg = os.path.join(outdumpdir, outfilepre)
-    dumplogname = os.path.join(outdumpdir, '{}_lane{}_rcu{}.log'.format(dumpername,
-                                                                        lane,
-                                                                        rcumode))
+    dumplogname = os.path.join(outdumpdir,
+                               '{}_lane{}_rcu{}.log'.format(dumpername, lane,
+                                                            rcumode))
     datafileguess = outarg + '_' + str(port) + platform.node()\
-                    + starttime.strftime("%Y-%m-%dT%H:%M:%S") + '.000'
+        + starttime.strftime("%Y-%m-%dT%H:%M:%S") + '.000'
     if compress:
         datafileguess += '.zst'
     return outdumpdir, outarg, datafileguess, dumplogname
@@ -78,30 +79,34 @@ def _startlanerec(lane, starttime, duration, band, bf_data_dir, port0, stnid,
     else:
         compress_flag = ''
     port = port0 + lane
-    outdumpdir, outarg, datafileguess, dumplogname = bfsfilepaths(lane, starttime,
-                                                                  band, bf_data_dir,
-                                                                  port0, stnid, compress)
+    outdumpdir, outarg, datafileguess, dumplogname = \
+        bfsfilepaths(lane, starttime, band, bf_data_dir,
+                     port0, stnid, compress)
     if not os.path.exists(outdumpdir):
         os.mkdir(outdumpdir)
     cmdline_full_shell = (dumpercmd + ' --ports ' + str(port) + ' --check '
-                         + ' --Start ' + starttime.strftime("%Y-%m-%dT%H:%M:%S")
-                         + ' --duration ' + str(duration)
-                         + ' --timeout 9999'
-                         + compress_flag
-                         + ' --out ' + outarg
-                         + ' > ' + dumplogname)
+                          + ' --Start ' +
+                          starttime.strftime("%Y-%m-%dT%H:%M:%S")
+                          + ' --duration ' + str(duration)
+                          + ' --timeout 9999'
+                          + compress_flag
+                          + ' --out ' + outarg
+                          + ' > ' + dumplogname)
     print("Running: {}".format(cmdline_full_shell))
     subprocess.call(cmdline_full_shell, shell=True)
     print("{}".format(datafileguess))
     print("{}".format(dumplogname))
     if threadqueue:
         threadqueue.put((datafileguess, dumplogname))
-    #return datafileguess, dumplogname
+    # return datafileguess, dumplogname
 
 
-def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
-    """Basically a wrapper that runs dump_udp processes to capture beamformed data streams.
-    It sets up multiple processes that record one lane each."""
+def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0,
+                   stnid):
+    """
+    Wrapper that runs dump_udp processes to capture beamformed data streams.
+    It sets up multiple processes that record one lane each.
+    """
     usefork = False
     use_python_recorder = False
     if usefork:
@@ -110,7 +115,8 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
         for lane in lanes:
             newpid = os.fork()
             if newpid == 0:
-                _startlanerec(lane, starttime, duration, band, bf_data_dir, port0, stnid)
+                _startlanerec(lane, starttime, duration, band, bf_data_dir,
+                              port0, stnid)
                 sys.exit(0)
             else:
                 child_pids.append(newpid)
@@ -126,9 +132,10 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
             laneprocs = []
             for lane in lanes:
                 laneproc = multiprocessing.Process(target=_startlanerec,
-                                                   args=(lane, starttime, duration, band,
-                                                         bf_data_dir, port0, stnid, True,
-                                                         retvalq)
+                                                   args=(lane, starttime,
+                                                         duration, band,
+                                                         bf_data_dir, port0,
+                                                         stnid, True, retvalq)
                                                    )
                 laneproc.start()
                 laneprocs.append(laneproc)
@@ -141,3 +148,5 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0, stnid):
             datafiles, logfiles = rec_bf_streams_py.main(port0, bf_data_dir,
                                                          duration=duration)
     return datafiles, logfiles
+
+
