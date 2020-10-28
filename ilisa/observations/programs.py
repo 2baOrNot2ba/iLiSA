@@ -366,11 +366,9 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         scanresult['bfs'].set_stnid(stnid)
         scanpath_bfdat = os.path.join(stationdriver.bf_data_dir, scan_id)
         lanes = tuple(freqbndobj.getlanes().keys())
-        datafiles, logfiles = bfbackend.rec_bf_streams(rectime, duration_tot,
-                                                       lanes, band,
-                                                       scanpath_bfdat,
-                                                       stationdriver.bf_port0,
-                                                       stnid)
+        datafiles, logfiles = stationdriver.dru_interface.rec_bf_proxy(rectime,
+            duration_tot, lanes, band, scanpath_bfdat, stationdriver.bf_port0,
+                                                                       stnid)
         bfsnametime = rectime.strftime("%Y%m%d_%H%M%S")
         this_obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmds,
                                        rcu_setup_cmd, caltabinfos)
@@ -522,14 +520,14 @@ Will increase total duration to get 1 full repetition.""")
         scanrecpath = scanresult['bfs'].get_scanrecpath()
         print("Creating BFS destination folder on DPU:\n{}".format(scanrecpath))
         os.makedirs(scanrecpath)
-
-        # Make soft links to actual BFS files and move logs to scanrec folder
-        for lane in lanes:
-            if bfsdatapaths[lane] is not None:
-                os.symlink(bfsdatapaths[lane], os.path.join(scanrecpath,
-                                        os.path.basename(bfsdatapaths[lane])))
-            if bfslogpaths[lane] is not None:
-                shutil.move(bfslogpaths[lane], scanrecpath)
+        if stationdriver.dru_interface.hostname == 'localhost':
+            # Make soft links to actual BFS files and move logs to scanrec folder
+            for lane in lanes:
+                if bfsdatapaths[lane] is not None:
+                    os.symlink(bfsdatapaths[lane], os.path.join(scanrecpath,
+                                            os.path.basename(bfsdatapaths[lane])))
+                if bfslogpaths[lane] is not None:
+                    shutil.move(bfslogpaths[lane], scanrecpath)
 
     stationdriver.cleanup()
     # Necessary due to possible forking
