@@ -13,6 +13,7 @@ import multiprocessing
 
 import ilisa.observations.directions
 import ilisa.observations.lcuinterface as stationcontrol
+from ilisa.observations.druinterface import DRUinterface
 import ilisa.observations.modeparms as modeparms
 
 
@@ -44,6 +45,9 @@ class StationDriver(object):
 
         self.mockrun = mockrun
         self._lcu_interface = stationcontrol.LCUInterface(accessconf_lcu)
+        bf_ports = self.get_laneports()
+        self.bf_port0 = int(bf_ports[0])
+        self.dru_interface = DRUinterface(accessconf_dru, bf_ports)
         if self.mockrun:
             self._lcu_interface.DryRun = self.mockrun
 
@@ -52,8 +56,6 @@ class StationDriver(object):
         self.bf_logfile =       accessconf_dru['BeamFormLogFile']
         self.tbbraw2h5cmd =     accessconf_dru['TBBraw2h5Cmd']
         self.tbbh5dumpdir =     accessconf_dru['TBBh5dumpDir']
-        bf_ports = self.get_laneports()
-        self.bf_port0 = int(bf_ports[0])
         # Path to folder that will contain scans:
         self.scanpath = os.path.join(self.LOFARdataArchive, 'Scans')
         self.exit_check = True
