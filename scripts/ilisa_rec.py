@@ -68,12 +68,12 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
     elif args.datatype == 'bst' or args.datatype == 'sst' or args.datatype == 'xst':
         bsx_type = args.datatype
         sesspath = os.path.join(sesspath, bsx_type)
-    elif args.datatype == 'tbb':
+    elif args.datatype == 'tbb' or args.datatype == 'dmp':
         pass
     else:
         raise RuntimeError('Unknown datatype {}'.format(args.datatype))
 
-    if args.datatype != 'tbb':
+    if args.datatype != 'tbb' and args.datatype != 'dmp':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         stndrv.scanpath = sesspath
         scanresult = programs.record_scan(
@@ -86,9 +86,20 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
             scanresult[res].write()
         if not scanresult['rec']:
             print("No data recorded ('None' selected)")
-    else:
+    elif args.datatype == 'tbb':
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
-    print("Finished")
+    elif args.datatype == 'dmp':
+        stndrv.halt_observingstate_when_finished = False
+        stndrv.exit_check = False
+        rectime = args.starttime
+        lanes = freqbndobj.getlanes()
+        band = freqbndobj.rcubands[0]
+        scanpath_bfdat = stndrv.bf_data_dir
+        stnid = stndrv.get_stnid()
+        _datafiles, _logfiles = stndrv.dru_interface.rec_bf_proxy(rectime,
+            duration_tot, lanes, band, scanpath_bfdat, stndrv.bf_port0,
+            stnid)
+    print("{} finished".format(__file__))
     sys.stdout.flush()
 
 
