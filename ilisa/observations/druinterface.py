@@ -5,7 +5,7 @@ import ilisa.observations.modeparms
 dumpername = 'dump_udp_ow'
 
 
-class DRUinterface():
+class DRUinterface:
     druprompt = "On DRU>"
     verbose = True
 
@@ -14,7 +14,7 @@ class DRUinterface():
             hostname = accessconf_dru['hostname']
         except KeyError:
             hostname = 'localhost'
-        self.hostname =  hostname
+        self.hostname = hostname
         try:
             user = accessconf_dru['user']
         except KeyError:
@@ -86,7 +86,7 @@ class DRUinterface():
         """Start recording beamformed streams using an external dumper process.
         """
         recorders = ['ow', 'py']
-        which_recorder = recorders[0]
+        _which_recorder = recorders[0]
         # dumpercmd = self.dru.path(self.pipeline_path) / dumpername
         dumpercmd = dumpername
         rec_cmd = self.dru[dumpercmd]
@@ -109,10 +109,10 @@ class DRUinterface():
             if compress:
                 cmdlineargs.append('--compress')
             if self.verbose:
-                cmdlineargstr = ' '.join(map(str,cmdlineargs))
+                cmdlineargstr = ' '.join(map(str, cmdlineargs))
                 print("{} {} {}".format(self.druprompt, dumpercmd,
                                         cmdlineargstr))
-            reclanes.append(rec_cmd[cmdlineargs] & plumbum.BG)
+            reclanes.append(rec_cmd[cmdlineargs] & plumbum.NOHUP(stdout=dumplogname))
             datafiles.append(datafileguess)
             logfiles.append(dumplogname)
         for reclane in reclanes:
