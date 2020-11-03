@@ -96,10 +96,9 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
         band = freqbndobj.rcubands[0]
         scanpath_bfdat = stndrv.bf_data_dir
         stnid = stndrv.get_stnid()
-        _datafiles, _logfiles = stndrv.dru_interface.rec_bf_proxy(rectime,
-            duration_tot, lanes, band, scanpath_bfdat, stndrv.bf_port0,
+        _datafiles, _logfiles = stndrv.dru_interface.rec_bf_proxy(
+            rectime, duration_tot, lanes, band, scanpath_bfdat, stndrv.bf_port0,
             stnid)
-    print("{} finished".format(__file__))
     sys.stdout.flush()
 
 
