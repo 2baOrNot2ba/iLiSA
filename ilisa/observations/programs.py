@@ -25,7 +25,7 @@ class ObsPrograms(object):
         # defarg = inspect.getargspec(programpointer).defaults
         # if defarg is not None:
         #     defargstart = -len(defarg)
-        programargs = inspect.getargspec(programpointer).args[1:defargstart]
+        programargs = inspect.getfullargspec(programpointer).args[1:defargstart]
         return programpointer, programargs
 
     def _streambeams_mltfreq(self, freqbndobj, pointing,
@@ -518,7 +518,7 @@ Will increase total duration to get 1 full repetition.""")
         # Make a project folder for BFS data
         scanresult['bfs'].set_scanpath(scanpath_scdat)
         scanrecpath = scanresult['bfs'].get_scanrecpath()
-        print("Creating BFS destination folder on DPU:\n{}".format(scanrecpath))
+        # Create BFS destination folder on DPU:
         os.makedirs(scanrecpath)
         if stationdriver.dru_interface.hostname == 'localhost':
             # Make soft links to actual BFS files and move logs to scanrec folder
