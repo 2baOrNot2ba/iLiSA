@@ -19,13 +19,16 @@ class ObsPrograms(object):
         self.stationdriver = stationdriver
 
     def getprogram(self, programname):
+        """Return function pointer and non-default args of a program by name.
+        """
         programpointer = getattr(self, programname)
+        fullargspec = inspect.getfullargspec(programpointer)
+        # Remove args which have defaults:
         defargstart = None
-        # # FIXME Only return args without defaults
-        # defarg = inspect.getargspec(programpointer).defaults
-        # if defarg is not None:
-        #     defargstart = -len(defarg)
-        programargs = inspect.getfullargspec(programpointer).args[1:defargstart]
+        defarg = fullargspec.defaults
+        if defarg is not None:
+            defargstart = -len(defarg)
+        programargs = fullargspec.args[1:defargstart]
         return programpointer, programargs
 
     def _streambeams_mltfreq(self, freqbndobj, pointing,
@@ -50,7 +53,7 @@ class ObsPrograms(object):
         return rcu_setup_cmd, beamctl_cmds
 
     def do_bfs_OW(self, freqbndobj, duration_tot, pointing, bfdsesdumpdir,
-                  starttime='NOW'):
+                  starttime):
         """Record BeamFormed Streams (BFS) with particular beamlet allocation.
         """
 
