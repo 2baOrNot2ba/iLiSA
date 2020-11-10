@@ -49,15 +49,15 @@ def phaseref_xstpol(xstpol, obstime0, freq, stnPos, antpos, pointing):
     UVWxyz = numpy.zeros((nrant,3))
     for idx in range(nrant):
         bl = obsme.baseline("ITRF",
-                            *[str(comp)+'m' for comp in numpy.asarray(antpos[idx, :]
-                                                                      ).squeeze()])
+                            *[str(comp)+'m' for comp in numpy.asarray(
+                                antpos[idx, :]).squeeze()])
         UVWxyz[idx,:] = numpy.asarray(obsme.to_uvw(bl)["xyz"].get_value('m'))
     lambda0 = c/freq
     phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
     PP = numpy.einsum('i,k->ik',phasefactors, numpy.conj(phasefactors))
-    xstpupol = \
-      numpy.array([[PP*xstpol[0, 0, ...].squeeze(), PP*xstpol[0, 1, ...].squeeze()],
-                  [PP*xstpol[1, 0, ...].squeeze(), PP*xstpol[1, 1, ...].squeeze()]])
+    xstpupol = numpy.array(
+           [[PP*xstpol[0, 0, ...].squeeze(), PP*xstpol[0, 1, ...].squeeze()],
+            [PP*xstpol[1, 0, ...].squeeze(), PP*xstpol[1, 1, ...].squeeze()]])
     return xstpupol, UVWxyz
 
 
@@ -79,7 +79,8 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     bl = []
     for antnr in range(nrant):
         bl.append(obsme.baseline("ITRF",
-          *[str(comp)+'m' for comp in numpy.asarray(antpos[antnr, :]).squeeze()])
+          *[str(comp)+'m' for comp in numpy.asarray(antpos[antnr, :]).squeeze()
+           ])
         )
     # Step through subbands & phase up autocovariance matrix to point direction
     for sb in range(len(sbobstimes)):
@@ -102,8 +103,8 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     return accphasedup
 
 
-def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=False,
-                     polrep_req='Stokes', fluxperbeam=True):
+def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True,
+                     allsky=False, polrep_req='Stokes', fluxperbeam=True):
     """Beamformed image XSTpol data.
 
     Parameters
@@ -111,9 +112,9 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=Fal
 
     xstpol : array
         The crosslet statistics data. Should have format:
-        xstpol[polport1, polport2, elemnr1, elemnr2] where polport1 and polport2 are the
-        two polarization ports, e.g. X and Y, and elemnr1 and elemnr2 are two elements
-        of the interferometer array configuration.
+        xstpol[polport1, polport2, elemnr1, elemnr2] where polport1 and
+        polport2 are the two polarization ports, e.g. X and Y, and elemnr1 and
+        elemnr2 are two elements of the interferometer array configuration.
     stn2Dcoord: array
         The 2D array configuration matrix.
     freq : float
@@ -124,8 +125,8 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=Fal
         Should an allsky image be produced?
     polrep_req : str
         Requested type of representation for the polarimetric data.
-        Can be 'Stokes' or 'XY'. (If dreamBeam package not accessible only 'XY' is
-        possible)
+        Can be 'Stokes' or 'XY'. (If dreamBeam package not accessible only 'XY'
+        is possible)
     fluxperbeam : bool
         If True, then the flux is per beam, else the flux is per sterradian.
 
@@ -159,7 +160,8 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True, allsky=Fal
     else:
         lmext = 1.0
     nrpix = 101
-    l, m = numpy.linspace(-lmext, lmext, nrpix), numpy.linspace(-lmext, lmext, nrpix)
+    l, m = numpy.linspace(-lmext, lmext, nrpix), numpy.linspace(-lmext, lmext,
+                                                                nrpix)
     ll, mm = numpy.meshgrid(l, m)
     bf = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU)
                            + numpy.einsum('ij,k->ijk', mm, posV)))
@@ -213,8 +215,8 @@ def nearfield_grd_image(vis_S0, stn2Dcoord, freq, include_autocorr=False):
     return (nfhimage, blankimage, blankimage, blankimage), xx, yy
 
 
-def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimage=True,
-              fluxperbeam=True):
+def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
+              skyimage=True, fluxperbeam=True):
     """Image a CVC object using beamformed synthesis.
 
     Parameters
@@ -298,14 +300,14 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
 
         # Make image on phased up visibilities
         polrep, images, ll, mm = beamformed_image(
-            cvpu, UVWxyz.T, freq, include_autocorr=False, allsky=allsky, polrep_req='XY',
-            fluxperbeam=fluxperbeam)
+            cvpu, UVWxyz.T, freq, include_autocorr=False, allsky=allsky,
+            polrep_req='XY', fluxperbeam=fluxperbeam)
         if pbcor and canuse_dreambeam:
             # Get dreambeam jones:
             pointing = (float(phaseref[0]), float(phaseref[1]), 'STN')
             jonesfld, _stnbasis, _j2000basis = primarybeampat(
-                'LOFAR', stnid, bandarr, 'Hamaker', freq, pointing=pointing, obstime=t,
-                lmgrid=(ll, mm))
+                'LOFAR', stnid, bandarr, 'Hamaker', freq, pointing=pointing,
+                obstime=t, lmgrid=(ll, mm))
             ijones = numpy.linalg.inv(jonesfld)
             bri_ant = numpy.array([[images[0], images[1]],
                                    [images[2], images[3]]])
@@ -317,7 +319,8 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False, skyimag
             images = (bri_xy_iau[:, :, 0, 0], bri_xy_iau[:, :, 0, 1],
                       bri_xy_iau[:, :, 1, 0], bri_xy_iau[:, :, 1, 1])
         if canuse_stokes and polrep == 'XY':
-            images = convertxy2stokes(images[0], images[1], images[2], images[3])
+            images = convertxy2stokes(images[0], images[1], images[2],
+                                      images[3])
             polrep = 'Stokes'
     else:  # Nearfield image
         vis_S0 = numpy.squeeze(cvpol[0, 0, cubeslice, ...].squeeze()
@@ -353,18 +356,21 @@ def rm_redundant_bls(cvc, rmconjbl=True, use_autocorr=False):
 def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
     """Convert xst data to bst data"""
     xst, nrbaselinestot = rm_redundant_bls(xst)
-    xstpu, _UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos, pointing)
+    xstpu, _UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos,
+                                     pointing)
     bstXX = numpy.sum(xstpu[0, 0, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     bstXY = numpy.sum(xstpu[0, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     bstYY = numpy.sum(xstpu[1, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     return bstXX, bstXY, bstYY
 
 
-def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr=False):
-    """Convert a polarized spectral cube of visibilities (ACC order by two X,Y indices)
-    to polarized brightness towards pointing direction. The output is a set of 2 real and
-    1 complex powers (this is like beamlet statics, bst, data but also has the complex,
-    cross-hand polarization components, which the bst does not have)."""
+def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing,
+               use_autocorr=False):
+    """Convert a polarized spectral cube of visibilities (ACC order by two X,Y
+    indices) to polarized brightness towards pointing direction. The output is
+    a set of 2 real and 1 complex powers (this is like beamlet statics, bst,
+    data but also has the complex, cross-hand polarization components, which
+    the bst does not have)."""
     accpol, nrbaselinestot = rm_redundant_bls(accpol)
     # Phase up ACC towards pointing direction
     accpu = phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing)
@@ -376,8 +382,9 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing, use_autocorr
     return bstXX, bstXY, bstYY
 
 
-def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integration,
-                 calibrated, pbcor=None, maskhrz=True, fluxperbeam=True):
+def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref,
+                 integration, calibrated, pbcor=None, maskhrz=True,
+                 fluxperbeam=True):
     """Generic plot of images of Stokes components from sky map."""
 
     # Compute extent
@@ -398,8 +405,9 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
         fig_dt.colorbar(im_mm, ax=ax_dt_mm)
         plt.show()
     hrzrgn = (ll**2+mm**2>=1.0)
-    pbeamfld = (ll**2+mm**2<0.75**2)  # Primary beam field  (used for color scaling,
-                                     # thus choosen slightly larger than 0.5)
+    pbeamfld = (ll**2+mm**2<0.75**2)  # Primary beam field (used for color
+                                    # scaling, thus choosen slightly larger
+                                    # than 0.5)
 
     xlabel = 'Easting (dir. cos) []'
     ylabel = 'Northing (dir. cos) []'
@@ -437,7 +445,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
 
     if polrep == 'Stokes':
         # Stokes I
-        sI = skyimages[0]  # numpy.ma.masked_where(skyimages[0]<0.0, skyimages[0])
+        sI = skyimages[0]
 
         # Stokes Q
         sQ = skyimages[1]
@@ -457,7 +465,8 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
             s2, s2lbl = su, 'u'
             s3, s3lbl = sv, 'v'
         else:
-            # If we have negative Stokes I values then relative Stokes are not meaningful
+            # If we have negative Stokes I values
+            # then relative Stokes are not meaningful
             s1, s1lbl = sQ, 'Q'
             s2, s2lbl = sU, 'U'
             s3, s3lbl = sV, 'V'
@@ -473,9 +482,9 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref, integratio
         plotcomp(numpy.real(skyimages[3]), 'YY*', 3)
     elif polrep == 'S0':
         print(skyimages.shape)
-        plt.imshow(skyimages[0], origin='lower', extent=[lmin, lmax, mmin, mmax],
-                   interpolation='none', cmap=plt.get_cmap("jet")) #,
-                   #vmax=vmax, vmin=vmin)
+        plt.imshow(skyimages[0], origin='lower',
+                   extent=[lmin, lmax, mmin, mmax], interpolation='none',
+                   cmap=plt.get_cmap("jet")) #, vmax=vmax, vmin=vmin)
         plt.gca().invert_xaxis()
     if calibrated:
         caltag = 'Cal'
