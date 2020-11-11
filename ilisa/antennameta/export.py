@@ -6,11 +6,11 @@ import os
 import datetime
 import argparse
 import numpy as np
-from ilisa.antennameta.antennafieldlib import parseAntennaField, parseiHBADeltasfile, \
-    getArrayBandParams, list_stations, BANDARRS
+from ilisa.antennameta.antennafieldlib import parseAntennaField, \
+     parseiHBADeltasfile, getArrayBandParams, list_stations, BANDARRS
 
 CASA_CFG_DTYPE = [('X', float), ('Y', float), ('Z', float), ('Diam', float),
-                  ('Name', 'S7')]
+                  ('Name', 'U7')]
 CASA_CFG_FMT = '%12f %12f %12f %4.1f %s'
 CASA_CFG_DEST = os.path.join(os.path.dirname(__file__), 'share/simmos/')
 ALIGNMENT_DEST = os.path.join(os.path.dirname(__file__), 'share/alignment/')
@@ -92,8 +92,8 @@ def output_rotmat_station(stnid, bandarr, output='default'):
     Save a station bandarray's rotation matrix.
     :param stnid: Station ID.
     :param bandarr: 'HBA' or 'LBA'
-    :param output: Name of output file. If set to 'default', will use default name
-                   convention, i.e. '<stnid>_<bandarr>.txt'.
+    :param output: Name of output file. If set to 'default', will use default
+                   name convention, i.e. '<stnid>_<bandarr>.txt'.
     """
     stnpos, stnrot, stnrelpos, stnintilepos = getArrayBandParams(stnid,
                                                                  bandarr)
@@ -113,8 +113,8 @@ def max_stn_baselines():
         ant_fld = parseAntennaField(stnid)
         if ant_fld['HBA0']['POSITION']:
             nrelems = len(ant_fld['HBA']['REL_POS'])
-            ant_fld['HBA0']['REL_POS'] = ant_fld['HBA']['REL_POS'][:nrelems/2]
-            ant_fld['HBA1']['REL_POS'] = ant_fld['HBA']['REL_POS'][nrelems/2:]
+            ant_fld['HBA0']['REL_POS'] = ant_fld['HBA']['REL_POS'][:nrelems//2]
+            ant_fld['HBA1']['REL_POS'] = ant_fld['HBA']['REL_POS'][nrelems//2:]
             del ant_fld['HBA']
         else:
             del ant_fld['HBA0']
