@@ -24,6 +24,7 @@ import warnings
 import ilisa
 import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
+import ilisa.antennameta.antennafieldlib as antennafieldlib
 
 regex_ACCfolder = (
     r"^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
@@ -711,6 +712,11 @@ class CVCfiles(object):
             self._readcvcfile(datapath)
         else:
             raise ValueError('Path does not exist')
+        # Get/Compute ant positions
+        stnid = self.scanrecinfo.get_stnid()
+        bandarr = self.scanrecinfo.get_bandarr()
+        self.stn_pos, self.stn_rot, self.stn_antpos, self.stn_intilepos \
+            = antennafieldlib.getArrayBandParams(stnid, bandarr)
 
     def get_cvc_dtype(self):
         cvc_dtype = numpy.dtype(('c16', (self.cvcdim1, self.cvcdim2)))

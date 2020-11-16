@@ -54,7 +54,7 @@ def phaseref_xstpol(xstpol, obstime0, freq, stnPos, antpos, pointing):
         UVWxyz[idx,:] = numpy.asarray(obsme.to_uvw(bl)["xyz"].get_value('m'))
     lambda0 = c/freq
     phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
-    PP = numpy.einsum('i,k->ik',phasefactors, numpy.conj(phasefactors))
+    PP = numpy.einsum('i,k->ik', phasefactors, numpy.conj(phasefactors))
     xstpupol = numpy.array(
            [[PP*xstpol[0, 0, ...].squeeze(), PP*xstpol[0, 1, ...].squeeze()],
             [PP*xstpol[1, 0, ...].squeeze(), PP*xstpol[1, 1, ...].squeeze()]])
@@ -202,7 +202,8 @@ def nearfield_grd_image(vis_S0, stn2Dcoord, freq, include_autocorr=False):
     r_ext = 100.0
     print(r_ext)
     nrpix = 2*101
-    x, y = numpy.linspace(-r_ext, r_ext, nrpix), numpy.linspace(-r_ext, r_ext, nrpix)
+    x, y = numpy.linspace(-r_ext, r_ext, nrpix), numpy.linspace(-r_ext, r_ext,
+                                                                nrpix)
     xx, yy = numpy.meshgrid(x,y)
     xx1 = xx[...,numpy.newaxis]
     yy1 = yy[...,numpy.newaxis]
@@ -266,15 +267,15 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     bandarr = cvcobj.scanrecinfo.get_bandarr()
     band = cvcobj.scanrecinfo.get_band()
     pointingstr = cvcobj.scanrecinfo.get_pointingstr()
-
-    # Get/Compute ant positions
-    stnPos, _stnRot, antpos, stnIntilePos \
-        = antennafieldlib.getArrayBandParams(stnid, bandarr)
+    stn_pos = cvcobj.stn_pos
+    stn_rot = cvcobj.stn_rot
+    stn_antpos = cvcobj.stn_antpos
+    stn_intilepos = cvcobj.stn_intilepos
     septon = cvcobj.scanrecinfo.is_septon()
     if septon:
         elmap = cvcobj.scanrecinfo.get_septon_elmap()
         for tile, elem in enumerate(elmap):
-            antpos[tile] = antpos[tile] + stnIntilePos[elem]
+            stn_antpos[tile] = stn_antpos[tile] + stn_intilepos[elem]
 
     # stn2Dcoord = stnRot.T * antpos.T
     cvpol = dataIO.cvc2cvpol(cvcdata)
@@ -296,7 +297,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     if skyimage:
         # Phase up visibilities
         cvpu, UVWxyz = phaseref_xstpol(cvpol[:, :, cubeslice, ...].squeeze(),
-                                       t, freq, stnPos, antpos, phaseref)
+                                       t, freq, stn_pos, stn_antpos, phaseref)
 
         # Make image on phased up visibilities
         polrep, images, ll, mm = beamformed_image(
@@ -325,7 +326,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     else:  # Nearfield image
         vis_S0 = numpy.squeeze(cvpol[0, 0, cubeslice, ...].squeeze()
                  + cvpol[1, 1, cubeslice, ...].squeeze())
-        nfhimages, ll, mm = nearfield_grd_image(vis_S0, antpos, freq)
+        nfhimages, ll, mm = nearfield_grd_image(vis_S0, stn_antpos, freq)
         polrep = 'S0'
         images = numpy.real(nfhimages)
 
@@ -497,3 +498,29 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref,
                    caltag))
     plt.tight_layout(rect=[0, 0.0, 1, 0.95])
     plt.show()
+
+
+def pntsrc_hmsph(*pntsrcs, imsize=101):
+    """Generate point sources on a hemisphere.
+    """
+    lmext = 1.0
+    (l, m) = (numpy.linspace(-lmext, lmext, imsize),
+              numpy.linspace(-lmext, lmext, imsize))
+    ll, mm = numpy.meshgrid(l, m)
+    img_S0 = numpy.zeros(ll.shape)
+    img_S1 = numpy.zeros(ll.shape)
+    img_S2 = numpy.zeros(ll.shape)
+    img_S3 = numpy.zeros(ll.shape)
+    for pntsrc in pntsrcs:
+        lidx = numpy.argmin(numpy.abs(l-pntsrc[0]))
+        midx = numpy.argmin(numpy.abs(m-pntsrc[1]))
+        img_S0[lidx, midx] = pntsrc[2]
+    return ll, mm, (img_S0, img_S1, img_S2, img_S3)
+
+if __name__ == '__main__':
+    # Test of mock source plot
+    pntsrc1 = ( 0.0, 0.0, 10.0)
+    pntsrc2 = (-0.1, 0.2,  5.0)
+    ll, mm, imgs = pntsrc_hmsph(pntsrc1, pntsrc2)
+    plotskyimage(ll, mm, imgs, 'Stokes', 0, 1e0, 'Mock', 'Z', 1,
+                 False)
