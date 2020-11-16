@@ -407,7 +407,7 @@ class LDatInfo(object):
                    + YMD_hms[6:8] + 'T' + YMD_hms[9:11] + ':' \
                    + YMD_hms[11:13] + ':' + YMD_hms[13:15]
         f.write("filetime: " + filetime + "\n")
-        if septonconfig is not "":
+        if septonconfig != "":
             f.write("SEPTONconfig: {}\n".format(septonconfig))
         f.write("beamctl_cmds: |-\n")
         f.write(indenttext(beamctl_CMD) + "\n")
@@ -500,7 +500,7 @@ class LDatInfo(object):
                 rspctl_lines = rspctl_lines_raw.split('\n')
         multishellcmds = beamctl_line.split('&')
         beamctl_cmd = multishellcmds[0]
-        if beamctl_cmd is not "":
+        if beamctl_cmd != "":
             (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
                 = modeparms.parse_beamctl_args(beamctl_cmd)
             beamctl_cmd = {'antennaset': antennaset,
@@ -515,7 +515,7 @@ class LDatInfo(object):
             beamctl_cmd = ""
             septonconf = contents['SEPTONconfig']
         rspctl_cmd = {}
-        if rspctl_lines is not "":
+        if rspctl_lines != "":
             for rspctl_line in rspctl_lines:
                 rspctl_args = modeparms.parse_rspctl_args(rspctl_line)
                 rspctl_cmd.update(rspctl_args)
