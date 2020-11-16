@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import os
 import argparse
 import numpy
@@ -48,15 +47,15 @@ def plotsst(sstff, freqreq):
     starttime = obsfolderinfo['datetime']
     SSTdata = numpy.array(SSTdata)
     freqs = modeparms.rcumode2sbfreqs(obsfolderinfo['rcumode'])
-    if  freqreq:
+    if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
         show = 'persb'
     else:
         show = 'mean'
     intg = obsfolderinfo['integration']
     dur = obsfolderinfo['duration']
-    ts = [starttime + datetime.timedelta(seconds=td) for td in numpy.arange(0., dur, intg
-                                                                            )]
+    ts = [starttime + datetime.timedelta(seconds=td) for td in 
+                                                numpy.arange(0., dur, intg)]
     if show == 'mean':
         meandynspec = numpy.mean(SSTdata, axis=0)
         res = meandynspec
@@ -122,45 +121,45 @@ def plotxst(xstff):
             plt.imshow(numpy.abs(XSTdata[tidx,...]), norm=normcolor,
                        interpolation='none')
             plt.title("""Time (from start {}) {}s
-                      @ freq={} MHz""".format(obsinfo.get_starttime(), ts[tidx], freq/1e6)
-                      )
+                      @ freq={} MHz""".format(obsinfo.get_starttime(),
+                      ts[tidx], freq/1e6))
             plt.xlabel('RCU [#]')
             plt.ylabel('RCU [#]')
             plt.colorbar()
             plt.show()
 
 
-def plotacc(accff):
+def plotacc(accff, freqreq=None):
     """Plot of ACC folder files."""
     dataobj = dataIO.CVCfiles(accff)
     data = dataobj.getdata()
-    if args.freq is None:
-        args.freq = 0.0
-    sb, nqzone = modeparms.freq2sb(args.freq)
+    if freqreq is None:
+        freqreq = 0.0
+    sb, _nqzone = modeparms.freq2sb(freqreq)
     for fileidx in range(0, dataobj.getnrfiles()):
         while sb < 512:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
             absdatplt = ax1.pcolormesh(numpy.abs(data[fileidx][sb]))
             ax1.set_title('Abs value')
-            #ax1.set_xlabel('RCU [#]')
             ax1.set_ylabel('RCU [#]')
             fig.colorbar(absdatplt, ax=ax1)
-            angdatplt = ax2.pcolormesh(numpy.angle(data[fileidx][sb]), cmap=plt.get_cmap('hsv'))
+            angdatplt = ax2.pcolormesh(numpy.angle(data[fileidx][sb]),
+                                       cmap=plt.get_cmap('hsv'))
             ax2.set_title('Phase value')
             ax2.set_xlabel('RCU [#]')
             ax2.set_ylabel('RCU [#]')
             fig.colorbar(angdatplt, ax=ax2)
             plt.suptitle('Station element covariance. Time: {}UT, SB: {}'\
-                      .format(dataobj.samptimeset[fileidx][sb], sb))
+                                .format(dataobj.samptimeset[fileidx][sb], sb))
             fig.show()
-            inpres = raw_input('Press return for next plot... ')
+            _inpres = input('Press return for next plot... ')
             sb += 1
 
 
 def plot_bsxst(args):
     lofar_datatype = dataIO.datafolder_type(args.dataff)
     if lofar_datatype =='acc':
-        plotacc(args.dataff)
+        plotacc(args.dataff, args.freq)
     if lofar_datatype=='bst' or lofar_datatype=='bst-357':
         plotbst(args.dataff)
     elif lofar_datatype=='sst':
@@ -194,9 +193,10 @@ def image(args):
             ll, mm, skyimages, polrep, t, freq, stnid, phaseref = \
                 imaging.cvc_image(cvcobj, fileidx, tidx, args.phaseref,
                                   pbcor=args.correctpb, fluxperbeam=fluxperbeam)
-            imaging.plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, phaseref,
-                                 integration, calibrated, pbcor=args.correctpb,
-                                 maskhrz=False, fluxperbeam=fluxperbeam)
+            imaging.plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
+                                 phaseref, integration, calibrated,
+                                 pbcor=args.correctpb, maskhrz=False,
+                                 fluxperbeam=fluxperbeam)
 
 
 def main():
@@ -214,7 +214,8 @@ def main():
     parser_image.add_argument('-p', '--phaseref', type=str, default=None)
     parser_image.add_argument('-n', '--filenr', type=int, default=0)
     parser_image.add_argument('-s', '--sampnr', type=int, default=0)
-    parser_image.add_argument('-c', '--correctpb', help="Correct for primary beam",
+    parser_image.add_argument('-c', '--correctpb',
+                              help="Correct for primary beam",
                               action="store_true")
     parser_image.add_argument('-f', '--fluxpersterradian',
                               help="Normalize flux per sterradian",
