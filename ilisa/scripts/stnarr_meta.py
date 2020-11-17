@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 import sys
 import argparse
 import ilisa.antennameta.export as export
@@ -14,8 +13,9 @@ def main(stnid, bandarr, quantity='all', output='default'):
         print("Quantity: Array rotation matrix:")
         export.output_rotmat_station(stnid, bandarr, output=output)
     if quantity != 'cfg' and quantity != 'rot' and quantity != 'all':
-        errmess = "Quantity {} not valid. Choose: cfg, rot, or all.".format(quantity)
-        raise ValueError, errmess
+        errmess = \
+            "Quantity {} not valid. Choose: cfg, rot, or all.".format(quantity)
+        raise ValueError(errmess)
 
 
 if __name__ == '__main__':
@@ -25,4 +25,3 @@ if __name__ == '__main__':
     parser.add_argument("quantity", nargs='?', default='all')
     args = parser.parse_args()
     main(args.stnid, args.bandarr, quantity=args.quantity, output=sys.stdout)
-
