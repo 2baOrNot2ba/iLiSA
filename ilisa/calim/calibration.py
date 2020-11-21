@@ -90,7 +90,7 @@ def applycal_cvcfolder(cvcpath, caltabpath):
         else:
             sb = None  # Because this signals ACC data
         # Get actual covariance cubes:
-        cvcdata_unc = cvcobj_cal.getdata(filestep)
+        cvcdata_unc = cvcobj_cal.covmat_fb(filestep, crlpolrep=None)
         # Apply calibration
         cvcdata = ilisa.calim.calibration.applycaltab_cvc(cvcdata_unc, caltab,
                                                           sb)

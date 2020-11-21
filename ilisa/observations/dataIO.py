@@ -25,6 +25,15 @@ import ilisa
 import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 import ilisa.antennameta.antennafieldlib as antennafieldlib
+try:
+    import dreambeam
+    canuse_dreambeam = True
+except ImportError:
+    canuse_dreambeam = False
+if canuse_dreambeam:
+    from dreambeam.polarimetry import convertxy2stokes
+    from dreambeam.polarimetry import cov_lin2cir
+
 
 regex_ACCfolder = (
     r"^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
@@ -252,6 +261,16 @@ class ScanRecInfo(object):
         else:
             nameformat = "{}_{}.dat"
         return [nameformat.format(obs_id, datatype) for obs_id in self.obs_ids]
+    
+    def get_allsky(self):
+        """Determine if allsky FoV"""
+        band = self.get_band()
+        septon = self.is_septon()
+        if band == '10_90' or band == '30_90' or septon:
+            allsky = True
+        else:
+            allsky = False
+        return allsky
 
 
 class LDatInfo(object):
@@ -717,8 +736,14 @@ class CVCfiles(object):
         bandarr = self.scanrecinfo.get_bandarr()
         self.stn_pos, self.stn_rot, self.stn_antpos, self.stn_intilepos \
             = antennafieldlib.getArrayBandParams(stnid, bandarr)
+        # Account for SEPTON antenna positions
+        septon = self.scanrecinfo.is_septon()
+        if septon:
+            elmap = self.scanrecinfo.get_septon_elmap()
+            for tile, elem in enumerate(elmap):
+                self.stn_antpos[tile] += self.stn_intilepos[elem]
 
-    def get_cvc_dtype(self):
+    def __get_cvc_dtype(self):
         cvc_dtype = numpy.dtype(('c16', (self.cvcdim1, self.cvcdim2)))
         return cvc_dtype
 
@@ -891,7 +916,7 @@ class CVCfiles(object):
             self._parse_cvcfile(cvcfilepath)
         t_begin = filenamedatetime
         # Get cvc data from file.
-        cvc_dtype = self.get_cvc_dtype()
+        cvc_dtype = self.__get_cvc_dtype()
         with open(cvcfilepath, 'rb') as fin:
             datafromfile = numpy.fromfile(fin, dtype=cvc_dtype)
         return datafromfile, t_begin
@@ -906,40 +931,148 @@ class CVCfiles(object):
         """Return number of data files in this filefolder."""
         return len(self.filenames)
 
-    def getdata(self, filenr=None):
-        """Return the data payload of the filefolder. For ACC each file is a
-        sweep through 512 frequency. For XST they represent another
-        observation.
+    def covmat_fb(self, filenr, crlpolrep='lin'):
         """
-        if filenr is None:
-            return self.dataset
-        else:
+        File based covariance matrix.
+        Return the polarized, covariance matrix contained in the file numbered
+        `filenr` in the filefolder with correlated polarization representation
+        `crlpolrep`.
+
+        Parameters
+        ----------
+        filenr: int
+            Index number of file in filefolder. Files are numbered in the
+            order they were sampled.   
+        crlpolrep: str
+            Correlated polarization representation can be 'lin', 'cir', 'sto'
+            or None where:
+                'lin' is a linear,
+                'cir' is circular,
+                'sto' is Stokes
+                None is no cor. pol. rep. (i.e. flat 'lin' structure)
+        
+        Returns
+        -------
+        array_like
+            Polarized visibilities. Shape depends on `crlpolrep`.
+            For:
+                * 'lin' and 'cir', the basis is indexed with shape (2,2,T,N,N),
+                  where components 0, 1 correspond 'X','Y' or 'L','R' resp.
+                * 'sto', the basis is indexed with shape (4,T,N,N),
+                  where components 0,1,2,3 correspond to Stokes I,Q,U,V resp.
+                * `None`, there is no explicit indexed dimension for correlated
+                  polarization. The structure is equivalent to the structure of
+                  the LOFAR CVC file format (T, 2*N, 2*N) where odd, even
+                  covariance indices correspond to 'X','Y' polarized components
+                  resp.
+            Here N is the number of dual-pol antenna elements and T is the
+            number of sequenced samples.
+        """
+        if crlpolrep == 'lin' or crlpolrep == 'cir' or crlpolrep == 'sto':
+            return cvc2polrep(self.dataset[filenr], crlpolrep=crlpolrep)
+        elif crlpolrep is None:
             return self.dataset[filenr]
+        else:
+            raise NotImplementedError("Only corr='lin' implemented")
 
 
-def cvc2cvpol(cvc):
-    """Convert a covariance cube into an array indexed by polarization
-    channels.
+def cov_flat2polidx(cvc, parity_ord=True):
+    """
+    Convert flat array covariance matrix (visibilities) to polarization
+    component indexed array covariance matrix.
 
     Parameters
     ----------
-    cvc: (M,N,N) array (usually M=512 & N=196)
-        The Covariance Cube array produced by an International LOFAR
-        station when it is in calibration mode. It is the covariance matrices
-        of the 196 rcus (98 X-polarized & 98 Y-polarized interleaved) over 512
-        subbands.
+    cvc : array_like
+        Covariance cube to be converted. Shape should be (..., 2*N, 2*N),
+        where N is the number of dual-polarized elements.
+    parity_ord : Boolean
+        If True (default) then the polarization component is determined from
+        the index's parity: even index maps to component 0, odd to 1.
+        If False the baseline indices are split into a first and second half
+        and mapped to pol component 0,1 respectively.
 
     Returns
     -------
-    cvpol: (2,2,M,N/2,N/2) array
-        The same data but indexed into X & Y polarizations. X,Y is
-        index 0,1 resp.
+    cvcpol : array_like
+        Polarization index array covariance cube. Shape will be 
+        (2, 2, ..., N, N). Polarization component order from flat
+        visibility will 
+
+    Notes
+    -----
+    This function is agnostic to whether the polarization basis is
+    linear or circular. Also the ordering is conserved from the
+    flat ordering, so the mapping of index 0,1 to say L,R or X,Y
+    components is determined from the original ordering.
+
+    Examples
+    --------
+    Minimal example:
+    >>> cov_flat2polidx(numpy.arange(4*4).reshape((4,4))
+    (2.0, 0.0, 2.0, 2.0)
     """
-    XX = cvc[:, ::2, ::2]
-    YY = cvc[:, 1::2, 1::2]
-    XY = cvc[:, ::2, 1::2]
-    YX = cvc[:, 1::2, ::2]
-    cvpol = numpy.array([[XX, XY], [YX, YY]])
+    if parity_ord:
+        pp = cvc[..., ::2, ::2]
+        qq = cvc[..., 1::2, 1::2]
+        pq = cvc[..., ::2, 1::2]
+        qp = cvc[..., 1::2, ::2]
+    else:
+        # First-half, second-half order
+        n =  cvc.shape[-1]/2
+        pp = cvc[..., :n, :n]
+        qq = cvc[..., n:, n:]
+        pq = cvc[..., :n, n:]
+        qp = cvc[..., :n, n:]
+    cvpol = numpy.array([[pp, pq], [qp, qq]])
+    return cvpol
+
+
+def cvc2polrep(cvc, crlpolrep='lin'):
+    """
+    Convert a flat-indexed polarized covariance cube `cvc` into an array
+    indexed according to correlated polarization representation
+    `crlpolrep`.
+
+    Parameters
+    ----------
+    cvc : (T,2*N,2*N) array (usually T=512 and 2*N=196)
+        The Covariance Cube array produced by an International LOFAR
+        station when it is in calibration mode. It is the covariance
+        matrices of the 196 rcus (98 X-polarized & 98 Y-polarized 
+        interleaved) over 512subbands.
+    crlpolrep : str
+        Correlated polarization representation can be 'lin', 'cir', 'sto' where:
+            'lin' is linear pol rep
+            'cir' is circular pol rep
+            'sto' is Stokes pol rep.
+    
+    Returns
+    -------
+    cvpol : array
+        Polarized visibilities. Shape depends on `crlpolrep`:
+            * (2,2,T,N,N) for 'lin' or 'cir'. Basis is indexed with
+              0,1 corresponding to X,Y or L,R resp.
+            * (4,T,N,N) for 'sto'. Basis is indexed with
+              0,1,2,3 corresponding to Stokes I,Q,U,V resp.
+    
+    Notes
+    -----
+    Requires dreamBeam.
+    """
+    cvcpolidx = cov_flat2polidx(cvc)
+    if crlpolrep == 'lin':
+        cvpol = cvcpolidx
+    elif crlpolrep == 'cir':
+        cvpol = cov_lin2cir(cvcpolidx)
+    elif crlpolrep == 'sto':
+        print("Hej")
+        (S0, S1, S2, S3) =\
+            convertxy2stokes(cvcpolidx[0][0], cvcpolidx[0][1], cvcpolidx[1][0],
+                             cvcpolidx[1][1])
+        cvpol = numpy.array([S0, S1, S2, S3])
+    else:
+        raise ValueError("No such correlated pol rep: '{}'".format(crlpolrep))
     return cvpol
 
 

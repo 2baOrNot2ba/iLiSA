@@ -53,7 +53,8 @@ def pointing_str2tuple(beamctldirarg):
 
 
 def std_pointings(directionterm='?'):
-    """Find beamctl direction string based on direction term.
+    """
+    Find beamctl direction string based on direction term.
 
     Parameters
     ----------
@@ -65,8 +66,9 @@ def std_pointings(directionterm='?'):
     -------
     beamctldir : str
         Argument suitable for beamctl direction arguments --anadir and
-        --digdir. If directionterm is None it will return all the direction terms it
-        knows. If it is '', then it will return an empty direction ',,'.
+        --digdir. If directionterm is None it will return all the direction
+        terms it knows. If it is '', then it will return an empty
+        direction ',,'.
 
     Raises
     ------
@@ -90,7 +92,7 @@ def std_pointings(directionterm='?'):
         'Moon': '0.,0.,MOON',
         'NCP':  '0.,'+str(math.pi/2)+',ITRF'
     }
-    if directionterm is '?':
+    if directionterm == '?':
         return term2beamstr.keys()
     if directionterm in term2beamstr:
         return term2beamstr[directionterm]
@@ -104,7 +106,8 @@ def std_pointings(directionterm='?'):
 
 
 def normalizebeamctldir(gendirstr):
-    """Parse a general direction string.
+    """
+    Parse a general direction string.
 
     Parameters
     ----------
@@ -115,7 +118,8 @@ def normalizebeamctldir(gendirstr):
     Returns
     -------
     beamctldirstr : str
-        The beamctl direction string corresponding to input gendirstr. If gendirstr is
+        The beamctl direction string corresponding to input gendirstr.
+        If gendirstr is
         None, then beamctldirstr is None.
     """
     if gendirstr is None:
@@ -132,8 +136,9 @@ def normalizebeamctldir(gendirstr):
 
 
 def lookupsource(src_name):
-    """Lookup the pointing direction for the name of a source stored in user created
-    files.
+    """
+    Lookup the pointing direction for the name of a source stored in user
+    created files.
 
     Parameters
     ----------
@@ -147,7 +152,8 @@ def lookupsource(src_name):
 
     """
     src_database = {}
-    user_srcs_dir = os.path.join(ilisa.observations.user_data_dir, 'source_catalogs')
+    user_srcs_dir = os.path.join(ilisa.observations.user_data_dir,
+                                 'source_catalogs')
     user_srcs_files = os.listdir(user_srcs_dir)
 
     for user_srcs_file in user_srcs_files:
@@ -170,6 +176,19 @@ def lookupsource(src_name):
     return pointing
 
 
+def _req_calsrc_proc(req_calsrc, allsky, pointingstr):
+    # TODO absorb this function into rest of module
+    # Helper function Determine phaseref 
+    if req_calsrc is not None:
+        pntstr = std_pointings(req_calsrc)
+    elif allsky:
+        pntstr = std_pointings('Z')
+    else:
+        pntstr = pointingstr
+    phaseref = pntstr.split(',')
+    return phaseref
+
+
 def read_sched_srccatre(filename):
     """Read a sched keyin free formatted source catalogue."""
     with open(filename) as f:
@@ -177,9 +196,11 @@ def read_sched_srccatre(filename):
     srccat_bl = re.sub('!.*\n', '\n', srccat_raw)  # Remove comments on lines
     srccat = re.sub('^\s*\n', '', srccat_bl)  # Remove blank lines
     srclistentries_split = re.split('/', srccat, re.MULTILINE)
-    srclistentries_el = [line.replace('\n', ' ') for line in srclistentries_split]
+    srclistentries_el = [line.replace('\n', ' ') for line in
+                         srclistentries_split]
     srclistentries = [line for line in srclistentries_el if line != '']
-    keywords = ['source', 'equinox', 'flux', 'fluxref', 'ra', 'raerr', 'dec', 'decerr',
+    keywords = ['source', 'equinox', 'flux', 'fluxref', 'ra', 'raerr', 'dec',
+                'decerr',
                 'calcode', 'remarks']
     keywordsre = '(' + ')('.join(keywords) + ')'
     valre = '[^' + keywordsre + '($)]+'

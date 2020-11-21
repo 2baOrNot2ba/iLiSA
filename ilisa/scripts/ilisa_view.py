@@ -106,19 +106,19 @@ def plotxst(xstff):
     else:
         normcolor = None
     xstobj = dataIO.CVCfiles(xstff)
-    XSTdataset = xstobj.getdata()
     obs_ids = xstobj.scanrecinfo.get_obs_ids()
-    for sbstepidx in range(len(XSTdataset)):
+    # Assume freq sweep over nr of files, so filenr is also sb. 
+    for sbstepidx in range(xstobj.getnrfiles()):
         obsinfo = xstobj.scanrecinfo.obsinfos[obs_ids[sbstepidx]]
         intg = obsinfo.integration
         dur = obsinfo.duration_scan
 
         freq = obsinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
-        XSTdata = XSTdataset[sbstepidx]
-        for tidx in range(XSTdata.shape[0]):
+        xstdata = xstobj.covmat_fb(sbstepidx, crlpolrep=None)
+        for tidx in range(xstdata.shape[0]):
             print("Kill plot window for next plot...")
-            plt.imshow(numpy.abs(XSTdata[tidx,...]), norm=normcolor,
+            plt.imshow(numpy.abs(xstdata[tidx,...]), norm=normcolor,
                        interpolation='none')
             plt.title("""Time (from start {}) {}s
                       @ freq={} MHz""".format(obsinfo.get_starttime(),
@@ -132,18 +132,18 @@ def plotxst(xstff):
 def plotacc(accff, freqreq=None):
     """Plot of ACC folder files."""
     dataobj = dataIO.CVCfiles(accff)
-    data = dataobj.getdata()
     if freqreq is None:
         freqreq = 0.0
     sb, _nqzone = modeparms.freq2sb(freqreq)
     for fileidx in range(0, dataobj.getnrfiles()):
+        filecvc = dataobj.covmat_fb(fileidx, crlpolrep=None)
         while sb < 512:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
-            absdatplt = ax1.pcolormesh(numpy.abs(data[fileidx][sb]))
+            absdatplt = ax1.pcolormesh(numpy.abs(filecvc[sb]))
             ax1.set_title('Abs value')
             ax1.set_ylabel('RCU [#]')
             fig.colorbar(absdatplt, ax=ax1)
-            angdatplt = ax2.pcolormesh(numpy.angle(data[fileidx][sb]),
+            angdatplt = ax2.pcolormesh(numpy.angle(filecvc[sb]),
                                        cmap=plt.get_cmap('hsv'))
             ax2.set_title('Phase value')
             ax2.set_xlabel('RCU [#]')
@@ -151,8 +151,7 @@ def plotacc(accff, freqreq=None):
             fig.colorbar(angdatplt, ax=ax2)
             plt.suptitle('Station element covariance. Time: {}UT, SB: {}'\
                                 .format(dataobj.samptimeset[fileidx][sb], sb))
-            fig.show()
-            _inpres = input('Press return for next plot... ')
+            plt.show()
             sb += 1
 
 
@@ -172,31 +171,53 @@ def plot_bsxst(args):
 
 def image(args):
     """Image visibility-type data."""
+    polrep = 'stokes'
     lofar_datatype = dataIO.datafolder_type(args.dataff)
     fluxperbeam = not args.fluxpersterradian
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
                            .format(args.dataff))
     cvcobj = dataIO.CVCfiles(args.dataff)
-    CVCdataset = cvcobj.getdata()
     calibrated = False
     if cvcobj.scanrecinfo.calibrationfile:
         calibrated = True
+    stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
-        CVCdata = CVCdataset[fileidx]
-        if CVCdata.ndim == 2:
-            intgs = 1
-        else:
-            intgs = CVCdata.shape[0]
+        cvpol = cvcobj.covmat_fb(fileidx)
+        intgs = cvpol.shape[-3]
         for tidx in range(args.sampnr, intgs):
-            ll, mm, skyimages, polrep, t, freq, stnid, phaseref = \
+            ll, mm, skyimages, t, freq, phaseref = \
                 imaging.cvc_image(cvcobj, fileidx, tidx, args.phaseref,
-                                  pbcor=args.correctpb, fluxperbeam=fluxperbeam)
+                                  polrep=polrep, pbcor=args.correctpb,
+                                  fluxperbeam=fluxperbeam)
             imaging.plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
-                                 phaseref, integration, calibrated,
+                                 integration, phaseref, calibrated,
                                  pbcor=args.correctpb, maskhrz=False,
                                  fluxperbeam=fluxperbeam)
+
+def nfimage(args):
+    """
+    Near field image.
+    """
+    polrep = 'S0'
+    lofar_datatype = dataIO.datafolder_type(args.dataff)
+    if lofar_datatype != 'acc' and lofar_datatype != 'xst':
+        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
+                           .format(args.dataff))
+    cvcobj = dataIO.CVCfiles(args.dataff)
+    stnid = cvcobj.scanrecinfo.get_stnid()
+    for fileidx in range(args.filenr, cvcobj.getnrfiles()):
+        integration = cvcobj.scanrecinfo.get_integration()
+        cvpol = cvcobj.covmat_fb(fileidx)
+        intgs = cvpol.shape[-3]
+        for tidx in range(args.sampnr, intgs):
+            xx, yy, nfimages = imaging.nearfield_grd_image(cvcobj, fileidx,
+                                                           tidx)
+            t = cvcobj.samptimeset[fileidx][tidx]
+            freq = cvcobj.freqset[fileidx][tidx]
+            imaging.plotskyimage(xx, yy, nfimages, polrep, t, freq, stnid,
+                                 integration, maskhrz=False)
 
 
 def main():
@@ -220,6 +241,12 @@ def main():
     parser_image.add_argument('-f', '--fluxpersterradian',
                               help="Normalize flux per sterradian",
                               action="store_true")
+
+    parser_image = subparsers.add_parser('nfimage', help='nearfield image')
+    parser_image.set_defaults(func=nfimage)
+    parser_image.add_argument('dataff', help="acc or xst filefolder")
+    parser_image.add_argument('-n', '--filenr', type=int, default=0)
+    parser_image.add_argument('-s', '--sampnr', type=int, default=0)
 
     args = parser.parse_args()
     args.dataff = os.path.normpath(args.dataff)
