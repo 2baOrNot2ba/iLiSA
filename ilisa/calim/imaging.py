@@ -206,14 +206,12 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, include_autocorr=False):
     (Useful for RFI).
     """
     freq = cvcobj.freqset[filestep][cubeslice]
-    cvcpol_lin = cvcobj.covmat_fb(filestep, crlpolrep='lin')
-    vis_S0 = numpy.squeeze(cvcpol_lin[0, 0, cubeslice, ...].squeeze()
-                 + cvcpol_lin[1, 1, cubeslice, ...].squeeze())
+    cvcpol_lin = cvcobj.covcube_fb(filestep, crlpolrep='lin')
+    vis_S0 = cvcpol_lin[0, 0, cubeslice, ...] + cvcpol_lin[1, 1, cubeslice, ...]
     stn_antpos = cvcobj.stn_antpos
     if not include_autocorr:
         numpy.fill_diagonal(vis_S0[: ,:], 0.0)
-    stn2dcoord = numpy.asarray(numpy.matmul(
-        numpy.squeeze(numpy.asarray(stn_antpos)),cvcobj.stn_rot))
+    stn2dcoord = numpy.asarray(stn_antpos @ cvcobj.stn_rot)
     pos_u, pos_v = stn2dcoord[: ,0].squeeze(), stn2dcoord[: ,1].squeeze()
     lambda0 = c / freq
     k = 2 * numpy.pi / lambda0
