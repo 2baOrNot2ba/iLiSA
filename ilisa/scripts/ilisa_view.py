@@ -115,7 +115,7 @@ def plotxst(xstff):
 
         freq = obsinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
-        xstdata = xstobj.covmat_fb(sbstepidx, crlpolrep=None)
+        xstdata = xstobj.covcube_fb(sbstepidx, crlpolrep=None)
         for tidx in range(xstdata.shape[0]):
             print("Kill plot window for next plot...")
             plt.imshow(numpy.abs(xstdata[tidx,...]), norm=normcolor,
@@ -136,7 +136,7 @@ def plotacc(accff, freqreq=None):
         freqreq = 0.0
     sb, _nqzone = modeparms.freq2sb(freqreq)
     for fileidx in range(0, dataobj.getnrfiles()):
-        filecvc = dataobj.covmat_fb(fileidx, crlpolrep=None)
+        filecvc = dataobj.covcube_fb(fileidx, crlpolrep=None)
         while sb < 512:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
             absdatplt = ax1.pcolormesh(numpy.abs(filecvc[sb]))
@@ -184,7 +184,7 @@ def image(args):
     stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
-        cvpol = cvcobj.covmat_fb(fileidx)
+        cvpol = cvcobj.covcube_fb(fileidx)
         intgs = cvpol.shape[-3]
         for tidx in range(args.sampnr, intgs):
             ll, mm, skyimages, t, freq, phaseref = \
@@ -209,7 +209,7 @@ def nfimage(args):
     stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
-        cvpol = cvcobj.covmat_fb(fileidx)
+        cvpol = cvcobj.covcube_fb(fileidx)
         intgs = cvpol.shape[-3]
         for tidx in range(args.sampnr, intgs):
             xx, yy, nfimages = imaging.nearfield_grd_image(cvcobj, fileidx,

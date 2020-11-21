@@ -931,12 +931,13 @@ class CVCfiles(object):
         """Return number of data files in this filefolder."""
         return len(self.filenames)
 
-    def covmat_fb(self, filenr, crlpolrep='lin'):
+    def covcube_fb(self, filenr, crlpolrep='lin'):
         """
-        File based covariance matrix.
-        Return the polarized, covariance matrix contained in the file numbered
-        `filenr` in the filefolder with correlated polarization representation
-        `crlpolrep`.
+        Get covariance cube based on file number.
+
+        Returns the polarized, covariance matrix cube contained in the file
+        numbered `filenr` in the filefolder with correlated polarization
+        representation `crlpolrep`.
 
         Parameters
         ----------

@@ -279,7 +279,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     stn_pos = cvcobj.stn_pos
     stn_antpos = cvcobj.stn_antpos
 
-    cvcpol_lin = cvcobj.covmat_fb(filestep, crlpolrep='lin')
+    cvcpol_lin = cvcobj.covcubes_fb(filestep, crlpolrep='lin')
 
     allsky = cvcobj.scanrecinfo.get_allsky()
     phaseref = _req_calsrc_proc(req_calsrc, allsky, pointingstr)
