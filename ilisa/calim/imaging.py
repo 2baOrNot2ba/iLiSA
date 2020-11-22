@@ -34,40 +34,72 @@ def fov(freq):
         return 0.6*100e6/freq/2.0
 
 
-def phaseref_xstpol(xstpol, obstime0, freq, stnPos, antpos, pointing):
+def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     """
-    Phase up of stack of visibilities (XST) to pointing direction.
+    Calculate UVW coords from datetime, phaseref and station & antenna positions
+
+    Parameters
+    ----------
+    obstime : datetime
+        Datetime of observation.
+    phaseref : tuple
+        Phase reference direction given by (lon, lat, ref),
+        where lon, lat are floats for longitude, latitude in radians and ref is
+        the reference frame str.
+    stn_pos : array_like
+        Vector of ITRF X,Y,Z coordinates in meters.
+    stn_antpos : array_like
+        Matrix over antenna versus ITRF X,Y,Z postions relative stn_pos.
+    
+    Returns
+    -------
+    uvw_xyz : array_like
+        UVW coordinates in meters.
     """
-    (pntRA, pntDEC, pntref) = pointing
-    pos_ITRF_X = str(stnPos[0, 0])+'m'
-    pos_ITRF_Y = str(stnPos[1, 0])+'m'
-    pos_ITRF_Z = str(stnPos[2, 0])+'m'
+    (pntRA, pntDEC, pntref) = phaseref
+    pos_ITRF_X = str(stn_pos[0, 0])+'m'
+    pos_ITRF_Y = str(stn_pos[1, 0])+'m'
+    pos_ITRF_Z = str(stn_pos[2, 0])+'m'
+    # Set up casacore measures object.
     obsme = casacore.measures.measures()
     where = obsme.position("ITRF", pos_ITRF_X, pos_ITRF_Y, pos_ITRF_Z)
-    what = obsme.direction(pntref, pntRA+"rad", pntDEC+"rad")
-    when = obsme.epoch("UTC", obstime0.isoformat('T'))
+    what = obsme.direction(pntref, str(pntRA)+"rad", str(pntDEC)+"rad")
     obsme.doframe(where)
-    obsme.doframe(when)
     obsme.doframe(what)
-    nrant = antpos.shape[0]
-    UVWxyz = numpy.zeros((nrant,3))
-    for idx in range(nrant):
+    # Set up baselines of the array
+    nrant = stn_antpos.shape[0]
+    bls = []
+    for antnr in range(nrant):
         bl = obsme.baseline("ITRF",
-                            *[str(comp)+'m' for comp in numpy.asarray(
-                                antpos[idx, :]).squeeze()])
-        UVWxyz[idx,:] = numpy.asarray(obsme.to_uvw(bl)["xyz"].get_value('m'))
+                            *[str(comp)+'m' for comp in 
+                              numpy.asarray(stn_antpos[antnr, :]).squeeze()])
+        bls.append(bl)
+    uvw_xyz = numpy.zeros((nrant,3))
+    # for obstime
+    when = obsme.epoch("UTC", obstime.isoformat('T'))
+    obsme.doframe(when)
+    for antnr in range(nrant):
+        uvw_xyz[antnr,:] = numpy.asarray(
+                        obsme.to_uvw(bls[antnr])["xyz"].get_value('m'))
+    return uvw_xyz
+
+
+def phaseref_xstpol(xstpol, UVWxyz, freq):
+    """
+    Phase up stack of visibilities (XST) to pointing direction
+    """
     lambda0 = c/freq
     phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
     PP = numpy.einsum('i,k->ik', phasefactors, numpy.conj(phasefactors))
     xstpupol = numpy.array(
            [[PP*xstpol[0, 0, ...].squeeze(), PP*xstpol[0, 1, ...].squeeze()],
             [PP*xstpol[1, 0, ...].squeeze(), PP*xstpol[1, 1, ...].squeeze()]])
-    return xstpupol, UVWxyz
+    return xstpupol
 
 
 def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     """
-    Phase up a spectral cube of visibilities (ACC) to pointing direction.
+    Phase up spectral cube of visibilities (ACC) to pointing direction
     """
     accphasedup = numpy.zeros(accpol.shape, dtype=complex)
     (pntRA, pntDEC, pntref) = pointing
@@ -236,7 +268,7 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, include_autocorr=False):
 def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
               fluxperbeam=True, polrep='stokes'):
     """
-    Image a CVC object using beamformed synthesis.
+    Image CVC object using beamformed synthesis
 
     Parameters
     ----------
@@ -248,8 +280,6 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         The cube index in file.
     req_calsrc : str
         The requested sky source.
-    docalibrate : bool
-        Perform calibration or not.
     pbcor : bool
         Perform primary beam correction or not.
     polrep : str
@@ -277,20 +307,26 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     stn_pos = cvcobj.stn_pos
     stn_antpos = cvcobj.stn_antpos
 
-    cvcpol_lin = cvcobj.covcubes_fb(filestep, crlpolrep='lin')
+    cvcpol_lin = cvcobj.covcube_fb(filestep, crlpolrep='lin')
 
     allsky = cvcobj.scanrecinfo.get_allsky()
     phaseref = _req_calsrc_proc(req_calsrc, allsky, pointingstr)
 
-    # Phase up visibilities
+    # Select a visibility snapshot
     cvpol_lin = cvcpol_lin[:, :, cubeslice, ...].squeeze()
-    cvpu_lin, UVWxyz = phaseref_xstpol(cvpol_lin, t, freq, stn_pos, stn_antpos,
-                                       phaseref)
+
+    # Calculate UVW coords
+    UVWxyz = calc_uvw(t, phaseref, stn_pos, stn_antpos)
+
+    # Phase up visibilities
+    cvpu_lin = phaseref_xstpol(cvpol_lin, UVWxyz, freq)
 
     # Make image on phased up visibilities
     imgs_lin, ll, mm = beamformed_image(
         cvpu_lin, UVWxyz.T, freq, include_autocorr=False, allsky=allsky,
         polrep='linear', fluxperbeam=fluxperbeam)
+
+    # Potentially apply primary beam correction 
     if pbcor and CANUSE_DREAMBEAM:
         # Get dreambeam jones:
         pointing = (float(phaseref[0]), float(phaseref[1]), 'STN')
@@ -309,6 +345,8 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         bri_xy_iau = numpy.matmul(numpy.matmul(ijones, bri_ant), ijonesH)
         imgs_lin = (bri_xy_iau[:, :, 0, 0], bri_xy_iau[:, :, 0, 1],
                     bri_xy_iau[:, :, 1, 0], bri_xy_iau[:, :, 1, 1])
+    
+    # Convert to requested polarization representation
     if polrep == 'stokes' and CANUSE_DREAMBEAM:
         images = convertxy2stokes(imgs_lin[0], imgs_lin[1], imgs_lin[2],
                                   imgs_lin[3])
@@ -347,18 +385,18 @@ def rm_redundant_bls(cvc, rmconjbl=True, use_autocorr=False):
 
 
 # Conversion between datatypes
-def xst2bst(xst, obstime, freq, stnPos, antpos, pointing):
+def xst2bst(xst, obstime, pointing, stn_pos, stn_antpos, freq):
     """Convert xst data to bst data"""
     xst, nrbaselinestot = rm_redundant_bls(xst)
-    xstpu, _UVWxyz = phaseref_xstpol(xst, obstime, freq, stnPos, antpos,
-                                     pointing)
+    UVWxyz = calc_uvw(obstime, pointing, stn_pos, stn_antpos)
+    xstpu = phaseref_xstpol(xst, UVWxyz, freq)
     bstXX = numpy.sum(xstpu[0, 0, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     bstXY = numpy.sum(xstpu[0, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     bstYY = numpy.sum(xstpu[1, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     return bstXX, bstXY, bstYY
 
 
-def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing,
+def accpol2bst(accpol, sbobstimes, freqs, stn_pos, stn_antpos, pointing,
                use_autocorr=False):
     """Convert a polarized spectral cube of visibilities (ACC order by two X,Y
     indices) to polarized brightness towards pointing direction. The output is
@@ -367,12 +405,16 @@ def accpol2bst(accpol, sbobstimes, freqs, stnPos, antpos, pointing,
     the bst does not have)."""
     accpol, nrbaselinestot = rm_redundant_bls(accpol)
     # Phase up ACC towards pointing direction
-    accpu = phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing)
-    # Sum up phased up ACCs per pol component over all baselines (Previously average)
+    accpu = phaseref_accpol(accpol, sbobstimes, freqs, stn_pos, stn_antpos,
+                            pointing)
+    # Sum up phased up ACCs per pol component over all baselines (Previously
+    #  average)
     # Note that this sum is also over conjugate baselines, so factor 2 more
-    bstXX = numpy.sum(numpy.real(accpu[0, 0, ...].squeeze()), axis=(1, 2))/nrbaselinestot
+    bstXX = numpy.sum(numpy.real(accpu[0, 0, ...].squeeze()), axis=(1, 2)
+                      )/nrbaselinestot
     bstXY = numpy.sum(accpu[0, 1, ...].squeeze(), axis=(1, 2))/nrbaselinestot
-    bstYY = numpy.sum(numpy.real(accpu[1, 1, ...].squeeze()), axis=(1, 2))/nrbaselinestot
+    bstYY = numpy.sum(numpy.real(accpu[1, 1, ...].squeeze()), axis=(1, 2)
+                      )/nrbaselinestot
     return bstXX, bstXY, bstYY
 
 
