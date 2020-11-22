@@ -141,7 +141,7 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     return accphasedup
 
 
-def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True,
+def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
                      allsky=False, polrep='linear', fluxperbeam=True):
     """
     Beamformed image XSTpol data.
@@ -157,7 +157,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True,
         The 2D array configuration matrix.
     freq : float
         The frequency of the the data in Hz.
-    include_autocorr : bool
+    use_autocorr : bool
         Whether or not to include the autocorrelations.
     allsky : bool
         Should an allsky image be produced?
@@ -181,8 +181,9 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True,
         The m direction cosine of the image.
 
     """
-    if not include_autocorr:
+    if not use_autocorr:
         # Set Autocorrelations to zero:
+        xstpol = numpy.copy(xstpol)  # Copy since diagonal will be rewritten
         for indi in range(2):
             for indj in range(2):
                 numpy.fill_diagonal(xstpol[indi, indj, :, :], 0.0)
@@ -232,7 +233,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, include_autocorr=True,
     return (skyimag_0, skyimag_1, skyimag_2, skyimag_3), ll, mm
 
 
-def nearfield_grd_image(cvcobj, filestep, cubeslice, include_autocorr=False):
+def nearfield_grd_image(cvcobj, filestep, cubeslice, use_autocorr=False):
     """
     Make a nearfield image along the ground from Stokes I visibility.
     (Useful for RFI).
@@ -241,7 +242,7 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, include_autocorr=False):
     cvcpol_lin = cvcobj.covcube_fb(filestep, crlpolrep='lin')
     vis_S0 = cvcpol_lin[0, 0, cubeslice, ...] + cvcpol_lin[1, 1, cubeslice, ...]
     stn_antpos = cvcobj.stn_antpos
-    if not include_autocorr:
+    if not use_autocorr:
         numpy.fill_diagonal(vis_S0[: ,:], 0.0)
     stn2dcoord = numpy.asarray(stn_antpos @ cvcobj.stn_rot)
     pos_u, pos_v = stn2dcoord[: ,0].squeeze(), stn2dcoord[: ,1].squeeze()
@@ -323,7 +324,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
 
     # Make image on phased up visibilities
     imgs_lin, ll, mm = beamformed_image(
-        cvpu_lin, UVWxyz.T, freq, include_autocorr=False, allsky=allsky,
+        cvpu_lin, UVWxyz.T, freq, use_autocorr=False, allsky=allsky,
         polrep='linear', fluxperbeam=fluxperbeam)
 
     # Potentially apply primary beam correction 
@@ -492,21 +493,20 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         plt.subplot(2, 2, pos+1)
         vmax = numpy.amax(compmap[pbeamfld])
         vmin = numpy.amin(compmap[pbeamfld])
-        # if pos > 1:
-        #     if vmax > +1:
-        #         vmax = +1
-        #     if vmin < -1:
-        #         vmin = -1
         plt.imshow(compmap, origin='lower', extent=[lmin, lmax, mmin, mmax],
                    interpolation='none', cmap=plt.get_cmap("jet"),
                    vmax=vmax,vmin=vmin)
         plt.gca().invert_xaxis()
         if pos == 2 or pos == 3:
             plt.xlabel(xlabel)
+        else:
+            plt.gca().get_xaxis().set_visible(False)
         if pos == 0 or pos == 2:
             plt.ylabel(ylabel)
+        else:
+            plt.gca().get_yaxis().set_visible(False)
         plt.colorbar(label="flux/"+fluxnrmlabel)
-        if polrep == 'Stokes':
+        if polrep == 'stokes':
             polrepstr = 'Stokes'
         else:
             polrepstr = 'Component'
@@ -533,6 +533,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
             s1, s1lbl = sq, 'q'
             s2, s2lbl = su, 'u'
             s3, s3lbl = sv, 'v'
+            print('Normalized')
         else:
             # If we have negative Stokes I values
             # then relative Stokes are not meaningful
@@ -565,8 +566,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         """Sky Image: PhaseRef={} @ {} MHz,
         Station {}, int={}s, UT={}, PbCor={}, {}
         """.format(','.join(phaseref), freq/1e6, stnid, integration, t, pbcor,
-                   caltag))
-    plt.tight_layout(rect=[0, 0.0, 1, 0.95])
+                   caltag), fontsize=8)
     plt.show()
 
 
