@@ -27,6 +27,15 @@ def lm_grid(nrpix=128,l_ext=1.0, m_ext=1.0):
     return ll, mm
 
 
+def dynamic_range(im):
+    """
+    Simplistic dynamic range
+    """
+    max = numpy.max(im)
+    mean = numpy.mean(im)
+    return max/mean
+
+
 def split_horizon(im, hor_width=0.0, fill=0.0):
     """
     Split image(s) into regions: above horizon, below horizon and horizon.
