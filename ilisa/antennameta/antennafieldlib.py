@@ -21,6 +21,10 @@ IHBADELTASDIR = STATICMETADATA
 COMMENT_CHAR = '#'
 AFfileNameType = 3
 
+# LOFAR band array's elements diameter or 1D extent (approximately) 
+ELEMENT_DIAMETER = {'LBA': 2.0,
+                    'HBA': 5.0}  # meters
+
 
 def _getAntennaFieldFile(stationName):
     antenna_field_dir = ANTENNAFIELDDIR
