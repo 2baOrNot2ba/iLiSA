@@ -224,3 +224,29 @@ def stefcal(r, m, niter=100):
         g_prev = g_curr
     g = g_curr
     return g
+
+
+def gain_cal_bs_lin(vis_pol_src):
+    """
+    Apply stefcal to XX and YY visibilities
+
+    Parameters
+    ----------
+    vis_pol_obs : (2, 2, N, N) array
+        Observsered (measured) polarized visibilities
+    
+    Returns
+    -------
+    g_bs_lin : (2, N) array
+        Gain solutions for X and Y channels
+    """
+    vis_mod_xx = numpy.ones(vis_pol_src[0, 0, ...].shape)
+    #vis_mod_xy = numpy.zeros(vis_pol_obs[0, 1, ...].shape)
+    #vis_mod_yx = numpy.zeros(vis_pol_obs[1, 0, ...].shape)
+    vis_mod_yy = numpy.ones(vis_pol_src[1, 1, ...].shape)
+    g_xx = stefcal(vis_pol_src[0, 0, ...], vis_mod_xx)
+    #g_xy = stefcal(vis_pol_obs[0, 1, ...], vis_mod_xy)
+    #g_yx = stefcal(vis_pol_obs[1, 0, ...], vis_mod_yx)
+    g_yy = stefcal(vis_pol_src[1, 1, ...], vis_mod_yy)
+    g_bs_lin = numpy.array([g_xx, g_yy])
+    return g_bs_lin
