@@ -29,7 +29,10 @@ def pointingGrid(NrAzDirs=8, NrElDirs=7):
 
 
 def pointing_str2tuple(beamctldirarg):
-    """Convert a beamctl direction string into direction tuple.
+    """
+    Convert a beamctl direction string into direction tuple
+
+    Inverse of pointing_tuple2str().
 
     Parameters
     ----------
@@ -50,6 +53,37 @@ def pointing_str2tuple(beamctldirarg):
         return dirtuple
     except ValueError:
         return None
+
+
+def pointing_tuple2str(dirtuple):
+    """
+    Convert a direction tuple to a string
+    
+    Inverse of pointing_str2tuple().
+
+    Parameters
+    ----------
+    dirtuple : tuple or None
+        Direction tuple defined as (angle1: float, angle2: float, refsys: str)
+        or None if beamctldirarg was not correct format.
+
+    Returns
+    -------
+    beamctldirarg : str
+        String with format 'angle1,angle2,refsys'
+    
+    Examples
+    --------
+    >>> from ilisa.observations.directions import pointing_tuple2str,
+    ...                                           pointing_str2tuple
+    >>> pointing_tuple2str((1.0,2.0,'AZELGEO'))
+    '1.0,2.0,AZELGEO'
+    >>> pointing_str2tuple(pointing_tuple2str((1.0,2.0,'AZELGEO')))
+    (1.0, 2.0, 'AZELGEO')
+    """
+    dir_str_tuple = (str(dirtuple[0]), str(dirtuple[1]), dirtuple[2])
+    beamctldirarg = ",".join(dir_str_tuple)
+    return beamctldirarg
 
 
 def std_pointings(directionterm='?'):
@@ -105,6 +139,23 @@ def std_pointings(directionterm='?'):
         return pointing
 
 
+def directionterm2tuple(directionterm):
+    """
+    Get direction tuple from (str) term
+
+    Parameters
+    ----------
+    directionterm : str
+        Named direction
+    
+    Returns
+    -------
+    directiontuple : (float, float, str)
+        Direction given as angle1, angle2 and reference system respectively.
+    """
+    return pointing_str2tuple(std_pointings(directionterm))
+
+
 def normalizebeamctldir(gendirstr):
     """
     Parse a general direction string.
@@ -129,7 +180,8 @@ def normalizebeamctldir(gendirstr):
         try:
             beamctldirstr = std_pointings(gendirstr)
         except:
-            raise ValueError('General direction term {} unknown.'.format(gendirstr))
+            raise ValueError(
+                        'General direction term {} unknown.'.format(gendirstr))
     else:
         beamctldirstr = gendirstr
     return beamctldirstr
