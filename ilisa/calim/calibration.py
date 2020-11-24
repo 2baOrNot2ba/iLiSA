@@ -101,6 +101,63 @@ def applycal_cvcfolder(cvcpath, caltabpath):
     cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
 
 
+def apply_polgains(gainspol, vispol):
+    """
+    Apply polarized biscalar gains to polarized visibility
+
+    Parameters
+    ----------
+    gainspol : array_like
+        Polarized biscalar gains. g_pq has shape (2,N) where N is number of
+        dual-polarized elements.
+    vispol : array_like
+        Polarized visibility array. Its shape is (2,2,N,N)
+
+    Returns
+    -------
+    vispol_gapp : array_like
+        Gain applied polarized visibility. Formula is g_ik*vis_ijkl*conj(g_jl),
+        where none of the indices are summed over.
+        It will have same shape as vis_pq.
+    
+    Examples
+    --------
+    >>> from ilisa.calim.calibration import apply_polgains
+    >>> import numpy
+    >>> n=3
+    >>> vispqtrue = numpy.ones((2,2,n,n))
+    >>> gpq=numpy.ones((2,n))
+
+    Double the P pol channel and zeros the Q channel:
+    >>> gpq[0,:]=2.0
+    >>> gpq[1,:]=0.0
+    Apply this to visibiities
+    >>> vis=apply_polgains(gpq, vispqtrue)
+    >>> vis
+    array([[[[4., 4., 4.],
+             [4., 4., 4.],
+             [4., 4., 4.]],
+
+            [[0., 0., 0.],
+             [0., 0., 0.],
+             [0., 0., 0.]]],
+
+
+           [[[0., 0., 0.],
+             [0., 0., 0.],
+             [0., 0., 0.]],
+
+            [[0., 0., 0.],
+             [0., 0., 0.],
+             [0., 0., 0.]]]])
+    """
+    #vispq = numpy.copy(vispq)
+    #    (2,N)^(2,N) swap 1,2 => (2,2,N,N) 
+    gg = numpy.tensordot(gainspol, numpy.conj(gainspol),0).swapaxes(1,2)
+    vispol_gapp = gg * vispol
+    return vispol_gapp
+
+
 def stefcal(r, m, niter=100):
     """
     Compute solution to the quadratic matrix equation using the StefCal
