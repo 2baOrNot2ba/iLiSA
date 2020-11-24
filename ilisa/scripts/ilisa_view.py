@@ -187,7 +187,9 @@ def image(args):
         cvpol = cvcobj.covcube_fb(fileidx)
         intgs = cvpol.shape[-3]
         for tidx in range(args.sampnr, intgs):
-            ll, mm, skyimages, t, freq, phaseref = \
+            t = cvcobj.samptimeset[fileidx][tidx]
+            freq = cvcobj.freqset[fileidx][tidx]
+            skyimages, ll, mm, phaseref = \
                 imaging.cvc_image(cvcobj, fileidx, tidx, args.phaseref,
                                   polrep=polrep, pbcor=args.correctpb,
                                   fluxperbeam=fluxperbeam)

@@ -13,7 +13,8 @@ import casacore.measures
 import casacore.quanta.quantity
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 import ilisa.calim.calibration
-from ilisa.observations.directions import _req_calsrc_proc
+from ilisa.observations.directions import _req_calsrc_proc, pointing_tuple2str,\
+                                          directionterm2tuple
 
 try:
     import dreambeam
@@ -27,11 +28,30 @@ if CANUSE_DREAMBEAM:
 c = speed_of_light
 
 
-def fov(freq):
-    if freq < 100e6:
-        return 1.0
-    else:
-        return 0.6*100e6/freq/2.0
+def airydisk_radius(freq, d):
+    """
+    Radius of Airy disk in direction-cosine units
+
+    Parameters
+    ----------
+    freq : float
+        Frequency of wave in Hertz
+    d : float
+        Aperture diameter in meters
+    
+    Returns
+    -------
+    sintheta : float
+        Radius of first null in Airy disk in direction-cosine units 
+        (i.e. radius is equal to sin(theta)), if lambda
+        is less than diameter. If lambda > d/1.22, then 1.0 is returned,
+        which corresponds to full hemisphere field-of-view.
+    """
+    lambda0 = c/freq
+    sintheta = 1.22*lambda0/d
+    if sintheta > 1.0:
+        sintheta = 1.0
+    return sintheta
 
 
 def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
@@ -86,7 +106,7 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
 
 def phaseref_xstpol(xstpol, UVWxyz, freq):
     """
-    Phase up stack of visibilities (XST) to pointing direction
+    Phase up polarized visibilities stack to U,V-align them at frequency 
     """
     lambda0 = c/freq
     phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
@@ -141,8 +161,19 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     return accphasedup
 
 
+def phasedup_vis(vis, srcname, t, freq, polrep, stn_pos, stn_antpos):
+    """
+    Phase up visibiliies
+    """
+    # Phase center on src
+    dir_src = directionterm2tuple(srcname)
+    uvw_src = calc_uvw(t, dir_src, stn_pos, stn_antpos)
+    vis_pu = phaseref_xstpol(vis, uvw_src, freq)
+    return vis_pu
+
+
 def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
-                     allsky=False, polrep='linear', fluxperbeam=True):
+                     lmsize=2.0, polrep='linear', fluxperbeam=True):
     """
     Beamformed image XSTpol data.
 
@@ -159,8 +190,8 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
         The frequency of the the data in Hz.
     use_autocorr : bool
         Whether or not to include the autocorrelations.
-    allsky : bool
-        Should an allsky image be produced?
+    lmsize : float
+        Size of image in (lm) direction-cosine units. Default 2.0 means allsky.
     polrep : str
         Requested type of representation for the polarimetric data.
         Can be 'linear' (default), 'circular', or 'stokes'.
@@ -190,10 +221,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
     posU, posV = stn2Dcoord[0, :].squeeze(), stn2Dcoord[1, :].squeeze()
     lambda0 = c / freq
     k = 2 * numpy.pi / lambda0
-    if not allsky:
-        lmext = fov(freq)
-    else:
-        lmext = 1.0
+    lmext = lmsize/2.0
     nrpix = 101
     l, m = numpy.linspace(-lmext, lmext, nrpix), numpy.linspace(-lmext, lmext,
                                                                 nrpix)
@@ -322,9 +350,17 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     # Phase up visibilities
     cvpu_lin = phaseref_xstpol(cvpol_lin, UVWxyz, freq)
 
+    # Determine FoV and image lm size
+    bandarr = cvcobj.scanrecinfo.get_bandarr()
+    lmsize = 2.0
+    if not allsky:
+        d = antennafieldlib.ELEMENT_DIAMETER[bandarr]
+        fov = 2*airydisk_radius(freq, d)
+        lmsize = 1.0*fov
+
     # Make image on phased up visibilities
     imgs_lin, ll, mm = beamformed_image(
-        cvpu_lin, UVWxyz.T, freq, use_autocorr=False, allsky=allsky,
+        cvpu_lin, UVWxyz.T, freq, use_autocorr=False, lmsize=lmsize,
         polrep='linear', fluxperbeam=fluxperbeam)
 
     # Potentially apply primary beam correction 
@@ -332,7 +368,6 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         # Get dreambeam jones:
         pointing = (float(phaseref[0]), float(phaseref[1]), 'STN')
         stnid = cvcobj.scanrecinfo.get_stnid()
-        bandarr = cvcobj.scanrecinfo.get_bandarr()
         jonesfld, _stnbasis, _j2000basis = primarybeampat(
             'LOFAR', stnid, bandarr, 'Hamaker', freq, pointing=pointing,
             obstime=t, lmgrid=(ll, mm))
@@ -361,7 +396,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         # polrep == 'linear'
         images = imgs_lin
 
-    return ll, mm, images, t, freq, phaseref
+    return images, ll, mm, phaseref
 
 
 def rm_redundant_bls(cvc, rmconjbl=True, use_autocorr=False):
@@ -565,8 +600,8 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     plt.suptitle(
         """Sky Image: PhaseRef={} @ {} MHz,
         Station {}, int={}s, UT={}, PbCor={}, {}
-        """.format(','.join(phaseref), freq/1e6, stnid, integration, t, pbcor,
-                   caltag), fontsize=8)
+        """.format(pointing_tuple2str(phaseref), freq/1e6, stnid, integration,
+                   t, pbcor, caltag), fontsize=8)
     plt.show()
 
 
