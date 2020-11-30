@@ -265,10 +265,10 @@ class StationDriver(object):
         rcu_setup_cmds = self._lcu_interface.rcusetup(bits, attenuation)
         return rcu_setup_cmds
 
-    def _run_beamctl(self, beamlets, subbands, band, anadigdir):
+    def _run_beamctl(self, beamlets, subbands, band, anadigdir, rcusel='all'):
         """Run beamctl command on LCU."""
         beamctl_cmd = self._lcu_interface.run_beamctl(beamlets, subbands,
-                                                      band, anadigdir)
+                                                      band, anadigdir, rcusel)
         return beamctl_cmd
 
     def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
@@ -282,7 +282,7 @@ class StationDriver(object):
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
             _antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
-            beamletIDs = freqbndobj.beamlets[bandbeamidx]
+            beamlets = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
             # Select RCUs
             rcus_allowed_set = set(modeparms.seqarg2list(
@@ -292,9 +292,8 @@ class StationDriver(object):
             rcu_list = list(rcus_desired_set.intersection(rcus_allowed_set))
             rcusel = ','.join(map(str, list(rcu_list)))
             # Run beamctl
-            beamctl_main = self._lcu_interface.run_beamctl(beamletIDs,
-                                                           subbands, rcumode,
-                                                           pointing, rcusel)
+            beamctl_main = self._run_beamctl(beamlets, subbands, rcumode,
+                                             pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
         return rcu_setup_cmd, beamctl_cmds
 

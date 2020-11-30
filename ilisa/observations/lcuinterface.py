@@ -405,9 +405,11 @@ class LCUInterface(object):
             bits = rspbits[0][1]
         return bits
 
-    def _setup_beamctl(self, beamlets, subbands, band, anadigdir, rcus,
+    def _beamctl_args2cmd(self, beamlets, subbands, band, anadigdir, rcus='all',
                        beamdurstr=''):
         """Create a beamctl command string from the given arguments."""
+        if rcus == 'all':
+            rcus = '0:191'
         if beamdurstr != '':
             beamdurstr = ',' + beamdurstr
         anadir = anadigdir
@@ -426,11 +428,11 @@ class LCUInterface(object):
                        + " --digdir=" + digdir + beamdurstr)
         return beamctl_cmd
 
-    def run_beamctl(self, beamlets, subbands, band, anadigdir, rcus='0:191',
+    def run_beamctl(self, beamlets, subbands, band, anadigdir, rcus='all',
                     beamdurstr='', backgroundJOB=True):
         """Start a beam using beamctl command. Blocks until ready."""
-        beamctl_cmd = self._setup_beamctl(beamlets, subbands, band, anadigdir, rcus,
-                                          beamdurstr)
+        beamctl_cmd = self._beamctl_args2cmd(beamlets, subbands, band,
+                                             anadigdir, rcus, beamdurstr)
         self.exec_lcu(beamctl_cmd, backgroundJOB)
         waittime = 11
         print("Waiting {}s for beam to settle...".format(waittime))
@@ -442,8 +444,9 @@ class LCUInterface(object):
         if directory is None:
             directory = self.lcuDumpDir
         rspctl_cmd = ("rspctl --statistics=beamlet"
-                      + " --select=0,1"  # For ILT stations --select=0,1 is sufficient
-                                         # for both X- and Y- polarisation
+                      + " --select=0,1"  # For ILT stations:
+                                         #   --select=0,1 is sufficient
+                                         #   for both X- and Y- polarisation
                       + " --integration="+str(integration)
                       + " --duration="+str(duration)
                       + " --directory="+directory)
@@ -550,9 +553,9 @@ class LCUInterface(object):
                 filetime += datetime.timedelta(seconds=519)
         self.DryRun = dryrun
 
-    def run_tbbctl(self, select=None, alloc=False, free=False, record=False, stop=False,
-                   mode=None, storage=None, readall=None, cepdelay=None,
-                   backgroundJOB=False):
+    def run_tbbctl(self, select=None, alloc=False, free=False, record=False,
+                   stop=False, mode=None, storage=None, readall=None,
+                   cepdelay=None, backgroundJOB=False):
         """Run the tbbctl command on the LCU with arguments given."""
         tbbctl_args = ""
 
