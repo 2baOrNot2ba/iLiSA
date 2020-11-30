@@ -25,7 +25,7 @@ def main():
     parser.add_argument('datatype',
                         help="""\
 lofar data type to record.
-Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
+Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     parser.add_argument('freqspec',
                         help='Frequency spec in Hz.')
     parser.add_argument('duration_tot',
@@ -33,7 +33,7 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
                              '(Can be an arithmetic expression)',
                         type=str)
     parser.add_argument('pointing', nargs='?', default='Z',
-                        help='A direction in az,el,ref (radians) or a source name.')
+                        help='Direction in az,el,ref (radians) or source name.')
     args = parser.parse_args()
 
     accessconf = ilisa.observations.default_access_lclstn_conf()
@@ -53,22 +53,23 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
 
     do_acc = False
     rec_bfs = False
+    bsx_type = None
     sesspath = accessconf['DRU']['LOFARdataArchive']
     if args.datatype == 'None':
+        # datatype None means running a beam with no recording
         args.datatype = None
-        bsx_type = None
     elif args.datatype == 'acc':
         do_acc = True
-        bsx_type = None
         sesspath = os.path.join(sesspath, 'acc')
     elif args.datatype == 'bfs':
         rec_bfs = True
-        bsx_type = None
         sesspath = os.path.join(sesspath, 'bfs')
-    elif args.datatype == 'bst' or args.datatype == 'sst' or args.datatype == 'xst':
+    elif (args.datatype == 'bst' or args.datatype == 'sst'
+          or args.datatype == 'xst'):
         bsx_type = args.datatype
         sesspath = os.path.join(sesspath, bsx_type)
     elif args.datatype == 'tbb' or args.datatype == 'dmp':
+        # 'dmp' is for just recording without setting setting up a beam.
         pass
     else:
         raise RuntimeError('Unknown datatype {}'.format(args.datatype))
@@ -77,12 +78,13 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'nil'.""")
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         stndrv.scanpath = sesspath
         scanresult = programs.record_scan(
-            stndrv, freqbndobj, duration_tot, pointing, starttime=args.starttime,
-            rec=(args.datatype,), integration=args.integration, allsky=args.allsky,
+            stndrv, freqbndobj, duration_tot, pointing,
+            starttime=args.starttime, rec=(args.datatype,),
+            integration=args.integration, allsky=args.allsky,
             duration_frq=None)
         for res in scanresult['rec']:
             print("Saved {} scanrec here: {}".format(res,
-                                                     scanresult[res].get_scanrecpath()))
+                                            scanresult[res].get_scanrecpath()))
             scanresult[res].write()
         if not scanresult['rec']:
             print("No data recorded ('None' selected)")
