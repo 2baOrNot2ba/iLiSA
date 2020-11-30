@@ -136,6 +136,7 @@ def parseiHBADeltasfile(stationName):
     filepath = _getiHBADeltafile(stationName)
     f = open(filepath)
     line=f.readline()
+    HBADeltaLine = False
     while line:
         if COMMENT_CHAR in line:
             line, comment = line.split(COMMENT_CHAR, 1)
@@ -191,7 +192,8 @@ def getArrayBandParams(stnid, arrband):
     antfld = parseAntennaField(stnid)
     stnLoc = stnid[0:2]
     errmess = "Array band not valid. Only 'LBA', 'HBA' are valid, "\
-            + "except for 'CS' stations for which 'HBA0', 'HBA1' are also valid."
+            + "except for 'CS' stations for which 'HBA0', 'HBA1' are also valid"
+    subarr = None
     if arrband == 'LBA':
         subarr = 'LBA'
         hbadeltas = [0.,0.,0.]

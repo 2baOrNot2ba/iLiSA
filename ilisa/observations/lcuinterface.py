@@ -235,10 +235,12 @@ class LCUInterface(object):
         return self._stdoutLCU("ls "+dumpdir).split('\n')
 
     def getdatalist(self):
-        """Get list of data recorded on LCU. Returns a separate list for data dumps
-        and ACC data. Note that because data dumps are named by date and time
-        (uses YYYYmmdd_HHMMSS) and because default 'ls' sorts names in alphabetical
-        order, the list of files will be ordered such that oldest data is first.
+        """\
+        Get list of data recorded on LCU. Returns a separate list for data
+        dumps and ACC data. Note that because data dumps are named by date and
+        time (uses YYYYmmdd_HHMMSS) and because default 'ls' sorts names in
+        alphabetical order, the list of files will be ordered such that oldest
+        data is first.
         """
         dryrun = self.DryRun
         self.DryRun = False  # Override DryRun for this case

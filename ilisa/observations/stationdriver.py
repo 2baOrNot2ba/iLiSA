@@ -1,6 +1,7 @@
 #!/usr/bin/python
 """Package that provides functions for setting up and running observations
-via station controller objects. This package knows about the data archive and
+via one LCUinterface instance and one DRUinterface instance.
+This package knows about the data archive and
 should not run anything directly on LCU."""
 
 
@@ -22,8 +23,11 @@ class StationDriver(object):
     and record data and metadata from these observations on a DRU."""
 
     def checkobservingallowed(self):
-        """Check whether observations are allowed. This occurs is someone else
-        is using the station. Note that if mockrun then this method will return True."""
+        """
+        Check whether observations are allowed. This occurs is someone else is
+        using the station. Note that if mockrun then this method will return
+        True.
+        """
         serviceuser = self._lcu_interface.who_servicebroker()
 
         if serviceuser is None or serviceuser == self._lcu_interface.user:
@@ -34,12 +38,14 @@ class StationDriver(object):
                 print("Warning: Station is not in stand-alone mode.")
                 return False
         else:
-            print("Warning: Someone else ({}) is using LCU".format(serviceuser))
-            print("         (You are running as {})".format(self._lcu_interface.user))
+            print("""Warning: Someone else ({}) is using LCU
+                              (You are running as {})"""\
+                               .format(serviceuser, self._lcu_interface.user))
             return False
 
     def __init__(self, accessconf_lcu, accessconf_dru, mockrun=False):
-        """Initialize a StationDriver object, which has access to a station via
+        """\
+        Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
         """
 
@@ -90,10 +96,13 @@ class StationDriver(object):
             # Dummy or hot beam start: (takes about 10sec)
             # This seems necessary: first beamctl after going to swlevel 3
             # seems to crash.
-            print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
-            self.streambeams(modeparms.FrequencyBand('10_90'), '0.,1.5707963,AZELGEO')
+            print("Running warmup beam... @ {}"\
+                .format(datetime.datetime.utcnow()))
+            self.streambeams(modeparms.FrequencyBand('10_90'),
+                             '0.,1.5707963,AZELGEO')
             self._lcu_interface.stop_beam()
-            print("Finished warmup beam... @ {}".format(datetime.datetime.utcnow()))
+            print("Finished warmup beam... @ {}"\
+                .format(datetime.datetime.utcnow()))
 
     def halt_observingstate(self):
         """Halt observing state on station."""
@@ -120,7 +129,8 @@ class StationDriver(object):
         movecmd = "scp"
         if recursive:
             movecmd += " -r"
-        fullcmd = movecmd +" " + self._lcu_interface.lcuURL + ":" + source + " " + dest
+        fullcmd = movecmd +" " + self._lcu_interface.lcuURL + ":" + source \
+                  + " " + dest
         cmdprompt = "on DPU>"
         if self._lcu_interface.verbose:
             print("{} {}".format(cmdprompt, fullcmd))
@@ -136,8 +146,10 @@ class StationDriver(object):
         return dd_dir, acc_dir
 
     def get_data_timestamp(self, order=0, ACC=False):
-        """Get timestamp of datafiles on LCU. order is the temporal order of the data
-        file, order=0 is oldest, order=-1 is newest."""
+        """
+        Get timestamp of datafiles on LCU. order is the temporal order of
+        the data file, order=0 is oldest, order=-1 is newest.
+        """
         dd_dir, acc_dir = self._lcu_interface.getdatalist()
         # Assumes only one file in datadump dir with
         # format YYYYmmdd_HHMMSS_[bsx]st.dat
@@ -174,9 +186,9 @@ class StationDriver(object):
 
     def cleanup(self, forced=False):
         """Clean up on LCU."""
+        dryrun = self._lcu_interface.DryRun
         if forced:
             # Override DryRun temporarily to really remove source files
-            dryrun = self._lcu_interface.DryRun
             self._lcu_interface.DryRun = False
         self._lcu_interface.cleanup()
         if forced:
@@ -218,7 +230,8 @@ class StationDriver(object):
         """
         path2disableddir = ilisa.observations.user_conf_dir
         filename = os.path.join(path2disableddir, self._lcu_interface.stnid,
-                                "DISABLED", "disabled-mode{}.txt" .format(rcumode))
+                                "DISABLED",
+                                "disabled-mode{}.txt".format(rcumode))
         fp = Path(filename)
         if fp.is_file():
             filecontents = fp.read_text()
@@ -254,7 +267,8 @@ class StationDriver(object):
 
     def _run_beamctl(self, beamlets, subbands, band, anadigdir):
         """Run beamctl command on LCU."""
-        beamctl_cmd = self._lcu_interface.run_beamctl(beamlets, subbands, band, anadigdir)
+        beamctl_cmd = self._lcu_interface.run_beamctl(beamlets, subbands,
+                                                      band, anadigdir)
         return beamctl_cmd
 
     def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
@@ -311,14 +325,15 @@ class StationDriver(object):
         nw = datetime.datetime.utcnow()
         #st = datetime.datetime.strptime(starttime, "%Y-%m-%dT%H:%M:%S")
 
-        maxminsetuptime = datetime.timedelta(seconds=105 + pause)  # Longest minimal time
-        # before observation
-        # start to set up (This includes a dummy beam warmup)
+        maxminsetuptime = datetime.timedelta(seconds=105 + pause)
+        # maxminsetuptime is the Longest minimal time
+        # before observation start to set up (This includes a dummy beam warmup)
         d = (starttime - maxminsetuptime) - nw
         timeuntilboot = d.total_seconds()
         if timeuntilboot < 0.:
             timeuntilboot = 0
-        print("Will boot to observe state after " + str(timeuntilboot) + " seconds...")
+        print("Will boot to observe state after " + str(timeuntilboot)
+              + " seconds...")
         time.sleep(timeuntilboot)
         # From swlevel 0 it takes about 1:30min? to reach swlevel 3
         print("Booting @ {}".format(datetime.datetime.utcnow()))
@@ -366,34 +381,50 @@ class StationDriver(object):
         # Set delay between subsequent frames. One delay unit is 5us.
         udpdelay = 500  # (Previously 100)
         Nqfreq = 100e6
-        nrpages = str(int(duration_scan*2*Nqfreq/1024))  # One page is 1024 samples.
-                                                    # Normal sampling frequency
-                                                    # is 200MHz.
-        self._lcu_interface.run_tbbctl(select='0:15,16:31,32:47', storage='lofarA1')
-        self._lcu_interface.run_tbbctl(select='48:63,64:79,80:95', storage='lofarA2')
-        self._lcu_interface.run_tbbctl(select='96:111,112:127,128:143', storage='lofarA3')
-        self._lcu_interface.run_tbbctl(select='144:159,160:175,176:191', storage='lofarA4')
+        nrpages = str(int(duration_scan*2*Nqfreq/1024))
+        # One page is 1024 samples.
+        # Normal sampling frequency is 200MHz
+        self._lcu_interface.run_tbbctl(select='0:15,16:31,32:47',
+                                       storage='lofarA1')
+        self._lcu_interface.run_tbbctl(select='48:63,64:79,80:95',
+                                       storage='lofarA2')
+        self._lcu_interface.run_tbbctl(select='96:111,112:127,128:143',
+                                       storage='lofarA3')
+        self._lcu_interface.run_tbbctl(select='144:159,160:175,176:191',
+                                       storage='lofarA4')
 
         self._lcu_interface.run_tbbctl(cepdelay=str(udpdelay))
 
-        self._lcu_interface.run_tbbctl(select='0:15', readall=nrpages, backgroundJOB='locally')
-        self._lcu_interface.run_tbbctl(select='48:63', readall=nrpages, backgroundJOB='locally')
-        self._lcu_interface.run_tbbctl(select='96:111', readall=nrpages, backgroundJOB='locally')
-        self._lcu_interface.run_tbbctl(select='144:159', readall=nrpages, backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='0:15', readall=nrpages,
+                                       backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='48:63', readall=nrpages,
+                                       backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='96:111', readall=nrpages,
+                                       backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='144:159', readall=nrpages,
+                                       backgroundJOB='locally')
 
-        self._lcu_interface.run_tbbctl(select='16:31', readall=nrpages, backgroundJOB='locally')
-        self._lcu_interface.run_tbbctl(select='64:79', readall=nrpages, backgroundJOB='locally')
-        self._lcu_interface.run_tbbctl(select='112:127', readall=nrpages, backgroundJOB='locally')
-        self._lcu_interface.run_tbbctl(select='160:175', readall=nrpages, backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='16:31', readall=nrpages,
+                                       backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='64:79', readall=nrpages,
+                                       backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='112:127', readall=nrpages,
+                                       backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='160:175', readall=nrpages,
+                                       backgroundJOB='locally')
 
-        self._lcu_interface.run_tbbctl(select='32:47', readall=nrpages, backgroundJOB='locally')
-        self._lcu_interface.run_tbbctl(select='80:95', readall=nrpages, backgroundJOB='locally')
-        self._lcu_interface.run_tbbctl(select='128:143', readall=nrpages, backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='32:47', readall=nrpages, 
+                                       backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='80:95', readall=nrpages,
+                                       backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='128:143', readall=nrpages,
+                                       backgroundJOB='locally')
         # Last one is not put in background so the parent process blocks
         # until finished.
-        self._lcu_interface.run_tbbctl(select='176:191', readall=nrpages) # backgroundJOB='locally')
+        self._lcu_interface.run_tbbctl(select='176:191', readall=nrpages)
 
-    def do_tbb(self, duration_scan, band, start_after=0, observer="", project=""):
+    def do_tbb(self, duration_scan, band, start_after=0, observer="",
+               project=""):
         """Record duration_scan seconds of TBB data from rcumode.
         """
         observationID = "Null"
@@ -439,8 +470,11 @@ class StationDriver(object):
         dalcap.join()
 
     def get_scanid(self, beamstarted=None):
-        """Determine scan ID.
-        The ID is the MJD of the data file stamp time or when the beam started (datetime).
+        """
+        Determine scan ID.
+        
+        The ID is the MJD of the data file stamp time or when the beam started
+        (datetime).
         """
         try:
             scan_dt = datetime.datetime.strptime(self.get_data_timestamp(-1),
@@ -453,9 +487,6 @@ class StationDriver(object):
         scan_id = "scan_{}".format(scan_mjd_id)
         return scan_id
 
-# TBBh5dumpDir="/home/tobia/lofar/data/tbb/h5/"
-# "/mnt/lane0/TBB/" #Should end with "/" character.
-# h5fileprefix="L"
 
 def capture_data_DAL1(tbbraw2h5cmd, TBBh5dumpDir, observer, antennaSet,
                       project, observationID, background=False):
@@ -489,8 +520,10 @@ def capture_data_DAL1(tbbraw2h5cmd, TBBh5dumpDir, observer, antennaSet,
 
 
 def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
-    """Wait until datetime. If datetime is 'now' then this is interpreted as current
-     time."""
+    """
+    Wait until datetime. If datetime is 'now' then this is interpreted as
+    current time.
+    """
     now = datetime.datetime.utcnow()
     if starttime_req == "NOW":
         starttime = now
