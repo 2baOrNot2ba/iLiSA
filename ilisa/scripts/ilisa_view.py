@@ -11,25 +11,34 @@ import ilisa.calim.imaging as imaging
 import ilisa.observations.modeparms as modeparms
 
 
-def plotbst(bstff):
+def plotbst(bstff, pol_stokes=True):
     """Plot BST data."""
     BSTdata, obsfileinfo = dataIO.readbstfolder(bstff)
     starttime = obsfileinfo['datetime']
     intg = obsfileinfo['integration']
     dur = obsfileinfo['duration']
     freqs = obsfileinfo['frequencies']
+    pointing = obsfileinfo['pointing']
+
     ts = numpy.arange(0., dur, intg)
     ts = [starttime+datetime.timedelta(seconds=t) for t in ts]
     fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
-    bstxplt = ax1.pcolormesh(ts, freqs/1e6, BSTdata['X'].T,
+    data2plot_p_name, data2plot_p = BSTdata['X'].T, 'X-pol'
+    data2plot_q_name, data2plot_q = BSTdata['Y'].T, 'Y-pol'
+    if pol_stokes:
+        data2plot_p_name = 'Stokes I'
+        data2plot_p = BSTdata['X'].T + BSTdata['Y'].T
+        data2plot_q_name = 'Stokes Q'
+        data2plot_q = BSTdata['X'].T - BSTdata['Y'].T
+    bstxplt = ax1.pcolormesh(ts, freqs/1e6, data2plot_p,
                              norm=colors.LogNorm())
     fig.colorbar(bstxplt, ax=ax1)
     ax1.set_ylabel('Frequency [MHz]')
-    ax1.set_title('X-pol')
-    bstyplt = ax2.pcolormesh(ts, freqs/1e6, BSTdata['Y'].T,
+    ax1.set_title('{}, pointing {},{},{}'.format(data2plot_p_name, *pointing))
+    bstyplt = ax2.pcolormesh(ts, freqs/1e6, data2plot_q,
                              norm=colors.LogNorm())
     fig.colorbar(bstyplt, ax=ax2)
-    ax2.set_title('Y-pol')
+    ax2.set_title('{}, pointing {},{},{}'.format(data2plot_q_name, *pointing))
     fig.autofmt_xdate()
 
     ax2.xaxis.set_major_formatter( mdates.DateFormatter('%H:%M:%S'))
