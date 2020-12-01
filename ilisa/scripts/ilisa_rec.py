@@ -77,19 +77,24 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     if args.datatype != 'tbb' and args.datatype != 'dmp':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         stndrv.scanpath = sesspath
-        # scanresult = programs.record_scan(
-        #     stndrv, freqbndobj, duration_tot, pointing,
-        #     starttime=args.starttime, rec=(args.datatype,),
-        #     integration=args.integration, allsky=args.allsky,
-        #     duration_frq=None)
-        dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
-        stndrv.streambeams(freqbndobj, dir_bmctl)
-        ldatinfo = stndrv.start_scanrec(args.datatype, args.integration,
-                                                            args.duration_tot)
-        scanresult = stndrv.stop_scanrec(ldatinfo, freqbndobj)
+        use_programs = True
+        if use_programs:
+            # TODO Remove this block
+            scanresult = programs.record_scan(
+                stndrv, freqbndobj, duration_tot, pointing,
+                starttime=args.starttime, rec=(args.datatype,),
+                integration=args.integration, allsky=args.allsky,
+                duration_frq=None)
+        else:
+            dir_bmctl = ilisa.observations.directions.normalizebeamctldir(
+                pointing)
+            stndrv.streambeams(freqbndobj, dir_bmctl)
+            ldatinfo = stndrv.start_scanrec(args.datatype, args.integration,
+                                            args.duration_tot)
+            scanresult = stndrv.stop_scanrec(ldatinfo, freqbndobj)
         for res in scanresult['rec']:
-            print("Saved {} scanrec here: {}".format(res,
-                                            scanresult[res].get_scanrecpath()))
+            print("Saved {} scanrec here: {}".format(
+                res, scanresult[res].get_scanrecpath()))
             scanresult[res].write()
         if not scanresult['rec']:
             print("No data recorded ('None' selected)")
