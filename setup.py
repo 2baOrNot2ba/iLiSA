@@ -21,8 +21,7 @@ setup(name='iLiSA',
           'Development Status :: 3 - Alpha',
           'Intended Audience :: Science/Research',
           'License :: OSI Approved :: ISC License',
-          'Programming Language :: Python :: 2.7',
-          'Programming Language :: Python :: 3.6',
+          'Programming Language :: Python :: 3.7',
           'Topic :: Scientific/Engineering :: Astronomy',
           'Topic :: Scientific/Engineering :: Mathematics',
           'Topic :: Scientific/Engineering :: Visualization'
@@ -41,6 +40,7 @@ setup(name='iLiSA',
               'ilisa_rec = ilisa.scripts.ilisa_rec:main',
               'ilisa_sched = ilisa.scripts.ilisa_sched:main',
               'ilisa_view = ilisa.scripts.ilisa_view:main',
+              'ilisa_image = ilisa.calim.imaging:main_cli'
           ]
       }
       )

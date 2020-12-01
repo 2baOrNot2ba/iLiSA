@@ -1,18 +1,20 @@
 """
 Provides support direct imaging of LOFAR stand-alone data such as ACC and XST.
 """
-from __future__ import print_function
+#from __future__ import print_function
 
 import sys
+import os
+import argparse
 
-import matplotlib.pyplot as plt
 import numpy
+import matplotlib.pyplot as plt
 from scipy.constants import speed_of_light
 
 import casacore.measures
 import casacore.quanta.quantity
 import ilisa.antennameta.antennafieldlib as antennafieldlib
-import ilisa.calim.calibration
+from ilisa.observations import dataIO as dataIO
 from ilisa.observations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
 
@@ -243,6 +245,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
         skyimag_xy = skyimag_xy * nn
         skyimag_yx = skyimag_yx * nn
         skyimag_yy = skyimag_yy * nn
+    (skyimag_0, skyimag_1, skyimag_2, skyimag_3) = (None, None, None, None)
     if not CANUSE_DREAMBEAM or polrep == 'linear':
         (skyimag_0, skyimag_1, skyimag_2, skyimag_3) =\
             (skyimag_xx, skyimag_xy, skyimag_yx, skyimag_yy)
@@ -621,3 +624,90 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
         midx = numpy.argmin(numpy.abs(m-pntsrc[1]))
         img_S0[lidx, midx] = pntsrc[2]
     return ll, mm, (img_S0, img_S1, img_S2, img_S3)
+
+
+def image(args):
+    """Image visibility-type data."""
+    polrep = 'stokes'
+    lofar_datatype = dataIO.datafolder_type(args.dataff)
+    fluxperbeam = not args.fluxpersterradian
+    if lofar_datatype != 'acc' and lofar_datatype != 'xst':
+        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
+                           .format(args.dataff))
+    cvcobj = dataIO.CVCfiles(args.dataff)
+    calibrated = False
+    if cvcobj.scanrecinfo.calibrationfile:
+        calibrated = True
+    stnid = cvcobj.scanrecinfo.get_stnid()
+    for fileidx in range(args.filenr, cvcobj.getnrfiles()):
+        integration = cvcobj.scanrecinfo.get_integration()
+        cvpol = cvcobj.covcube_fb(fileidx)
+        intgs = cvpol.shape[-3]
+        for tidx in range(args.sampnr, intgs):
+            t = cvcobj.samptimeset[fileidx][tidx]
+            freq = cvcobj.freqset[fileidx][tidx]
+            skyimages, ll, mm, phaseref = \
+                cvc_image(cvcobj, fileidx, tidx, args.phaseref,
+                                  polrep=polrep, pbcor=args.correctpb,
+                                  fluxperbeam=fluxperbeam)
+            plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
+                                 integration, phaseref, calibrated,
+                                 pbcor=args.correctpb, maskhrz=False,
+                                 fluxperbeam=fluxperbeam)
+
+
+def nfimage(args):
+    """
+    Near field image.
+    """
+    polrep = 'S0'
+    lofar_datatype = dataIO.datafolder_type(args.dataff)
+    if lofar_datatype != 'acc' and lofar_datatype != 'xst':
+        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
+                           .format(args.dataff))
+    cvcobj = dataIO.CVCfiles(args.dataff)
+    stnid = cvcobj.scanrecinfo.get_stnid()
+    for fileidx in range(args.filenr, cvcobj.getnrfiles()):
+        integration = cvcobj.scanrecinfo.get_integration()
+        cvpol = cvcobj.covcube_fb(fileidx)
+        intgs = cvpol.shape[-3]
+        for tidx in range(args.sampnr, intgs):
+            xx, yy, nfimages = nearfield_grd_image(cvcobj, fileidx,
+                                                           tidx)
+            t = cvcobj.samptimeset[fileidx][tidx]
+            freq = cvcobj.freqset[fileidx][tidx]
+            plotskyimage(xx, yy, nfimages, polrep, t, freq, stnid,
+                                 integration, maskhrz=False)
+
+
+def main_cli():
+    """\
+    CLI to image LOFAR station data
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-n', '--filenr', type=int, default=0)
+    parser.add_argument('-s', '--sampnr', type=int, default=0)
+
+    subparsers = parser.add_subparsers(help='sub-command help')
+
+    parser_image = subparsers.add_parser('bf', help='beamform image')
+    parser_image.set_defaults(func=image)
+    parser_image.add_argument('dataff', help="acc or xst filefolder")
+    parser_image.add_argument('-p', '--phaseref', type=str, default=None)
+    parser_image.add_argument('-c', '--correctpb',
+                              help="Correct for primary beam",
+                              action="store_true")
+    parser_image.add_argument('-f', '--fluxpersterradian',
+                              help="Normalize flux per sterradian",
+                              action="store_true")
+
+    parser_image = subparsers.add_parser('nf', help='nearfield image')
+    parser_image.set_defaults(func=nfimage)
+    parser_image.add_argument('dataff', help="acc or xst filefolder")
+
+    args = parser.parse_args()
+    args.dataff = os.path.normpath(args.dataff)
+    args.func(args)
+
+if __name__ == "__main__":
+    main_cli()
