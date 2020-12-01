@@ -452,14 +452,14 @@ class LCUInterface(object):
             self.exec_lcu(rspctl_cmd)
             rspctl_cmds += rspctl_cmd + "\n"
         if bsxtype == 'bst':
-            statistics = 'beamlet'
+            stats_flag_and_val = '--statistics=beamlet'
         elif bsxtype == 'sst':
-            statistics = 'subband'
+            stats_flag_and_val = '--statistics=subband'
         else:
-            statistics = 'xcsubband'
-        rspctl_cmd = ("rspctl --statistics={}".format(statistics)
+            stats_flag_and_val = '--xcstatistics'
+        rspctl_cmd = ("rspctl {}".format(stats_flag_and_val)
                       + " --integration={}".format(int(integration))
-                      + " --duration={}".format(duration)
+                      + " --duration={}".format(int(duration))
                       + " --directory={}".format(directory))
         if bsxtype == 'bst':
             rspctl_cmd += " --select=0,1"
@@ -467,54 +467,6 @@ class LCUInterface(object):
         rspctl_cmds += rspctl_cmd
         if self.DryRun:
             self.mockstatistics(bsxtype, integration, duration, directory)
-        return rspctl_cmds
-
-    def rec_bst(self, integration, duration, directory=None):
-        """Convenience function to record BST data on LCU."""
-        if directory is None:
-            directory = self.lcuDumpDir
-        rspctl_cmd = ("rspctl --statistics=beamlet"
-                      + " --select=0,1"  # For ILT stations:
-                                         #   --select=0,1 is sufficient
-                                         #   for both X- and Y- polarisation
-                      + " --integration="+str(integration)
-                      + " --duration="+str(duration)
-                      + " --directory="+directory)
-        self.outfromLCU(rspctl_cmd, integration, duration)
-        if self.DryRun:
-            self.mockstatistics('bst', integration, duration, directory)
-        return rspctl_cmd
-
-    def rec_sst(self, integration, duration, directory=None):
-        """Convenience function to record SST data on LCU."""
-        if directory is None:
-            directory = self.lcuDumpDir
-        rspctl_cmd = ("rspctl --statistics=subband"
-                      + " --integration="+str(integration)
-                      + " --duration="+str(duration)
-                      + " --directory="+directory)
-        self.exec_lcu(rspctl_cmd)
-        if self.DryRun:
-            self.mockstatistics('sst', integration, duration, directory)
-        return rspctl_cmd
-
-    def rec_xst(self, sb, integration, duration, directory=None):
-        """Convenience function to record BST data on LCU."""
-        if directory is None:
-            directory = self.lcuDumpDir
-        rspctl_cmds = ""
-        # NOTE:  Seems like this has to be sent before xstats
-        rspctl_cmd = ("rspctl --xcsubband="+str(sb))
-        self.exec_lcu(rspctl_cmd)
-        rspctl_cmds += rspctl_cmd + "\n"
-        rspctl_cmd = ("rspctl --xcstatistics"
-                      + " --integration="+str(integration)
-                      + " --duration="+str(duration)
-                      + " --directory="+directory)
-        self.exec_lcu(rspctl_cmd)
-        if self.DryRun:
-            self.mockstatistics('xst', integration, duration, directory)
-        rspctl_cmds += rspctl_cmd
         return rspctl_cmds
 
     def mockstatistics(self, statistics, integration, duration, directory=None):

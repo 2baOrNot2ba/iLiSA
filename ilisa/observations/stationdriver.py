@@ -311,19 +311,24 @@ class StationDriver(object):
 
     def rec_bst(self, integration, duration):
         """Record BST data."""
-        rspctl_cmd = self._lcu_interface.rec_bst(integration, duration)
-        # beamlet statistics also generate empty *01[XY].dat so remove:
-        #self._lcu_interface.rm(self._lcu_interface.lcuDumpDir + "/*01[XY].dat")
+        rspctl_cmd = self._lcu_interface.run_rspctl_statistics('bst',
+                                                               integration,
+                                                               duration)
         return rspctl_cmd
 
     def rec_sst(self, integration, duration):
         """Record SST data."""
-        rspctl_cmd = self._lcu_interface.rec_sst(integration, duration)
+        rspctl_cmd = self._lcu_interface.run_rspctl_statistics('sst',
+                                                               integration,
+                                                               duration)
         return rspctl_cmd
 
     def rec_xst(self, subband, integration, duration):
         """Record XST data."""
-        rspctl_cmd = self._lcu_interface.rec_xst(subband, integration, duration)
+        rspctl_cmd = self._lcu_interface.run_rspctl_statistics('xst',
+                                                               integration,
+                                                               duration,
+                                                               subband)
         return rspctl_cmd
 
     def start_scanrec(self, bsxtype, integration, duration, subband=0):
@@ -333,7 +338,9 @@ class StationDriver(object):
         rcu_setup_cmds = self.rcu_setup_cmds
         beamctl_cmds = self.beamctl_cmds
         rspctl_cmd = self._lcu_interface.run_rspctl_statistics(bsxtype,
-                                                integration, duration, subband)
+                                                               integration,
+                                                               duration,
+                                                               subband)
         obsdatetime_stamp = self.get_data_timestamp(-1)
         ldatinfo = dataIO.LDatInfo(bsxtype, obsdatetime_stamp, beamctl_cmds,
                                     rspctl_cmd, caltabinfos="", septonconf="")
