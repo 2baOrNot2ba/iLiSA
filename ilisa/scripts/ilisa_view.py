@@ -7,7 +7,6 @@ import matplotlib.colors as colors
 import matplotlib.dates as mdates
 
 import ilisa.observations.dataIO as dataIO
-import ilisa.calim.imaging as imaging
 import ilisa.observations.modeparms as modeparms
 
 
@@ -56,6 +55,7 @@ def plotsst(sstff, freqreq):
     starttime = obsfolderinfo['datetime']
     SSTdata = numpy.array(SSTdata)
     freqs = modeparms.rcumode2sbfreqs(obsfolderinfo['rcumode'])
+    sbreq = None
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
         show = 'persb'
@@ -178,86 +178,12 @@ def plot_bsxst(args):
         raise RuntimeError("Not a bst, sst, or xst filefolder")
 
 
-def image(args):
-    """Image visibility-type data."""
-    polrep = 'stokes'
-    lofar_datatype = dataIO.datafolder_type(args.dataff)
-    fluxperbeam = not args.fluxpersterradian
-    if lofar_datatype != 'acc' and lofar_datatype != 'xst':
-        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
-                           .format(args.dataff))
-    cvcobj = dataIO.CVCfiles(args.dataff)
-    calibrated = False
-    if cvcobj.scanrecinfo.calibrationfile:
-        calibrated = True
-    stnid = cvcobj.scanrecinfo.get_stnid()
-    for fileidx in range(args.filenr, cvcobj.getnrfiles()):
-        integration = cvcobj.scanrecinfo.get_integration()
-        cvpol = cvcobj.covcube_fb(fileidx)
-        intgs = cvpol.shape[-3]
-        for tidx in range(args.sampnr, intgs):
-            t = cvcobj.samptimeset[fileidx][tidx]
-            freq = cvcobj.freqset[fileidx][tidx]
-            skyimages, ll, mm, phaseref = \
-                imaging.cvc_image(cvcobj, fileidx, tidx, args.phaseref,
-                                  polrep=polrep, pbcor=args.correctpb,
-                                  fluxperbeam=fluxperbeam)
-            imaging.plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
-                                 integration, phaseref, calibrated,
-                                 pbcor=args.correctpb, maskhrz=False,
-                                 fluxperbeam=fluxperbeam)
-
-def nfimage(args):
-    """
-    Near field image.
-    """
-    polrep = 'S0'
-    lofar_datatype = dataIO.datafolder_type(args.dataff)
-    if lofar_datatype != 'acc' and lofar_datatype != 'xst':
-        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
-                           .format(args.dataff))
-    cvcobj = dataIO.CVCfiles(args.dataff)
-    stnid = cvcobj.scanrecinfo.get_stnid()
-    for fileidx in range(args.filenr, cvcobj.getnrfiles()):
-        integration = cvcobj.scanrecinfo.get_integration()
-        cvpol = cvcobj.covcube_fb(fileidx)
-        intgs = cvpol.shape[-3]
-        for tidx in range(args.sampnr, intgs):
-            xx, yy, nfimages = imaging.nearfield_grd_image(cvcobj, fileidx,
-                                                           tidx)
-            t = cvcobj.samptimeset[fileidx][tidx]
-            freq = cvcobj.freqset[fileidx][tidx]
-            imaging.plotskyimage(xx, yy, nfimages, polrep, t, freq, stnid,
-                                 integration, maskhrz=False)
-
-
 def main():
     parser = argparse.ArgumentParser()
-    subparsers = parser.add_subparsers(help='sub-command help')
 
-    parser_plot = subparsers.add_parser('plot', help='plot help')
-    parser_plot.set_defaults(func=plot_bsxst)
-    parser_plot.add_argument('dataff', help="acc, bst, sst or xst filefolder")
-    parser_plot.add_argument('freq', type=float, nargs='?', default=None)
-
-    parser_image = subparsers.add_parser('image', help='image help')
-    parser_image.set_defaults(func=image)
-    parser_image.add_argument('dataff', help="acc or xst filefolder")
-    parser_image.add_argument('-p', '--phaseref', type=str, default=None)
-    parser_image.add_argument('-n', '--filenr', type=int, default=0)
-    parser_image.add_argument('-s', '--sampnr', type=int, default=0)
-    parser_image.add_argument('-c', '--correctpb',
-                              help="Correct for primary beam",
-                              action="store_true")
-    parser_image.add_argument('-f', '--fluxpersterradian',
-                              help="Normalize flux per sterradian",
-                              action="store_true")
-
-    parser_image = subparsers.add_parser('nfimage', help='nearfield image')
-    parser_image.set_defaults(func=nfimage)
-    parser_image.add_argument('dataff', help="acc or xst filefolder")
-    parser_image.add_argument('-n', '--filenr', type=int, default=0)
-    parser_image.add_argument('-s', '--sampnr', type=int, default=0)
+    parser.set_defaults(func=plot_bsxst)
+    parser.add_argument('dataff', help="acc, bst, sst or xst filefolder")
+    parser.add_argument('freq', type=float, nargs='?', default=None)
 
     args = parser.parse_args()
     args.dataff = os.path.normpath(args.dataff)
