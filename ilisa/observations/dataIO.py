@@ -336,6 +336,10 @@ class LDatInfo(object):
             self.rcumode = self.rcumode[0]
         elif self.ldat_type == 'bst':
             self.sb = self.sb
+        # Determine caltabinfos
+        if self.ldat_type != 'bst':
+            # Only need caltab info if it's BST
+            caltabinfos = ""
         self.caltabinfos = caltabinfos
 
     def obsfoldername(self, folder_name_beamctl_type=True, stnid=None,
