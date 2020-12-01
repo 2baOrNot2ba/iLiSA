@@ -439,6 +439,36 @@ class LCUInterface(object):
         time.sleep(waittime)  # Wait for beam to settle
         return beamctl_cmd
 
+    def run_rspctl_statistics(self, bsxtype, integration, duration, subband=0,
+                              directory=None):
+        """\
+        Run rspctl statistics command
+        """
+        if directory is None:
+            directory = self.lcuDumpDir
+        rspctl_cmds = ""
+        if bsxtype == 'xst':
+            rspctl_cmd = "rspctl --xcsubband="+str(subband)
+            self.exec_lcu(rspctl_cmd)
+            rspctl_cmds += rspctl_cmd + "\n"
+        if bsxtype == 'bst':
+            statistics = 'beamlet'
+        elif bsxtype == 'sst':
+            statistics = 'subband'
+        else:
+            statistics = 'xcsubband'
+        rspctl_cmd = ("rspctl --statistics={}".format(statistics)
+                      + " --integration={}".format(integration)
+                      + " --duration={}".format(duration)
+                      + " --directory={}".format(directory))
+        if bsxtype == 'bst':
+            rspctl_cmd += " --select=0,1"
+        self.exec_lcu(rspctl_cmd)
+        rspctl_cmds += rspctl_cmd
+        if self.DryRun:
+            self.mockstatistics(bsxtype, integration, duration, directory)
+        return rspctl_cmds
+
     def rec_bst(self, integration, duration, directory=None):
         """Convenience function to record BST data on LCU."""
         if directory is None:

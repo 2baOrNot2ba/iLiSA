@@ -16,6 +16,7 @@ import ilisa.observations.directions
 import ilisa.observations.lcuinterface as stationcontrol
 from ilisa.observations.druinterface import DRUinterface
 import ilisa.observations.modeparms as modeparms
+import ilisa.observations.dataIO as dataIO
 
 
 class StationDriver(object):
@@ -67,6 +68,9 @@ class StationDriver(object):
         self.exit_check = True
         self.halt_observingstate_when_finished = False
         self.cleanup()
+        # Initialize beamctl_cmds & rcu_setup_cmds
+        self.rcu_setup_cmds = []
+        self.beamctl_cmds = []
 
     def is_in_observingstate(self):
         """Check if station is in main observing state for user.
@@ -263,12 +267,14 @@ class StationDriver(object):
     def _rcusetup(self, bits, attenuation):
         """Setup RCUs on LCU."""
         rcu_setup_cmds = self._lcu_interface.rcusetup(bits, attenuation)
+        self.rcu_setup_cmds = rcu_setup_cmds
         return rcu_setup_cmds
 
     def _run_beamctl(self, beamlets, subbands, band, anadigdir, rcusel='all'):
         """Run beamctl command on LCU."""
         beamctl_cmd = self._lcu_interface.run_beamctl(beamlets, subbands,
                                                       band, anadigdir, rcusel)
+        self.beamctl_cmds.append(beamctl_cmd)
         return beamctl_cmd
 
     def streambeams(self, freqbndobj, pointing, recDuration=float('inf'),
@@ -277,7 +283,7 @@ class StationDriver(object):
         if DUMMYWARMUP:
             print("Warning warnup not currently implemented")
         bits = freqbndobj.bits
-        rcu_setup_cmd = self._lcu_interface.rcusetup(bits, attenuation)
+        rcu_setup_cmd = self._rcusetup(bits, attenuation)
         beamctl_cmds = []
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
             _antset = freqbndobj.antsets[bandbeamidx]
@@ -300,6 +306,8 @@ class StationDriver(object):
     def stop_beam(self):
         """Turn off beam."""
         self._lcu_interface.stop_beam()
+        self.rcu_setup_cmds = []
+        self.beamctl_cmds = []
 
     def rec_bst(self, integration, duration):
         """Record BST data."""
@@ -317,6 +325,35 @@ class StationDriver(object):
         """Record XST data."""
         rspctl_cmd = self._lcu_interface.rec_xst(subband, integration, duration)
         return rspctl_cmd
+
+    def start_scanrec(self, bsxtype, integration, duration, subband=0):
+        """\
+        Start scan on LCU
+        """
+        rcu_setup_cmds = self.rcu_setup_cmds
+        beamctl_cmds = self.beamctl_cmds
+        rspctl_cmd = self._lcu_interface.run_rspctl_statistics(bsxtype,
+                                                integration, duration, subband)
+        obsdatetime_stamp = self.get_data_timestamp(-1)
+        ldatinfo = dataIO.LDatInfo(bsxtype, obsdatetime_stamp, beamctl_cmds,
+                                    rspctl_cmd, caltabinfos="", septonconf="")
+        return ldatinfo
+    
+    def stop_scanrec(self, ldatinfo, freqbndobj):
+        """\
+        Stop scan on LCU
+        """
+        # Set scanrecinfo
+        scanresult = {'rec': [ldatinfo.ldat_type]}
+        scanresult['bsx'].set_scanrecparms(ldatinfo.ldat_type, freqbndobj.arg,
+                                           ldatinfo.duration_scan,
+                                           ldatinfo.pointing,
+                                           ldatinfo.integration)
+        # Move data to archive
+        scanresult['bsx'].set_scanpath(self.scanpath)
+        scanrecpath = scanresult['bsx'].get_scanrecpath()
+        self.movefromlcu(self.get_lcuDumpDir() + "/*.dat", scanrecpath)
+        return scanresult
 
     def _waittoboot(self, starttime, pause=0):
         """Before booting, wait until time given by starttime which includes

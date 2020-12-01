@@ -77,17 +77,22 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     if args.datatype != 'tbb' and args.datatype != 'dmp':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         stndrv.scanpath = sesspath
-        scanresult = programs.record_scan(
-            stndrv, freqbndobj, duration_tot, pointing,
-            starttime=args.starttime, rec=(args.datatype,),
-            integration=args.integration, allsky=args.allsky,
-            duration_frq=None)
+        # scanresult = programs.record_scan(
+        #     stndrv, freqbndobj, duration_tot, pointing,
+        #     starttime=args.starttime, rec=(args.datatype,),
+        #     integration=args.integration, allsky=args.allsky,
+        #     duration_frq=None)
+        stndrv.streambeams(freqbndobj, pointing)
+        ldatinfo = stndrv.start_scanrec(args.datatype, args.integration,
+                                                            args.duration_tot)
+        scanresult = stndrv.stop_scanrec(ldatinfo, freqbndobj)
         for res in scanresult['rec']:
             print("Saved {} scanrec here: {}".format(res,
                                             scanresult[res].get_scanrecpath()))
             scanresult[res].write()
         if not scanresult['rec']:
             print("No data recorded ('None' selected)")
+
     elif args.datatype == 'tbb':
         stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
     elif args.datatype == 'dmp':
