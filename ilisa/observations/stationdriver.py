@@ -344,7 +344,10 @@ class StationDriver(object):
         Stop scan on LCU
         """
         # Set scanrecinfo
-        scanresult = {'rec': [ldatinfo.ldat_type]}
+        scanresult = {'rec': ['bsx']}
+        scanresult['bsx'] = dataIO.ScanRecInfo()
+        scanresult['bsx'].set_stnid(self.get_stnid())
+        scanresult['bsx'].add_obs(ldatinfo)
         scanresult['bsx'].set_scanrecparms(ldatinfo.ldat_type, freqbndobj.arg,
                                            ldatinfo.duration_scan,
                                            ldatinfo.pointing,

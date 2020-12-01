@@ -82,7 +82,8 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
         #     starttime=args.starttime, rec=(args.datatype,),
         #     integration=args.integration, allsky=args.allsky,
         #     duration_frq=None)
-        stndrv.streambeams(freqbndobj, pointing)
+        dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
+        stndrv.streambeams(freqbndobj, dir_bmctl)
         ldatinfo = stndrv.start_scanrec(args.datatype, args.integration,
                                                             args.duration_tot)
         scanresult = stndrv.stop_scanrec(ldatinfo, freqbndobj)

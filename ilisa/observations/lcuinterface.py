@@ -458,7 +458,7 @@ class LCUInterface(object):
         else:
             statistics = 'xcsubband'
         rspctl_cmd = ("rspctl --statistics={}".format(statistics)
-                      + " --integration={}".format(integration)
+                      + " --integration={}".format(int(integration))
                       + " --duration={}".format(duration)
                       + " --directory={}".format(directory))
         if bsxtype == 'bst':
