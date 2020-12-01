@@ -398,25 +398,15 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         scanresult['bsx'] = dataIO.ScanRecInfo()
         scanresult['bsx'].set_stnid(stnid)
         # Record statistic for duration_tot seconds
-        if bsx_type == 'bst':
+        if bsx_type == 'bst' or bsx_type == 'sst':
             rspctl_cmd = stationdriver.rec_bsx(bsx_type, integration,
                                                duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
-            curr_obsinfo = dataIO.LDatInfo('bst', obsdatetime_stamp,
+            curr_obsinfo = dataIO.LDatInfo(bsx_type, obsdatetime_stamp,
                                            beamctl_cmds, rspctl_cmd,
                                            caltabinfos)
             scanresult['bsx'].add_obs(curr_obsinfo)
-        elif bsx_type == 'sst':
-            caltabinfo = ""
-            rspctl_cmd = stationdriver.rec_bsx(bsx_type, integration,
-                                               duration_tot)
-            obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
-            curr_obsinfo = dataIO.LDatInfo('sst', obsdatetime_stamp,
-                                           beamctl_cmds, rspctl_cmd,
-                                           caltabinfo)
-            scanresult['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'xst':
-            caltabinfo = ""  # No need for caltab info for xst data
             nrsubbands = freqbndobj.nrsubbands()
             if duration_frq is None:
                 if nrsubbands > 1:
@@ -500,7 +490,7 @@ Will increase total duration to get 1 full repetition.""")
             print("Appropriate directory exists already (will put data here)")
         else:
             print("Creating directory "+scanrecpath+" for ACC "
-                  +str(duration_tot)+" s rcumode="+str(rcumode)+" calibration")
+                  + str(duration_tot)+" s rcumode="+str(rcumode)+" calibration")
             os.makedirs(scanrecpath)
 
         # Move ACC dumps to storage
