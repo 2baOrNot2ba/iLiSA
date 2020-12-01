@@ -309,23 +309,9 @@ class StationDriver(object):
         self.rcu_setup_cmds = []
         self.beamctl_cmds = []
 
-    def rec_bst(self, integration, duration):
-        """Record BST data."""
-        rspctl_cmd = self._lcu_interface.run_rspctl_statistics('bst',
-                                                               integration,
-                                                               duration)
-        return rspctl_cmd
-
-    def rec_sst(self, integration, duration):
-        """Record SST data."""
-        rspctl_cmd = self._lcu_interface.run_rspctl_statistics('sst',
-                                                               integration,
-                                                               duration)
-        return rspctl_cmd
-
-    def rec_xst(self, subband, integration, duration):
-        """Record XST data."""
-        rspctl_cmd = self._lcu_interface.run_rspctl_statistics('xst',
+    def rec_bsx(self, bsxtype, integration, duration, subband=0):
+        """Record BSX data."""
+        rspctl_cmd = self._lcu_interface.run_rspctl_statistics(bsxtype,
                                                                integration,
                                                                duration,
                                                                subband)

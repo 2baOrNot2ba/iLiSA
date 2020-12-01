@@ -399,7 +399,8 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
         scanresult['bsx'].set_stnid(stnid)
         # Record statistic for duration_tot seconds
         if bsx_type == 'bst':
-            rspctl_cmd = stationdriver.rec_bst(integration, duration_tot)
+            rspctl_cmd = stationdriver.rec_bsx(bsx_type, integration,
+                                               duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
             curr_obsinfo = dataIO.LDatInfo('bst', obsdatetime_stamp,
                                            beamctl_cmds, rspctl_cmd,
@@ -407,7 +408,8 @@ def record_scan(stationdriver, freqbndobj, duration_tot, pointing,
             scanresult['bsx'].add_obs(curr_obsinfo)
         elif bsx_type == 'sst':
             caltabinfo = ""
-            rspctl_cmd = stationdriver.rec_sst(integration, duration_tot)
+            rspctl_cmd = stationdriver.rec_bsx(bsx_type, integration,
+                                               duration_tot)
             obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
             curr_obsinfo = dataIO.LDatInfo('sst', obsdatetime_stamp,
                                            beamctl_cmds, rspctl_cmd,
@@ -441,8 +443,10 @@ Will increase total duration to get 1 full repetition.""")
                         subbands = [int(sb) for sb in sb_rcumode.split(',')]
                     for subband in subbands:
                         # Record data
-                        rspctl_cmd = stationdriver.rec_xst(subband, integration,
-                                                           duration_frq)
+                        rspctl_cmd = stationdriver.rec_bsx(bsx_type,
+                                                           integration,
+                                                           duration_frq,
+                                                           subband)
                         obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
                         curr_obsinfo = dataIO.LDatInfo('xst', obsdatetime_stamp,
                                                        beamctl_cmds, rspctl_cmd,
