@@ -130,15 +130,18 @@ class StationDriver(object):
         """Move file(s) off LCU to DPU."""
         if not os.path.exists(dest):
             os.makedirs(dest)
-        movecmd = "scp"
+        move_cmdline = ["scp"]
         if recursive:
-            movecmd += " -r"
-        fullcmd = movecmd +" " + self._lcu_interface.lcuURL + ":" + source \
-                  + " " + dest
-        cmdprompt = "on DPU>"
+            move_cmdline.append("-r")
+        src_arg = self._lcu_interface.lcuURL + ":" + source
+        move_cmdline.append(src_arg)
+        dst_arg = dest
+        move_cmdline.append(dst_arg)
+        cmdprompt = "spawn on DPU>"
         if self._lcu_interface.verbose:
-            print("{} {}".format(cmdprompt, fullcmd))
-        subprocess.call(fullcmd, shell=True)
+            print("{} {}".format(cmdprompt, " ".join(move_cmdline)))
+        proc = subprocess.Popen(move_cmdline)
+        proc.wait()  # Since cleanup() after might zap data before completion
         # # Override DryRun temporarily to really remove source files
         # dryrun = self._lcu_interface.DryRun
         # self._lcu_interface.DryRun = False
