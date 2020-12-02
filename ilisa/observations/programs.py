@@ -440,7 +440,6 @@ Will increase total duration to get 1 full repetition.""")
                         obsdatetime_stamp = stationdriver.get_data_timestamp(-1)
                         curr_obsinfo = dataIO.LDatInfo('xst', obsdatetime_stamp,
                                                        beamctl_cmds, rspctl_cmd,
-                                                       caltabinfos=caltabinfo,
                                                        septonconf=septonconf)
                         scanresult['bsx'].add_obs(curr_obsinfo)
         else:
