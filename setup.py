@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 from setuptools import setup, find_packages
 import ilisa
 
@@ -21,7 +19,7 @@ setup(name='iLiSA',
           'Development Status :: 3 - Alpha',
           'Intended Audience :: Science/Research',
           'License :: OSI Approved :: ISC License',
-          'Programming Language :: Python :: 3.7',
+          'Programming Language :: Python :: 3.6',
           'Topic :: Scientific/Engineering :: Astronomy',
           'Topic :: Scientific/Engineering :: Mathematics',
           'Topic :: Scientific/Engineering :: Visualization'
