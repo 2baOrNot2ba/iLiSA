@@ -15,6 +15,7 @@ the corresponding datatype.
 """
 import os
 import shutil
+from collections import OrderedDict
 import numpy
 import re
 import datetime
@@ -147,11 +148,12 @@ class ScanRecInfo(object):
             f.write("obs_ids: {!r}\n".format(list(self.obsinfos.keys())))
 
     def read_scanrec(self, datapath):
-        with open(os.path.join(datapath, self.scanrecinfo_header), 'r') as hf:
-            try:
+        try:
+            _h_path = os.path.join(datapath, self.scanrecinfo_header)
+            with open(_h_path, 'r') as hf:
                 scanrecfiledict = yaml.safe_load(hf)
-            except Exception:
-                print("Couldn't load yaml formatted scan header file.")
+        except Exception:
+            raise RuntimeError()
         self.headerversion = scanrecfiledict['headerversion']
         self.stnid = scanrecfiledict['stnid']
         self.scanrecparms = scanrecfiledict['scanrec']
@@ -287,48 +289,59 @@ class LDatInfo(object):
 
     """
 
-    def __init__(self, lofardatatype, filenametime, beamctl_cmd, rspctl_cmd,
-                 caltabinfos="", septonconf=None):
+    def __init__(self, lofardatatype, filenametime, rcu_setup_cmd, beamctl_cmd,
+                 rspctl_cmd, caltabinfos="", septonconf=None):
         """Create observation info from parameters."""
+        # ldat_type attr
         self.ldat_type = lofardatatype
 
+        # filenametime attr
         self.filenametime = filenametime
-        self.beamctl_cmd = beamctl_cmd
-        if self.beamctl_cmd != "" and self.beamctl_cmd is not None:
+
+        # rcu_setup_cmd attr
+        if rcu_setup_cmd == '':
+            rcu_setup_cmd = 'rspctl'
+        self.rcu_setup_cmd = rcu_setup_cmd
+        rcu_setup_args = modeparms.parse_rspctl_args(self.rcu_setup_cmd)
+
+        # beamctl_cmd related attr
+        self.rcumode = []
+        self.sb = []
+        self.bl = []
+        self.pointing = ""
+        self.beamctl_cmds = beamctl_cmd
+        if self.beamctl_cmds != "" and self.beamctl_cmds is not None:
             # FIXME better support for multiline beamctl cmds.
             digdir = None
-            if type(self.beamctl_cmd) is list:
-                self.rcumode = []
-                self.sb = []
-                self.bl = []
-                for beamctl_cmd in self.beamctl_cmd:
-                    (_antset, _rcus, rcumode, beamlets, subbands, _anadir,
-                     digdir) = modeparms.parse_beamctl_args(beamctl_cmd)
-                    self.rcumode.append(int(rcumode))
-                    self.sb.append(subbands)
-                    self.bl.append(beamlets)
-            else:
+            if type(self.beamctl_cmds) is not list:
+                self.beamctl_cmds = [self.beamctl_cmds]
+            for _beamctl_cmd in self.beamctl_cmds:
                 (_antset, _rcus, rcumode, beamlets, subbands, _anadir,
-                 digdir) = modeparms.parse_beamctl_args(beamctl_cmd)
-                self.rcumode = [rcumode]
-                self.sb = [subbands]
+                    digdir) = modeparms.parse_beamctl_args(_beamctl_cmd)
+                self.rcumode.append(int(rcumode))
+                self.sb.append(subbands)
+                self.bl.append(beamlets)
             self.pointing = digdir
-        else:
-            self.pointing = ""
+
+        # rspctl_args attr
         if rspctl_cmd == '':
             rspctl_cmd = 'rspctl'
         self.rspctl_cmd = rspctl_cmd
         rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmd)
+        
+        # septon attr
+        self.septonconf = septonconf
+        if self.septonconf is not None:
+            self.rcumode = ['5']
+        
+        # attrs: integration, duration_scan, rcumode, sb
         if self.ldat_type != 'bfs':
             if self.ldat_type != 'acc':
                 self.integration = float(rspctl_args['integration'])
                 self.duration_scan = float(rspctl_args['duration'])
             else:
                 self.integration = 1.0
-                self.duration_scan = 512
-        self.septonconf = septonconf
-        if self.septonconf is not None:
-            self.rcumode = ['5']
+                self.duration_scan = 512        
         if self.ldat_type == 'sst':
             self.sb = ""
         elif self.ldat_type.startswith('xst'):
@@ -336,7 +349,8 @@ class LDatInfo(object):
             self.rcumode = self.rcumode[0]
         elif self.ldat_type == 'bst':
             self.sb = self.sb
-        # Determine caltabinfos
+        
+        # caltabinfos attr
         if self.ldat_type != 'bst':
             # Only need caltab info if it's BST
             caltabinfos = ""
@@ -399,54 +413,31 @@ class LDatInfo(object):
 
     def write_ldat_header(self, datapath):
         """Create a header file for LOFAR standalone observation."""
-        ldat_type = self.ldat_type
-        YMD_hms = self.filenametime
-        if type(self.beamctl_cmd) is not list:
-            beamctl_CMD = [self.beamctl_cmd]
-        else:
-            beamctl_CMD = self.beamctl_cmd
-        beamctl_CMD = '\n'.join(beamctl_CMD)
-        rspctl_CMD = self.rspctl_cmd
-        caltabinfos = self.caltabinfos
-        septonconfig = self.septonconf
+        contents = OrderedDict()
+        contents['version'] = '4'
+        contents['datatype'] = self.ldat_type
+        contents['filetime'] = self.filenametime
+        contents['rcu_setup_cmds'] = self.rcu_setup_cmd
+        contents['beamctl_cmds'] = self.beamctl_cmds
+        contents['rspctl_cmds'] = self.rspctl_cmd
+        contents['caltabinfos'] = self.caltabinfos
+        contents['septonconfig'] = self.septonconf
 
         def indenttext(txt):
             indentstr = "  "
             return indentstr + txt.replace("\n", "\n" + indentstr)
 
-        headerversion = "3"
+        headerversion = "4"
         if not self.isLOFARdatatype(ldat_type):
-            raise ValueError("Unknown LOFAR statistic type {}.\
-                              ".format(ldat_type))
+            raise ValueError("Unknown LOFAR statistic type {}."\
+                             .format(ldat_type))
         xtra = ''
-        if ldat_type == 'acc':
+        if self.ldat_type == 'acc':
             xtra = '_512x192x192'
-        ldat_header_filename = YMD_hms + "_" + ldat_type + xtra + ".h"
-        f = open(os.path.join(datapath, ldat_header_filename), "w")
-        f.write("# HeaderType: bsxSTdata (YAML)\n")
-        f.write("# Header version {}\n".format(headerversion))
-        f.write("datatype: {}\n".format(ldat_type))
-        filetime = YMD_hms[0:4] + '-' + YMD_hms[4:6] + '-' \
-                   + YMD_hms[6:8] + 'T' + YMD_hms[9:11] + ':' \
-                   + YMD_hms[11:13] + ':' + YMD_hms[13:15]
-        f.write("filetime: " + filetime + "\n")
-        if septonconfig != "":
-            f.write("SEPTONconfig: {}\n".format(septonconfig))
-        f.write("beamctl_cmds: |-\n")
-        f.write(indenttext(beamctl_CMD) + "\n")
-        # f.write(rspsetup_CMD+"\n")
-        # FIX separation of beamctl and rspsetup
-        # (Currently rspsetup is in beamctl)
-        if rspctl_CMD != "":
-            f.write("rspctl_cmds: |-\n")
-            f.write(indenttext(rspctl_CMD) + "\n")
-        if ldat_type == 'bst' or ldat_type == 'bfs':
-            f.write("caltabinfos:\n")
-            for caltabinfo in caltabinfos:
-                f.write("  - ")
-                f.write(str(caltabinfo))
-                f.write("\n")
-        f.close()
+        ldat_header_filename = (self.filenametime + "_" + self.ldat_type 
+                                + xtra + ".h")
+        with open(os.path.join(datapath, ldat_header_filename), "w") as f:
+            yaml.dump(contents, f)
 
     def get_recfreq(self):
         """Return data recording frequency in Hz."""
@@ -480,10 +471,14 @@ class LDatInfo(object):
             headerfile = headerpath
         stnid = None
         starttime = None
+        headerversion = 0
         with open(headerfile, 'r') as hf:
             for hline in hf:
                 if "Header version" in hline:
                     headerversion = hline.split()[-1]
+        beamctl_line = ""
+        contents = {}
+        datatype = None
         with open(headerfile, 'r') as hf:
             if headerversion == '1':
                 rspctl_lines = []
@@ -515,9 +510,11 @@ class LDatInfo(object):
                 beamctl_line = contents['BeamctlCmds']
                 rspctl_lines = contents['RspctlCmds'].split('\n')
             else:
+                # Default version = '3'
                 contents = yaml.safe_load(hf)
                 datatype = contents['datatype']
                 starttime = contents['filetime']
+                rcu_setup_line = contents['beamctl_cmds']
                 beamctl_line = contents['beamctl_cmds']
                 rspctl_lines_raw = contents['rspctl_cmds']
                 rspctl_lines = rspctl_lines_raw.split('\n')
@@ -544,8 +541,8 @@ class LDatInfo(object):
                 rspctl_cmd.update(rspctl_args)
 
         filenametime = starttime.strftime('%Y%m%d_%H%M%S')
-        obsinfo = cls(datatype, filenametime, beamctl_line, rspctl_lines_raw,
-                      caltabinfos="", septonconf=septonconf)
+        obsinfo = cls(datatype, filenametime, rcu_setup_line, beamctl_line,
+                      rspctl_lines_raw, caltabinfos="", septonconf=septonconf)
         return obsinfo
 
 
