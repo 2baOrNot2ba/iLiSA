@@ -2,6 +2,10 @@ import os
 import plumbum
 import ilisa.observations.modeparms
 
+# Name of binary executable on DRU to run when capturing
+# UDP packets with LOFAR beamformed voltages data.
+# (Currently requires manually install putting it in DRU user's PATH env var.
+# )
 dumpername = 'dump_udp_ow'
 
 
@@ -68,12 +72,9 @@ class DRUinterface:
         pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
         outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
         outfilepre = "udp_" + stnid
-        print("band "+str(band))
         rcumode = ilisa.observations.modeparms.band2rcumode(band)
         outarg = os.path.join(outdumpdir, outfilepre)
-        dumplogname = os.path.join(outdumpdir,
-                                   '{}_lane{}_rcu{}.log'.format(dumpername, lane,
-                                                                rcumode))
+        dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane, rcumode)
         local_hostname = self.dru['hostname']()
         starttime_arg = starttime + '.000'
         datafileguess = outarg + '_' + str(port) + local_hostname + starttime_arg
@@ -112,7 +113,7 @@ class DRUinterface:
                 cmdlineargstr = ' '.join(map(str, cmdlineargs))
                 print("{} {} {}".format(self.druprompt, dumpercmd,
                                         cmdlineargstr))
-            reclanes.append(rec_cmd[cmdlineargs] & plumbum.NOHUP(stdout=dumplogname))
+            reclanes.append((rec_cmd[cmdlineargs] > dumplogname) & plumbum.BG)
             datafiles.append(datafileguess)
             logfiles.append(dumplogname)
         for reclane in reclanes:
