@@ -257,8 +257,8 @@ class ScanSession(object):
                 rec = scan['rec']
                 integration = scan['integration']
                 allsky = scan['beam']['allsky']
-                scanresult = programs.record_scan(
-                    self.stndrv, freqbndobj, duration_tot, pointing, starttime, rec,
+                scanresult = self.stndrv.record_scan(
+                    freqbndobj, duration_tot, pointing, starttime, rec,
                     integration, allsky=allsky)
             scan['id'] = scanresult.pop('scan_id', None)
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)

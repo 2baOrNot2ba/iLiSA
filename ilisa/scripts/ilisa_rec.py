@@ -7,9 +7,8 @@ import os
 import argparse
 import ilisa.observations
 import ilisa.observations.directions
-import ilisa.observations.stationdriver as stationdriver
+from ilisa.observations.stationdriver import StationDriver
 import ilisa.observations.modeparms as modeparms
-import ilisa.observations.programs as programs
 
 
 def main():
@@ -37,8 +36,7 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     args = parser.parse_args()
 
     accessconf = ilisa.observations.default_access_lclstn_conf()
-    stndrv = stationdriver.StationDriver(accessconf['LCU'], accessconf['DRU'],
-                                         mockrun=False)
+    stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],  mockrun=False)
     halt_observingstate_when_finished = False
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
     freqbndobj = modeparms.FrequencyBand(args.freqspec)
@@ -80,8 +78,8 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
         use_programs = True
         if use_programs:
             # TODO Remove this block
-            scanresult = programs.record_scan(
-                stndrv, freqbndobj, duration_tot, pointing,
+            scanresult = stndrv.record_scan(
+                freqbndobj, duration_tot, pointing,
                 starttime=args.starttime, rec=(args.datatype,),
                 integration=args.integration, allsky=args.allsky,
                 duration_frq=None)
