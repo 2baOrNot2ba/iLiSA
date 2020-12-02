@@ -179,6 +179,8 @@ def record_obsprog(stationdriver, scan):
     obsinfolist = obsfun(**obsargs)
     # Stop program beam
     stationdriver.stop_beam()
+    scan_id = None
+    scanpath_scdat = None
     scanresult = {}
     if obsinfolist is not None:
         datatype = 'sop:' + scan['obsprog']
