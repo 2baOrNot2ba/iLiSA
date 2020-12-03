@@ -29,16 +29,24 @@ class StationDriver(object):
 
     def checkobservingallowed(self):
         """
-        Check whether observations are allowed. This occurs is someone else is
-        using the station. Note that if mockrun then this method will return
-        True.
+        Check whether observations are allowed.
+
+        Observing is not allowed if someone else is using the station,
+        or if station is not in local mode, or if a beamctl is running.
+        Note that if mockrun then this method will return True.
+
+        Returns
+        -------
+        bool
         """
         serviceuser = self._lcu_interface.who_servicebroker()
 
         if serviceuser is None or serviceuser == self._lcu_interface.user:
             stationswitchmode = self._lcu_interface.getstationswitchmode()
             if stationswitchmode == 'local':
-                return True
+                if not self._lcu_interface.is_beam_on():
+                    return True
+                return False
             else:
                 print("Warning: Station is not in stand-alone mode.")
                 return False
@@ -78,7 +86,7 @@ class StationDriver(object):
 
     def is_in_observingstate(self):
         """Check if station is in main observing state for user.
-        Returns True if it is else False.
+        Returns True if it is, else False.
         """
         if not self.checkobservingallowed():
             return False

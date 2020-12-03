@@ -283,6 +283,13 @@ class LCUInterface(object):
             stationmode = getstationmode_out.split()[-1]
         return stationmode
 
+    def is_beam_on(self):
+        """Check if there is a beamctl running"""
+        ps_beamctl_outs = self._stdoutLCU("ps -C beamctl").split('\n')
+        if len(ps_beamctl_outs) > 1:
+            return True
+        return False
+
     def _get_filecontent(self, filename):
         """Get contents of certain file on LCU by name."""
         filecontents = self._stdoutLCU("cat " + filename)

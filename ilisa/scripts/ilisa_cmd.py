@@ -35,7 +35,6 @@ def checkobs(stndrv):
     if not is_inobsstate:
         obs_allowed = stndrv.checkobservingallowed()
         if obs_allowed:
-
             reason = "swlevel not 3"
         else:
             reason = "Observing not allowed now"
