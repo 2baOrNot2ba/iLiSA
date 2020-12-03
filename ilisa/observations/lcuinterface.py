@@ -237,7 +237,6 @@ class LCUInterface(object):
     def _list_dat_files(self, dumpdir):
         ddls = self._stdoutLCU("ls " + dumpdir).split('\n')
         datfiles = []
-        print(ddls)
         for ddfile in ddls:
             if ddfile.endswith('.dat'):
                 datfiles.append(ddfile)
