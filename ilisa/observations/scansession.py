@@ -234,12 +234,10 @@ class ScanSession(object):
         bootupstart = startscantime - datetime.timedelta(seconds=beaminittime)
 
         # Wait until it is time to bootup
-        print("In scansess: Will try to start scansession @ {}".format(bootupstart))
-        if not self.stndrv.is_in_observingstate():
-            self.stndrv._waittoboot(bootupstart)
-            self.stndrv.goto_observingstate()
-        else:
-            waituntil(bootupstart)
+        print("In scansess: Will start scansession @ {}".format(bootupstart))
+        waituntil(bootupstart)
+        self.stndrv.goto_observingstate()
+
         scans_done = []
         for scan in sesscans['scans']:
             freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
