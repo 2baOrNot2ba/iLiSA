@@ -147,7 +147,10 @@ class LCUInterface(object):
         LCUprompt = "On LCU> "
         shellinvoc = "ssh "+self.lcuURL
         if backgroundJOB is True:
-            cmdline = "(( "+cmdline+" ) > "+self.lcuHome+"lofarctl.log 2>&1) &"
+            # Currently only run_beamctl & run_tbbctl run in background
+            # Put stdout & stderr in log in dumpdir
+            cmdline = ("(( " + cmdline + " ) > " + self.lcuDumpDir
+                       + "/lcu_shell_out.log 2>&1) &")
         if self.DryRun:
             prePrompt = "(dryrun) "
         else:
@@ -232,7 +235,7 @@ class LCUInterface(object):
                     count += 1
 
     def _list_dat_files(self, dumpdir):
-        return self._stdoutLCU("ls "+dumpdir).split('\n')
+        return self._stdoutLCU("ls "+dumpdir+"/*.dat").split('\n')
 
     def getdatalist(self):
         """\
