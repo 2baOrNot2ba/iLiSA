@@ -235,7 +235,13 @@ class LCUInterface(object):
                     count += 1
 
     def _list_dat_files(self, dumpdir):
-        return self._stdoutLCU("ls "+dumpdir+"/*.dat").split('\n')
+        ddls = self._stdoutLCU("ls " + dumpdir).split('\n')
+        datfiles = []
+        print(ddls)
+        for ddfile in ddls:
+            if ddfile.endswith('.dat'):
+                datfiles.append(ddfile)
+        return datfiles
 
     def getdatalist(self):
         """\
@@ -288,7 +294,10 @@ class LCUInterface(object):
 
     def is_beam_on(self):
         """Check if there is a beamctl running"""
-        ps_beamctl_outs = self._stdoutLCU("ps -C beamctl").split('\n')
+        try:
+            ps_beamctl_outs = self._stdoutLCU("/bin/ps -Cbeamctl").splitlines()
+        except:
+            return False
         if len(ps_beamctl_outs) > 1:
             return True
         return False
