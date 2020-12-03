@@ -358,37 +358,37 @@ class LCUInterface(object):
     def run_rspctl(self, select=None, mode=None, tbbmode=None):
         """Run rspctl command to setup RCUs: rcumode, select.
         """
-        argsdict = {'select': select, 'mode': mode, 'tbbmode': tbbmode}
         # Form commandline argument string ignoring blank arguments:
-        argsstr = ''
-        for arg in argsdict.keys():
-            if argsdict[arg] is not None:
-                argsstr += " --{}={}".format(arg, argsdict[arg])
-        if argsstr != '':
-            rspctl_cmd = "rspctl"+argsstr
-            self.exec_lcu(rspctl_cmd)
-        else:
-            rspctl_cmd = None
+        rspctl_cmd = "rspctl"
+        if select is not None:
+            rspctl_cmd += " --select={}".format(select)
+        if mode is not None:
+            rspctl_cmd += " --mode={}".format(mode)
+        if tbbmode is not None:
+            rspctl_cmd += " --tbbmode={}".format(tbbmode)
+        self.exec_lcu(rspctl_cmd)
         return rspctl_cmd
 
     def rcusetup(self, bits, attenuation):
         """Setup basic RCU setting: bits is 8 or 16, and attenuation is 0 to 31
         (0 means no attenuation & increasing number means more attenutation)"""
-        rcu_setup_cmds = ""
-        rcu_setup_cmds += "rspctl --bitmode="+str(bits)+" ; "
+        rcusetup_cmds = []
+        rcusetup_cmd = "rspctl --bitmode=" + str(bits)
+        self.exec_lcu(rcusetup_cmd)
+        rcusetup_cmds.append(rcusetup_cmd)
+        if self.DryRun:
+            self.bits = bits
         # NOTE Looks like bitmode and rcuattenuation have to be set in separate
         #      commands.
         if attenuation:
             # NOTE attenuation only set when beamctl is runnning.
-            rcu_setup_cmds += "rspctl --rcuattenuation="+str(attenuation)+" ; "
-        # #rcu_setup_CMD = self.rspctl_cmd(str(bits), attenuation)
-        self.exec_lcu(rcu_setup_cmds)
-        if self.DryRun:
-            self.bits = bits
+            rcusetup_cmd = "rspctl --rcuattenuation=" + str(attenuation)
+            self.exec_lcu(rcusetup_cmd)
+            rcusetup_cmds.append(rcusetup_cmd)
         waittime = 1
         print("Waiting {}s for rspctl to settle...".format(waittime))
         time.sleep(waittime)  # Wait for rspctl to settle
-        return rcu_setup_cmds
+        return rcusetup_cmds
 
     def get_bits(self):
         """Get rcu sample bit-depth."""
@@ -446,11 +446,11 @@ class LCUInterface(object):
         """
         if directory is None:
             directory = self.lcuDumpDir
-        rspctl_cmds = ""
+        rspctl_cmds = []
         if bsxtype == 'xst':
             rspctl_cmd = "rspctl --xcsubband="+str(subband)
             self.exec_lcu(rspctl_cmd)
-            rspctl_cmds += rspctl_cmd + "\n"
+            rspctl_cmds.append(rspctl_cmd)
         if bsxtype == 'bst':
             stats_flag_and_val = '--statistics=beamlet'
         elif bsxtype == 'sst':
@@ -464,7 +464,7 @@ class LCUInterface(object):
         if bsxtype == 'bst':
             rspctl_cmd += " --select=0,1"
         self.exec_lcu(rspctl_cmd)
-        rspctl_cmds += rspctl_cmd
+        rspctl_cmds.append(rspctl_cmd)
         if self.DryRun:
             self.mockstatistics(bsxtype, integration, duration, directory)
         return rspctl_cmds

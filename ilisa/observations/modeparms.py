@@ -53,9 +53,10 @@ def parse_beamctl_args(beamctl_str):
             args.subbands, args.anadir, args.digdir)
 
 
-def parse_rspctl_args(rspctl_strs):
+def parse_rspctl_args(rspctl_cmds):
     """Parse rspctl command arguments.
-    Note that rspctl has persistent flags, i.e. multiple rspctl calls add up flags."""
+    Note that rspctl has persistent flags, i.e. multiple rspctl calls add up
+    flags."""
     # TODO: Add the rest of the arguments
     rspctl_args ={}
     rspctl_parser = argparse.ArgumentParser(prog='rspctl')
@@ -67,13 +68,11 @@ def parse_rspctl_args(rspctl_strs):
     rspctl_parser.add_argument('--xcsubband')
     rspctl_parser.add_argument('--directory')
     rspctl_parser.add_argument('--bitmode')
-    rspctl_strs = rspctl_strs.lstrip('; ')
-    for rspctl_line in rspctl_strs.split('\n'):
-        for rspctl_str in rspctl_line.split(';'):
-            rspctl_str_normalized = rspctl_str.replace('=', ' ')
-            argsdict = vars(rspctl_parser.parse_args(rspctl_str_normalized.split()[1:]))
-            argsdict = {k: v for (k, v) in argsdict.items() if v is not None}
-            rspctl_args.update(argsdict)
+    for rspctl_cmd in rspctl_cmds:
+        rspctl_cmd_normal = rspctl_cmd.replace('=', ' ')
+        argsdict = vars(rspctl_parser.parse_args(rspctl_cmd_normal.split()[1:]))
+        argsdict = {k: v for (k, v) in argsdict.items() if v is not None}
+        rspctl_args.update(argsdict)
     return rspctl_args
 
 

@@ -72,8 +72,8 @@ class StationDriver(object):
         self.exit_check = True
         self.halt_observingstate_when_finished = False
         self.cleanup()
-        # Initialize beamctl_cmds & rcu_setup_cmds
-        self.rcu_setup_cmds = []
+        # Initialize beamctl_cmds & rcuctl_cmds
+        self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
     def is_in_observingstate(self):
@@ -273,9 +273,9 @@ class StationDriver(object):
 
     def _rcusetup(self, bits, attenuation):
         """Setup RCUs on LCU."""
-        rcu_setup_cmds = self._lcu_interface.rcusetup(bits, attenuation)
-        self.rcu_setup_cmds = rcu_setup_cmds
-        return rcu_setup_cmds
+        rcusetup_cmds = self._lcu_interface.rcusetup(bits, attenuation)
+        self.rcusetup_cmds = rcusetup_cmds
+        return rcusetup_cmds
 
     def _run_beamctl(self, beamlets, subbands, band, anadigdir, rcusel='all'):
         """Run beamctl command on LCU."""
@@ -290,7 +290,7 @@ class StationDriver(object):
         if DUMMYWARMUP:
             print("Warning warnup not currently implemented")
         bits = freqbndobj.bits
-        rcu_setup_cmd = self._rcusetup(bits, attenuation)
+        rcuctl_cmds = self._rcusetup(bits, attenuation)
         beamctl_cmds = []
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
             _antset = freqbndobj.antsets[bandbeamidx]
@@ -308,12 +308,12 @@ class StationDriver(object):
             beamctl_main = self._run_beamctl(beamlets, subbands, rcumode,
                                              pointing, rcusel)
             beamctl_cmds.append(beamctl_main)
-        return rcu_setup_cmd, beamctl_cmds
+        return rcuctl_cmds, beamctl_cmds
 
     def stop_beam(self):
         """Turn off beam."""
         self._lcu_interface.stop_beam()
-        self.rcu_setup_cmds = []
+        self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
     def rec_bsx(self, bsxtype, integration, duration, subband=0):
@@ -328,15 +328,16 @@ class StationDriver(object):
         """\
         Start scan on LCU
         """
-        rcu_setup_cmds = self.rcu_setup_cmds
+        rcusetup_cmds = self.rcusetup_cmds
         beamctl_cmds = self.beamctl_cmds
         rspctl_cmd = self._lcu_interface.run_rspctl_statistics(bsxtype,
                                                                integration,
                                                                duration,
                                                                subband)
         obsdatetime_stamp = self.get_data_timestamp(-1)
-        ldatinfo = dataIO.LDatInfo(bsxtype, obsdatetime_stamp, beamctl_cmds,
-                                    rspctl_cmd, caltabinfos="", septonconf="")
+        ldatinfo = dataIO.LDatInfo(bsxtype, obsdatetime_stamp, rcusetup_cmds,
+                                   beamctl_cmds, rspctl_cmd, caltabinfos="",
+                                   septonconf="")
         return ldatinfo
     
     def stop_scanrec(self, ldatinfo, freqbndobj):
@@ -656,25 +657,25 @@ class StationDriver(object):
         self.halt_observingstate_when_finished = False
         self.exit_check = False
 
-        caltabinfos = [""]
         # Get metadata about caltables to be used
+        caltabinfos = []
         if not allsky:
             for rcumode in freqbndobj.rcumodes:
                 caltabinfo = self.get_caltableinfo(rcumode)
                 caltabinfos.append(caltabinfo)
 
+        # Beam
+        rcuctl_cmds, beamctl_cmds = [], []
         if pointing is not None:
             # Real beam start:
             print("Now running real beam... @ {}".format(
                 datetime.datetime.utcnow()))
             dir_bmctl = directions.normalizebeamctldir(pointing)
-            rcu_setup_cmd, beamctl_cmds = self.streambeams(freqbndobj,
-                                                           dir_bmctl)
+            rcuctl_cmds, beamctl_cmds = self.streambeams(freqbndobj, dir_bmctl)
             beamstarted = datetime.datetime.utcnow()
             rectime = beamstarted
             scan_id = self.get_scanid(beamstarted)
         else:
-            rcu_setup_cmd, beamctl_cmds = "", ""
             rectime = starttime
             scan_id = self.get_scanid()
 
@@ -692,9 +693,9 @@ class StationDriver(object):
                                                 band, scanpath_bfdat,
                                                 self.bf_port0, stnid)
             bfsnametime = rectime.strftime("%Y%m%d_%H%M%S")
-            rspctl_cmd = ""
-            this_obsinfo = dataIO.LDatInfo('bfs', bfsnametime, rcu_setup_cmd,
-                                           beamctl_cmds, rspctl_cmd,
+            rspctl_cmds = []
+            this_obsinfo = dataIO.LDatInfo('bfs', bfsnametime, rcuctl_cmds,
+                                           beamctl_cmds, rspctl_cmds,
                                            caltabinfos)
             scanresult['bfs'].add_obs(this_obsinfo)
             for lane in lanes:
@@ -719,12 +720,12 @@ class StationDriver(object):
             scanresult['bsx'].set_stnid(stnid)
             # Record statistic for duration_tot seconds
             if bsx_type == 'bst' or bsx_type == 'sst':
-                rspctl_cmd = self.rec_bsx(bsx_type, integration,
+                rspctl_cmds = self.rec_bsx(bsx_type, integration,
                                           duration_tot)
                 obsdatetime_stamp = self.get_data_timestamp(-1)
                 curr_obsinfo = dataIO.LDatInfo(bsx_type, obsdatetime_stamp,
-                                               rcu_setup_cmd, beamctl_cmds,
-                                               rspctl_cmd, caltabinfos)
+                                               rcuctl_cmds, beamctl_cmds,
+                                               rspctl_cmds, caltabinfos)
                 scanresult['bsx'].add_obs(curr_obsinfo)
             elif bsx_type == 'xst':
                 nrsubbands = freqbndobj.nrsubbands()
@@ -755,13 +756,13 @@ class StationDriver(object):
                             subbands = [int(sb) for sb in sb_rcumode.split(',')]
                         for subband in subbands:
                             # Record data
-                            rspctl_cmd = self.rec_bsx(bsx_type, integration,
-                                                      duration_frq, subband)
+                            rspctl_cmds = self.rec_bsx(bsx_type, integration,
+                                                       duration_frq, subband)
                             obsdatetime_stamp = self.get_data_timestamp(-1)
                             curr_obsinfo =\
                                 dataIO.LDatInfo('xst', obsdatetime_stamp,
-                                                rcu_setup_cmd, beamctl_cmds,
-                                                rspctl_cmd,
+                                                rcuctl_cmds, beamctl_cmds,
+                                                rspctl_cmds,
                                                 septonconf=septonconf)
                             scanresult['bsx'].add_obs(curr_obsinfo)
             else:
@@ -795,9 +796,9 @@ class StationDriver(object):
             _, acc_files = self.getdatalist()
             for acc_file in acc_files:
                 obsid, _ = acc_file.split('_acc_')
-                rspctl_cmd = ""
-                this_obsinfo = dataIO.LDatInfo('acc', obsid, rcu_setup_cmd,
-                                               beamctl_cmds, rspctl_cmd)
+                rspctl_cmds = []
+                this_obsinfo = dataIO.LDatInfo('acc', obsid, rcuctl_cmds,
+                                               beamctl_cmds, rspctl_cmds)
                 scanresult['acc'].add_obs(this_obsinfo)
 
             # Set scanrecinfo

@@ -289,8 +289,8 @@ class LDatInfo(object):
 
     """
 
-    def __init__(self, lofardatatype, filenametime, rcu_setup_cmd, beamctl_cmd,
-                 rspctl_cmd, caltabinfos="", septonconf=None):
+    def __init__(self, lofardatatype, filenametime, rcuctl_cmds,
+                 beamctl_cmds, rspctl_cmds, caltabinfos=[], septonconf=[]):
         """Create observation info from parameters."""
         # ldat_type attr
         self.ldat_type = lofardatatype
@@ -298,20 +298,25 @@ class LDatInfo(object):
         # filenametime attr
         self.filenametime = filenametime
 
-        # rcu_setup_cmd attr
-        if rcu_setup_cmd == '':
-            rcu_setup_cmd = 'rspctl'
-        self.rcu_setup_cmd = rcu_setup_cmd
-        rcu_setup_args = modeparms.parse_rspctl_args(self.rcu_setup_cmd)
+        # rcuctl_cmd attr
+        if rcuctl_cmds == []:
+            rcuctl_cmds = ['rspctl']
+        self.rcuctl_cmds = rcuctl_cmds
+        rcuctl_args = modeparms.parse_rspctl_args(self.rcuctl_cmds)
+        self.attenuation = None
+        if 'attentuation' in rcuctl_args:
+            self.attenuation = rcuctl_args['attentuation']
+        self.bits = 16  # Currently default
+        if 'bits' in rcuctl_cmds:
+            self.bits = rcuctl_args['bits']
 
         # beamctl_cmd related attr
         self.rcumode = []
         self.sb = []
         self.bl = []
         self.pointing = ""
-        self.beamctl_cmds = beamctl_cmd
-        if self.beamctl_cmds != "" and self.beamctl_cmds is not None:
-            # FIXME better support for multiline beamctl cmds.
+        self.beamctl_cmds = beamctl_cmds
+        if self.beamctl_cmds != []:
             digdir = None
             if type(self.beamctl_cmds) is not list:
                 self.beamctl_cmds = [self.beamctl_cmds]
@@ -324,10 +329,10 @@ class LDatInfo(object):
             self.pointing = digdir
 
         # rspctl_args attr
-        if rspctl_cmd == '':
-            rspctl_cmd = 'rspctl'
-        self.rspctl_cmd = rspctl_cmd
-        rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmd)
+        if rspctl_cmds == []:
+            rspctl_cmds = ['rspctl']
+        self.rspctl_cmds = rspctl_cmds
+        rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmds)
         
         # septon attr
         self.septonconf = septonconf
@@ -353,7 +358,7 @@ class LDatInfo(object):
         # caltabinfos attr
         if self.ldat_type != 'bst':
             # Only need caltab info if it's BST
-            caltabinfos = ""
+            caltabinfos = []
         self.caltabinfos = caltabinfos
 
     def obsfoldername(self, folder_name_beamctl_type=True, stnid=None,
@@ -413,31 +418,29 @@ class LDatInfo(object):
 
     def write_ldat_header(self, datapath):
         """Create a header file for LOFAR standalone observation."""
-        contents = OrderedDict()
+        contents = {}
         contents['version'] = '4'
         contents['datatype'] = self.ldat_type
         contents['filetime'] = self.filenametime
-        contents['rcu_setup_cmds'] = self.rcu_setup_cmd
+        contents['rcuctl_cmds'] = self.rcuctl_cmds
         contents['beamctl_cmds'] = self.beamctl_cmds
-        contents['rspctl_cmds'] = self.rspctl_cmd
-        contents['caltabinfos'] = self.caltabinfos
-        contents['septonconfig'] = self.septonconf
+        contents['rspctl_cmds'] = self.rspctl_cmds
+        if self.caltabinfos != []:
+            contents['caltabinfos'] = self.caltabinfos
+        if self.septonconf:
+            contents['septonconf'] = self.septonconf
 
-        def indenttext(txt):
-            indentstr = "  "
-            return indentstr + txt.replace("\n", "\n" + indentstr)
-
-        headerversion = "4"
-        if not self.isLOFARdatatype(ldat_type):
+        headerversion = '4'
+        if not self.isLOFARdatatype(self.ldat_type):
             raise ValueError("Unknown LOFAR statistic type {}."\
-                             .format(ldat_type))
+                             .format(self.ldat_type))
         xtra = ''
         if self.ldat_type == 'acc':
             xtra = '_512x192x192'
-        ldat_header_filename = (self.filenametime + "_" + self.ldat_type 
-                                + xtra + ".h")
-        with open(os.path.join(datapath, ldat_header_filename), "w") as f:
-            yaml.dump(contents, f)
+        ldat_header_filename = (self.filenametime + '_' + self.ldat_type
+                                + xtra + '.h')
+        with open(os.path.join(datapath, ldat_header_filename), 'w') as f:
+            yaml.dump(contents, f, default_flow_style=False, width=1000)
 
     def get_recfreq(self):
         """Return data recording frequency in Hz."""
@@ -513,36 +516,16 @@ class LDatInfo(object):
                 # Default version = '3'
                 contents = yaml.safe_load(hf)
                 datatype = contents['datatype']
-                starttime = contents['filetime']
-                rcu_setup_line = contents['beamctl_cmds']
-                beamctl_line = contents['beamctl_cmds']
-                rspctl_lines_raw = contents['rspctl_cmds']
-                rspctl_lines = rspctl_lines_raw.split('\n')
-        multishellcmds = beamctl_line.split('&')
-        beamctl_cmd = multishellcmds[0]
-        if beamctl_cmd != "":
-            (antennaset, rcus, rcumode, beamlets, subbands, anadir, digdir) \
-                = modeparms.parse_beamctl_args(beamctl_cmd)
-            beamctl_cmd = {'antennaset': antennaset,
-                           'rcus': rcus,
-                           'rcumode': rcumode,
-                           'beamlets': beamlets,
-                           'subbands': subbands,
-                           'anadir': anadir,
-                           'digdir': digdir}
-            septonconf = None
-        elif 'SEPTONconfig' in contents:
-            beamctl_cmd = ""
-            septonconf = contents['SEPTONconfig']
-        rspctl_cmd = {}
-        if rspctl_lines != "":
-            for rspctl_line in rspctl_lines:
-                rspctl_args = modeparms.parse_rspctl_args(rspctl_line)
-                rspctl_cmd.update(rspctl_args)
+                filetime = contents['filetime']
+                rcuctl_cmds = contents['rcuctl_cmds']
+                beamctl_cmds = contents['beamctl_cmds']
+                rspctl_cmds = contents['rspctl_cmds']
+                caltabinfo = contents['caltabinfo']
+                if 'septonconf' in contents:
+                    septonconf = contents['septonconf']
 
-        filenametime = starttime.strftime('%Y%m%d_%H%M%S')
-        obsinfo = cls(datatype, filenametime, rcu_setup_line, beamctl_line,
-                      rspctl_lines_raw, caltabinfos="", septonconf=septonconf)
+        obsinfo = cls(datatype, filetime, rcuctl_cmds[0], beamctl_cmds,
+                      rspctl_cmds, caltabinfos=None, septonconf=septonconf)
         return obsinfo
 
 
