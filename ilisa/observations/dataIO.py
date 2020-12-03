@@ -520,12 +520,13 @@ class LDatInfo(object):
                 rcuctl_cmds = contents['rcuctl_cmds']
                 beamctl_cmds = contents['beamctl_cmds']
                 rspctl_cmds = contents['rspctl_cmds']
-                caltabinfo = contents['caltabinfo']
+                caltabinfos = contents['caltabinfos']
                 if 'septonconf' in contents:
                     septonconf = contents['septonconf']
 
         obsinfo = cls(datatype, filetime, rcuctl_cmds[0], beamctl_cmds,
-                      rspctl_cmds, caltabinfos=None, septonconf=septonconf)
+                      rspctl_cmds, caltabinfos=caltabinfos,
+                      septonconf=septonconf)
         return obsinfo
 
 
