@@ -160,10 +160,6 @@ class StationDriver(object):
         # self._lcu_interface.rm(source)
         # self._lcu_interface.DryRun = dryrun
 
-    def getdatalist(self):
-        dd_dir, acc_dir = self._lcu_interface.getdatalist()
-        return dd_dir, acc_dir
-
     def get_data_timestamp(self, order=0, ACC=False):
         """
         Get timestamp of datafiles on LCU. order is the temporal order of
@@ -801,7 +797,7 @@ class StationDriver(object):
             self.acc_mode(enable=False)
 
             # Create obsinfo each ACC file
-            _, acc_files = self.getdatalist()
+            _, acc_files = self._lcu_interface.getdatalist()
             for acc_file in acc_files:
                 obsid, _ = acc_file.split('_acc_')
                 rspctl_cmds = []
