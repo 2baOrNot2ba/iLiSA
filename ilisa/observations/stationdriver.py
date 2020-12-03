@@ -79,7 +79,6 @@ class StationDriver(object):
         self.scanpath = os.path.join(self.LOFARdataArchive, 'Scans')
         self.exit_check = True
         self.halt_observingstate_when_finished = False
-        self.cleanup()
         # Initialize beamctl_cmds & rcuctl_cmds
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
@@ -107,6 +106,7 @@ class StationDriver(object):
         """
         if not self.checkobservingallowed():
             raise RuntimeError('Observations not allowed')
+        self.cleanup()
         swlevel_changed = self._lcu_interface.set_swlevel(3)
         if swlevel_changed and warmup:
             # Dummy or hot beam start: (takes about 10sec)
