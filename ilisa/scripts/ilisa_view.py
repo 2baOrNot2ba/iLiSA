@@ -13,6 +13,7 @@ import ilisa.observations.modeparms as modeparms
 def plotbst(bstff, pol_stokes=True):
     """Plot BST data."""
     BSTdata, obsfileinfo = dataIO.readbstfolder(bstff)
+    stnid = obsfileinfo['station']
     starttime = obsfileinfo['datetime']
     intg = obsfileinfo['integration']
     dur = obsfileinfo['duration']
@@ -21,7 +22,7 @@ def plotbst(bstff, pol_stokes=True):
 
     ts = numpy.arange(0., dur, intg)
     ts = [starttime+datetime.timedelta(seconds=t) for t in ts]
-    fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
+    fig, (ax_p, ax_q) = plt.subplots(2, 1, sharex=True, sharey=True)
     data2plot_p_name, data2plot_p = BSTdata['X'].T, 'X-pol'
     data2plot_q_name, data2plot_q = BSTdata['Y'].T, 'Y-pol'
     if pol_stokes:
@@ -29,21 +30,26 @@ def plotbst(bstff, pol_stokes=True):
         data2plot_p = BSTdata['X'].T + BSTdata['Y'].T
         data2plot_q_name = 'Stokes Q'
         data2plot_q = BSTdata['X'].T - BSTdata['Y'].T
-    bstxplt = ax1.pcolormesh(ts, freqs/1e6, data2plot_p,
-                             norm=colors.LogNorm())
-    fig.colorbar(bstxplt, ax=ax1)
-    ax1.set_ylabel('Frequency [MHz]')
-    ax1.set_title('{}, pointing {},{},{}'.format(data2plot_p_name, *pointing))
-    bstyplt = ax2.pcolormesh(ts, freqs/1e6, data2plot_q,
-                             norm=colors.LogNorm())
-    fig.colorbar(bstyplt, ax=ax2)
-    ax2.set_title('{}, pointing {},{},{}'.format(data2plot_q_name, *pointing))
+    bstxplt = ax_p.pcolormesh(ts, freqs/1e6, data2plot_p,
+                              norm=colors.LogNorm())
+    cbar_p = fig.colorbar(bstxplt, ax=ax_p)
+    cbar_p.set_label('Flux [arb. units]')
+    ax_p.set_ylabel('Frequency [MHz]')
+    ax_p.set_title('{}'.format(data2plot_p_name))
+    bstyplt = ax_q.pcolormesh(ts, freqs/1e6, data2plot_q,
+                              norm=colors.LogNorm())
+    cbar_q = fig.colorbar(bstyplt, ax=ax_q)
+    cbar_q.set_label('Flux [arb. units]')
+    ax_q.set_title('{}'.format(data2plot_q_name))
     fig.autofmt_xdate()
 
-    ax2.xaxis.set_major_formatter( mdates.DateFormatter('%H:%M:%S'))
-    ax2.set_xlabel('Time [UT]')
-    ax2.set_ylabel('Frequency [MHz]')
-    plt.suptitle('BST X,Y @ {}'.format(starttime))
+    ax_q.xaxis.set_major_formatter( mdates.DateFormatter('%H:%M:%S'))
+    ax_q.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
+    ax_q.set_ylabel('Frequency [MHz]')
+
+    supertitle = ('{} BST Intg: {}s Dur: {}s'.format(stnid, intg, dur)
+                  + ' Pointing: {},{},{}'.format(*pointing))
+    plt.suptitle(supertitle)
     plt.show()
 
 
