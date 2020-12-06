@@ -306,15 +306,19 @@ class LCUInterface(object):
         filecontents = self._stdoutLCU("cat " + filename)
         return filecontents
 
-    def _rm(self, source):
+    def _rm(self, source, override_mock=True):
         """Remove specified source file(s) on LCU."""
-        self.exec_lcu("rm -fr " + source)
+        dryrun = self.DryRun
+        if override_mock:
+            self.DryRun = False
+        self.exec_lcu("rm -f " + source)
+        self.DryRun = dryrun
 
     def cleanup(self):
         """Clean up all local data dumps. It is usually the ObsSession()
         objects responsibility to call this."""
-        self.exec_lcu("rm -f " + self.lcuDumpDir + "/*.dat")
-        self.exec_lcu("rm -f " + self.ACCsrcDir + "/*.dat")
+        self._rm(self.lcuDumpDir + "/*.dat")
+        self._rm(self.ACCsrcDir + "/*.dat")
 
     def get_RSPDriver_conf(self):
         """Get RSPDriver configuration settings."""

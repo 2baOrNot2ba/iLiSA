@@ -106,7 +106,7 @@ class StationDriver(object):
         """
         if not self.checkobservingallowed():
             raise RuntimeError('Observations not allowed')
-        self.cleanup()
+        self._lcu_interface.cleanup()  # Could be leftovers from previous runs
         swlevel_changed = self._lcu_interface.set_swlevel(3)
         if swlevel_changed and warmup:
             # Dummy or hot beam start: (takes about 10sec)
@@ -125,7 +125,7 @@ class StationDriver(object):
         if self.checkobservingallowed():
             self._lcu_interface.set_swlevel(0)
             # Cleanup any data left on LCU.
-            self.cleanup()
+            self._lcu_interface.cleanup()
 
     def __del__(self):
         """May shutdown observation mode on station."""
@@ -154,11 +154,7 @@ class StationDriver(object):
             print("{} {}".format(cmdprompt, " ".join(move_cmdline)))
         proc = subprocess.Popen(move_cmdline)
         proc.wait()  # Since cleanup() after might zap data before completion
-        # # Override DryRun temporarily to really remove source files
-        # dryrun = self._lcu_interface.DryRun
-        # self._lcu_interface.DryRun = False
-        # self._lcu_interface.rm(source)
-        # self._lcu_interface.DryRun = dryrun
+        self._lcu_interface._rm(source)
 
     def get_data_timestamp(self, order=0, ACC=False):
         """
@@ -198,16 +194,6 @@ class StationDriver(object):
     def get_lcuDumpDir(self):
         """Get LCU dump directory from LCU."""
         return  self._lcu_interface.lcuDumpDir
-
-    def cleanup(self, forced=False):
-        """Clean up on LCU."""
-        dryrun = self._lcu_interface.DryRun
-        if forced:
-            # Override DryRun temporarily to really remove source files
-            self._lcu_interface.DryRun = False
-        self._lcu_interface.cleanup()
-        if forced:
-            self._lcu_interface.DryRun = dryrun
 
     def acc_mode(self, enable=True, mock_dur=None):
         """Enable or Disable ACC mode."""
@@ -861,7 +847,6 @@ class StationDriver(object):
                     if bfslogpaths[lane] is not None:
                         shutil.move(bfslogpaths[lane], scanrecpath)
 
-        self.cleanup()
         # Necessary due to possible forking
         self.halt_observingstate_when_finished = shutdown
         scanresult['scan_id'] = scan_id
