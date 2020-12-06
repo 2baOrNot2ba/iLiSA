@@ -290,7 +290,7 @@ class LDatInfo(object):
     """
 
     def __init__(self, lofardatatype, filenametime, stnid, rcuctl_cmds,
-                 beamctl_cmds, rspctl_cmds, caltabinfos=[], septonconf=[]):
+                 beamctl_cmds, rspctl_cmds, caltabinfos=[], septonconf=None):
         """Create observation info from parameters."""
         self.headerversion = '4'
 
