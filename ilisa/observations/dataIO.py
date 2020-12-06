@@ -366,7 +366,7 @@ class LDatInfo(object):
         """Create name and destination path for folders (on the DPU) in
         which to save the various LOFAR data products.
         """
-        obsextname = self.filenametime
+        obsextname = '{}_{}'.format(stnid, self.filenametime)
         if self.ldat_type != "acc":
             if self.ldat_type == "bst-357":
                 obsextname += "_rcu357"
@@ -392,9 +392,7 @@ class LDatInfo(object):
         else:
             # ACC:
             rcumode = self.rcumode[0]
-            obsextname = '{}_{}_rcu{}_dur{}'.format(stnid, self.filenametime,
-                                                    rcumode,
-                                                    self.duration_scan)
+            obsextname = '_rcu{}_dur{}'.format(rcumode, self.duration_scan)
             if int(rcumode) > 4:  # rcumodes more than 4 need pointing
                 obsextname += "_" + source_name
         if not folder_name_beamctl_type:
@@ -536,8 +534,9 @@ def parse_bstfolder(BSTfilepath):
     BSTfilename = os.path.basename(BSTfilepath)
     obsfileinfo = {}
     try:
-        (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, _bststr
+        (stnid, Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, _bststr
          ) = BSTfilename.split('_')
+        obsfileinfo['station'] = stnid
         obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                              '%Y%m%dT%H%M%S')
         obsfileinfo['rcumode'] = rcustr[3:]

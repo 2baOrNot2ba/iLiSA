@@ -698,9 +698,10 @@ class StationDriver(object):
                                                 self.bf_port0, stnid)
             bfsnametime = rectime.strftime("%Y%m%d_%H%M%S")
             rspctl_cmds = []
-            this_obsinfo = dataIO.LDatInfo('bfs', bfsnametime, rcuctl_cmds,
-                                           beamctl_cmds, rspctl_cmds,
-                                           caltabinfos)
+            this_obsinfo = \
+                dataIO.LDatInfo('bfs', bfsnametime, self.get_stnid(),
+                                rcuctl_cmds, beamctl_cmds,rspctl_cmds,
+                                caltabinfos)
             scanresult['bfs'].add_obs(this_obsinfo)
             for lane in lanes:
                 datafileguess = datafiles.pop()
@@ -726,10 +727,11 @@ class StationDriver(object):
             if bsx_type == 'bst' or bsx_type == 'sst':
                 rspctl_cmds = self.rec_bsx(bsx_type, integration,
                                           duration_tot)
-                obsdatetime_stamp = self.get_data_timestamp(-1)
-                curr_obsinfo = dataIO.LDatInfo(bsx_type, obsdatetime_stamp,
-                                               rcuctl_cmds, beamctl_cmds,
-                                               rspctl_cmds, caltabinfos)
+                file_dt_name = self.get_data_timestamp(-1)
+                curr_obsinfo = \
+                    dataIO.LDatInfo(bsx_type, file_dt_name, self.get_stnid(),
+                                    rcuctl_cmds, beamctl_cmds, rspctl_cmds,
+                                    caltabinfos)
                 scanresult['bsx'].add_obs(curr_obsinfo)
             elif bsx_type == 'xst':
                 nrsubbands = freqbndobj.nrsubbands()
@@ -762,9 +764,10 @@ class StationDriver(object):
                             # Record data
                             rspctl_cmds = self.rec_bsx(bsx_type, integration,
                                                        duration_frq, subband)
-                            obsdatetime_stamp = self.get_data_timestamp(-1)
+                            file_dt_name = self.get_data_timestamp(-1)
                             curr_obsinfo =\
-                                dataIO.LDatInfo('xst', obsdatetime_stamp,
+                                dataIO.LDatInfo('xst', file_dt_name,
+                                                self.get_stnid(),
                                                 rcuctl_cmds, beamctl_cmds,
                                                 rspctl_cmds,
                                                 septonconf=septonconf)
@@ -801,8 +804,9 @@ class StationDriver(object):
             for acc_file in acc_files:
                 obsid, _ = acc_file.split('_acc_')
                 rspctl_cmds = []
-                this_obsinfo = dataIO.LDatInfo('acc', obsid, rcuctl_cmds,
-                                               beamctl_cmds, rspctl_cmds)
+                this_obsinfo = dataIO.LDatInfo('acc', obsid, self.get_stnid(),
+                                               rcuctl_cmds, beamctl_cmds,
+                                               rspctl_cmds)
                 scanresult['acc'].add_obs(this_obsinfo)
 
             # Set scanrecinfo
