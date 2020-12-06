@@ -14,7 +14,8 @@ except ImportError:
 import ilisa.observations
 from ilisa.observations.modeparms import parse_lofar_conf_files
 # LOFAR constants
-from ilisa.observations.modeparms import band2antset, rcumode2band
+from ilisa.observations.modeparms import rcumode2band, beamctl_args2cmds,\
+    rcusetup_args2cmds, rspctl_stats_args2cmds
 
 
 class LCUInterface(object):
@@ -394,19 +395,13 @@ class LCUInterface(object):
     def rcusetup(self, bits, attenuation):
         """Setup basic RCU setting: bits is 8 or 16, and attenuation is 0 to 31
         (0 means no attenuation & increasing number means more attenutation)"""
-        rcusetup_cmds = []
-        rcusetup_cmd = "rspctl --bitmode=" + str(bits)
-        self.exec_lcu(rcusetup_cmd)
-        rcusetup_cmds.append(rcusetup_cmd)
-        if self.DryRun:
-            self.bits = bits
+        rcusetup_cmds = rcusetup_args2cmds(bits, attenuation)
         # NOTE Looks like bitmode and rcuattenuation have to be set in separate
         #      commands.
-        if attenuation:
-            # NOTE attenuation only set when beamctl is runnning.
-            rcusetup_cmd = "rspctl --rcuattenuation=" + str(attenuation)
+        for rcusetup_cmd in rcusetup_cmds:
             self.exec_lcu(rcusetup_cmd)
-            rcusetup_cmds.append(rcusetup_cmd)
+        if self.DryRun:
+            self.bits = bits
         waittime = 1
         print("Waiting {}s for rspctl to settle...".format(waittime))
         time.sleep(waittime)  # Wait for rspctl to settle
@@ -427,34 +422,11 @@ class LCUInterface(object):
             bits = rspbits[0][1]
         return bits
 
-    def _beamctl_args2cmd(self, beamlets, subbands, band, anadigdir, rcus='all',
-                       beamdurstr=''):
-        """Create a beamctl command string from the given arguments."""
-        if rcus == 'all':
-            rcus = '0:191'
-        if beamdurstr != '':
-            beamdurstr = ',' + beamdurstr
-        anadir = anadigdir
-        digdir = anadigdir
-
-        try:
-            # See if band is actually old rcumode 3,5,7 etc
-            band = rcumode2band(band)
-        except ValueError:
-            pass    # It's not an rcumode. Assume it's a proper band descriptor
-        antset = band2antset(band)
-        beamctl_cmd = ("beamctl --antennaset=" + antset + " --rcus=" + rcus
-                       + " --band=" + band + " --beamlets=" + beamlets
-                       + " --subbands=" + subbands
-                       + " --anadir=" + anadir + beamdurstr
-                       + " --digdir=" + digdir + beamdurstr)
-        return beamctl_cmd
-
     def run_beamctl(self, beamlets, subbands, band, anadigdir, rcus='all',
                     beamdurstr='', backgroundJOB=True):
         """Start a beam using beamctl command. Blocks until ready."""
-        beamctl_cmd = self._beamctl_args2cmd(beamlets, subbands, band,
-                                             anadigdir, rcus, beamdurstr)
+        beamctl_cmd = beamctl_args2cmds(beamlets, subbands, band, anadigdir,
+                                        rcus, beamdurstr)
         self.exec_lcu(beamctl_cmd, backgroundJOB)
         waittime = 11
         print("Waiting {}s for beam to settle...".format(waittime))
@@ -466,27 +438,13 @@ class LCUInterface(object):
         """\
         Run rspctl statistics command
         """
+        rspctl_cmds = rspctl_stats_args2cmds(bsxtype, integration, duration,
+                                             subband=subband)
         if directory is None:
             directory = self.lcuDumpDir
-        rspctl_cmds = []
-        if bsxtype == 'xst':
-            rspctl_cmd = "rspctl --xcsubband="+str(subband)
+        rspctl_cmds[-1] += " --directory={}".format(directory)
+        for rspctl_cmd in rspctl_cmds:
             self.exec_lcu(rspctl_cmd)
-            rspctl_cmds.append(rspctl_cmd)
-        if bsxtype == 'bst':
-            stats_flag_and_val = '--statistics=beamlet'
-        elif bsxtype == 'sst':
-            stats_flag_and_val = '--statistics=subband'
-        else:
-            stats_flag_and_val = '--xcstatistics'
-        rspctl_cmd = ("rspctl {}".format(stats_flag_and_val)
-                      + " --integration={}".format(int(integration))
-                      + " --duration={}".format(int(duration))
-                      + " --directory={}".format(directory))
-        if bsxtype == 'bst':
-            rspctl_cmd += " --select=0,1"
-        self.exec_lcu(rspctl_cmd)
-        rspctl_cmds.append(rspctl_cmd)
         if self.DryRun:
             self.mockstatistics(bsxtype, integration, duration, directory)
         return rspctl_cmds

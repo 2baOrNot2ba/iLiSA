@@ -33,6 +33,30 @@ elOn_same_el = 0
 elemsOn = elOn_Generic_Int_201512  # elOn_same or elOn_step or elOn_gILT or ...
 
 
+def beamctl_args2cmds(beamlets, subbands, band, anadigdir, rcus='all',
+                     beamdurstr=''):
+    """Create a beamctl command string from the given arguments."""
+    if rcus == 'all':
+        rcus = '0:191'
+    if beamdurstr != '':
+        beamdurstr = ',' + beamdurstr
+    anadir = anadigdir
+    digdir = anadigdir
+
+    try:
+        # See if band is actually old rcumode 3,5,7 etc
+        band = rcumode2band(band)
+    except ValueError:
+        pass  # It's not an rcumode. Assume it's a proper band descriptor
+    antset = band2antset(band)
+    beamctl_cmd = ("beamctl --antennaset=" + antset + " --rcus=" + rcus
+                   + " --band=" + band + " --beamlets=" + beamlets
+                   + " --subbands=" + subbands
+                   + " --anadir=" + anadir + beamdurstr
+                   + " --digdir=" + digdir + beamdurstr)
+    return beamctl_cmd
+
+
 def parse_beamctl_args(beamctl_str):
     """Parse beamctl command arguments"""
     beamctl_str_normalized = beamctl_str.replace('=', ' ')
@@ -52,6 +76,39 @@ def parse_beamctl_args(beamctl_str):
     return (args.antennaset, args.rcus, rcumode, args.beamlets,
             args.subbands, args.anadir, args.digdir)
 
+def rcusetup_args2cmds(bits, attenuation):
+    """Convert RCU arguments to command lines
+    """
+    rcusetup_cmds = []
+    rcusetup_cmd = "rspctl --bitmode=" + str(bits)
+    rcusetup_cmds.append(rcusetup_cmd)
+    if attenuation:
+        # NOTE attenuation only set when beamctl is runnning.
+        rcusetup_cmd = "rspctl --rcuattenuation=" + str(attenuation)
+        rcusetup_cmds.append(rcusetup_cmd)
+    return rcusetup_cmds
+
+def rspctl_stats_args2cmds(bsxtype, integration, duration, subband=0):
+    """\
+    Run rspctl statistics command
+    """
+    rspctl_cmds = []
+    if bsxtype == 'xst':
+        rspctl_cmd = "rspctl --xcsubband="+str(subband)
+        rspctl_cmds.append(rspctl_cmd)
+    if bsxtype == 'bst':
+        stats_flag_and_val = '--statistics=beamlet'
+    elif bsxtype == 'sst':
+        stats_flag_and_val = '--statistics=subband'
+    else:
+        stats_flag_and_val = '--xcstatistics'
+    rspctl_cmd = ("rspctl {}".format(stats_flag_and_val)
+                  + " --integration={}".format(int(integration))
+                  + " --duration={}".format(int(duration)))
+    if bsxtype == 'bst':
+        rspctl_cmd += " --select=0,1"
+    rspctl_cmds.append(rspctl_cmd)
+    return rspctl_cmds
 
 def parse_rspctl_args(rspctl_cmds):
     """Parse rspctl command arguments.
