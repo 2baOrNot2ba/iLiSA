@@ -292,6 +292,8 @@ class LDatInfo(object):
     def __init__(self, lofardatatype, filenametime, stnid, rcuctl_cmds,
                  beamctl_cmds, rspctl_cmds, caltabinfos=[], septonconf=[]):
         """Create observation info from parameters."""
+        self.headerversion = '4'
+
         # ldat_type attr
         self.ldat_type = lofardatatype
 
@@ -420,9 +422,8 @@ class LDatInfo(object):
     def write_ldat_header(self, datapath):
         """Create a header file for LOFAR standalone observation."""
         contents = {}
-        contents['version'] = '4'
         contents['datatype'] = self.ldat_type
-        contents['filetime'] = self.filenametime
+        contents['filenametime'] = self.filenametime
         contents['station'] = self.station_id
         contents['rcuctl_cmds'] = self.rcuctl_cmds
         contents['beamctl_cmds'] = self.beamctl_cmds
@@ -432,7 +433,6 @@ class LDatInfo(object):
         if self.septonconf:
             contents['septonconf'] = self.septonconf
 
-        headerversion = '4'
         if not self.isLOFARdatatype(self.ldat_type):
             raise ValueError("Unknown LOFAR statistic type {}."\
                              .format(self.ldat_type))
@@ -442,6 +442,8 @@ class LDatInfo(object):
         ldat_header_filename = (self.filenametime + '_' + self.ldat_type
                                 + xtra + '.h')
         with open(os.path.join(datapath, ldat_header_filename), 'w') as f:
+            f.write('# LCU obs settings, header file\n')
+            f.write('# Header version'+' '+self.headerversion+'\n')
             yaml.dump(contents, f, default_flow_style=False, width=1000)
 
     def get_recfreq(self):
@@ -515,10 +517,10 @@ class LDatInfo(object):
                 beamctl_line = contents['BeamctlCmds']
                 rspctl_lines = contents['RspctlCmds'].split('\n')
             else:
-                # Default version = '3'
+                # headerversion == '4':
                 contents = yaml.safe_load(hf)
                 datatype = contents['datatype']
-                filetime = contents['filetime']
+                filenametime = contents['filenametime']
                 stnid = contents['station']
                 rcuctl_cmds = contents['rcuctl_cmds']
                 beamctl_cmds = contents['beamctl_cmds']
@@ -527,7 +529,7 @@ class LDatInfo(object):
                 if 'septonconf' in contents:
                     septonconf = contents['septonconf']
 
-        obsinfo = cls(datatype, filetime, stnid, rcuctl_cmds, beamctl_cmds,
+        obsinfo = cls(datatype, filenametime, stnid, rcuctl_cmds, beamctl_cmds,
                       rspctl_cmds, caltabinfos=caltabinfos,
                       septonconf=septonconf)
         return obsinfo
