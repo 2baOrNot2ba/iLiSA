@@ -289,7 +289,7 @@ class LDatInfo(object):
 
     """
 
-    def __init__(self, lofardatatype, filenametime, rcuctl_cmds,
+    def __init__(self, lofardatatype, filenametime, stnid, rcuctl_cmds,
                  beamctl_cmds, rspctl_cmds, caltabinfos=[], septonconf=[]):
         """Create observation info from parameters."""
         # ldat_type attr
@@ -297,6 +297,9 @@ class LDatInfo(object):
 
         # filenametime attr
         self.filenametime = filenametime
+
+        # station attr
+        self.station_id = stnid
 
         # rcuctl_cmd attr
         if rcuctl_cmds == []:
@@ -420,6 +423,7 @@ class LDatInfo(object):
         contents['version'] = '4'
         contents['datatype'] = self.ldat_type
         contents['filetime'] = self.filenametime
+        contents['station'] = self.station_id
         contents['rcuctl_cmds'] = self.rcuctl_cmds
         contents['beamctl_cmds'] = self.beamctl_cmds
         contents['rspctl_cmds'] = self.rspctl_cmds
@@ -515,6 +519,7 @@ class LDatInfo(object):
                 contents = yaml.safe_load(hf)
                 datatype = contents['datatype']
                 filetime = contents['filetime']
+                stnid = contents['station']
                 rcuctl_cmds = contents['rcuctl_cmds']
                 beamctl_cmds = contents['beamctl_cmds']
                 rspctl_cmds = contents['rspctl_cmds']
@@ -522,7 +527,7 @@ class LDatInfo(object):
                 if 'septonconf' in contents:
                     septonconf = contents['septonconf']
 
-        obsinfo = cls(datatype, filetime, rcuctl_cmds[0], beamctl_cmds,
+        obsinfo = cls(datatype, filetime, stnid, rcuctl_cmds, beamctl_cmds,
                       rspctl_cmds, caltabinfos=caltabinfos,
                       septonconf=septonconf)
         return obsinfo

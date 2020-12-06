@@ -726,7 +726,7 @@ class StationDriver(object):
             # Record statistic for duration_tot seconds
             if bsx_type == 'bst' or bsx_type == 'sst':
                 rspctl_cmds = self.rec_bsx(bsx_type, integration,
-                                          duration_tot)
+                                           duration_tot)
                 file_dt_name = self.get_data_timestamp(-1)
                 curr_obsinfo = \
                     dataIO.LDatInfo(bsx_type, file_dt_name, self.get_stnid(),
