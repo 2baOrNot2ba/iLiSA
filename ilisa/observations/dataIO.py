@@ -536,74 +536,13 @@ class LDatInfo(object):
 
 
 # BEGIN BST related code
-def parse_bstfolder(BSTfilepath):
-    BSTfilepath = os.path.normpath(BSTfilepath)
-    BSTfilename = os.path.basename(BSTfilepath)
-    obsfileinfo = {}
-    try:
-        (stnid, Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, _bststr
-         ) = BSTfilename.split('_')
-        obsfileinfo['station'] = stnid
-        obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
-                                                             '%Y%m%dT%H%M%S')
-        obsfileinfo['rcumode'] = rcustr[3:]
-        obsfileinfo['subbands'] = sbstr[2:]
-        obsfileinfo['integration'] = int(intstr[3:])
-        obsfileinfo['duration'] = int(durstr[3:])
-        obsfileinfo['pointing'] = dirstr[3:].split(',')
-    except:
-        raise ValueError("Filename not in bst_ext format.")
-    if len(obsfileinfo['rcumode']) > 1:
-        obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
-    if modeparms.rcusbsep in obsfileinfo['subbands']:
-        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(
-            modeparms.rcusbsep)
-    return obsfileinfo
+
 
 
 def readbstfolder(BSTfilefolder):
-    obsfileinfo = parse_bstfolder(BSTfilefolder)
-    if type(obsfileinfo['rcumode']) is not list:
-        obsfileinfo['rcumode'] = [obsfileinfo['rcumode']]
-    if type(obsfileinfo['subbands']) is not list:
-        obsfileinfo['subbands'] = [obsfileinfo['subbands']]
-    obsfileinfo['frequencies'] = numpy.empty(0)
-    totnrsbs = 0
-    for spw, rcumode in enumerate(obsfileinfo['rcumode']):
-        sblist = modeparms.seqarg2list(obsfileinfo['subbands'][spw])
-        nrsbs = len(sblist)
-        sblo = sblist[0]
-        sbhi = sblist[-1]
-        nz = modeparms.rcumode2nyquistzone(rcumode)
-        freqlo = modeparms.sb2freq(sblo, nz)
-        freqhi = modeparms.sb2freq(sbhi, nz)
-        obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
-                                                  numpy.linspace(freqlo,
-                                                                 freqhi,
-                                                                 nrsbs))
-        totnrsbs += nrsbs
-
-    # When the beamlets allocated is less than the maximum (given by bit depth)
-    # the RSPs fill the remaining ones regardless. Hence we have to account for
-    # them:
-    if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
-        maxnrsbs = modeparms.BASE_NR_BEAMLETS
-    elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
-        maxnrsbs = modeparms.BASE_NR_BEAMLETS * 2
-    else:
-        maxnrsbs = modeparms.BASE_NR_BEAMLETS * 4
-    missing_nr_sbs = maxnrsbs - totnrsbs
-    if missing_nr_sbs > 0:
-        nrsbs = missing_nr_sbs
-        sblo = sbhi + 1
-        sbhi = sblo + nrsbs - 1
-        freqlo = modeparms.sb2freq(sblo, nz)
-        freqhi = modeparms.sb2freq(sbhi, nz)
-        obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
-                                                  numpy.linspace(freqlo,
-                                                                 freqhi,
-                                                                 nrsbs))
-        totnrsbs += nrsbs
+    """Read a BST filefolder"""
+    obsfileinfo = modeparms.filefolder2obsfileinfo(BSTfilefolder)
+    maxnrsbs = obsfileinfo['max_nr_sbs']
     BSTdirls = os.listdir(BSTfilefolder)
     BSTfiles = [f for f in BSTdirls if f.endswith('.dat')]
 

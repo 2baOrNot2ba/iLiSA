@@ -1,5 +1,6 @@
 """This package is for the parameters involved in observation modes.
 """
+import os
 import argparse
 import math
 import numpy
@@ -496,6 +497,81 @@ class FrequencyBand(object):
             except NameError:
                 raise ValueError("Need to specify bits.")
         return self.nrbeamletsbybits[bits]
+
+
+def parse_bstfolder(BSTfilepath):
+
+    return obsfileinfo
+
+def filefolder2obsfileinfo(filefolderpath):
+
+    filefolderpath = os.path.normpath(filefolderpath)
+    filefoldername = os.path.basename(filefolderpath)
+    obsfileinfo = {}
+    if len(filefoldername.split('_')) < 9:
+        filefoldername = 'None_' + filefoldername
+    try:
+        (stnid, Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, _bsxststr
+         ) = filefoldername.split('_')
+        obsfileinfo['station'] = stnid
+        obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
+                                                             '%Y%m%dT%H%M%S')
+        obsfileinfo['rcumode'] = rcustr[3:]
+        obsfileinfo['subbands'] = sbstr[2:]
+        obsfileinfo['integration'] = int(intstr[3:])
+        obsfileinfo['duration'] = int(durstr[3:])
+        obsfileinfo['pointing'] = dirstr[3:].split(',')
+    except:
+        raise ValueError("Filename not in bst_ext format.")
+    if len(obsfileinfo['rcumode']) > 1:
+        obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
+    if rcusbsep in obsfileinfo['subbands']:
+        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(
+            rcusbsep)
+
+    if type(obsfileinfo['rcumode']) is not list:
+        obsfileinfo['rcumode'] = [obsfileinfo['rcumode']]
+    if type(obsfileinfo['subbands']) is not list:
+        obsfileinfo['subbands'] = [obsfileinfo['subbands']]
+    obsfileinfo['frequencies'] = numpy.empty(0)
+    totnrsbs = 0
+    for spw, rcumode in enumerate(obsfileinfo['rcumode']):
+        sblist = seqarg2list(obsfileinfo['subbands'][spw])
+        nrsbs = len(sblist)
+        sblo = sblist[0]
+        sbhi = sblist[-1]
+        nz = rcumode2nyquistzone(rcumode)
+        freqlo = sb2freq(sblo, nz)
+        freqhi = sb2freq(sbhi, nz)
+        obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
+                                                  numpy.linspace(freqlo,
+                                                                 freqhi,
+                                                                 nrsbs))
+        totnrsbs += nrsbs
+
+    # When the beamlets allocated is less than the maximum (given by bit depth)
+    # the RSPs fill the remaining ones regardless. Hence we have to account for
+    # them:
+    if totnrsbs <= BASE_NR_BEAMLETS:
+        maxnrsbs = BASE_NR_BEAMLETS
+    elif totnrsbs <= BASE_NR_BEAMLETS * 2:
+        maxnrsbs = BASE_NR_BEAMLETS * 2
+    else:
+        maxnrsbs = BASE_NR_BEAMLETS * 4
+    missing_nr_sbs = maxnrsbs - totnrsbs
+    if missing_nr_sbs > 0:
+        nrsbs = missing_nr_sbs
+        sblo = sbhi + 1
+        sbhi = sblo + nrsbs - 1
+        freqlo = sb2freq(sblo, nz)
+        freqhi = sb2freq(sbhi, nz)
+        obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
+                                                  numpy.linspace(freqlo,
+                                                                 freqhi,
+                                                                 nrsbs))
+        totnrsbs += nrsbs
+    obsfileinfo['max_nr_sbs'] = maxnrsbs
+    return obsfileinfo
 
 
 def elementMap2str(elmap):
