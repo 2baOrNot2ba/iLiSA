@@ -13,7 +13,7 @@ import ilisa.observations.modeparms as modeparms
 def plotbst(bstff, pol_stokes=True):
     """Plot BST data."""
     BSTdata, obsfileinfo = dataIO.readbstfolder(bstff)
-    stnid = obsfileinfo['station']
+    stnid = obsfileinfo['station_id']
     starttime = obsfileinfo['datetime']
     intg = obsfileinfo['integration']
     dur = obsfileinfo['duration']
