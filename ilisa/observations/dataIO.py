@@ -131,16 +131,18 @@ def filefolder2obsfileinfo(filefolderpath):
     if len(filefoldername.split('_')) < 9:
         filefoldername = 'None_' + filefoldername
     try:
-        (stnid, Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, _bsxststr
+        (stnid, Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, ldat_type
          ) = filefoldername.split('_')
         obsfileinfo['station_id'] = stnid
+        obsfileinfo['filenametime'] = Ymd + '_' + HMS
         obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                              '%Y%m%dT%H%M%S')
         obsfileinfo['rcumode'] = rcustr[3:]
         obsfileinfo['subbands'] = sbstr[2:]
         obsfileinfo['integration'] = int(intstr[3:])
-        obsfileinfo['duration'] = int(durstr[3:])
+        obsfileinfo['duration_scan'] = int(durstr[3:])
         obsfileinfo['pointing'] = dirstr[3:].split(',')
+        obsfileinfo['ldat_type'] = ldat_type
     except:
         raise ValueError("Filename not in bst_ext format.")
     if len(obsfileinfo['rcumode']) > 1:
@@ -154,6 +156,7 @@ def filefolder2obsfileinfo(filefolderpath):
     if type(obsfileinfo['subbands']) is not list:
         obsfileinfo['subbands'] = [obsfileinfo['subbands']]
     obsfileinfo['frequencies'] = numpy.empty(0)
+    beamlets = []
     totnrsbs = 0
     for spw, rcumode in enumerate(obsfileinfo['rcumode']):
         sblist = modeparms.seqarg2list(obsfileinfo['subbands'][spw])
@@ -167,6 +170,9 @@ def filefolder2obsfileinfo(filefolderpath):
                                                   numpy.linspace(freqlo,
                                                                  freqhi,
                                                                  nrsbs))
+        bmltarg = modeparms.seqlists2slicestr(
+            ','.join([str(_b) for _b in range(nrsbs)]))
+        beamlets.append(bmltarg)
         totnrsbs += nrsbs
 
     # When the beamlets allocated is less than the maximum (given by bit depth)
@@ -174,10 +180,13 @@ def filefolder2obsfileinfo(filefolderpath):
     # them:
     if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
         maxnrsbs = modeparms.BASE_NR_BEAMLETS
+        bits = 16
     elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
         maxnrsbs = modeparms.BASE_NR_BEAMLETS * 2
+        bits = 8
     else:
         maxnrsbs = modeparms.BASE_NR_BEAMLETS * 4
+        bits = 4
     missing_nr_sbs = maxnrsbs - totnrsbs
     if missing_nr_sbs > 0:
         nrsbs = missing_nr_sbs
@@ -189,8 +198,28 @@ def filefolder2obsfileinfo(filefolderpath):
                                                   numpy.linspace(freqlo,
                                                                  freqhi,
                                                                  nrsbs))
-        totnrsbs += nrsbs
     obsfileinfo['max_nr_sbs'] = maxnrsbs
+
+    # Assemble _cmds
+    #    rcuctl_cmds
+    rcuctl_cmds = modeparms.rcusetup_args2cmds(bits, 0)
+    obsfileinfo['rcuctl_cmds'] =  rcuctl_cmds
+    #    beamctl_cmds
+    beamctl_cmds = []
+    for spw, rcumode in enumerate(obsfileinfo['rcumode']):
+        band = modeparms.rcumode2band(rcumode)
+        anadigdir = ','.join(obsfileinfo['pointing'])
+        beamctl_cmd = modeparms.beamctl_args2cmds(beamlets[spw], obsfileinfo['subbands'][spw],
+                                                  band, anadigdir)
+        beamctl_cmds.append(beamctl_cmd)
+    obsfileinfo['beamctl_cmds'] = beamctl_cmds
+    #     rspctl_cmds
+    rspctl_cmds = modeparms.rspctl_stats_args2cmds(obsfileinfo['ldat_type'],
+                                                   obsfileinfo['integration'],
+                                                   obsfileinfo['duration_scan'],
+                                                   obsfileinfo['subbands'])
+    obsfileinfo['rspctl_cmds'] = rspctl_cmds
+
     return obsfileinfo
 
 
@@ -399,21 +428,22 @@ class LDatInfo(object):
 
     """
 
-    def __init__(self, lofardatatype, filenametime, stnid, rcuctl_cmds,
-                 beamctl_cmds, rspctl_cmds, caltabinfos=[], septonconf=None):
+    def __init__(self, ldat_type, filenametime, station_id, rcuctl_cmds,
+                 beamctl_cmds, rspctl_cmds, caltabinfos=[], septonconf=None,
+                 **kwargs):
         """Create observation info from parameters."""
         self.headerversion = '4'
 
         # ldat_type attr
-        self.ldat_type = lofardatatype
+        self.ldat_type = ldat_type
 
         # filenametime attr
         self.filenametime = filenametime
 
-        # station attr
-        self.station_id = stnid
+        # station_id attr
+        self.station_id = station_id
 
-        # rcuctl_cmd attr
+        # rcuctl_cmds attr
         if rcuctl_cmds == []:
             rcuctl_cmds = ['rspctl']
         self.rcuctl_cmds = rcuctl_cmds
@@ -425,7 +455,7 @@ class LDatInfo(object):
         if 'bits' in rcuctl_cmds:
             self.bits = rcuctl_args['bits']
 
-        # beamctl_cmd related attr
+        # beamctl_cmds related attr
         self.rcumode = []
         self.sb = []
         self.bl = []
@@ -443,13 +473,13 @@ class LDatInfo(object):
                 self.bl.append(beamlets)
             self.pointing = digdir
 
-        # rspctl_args attr
+        # rspctl_cmds attr
         if rspctl_cmds == []:
             rspctl_cmds = ['rspctl']
         self.rspctl_cmds = rspctl_cmds
         rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmds)
         
-        # septon attr
+        # septonconf attr
         self.septonconf = septonconf
         if self.septonconf is not None:
             self.rcumode = ['5']
@@ -484,6 +514,7 @@ class LDatInfo(object):
             obsextname = self.filenametime
             obsextname += "_" + self.ldat_type
         else:
+            self.source_name =  source_name
             obsextname = obsfileinfo2filefolder(vars(self))
         return obsextname
 

@@ -16,7 +16,7 @@ def plotbst(bstff, pol_stokes=True):
     stnid = obsfileinfo['station_id']
     starttime = obsfileinfo['datetime']
     intg = obsfileinfo['integration']
-    dur = obsfileinfo['duration']
+    dur = obsfileinfo['duration_scan']
     freqs = obsfileinfo['frequencies']
     pointing = obsfileinfo['pointing']
 
