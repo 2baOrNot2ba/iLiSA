@@ -26,19 +26,30 @@ def plotbst(bstff, pol_stokes=True):
     data2plot_p_name, data2plot_p = BSTdata['X'].T, 'X-pol'
     data2plot_q_name, data2plot_q = BSTdata['Y'].T, 'Y-pol'
     if pol_stokes:
+        stokes_norm = True
         data2plot_p_name = 'Stokes I'
         data2plot_p = BSTdata['X'].T + BSTdata['Y'].T
         data2plot_q_name = 'Stokes Q'
         data2plot_q = BSTdata['X'].T - BSTdata['Y'].T
-    bstxplt = ax_p.pcolormesh(ts, freqs/1e6, data2plot_p,
+        if stokes_norm:
+            data2plot_q = data2plot_q / data2plot_p
+            data2plot_q_name = 'Stokes q'
+            bstplt_q = ax_q.pcolormesh(ts, freqs / 1e6, data2plot_q,
+                                       cmap='RdBu_r',
+                                       norm=colors.SymLogNorm(linthresh=1e-3))
+        else:
+            bstplt_q = ax_q.pcolormesh(ts, freqs / 1e6, data2plot_q,
+                                       cmap='RdBu_r',
+                                       norm=colors.SymLogNorm(linthresh=1e2))
+
+    bstplt_p = ax_p.pcolormesh(ts, freqs/1e6, data2plot_p,
                               norm=colors.LogNorm())
-    cbar_p = fig.colorbar(bstxplt, ax=ax_p)
+    cbar_p = fig.colorbar(bstplt_p, ax=ax_p)
     cbar_p.set_label('Flux [arb. units]')
     ax_p.set_ylabel('Frequency [MHz]')
     ax_p.set_title('{}'.format(data2plot_p_name))
-    bstyplt = ax_q.pcolormesh(ts, freqs/1e6, data2plot_q,
-                              norm=colors.LogNorm())
-    cbar_q = fig.colorbar(bstyplt, ax=ax_q)
+
+    cbar_q = fig.colorbar(bstplt_q, ax=ax_q)
     cbar_q.set_label('Flux [arb. units]')
     ax_q.set_title('{}'.format(data2plot_q_name))
     fig.autofmt_xdate()
