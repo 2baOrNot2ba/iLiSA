@@ -15,7 +15,6 @@ the corresponding datatype.
 """
 import os
 import shutil
-from collections import OrderedDict
 import numpy
 import re
 import datetime

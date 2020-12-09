@@ -5,7 +5,7 @@ import sys
 from lofarstation.stationdata import XSTData
 from casacore.measures import measures
 import ilisa.antennameta.calibrationtables as calibrationtables
-import ilisa.observations.dataIO as dataIO
+import ilisa.observations.data_io as dataIO
 
 XSTfilepath = sys.argv[1]
 stnid = "SE607"

@@ -19,7 +19,7 @@ import ilisa.observations.directions as directions
 from ilisa.observations.lcuinterface import LCUInterface
 from ilisa.observations.druinterface import DRUinterface
 import ilisa.observations.modeparms as modeparms
-import ilisa.observations.dataIO as dataIO
+import ilisa.observations.data_io as dataIO
 from ilisa.pipelines import bfbackend
 
 

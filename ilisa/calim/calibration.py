@@ -4,7 +4,7 @@ import numpy
 
 import ilisa.calim
 from ilisa.antennameta import calibrationtables as calibrationtables
-from ilisa.observations import dataIO as dataIO, modeparms as modeparms
+from ilisa.observations import data_io as dataIO, modeparms as modeparms
 
 
 def applycaltab_cvc(cvcunc, caltab, sb=None):

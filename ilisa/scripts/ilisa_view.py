@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.dates as mdates
 
-import ilisa.observations.dataIO as dataIO
+import ilisa.observations.data_io as dataIO
 import ilisa.observations.modeparms as modeparms
 
 

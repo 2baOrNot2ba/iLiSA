@@ -7,7 +7,7 @@ import inspect
 import ilisa.observations.directions
 import ilisa.observations.modeparms as modeparms
 import ilisa.pipelines.bfbackend as bfbackend
-import ilisa.observations.dataIO as dataIO
+import ilisa.observations.data_io as dataIO
 from ilisa.observations.stationdriver import waituntil
 
 
