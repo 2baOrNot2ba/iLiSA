@@ -111,9 +111,10 @@ class ObsPrograms(object):
 
         # Real beam start:
         print("Beam started @ UT {}".format(datetime.datetime.utcnow()))
-        rcu_setup_cmd = self.stationdriver._rcusetup(bits, attenuation)
-        beamctl_cmd = self.stationdriver._run_beamctl(beamlets, subbands, band,
+        rcu_setup_cmds = self.stationdriver._rcusetup(bits, attenuation)
+        beamctl_cmds = self.stationdriver._run_beamctl(beamlets, subbands, band,
                                                       dir_bmctl)
+        rspctl_cmds = []
         beamstart = datetime.datetime.utcnow()
         timeleft = rectime - beamstart
         if timeleft.total_seconds() < 0.:
@@ -121,8 +122,10 @@ class ObsPrograms(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
         bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
-        obsinfo = dataIO.LDatInfo('bfs', bfsnametime, beamctl_cmd,
-                                  rcu_setup_cmd, caltabinfos="")
+        obsinfo = dataIO.LDatInfo('bfs', bfsnametime,
+                                  self.stationdriver.get_stnid(),
+                                  rcu_setup_cmds, beamctl_cmds,
+                                  rspctl_cmds)
 
         REC = True
         if REC == True:
