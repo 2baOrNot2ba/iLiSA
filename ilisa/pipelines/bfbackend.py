@@ -5,7 +5,7 @@ import subprocess
 import multiprocessing
 import platform
 
-import ilisa.observations.modeparms
+import ilisa.monitorcontrol.modeparms
 import ilisa.pipelines
 import ilisa.pipelines.rec_bf_streams_py as rec_bf_streams_py
 
@@ -57,7 +57,7 @@ def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid,
     pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
     outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
     outfilepre = "udp_" + stnid
-    rcumode = ilisa.observations.modeparms.band2rcumode(band)
+    rcumode = ilisa.monitorcontrol.modeparms.band2rcumode(band)
     outarg = os.path.join(outdumpdir, outfilepre)
     dumplogname = os.path.join(outdumpdir,
                                '{}_lane{}_rcu{}.log'.format(dumpername, lane,

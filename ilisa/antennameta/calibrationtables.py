@@ -19,7 +19,7 @@ import argparse
 import warnings
 import matplotlib.pyplot as plt
 
-import ilisa.observations.modeparms
+import ilisa.monitorcontrol.modeparms
 
 __version__ = '0.2'
 CALTABDIRROOT = os.path.join(os.path.dirname(__file__), 'share/CalTables/')
@@ -156,11 +156,11 @@ def readcaltab(caltabfile):
                 observation[key] = val
             elif cat == 'Calibration':
                 calibration[key] = val
-    # Assume that max nr of subbands (ilisa.observations.modeparms.TotNrOfsb)
-    # is always 512, while nr of RCUs (ilisa.observations.modeparms.nrofrcus)
+    # Assume that max nr of subbands (ilisa.monitorcontrol.modeparms.TotNrOfsb)
+    # is always 512, while nr of RCUs (ilisa.monitorcontrol.modeparms.nrofrcus)
     # may differ:
     caltab = numpy.fromfile(fin, dtype='c16').reshape(
-        (ilisa.observations.modeparms.TotNrOfsb, -1))
+        (ilisa.monitorcontrol.modeparms.TotNrOfsb, -1))
     # nrrcus = caltab.shape[1]
     fin.close()
     header = {'Observation': observation,
@@ -191,12 +191,12 @@ def initcaltab(stnid, rcumode):
     # Default filename
     ctfname = _default_caltab_filename(stnid, rcumode)
     # Init caltab
-    nrrcus = ilisa.observations.modeparms.nrofrcus
-    nrsbs = ilisa.observations.modeparms.TotNrOfsb
+    nrrcus = ilisa.monitorcontrol.modeparms.nrofrcus
+    nrsbs = ilisa.monitorcontrol.modeparms.TotNrOfsb
     caltab = numpy.ones((nrrcus, nrsbs), dtype='c16')
     # Init header
-    band = ilisa.observations.modeparms.rcumode2band(rcumode)
-    antset = ilisa.observations.modeparms.band2antset(band)
+    band = ilisa.monitorcontrol.modeparms.rcumode2band(rcumode)
+    antset = ilisa.monitorcontrol.modeparms.band2antset(band)
     header_observation = {'Station': stnid, 'Mode': rcumode,
                           'AntennaSet': antset, 'Band': band, 'Source': '',
                           'Date': ''}

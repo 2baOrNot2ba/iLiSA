@@ -4,11 +4,11 @@ import time
 import datetime
 import inspect
 
-import ilisa.observations.directions
-import ilisa.observations.modeparms as modeparms
+import ilisa.monitorcontrol.directions
+import ilisa.monitorcontrol.modeparms as modeparms
 import ilisa.pipelines.bfbackend as bfbackend
-import ilisa.observations.data_io as dataIO
-from ilisa.observations.stationdriver import waituntil
+import ilisa.monitorcontrol.data_io as dataIO
+from ilisa.monitorcontrol.stationdriver import waituntil
 
 
 class ObsPrograms(object):
@@ -96,7 +96,7 @@ class ObsPrograms(object):
         self.stationdriver.halt_observingstate_when_finished = False
         self.stationdriver.exit_check = False
 
-        dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
+        dir_bmctl = ilisa.monitorcontrol.directions.normalizebeamctldir(pointing)
 
         # BEGIN Dummy or hot beam start: (takes about 14sec)
         print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))

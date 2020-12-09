@@ -159,7 +159,7 @@ class FrequencyBand(object):
 
     Examples:
         Set using RCU band name:
-    >>> from ilisa.observations.modeparms import FrequencyBand
+    >>> from ilisa.monitorcontrol.modeparms import FrequencyBand
     >>> fbb=FrequencyBand('10_90')
     >>> fbb.__dict__
     {'antsets': ['LBA_INNER'],
@@ -547,7 +547,7 @@ def seqlists2slicestr(seqlists):
 
     Examples
     --------
-    >>> import ilisa.observations.modeparms as mp
+    >>> import ilisa.monitorcontrol.modeparms as mp
     Simple string with comma separated numbers:
     >>> mp.seqlists2slicestr('2,3,4,5,6')
     '2:6'

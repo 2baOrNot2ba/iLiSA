@@ -11,10 +11,10 @@ try:
 except ImportError:
     IMPORTED_PARAMIKO = False
 
-import ilisa.observations
-from ilisa.observations.modeparms import parse_lofar_conf_files
+import ilisa.monitorcontrol
+from ilisa.monitorcontrol.modeparms import parse_lofar_conf_files
 # LOFAR constants
-from ilisa.observations.modeparms import rcumode2band, beamctl_args2cmds,\
+from ilisa.monitorcontrol.modeparms import rcumode2band, beamctl_args2cmds,\
     rcusetup_args2cmds, rspctl_stats_args2cmds
 
 
@@ -65,7 +65,7 @@ class LCUInterface(object):
 
     def __init__(self, lcuaccessconf=None):
         if lcuaccessconf is None:
-            accessconf = ilisa.observations.default_access_lclstn_conf()
+            accessconf = ilisa.monitorcontrol.default_access_lclstn_conf()
             lcuaccessconf = accessconf['LCU']
 
         # Initialize with user-station configuration:
@@ -355,7 +355,7 @@ class LCUInterface(object):
 
     def set_swlevel(self, swleveltarget=3, fullreboot=False):
         """Set station's software level. swleveltarget=3 is the swlevel for which
-        most observations take place."""
+        most monitorcontrol take place."""
         swlevel_changed = False
         if not self.DryRun:
             if not fullreboot:
@@ -459,7 +459,7 @@ class LCUInterface(object):
         dryrun = self.DryRun
         self.DryRun = False
         nrtimsamps = int(duration/integration)
-        import ilisa.observations.modeparms as modeparms
+        import ilisa.monitorcontrol.modeparms as modeparms
         import datetime
         dd_cmdbase = 'dd if=/dev/zero'
         now = datetime.datetime.utcnow()

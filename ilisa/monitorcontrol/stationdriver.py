@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Package that provides functions for setting up and running observations
+"""Package that provides functions for setting up and running monitorcontrol
 via one LCUinterface instance and one DRUinterface instance.
 This package knows about the data archive and
 should not run anything directly on LCU."""
@@ -14,22 +14,22 @@ import warnings
 from pathlib import Path
 import multiprocessing
 
-import ilisa.observations
-import ilisa.observations.directions as directions
-from ilisa.observations.lcuinterface import LCUInterface
-from ilisa.observations.druinterface import DRUinterface
-import ilisa.observations.modeparms as modeparms
-import ilisa.observations.data_io as dataIO
+import ilisa.monitorcontrol
+import ilisa.monitorcontrol.directions as directions
+from ilisa.monitorcontrol.lcuinterface import LCUInterface
+from ilisa.monitorcontrol.druinterface import DRUinterface
+import ilisa.monitorcontrol.modeparms as modeparms
+import ilisa.monitorcontrol.data_io as dataIO
 from ilisa.pipelines import bfbackend
 
 
 class StationDriver(object):
     """StationDriver is a client type class that allows one to observe with LCU
-    and record data and metadata from these observations on a DRU."""
+    and record data and metadata from these monitorcontrol on a DRU."""
 
     def checkobservingallowed(self):
         """
-        Check whether observations are allowed.
+        Check whether monitorcontrol are allowed.
 
         Observing is not allowed if someone else is using the station,
         or if station is not in local mode, or if a beamctl is running.
@@ -235,7 +235,7 @@ class StationDriver(object):
         This is analogous to the rcu_disable_list() method of LCUinterface,
         but is defined by user on DRU.
         """
-        path2disableddir = ilisa.observations.user_conf_dir
+        path2disableddir = ilisa.monitorcontrol.user_conf_dir
         filename = os.path.join(path2disableddir, self._lcu_interface.stnid,
                                 "DISABLED",
                                 "disabled-mode{}.txt".format(rcumode))

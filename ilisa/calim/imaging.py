@@ -14,8 +14,8 @@ from scipy.constants import speed_of_light
 import casacore.measures
 import casacore.quanta.quantity
 import ilisa.antennameta.antennafieldlib as antennafieldlib
-from ilisa.observations import data_io as dataIO
-from ilisa.observations.directions import _req_calsrc_proc, pointing_tuple2str,\
+from ilisa.monitorcontrol import data_io as dataIO
+from ilisa.monitorcontrol.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
 
 try:

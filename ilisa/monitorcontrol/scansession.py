@@ -3,11 +3,11 @@ import datetime
 
 import yaml
 import ilisa
-import ilisa.observations
-import ilisa.observations.directions
-import ilisa.observations.modeparms as modeparms
-import ilisa.observations.programs as programs
-from ilisa.observations.stationdriver import waituntil
+import ilisa.monitorcontrol
+import ilisa.monitorcontrol.directions
+import ilisa.monitorcontrol.modeparms as modeparms
+import ilisa.monitorcontrol.programs as programs
+from ilisa.monitorcontrol.stationdriver import waituntil
 
 
 def projid2meta(projectid):
@@ -15,7 +15,7 @@ def projid2meta(projectid):
     # Setup projectmeta:
     if projectid is not None:
         projectfile =  "project_"+projectid+".yml"
-        projectfile = os.path.join(ilisa.observations.user_conf_dir, projectfile)
+        projectfile = os.path.join(ilisa.monitorcontrol.user_conf_dir, projectfile)
         with open(projectfile) as projectfilep:
             projectprofile = yaml.safe_load(projectfilep)
         projectmeta = projectprofile['project']
@@ -216,7 +216,7 @@ class ScanSession(object):
 
     def run_scansess(self, sesscans_in, session_id=None):
         """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
-        stationdrivers to setup corresponding observations."""
+        stationdrivers to setup corresponding monitorcontrol."""
         sesscans = self.process_scansess(sesscans_in, session_id)
         self.projectmeta, _ = projid2meta(sesscans['projectid'])
         self.set_stn_session_id(sesscans['session_id'])

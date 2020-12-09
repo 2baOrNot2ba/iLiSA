@@ -1,6 +1,6 @@
 import os
 import plumbum
-import ilisa.observations.modeparms
+import ilisa.monitorcontrol.modeparms
 
 # Name of binary executable on DRU to run when capturing
 # UDP packets with LOFAR beamformed voltages data.
@@ -72,7 +72,7 @@ class DRUinterface:
         pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
         outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
         outfilepre = "udp_" + stnid
-        rcumode = ilisa.observations.modeparms.band2rcumode(band)
+        rcumode = ilisa.monitorcontrol.modeparms.band2rcumode(band)
         outarg = os.path.join(outdumpdir, outfilepre)
         dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane, rcumode)
         local_hostname = self.dru['hostname']()

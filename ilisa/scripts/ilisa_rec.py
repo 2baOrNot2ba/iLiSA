@@ -5,10 +5,10 @@
 import sys
 import os
 import argparse
-import ilisa.observations
-import ilisa.observations.directions
-from ilisa.observations.stationdriver import StationDriver
-import ilisa.observations.modeparms as modeparms
+import ilisa.monitorcontrol
+import ilisa.monitorcontrol.directions
+from ilisa.monitorcontrol.stationdriver import StationDriver
+import ilisa.monitorcontrol.modeparms as modeparms
 
 
 def main():
@@ -35,7 +35,7 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
                         help='Direction in az,el,ref (radians) or source name.')
     args = parser.parse_args()
 
-    accessconf = ilisa.observations.default_access_lclstn_conf()
+    accessconf = ilisa.monitorcontrol.default_access_lclstn_conf()
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],  mockrun=False)
     halt_observingstate_when_finished = False
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
@@ -44,7 +44,7 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
         pointing = args.pointing
     except AttributeError:
         pointing = None
-    dir_bmctl = ilisa.observations.directions.normalizebeamctldir(pointing)
+    dir_bmctl = ilisa.monitorcontrol.directions.normalizebeamctldir(pointing)
     if not dir_bmctl:
         raise ValueError("Invalid pointing syntax: {}".format(args.pointing))
     duration_tot = eval(str(args.duration_tot))
@@ -84,7 +84,7 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
                 integration=args.integration, allsky=args.allsky,
                 duration_frq=None)
         else:
-            dir_bmctl = ilisa.observations.directions.normalizebeamctldir(
+            dir_bmctl = ilisa.monitorcontrol.directions.normalizebeamctldir(
                 pointing)
             stndrv.streambeams(freqbndobj, dir_bmctl)
             ldatinfo = stndrv.start_scanrec(args.datatype, args.integration,

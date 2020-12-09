@@ -6,8 +6,8 @@ import datetime
 import argparse
 import yaml
 import ilisa
-import ilisa.observations.stationdriver as stationdriver
-from ilisa.observations.scansession import ScanSession, projid2meta
+import ilisa.monitorcontrol.stationdriver as stationdriver
+from ilisa.monitorcontrol.scansession import ScanSession, projid2meta
 
 LOGFILE = "ilisa_cmds.log"
 
@@ -116,7 +116,7 @@ def exec_cmdline(args):
     except:
         raise RuntimeError("Station {} not found for project {}".format(args.station,
                                                                         args.project))
-    userilisadir = ilisa.observations.user_conf_dir
+    userilisadir = ilisa.monitorcontrol.user_conf_dir
     acf_path = os.path.join(userilisadir, acf_name)
     with open(acf_path) as acffp:
         ac = yaml.safe_load(acffp)

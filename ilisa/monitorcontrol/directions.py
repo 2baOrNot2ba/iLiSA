@@ -4,7 +4,7 @@ import numpy
 import re
 import yaml
 
-import ilisa.observations
+import ilisa.monitorcontrol
 
 
 def pointingGrid(NrAzDirs=8, NrElDirs=7):
@@ -74,7 +74,7 @@ def pointing_tuple2str(dirtuple):
     
     Examples
     --------
-    >>> from ilisa.observations.directions import pointing_tuple2str,
+    >>> from ilisa.monitorcontrol.directions import pointing_tuple2str,
     ...                                           pointing_str2tuple
     >>> pointing_tuple2str((1.0,2.0,'AZELGEO'))
     '1.0,2.0,AZELGEO'
@@ -204,7 +204,7 @@ def lookupsource(src_name):
 
     """
     src_database = {}
-    user_srcs_dir = os.path.join(ilisa.observations.user_data_dir,
+    user_srcs_dir = os.path.join(ilisa.monitorcontrol.user_data_dir,
                                  'source_catalogs')
     user_srcs_files = os.listdir(user_srcs_dir)
 

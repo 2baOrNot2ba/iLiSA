@@ -22,8 +22,8 @@ import h5py
 import yaml
 import warnings
 import ilisa
-import ilisa.observations.directions
-import ilisa.observations.modeparms as modeparms
+import ilisa.monitorcontrol.directions
+import ilisa.monitorcontrol.modeparms as modeparms
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 try:
     import dreambeam
@@ -870,7 +870,7 @@ class CVCfiles(object):
             obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
             obsfolderinfo['source'] = obsdirinfo['calsrc']
             obsfolderinfo['pointing'] = \
-                ilisa.observations.directions.std_pointings(
+                ilisa.monitorcontrol.directions.std_pointings(
                     obsfolderinfo['source'])
         else:
             raise ValueError("Folder not expected xst or acc format.")
@@ -1159,7 +1159,7 @@ def saveacc2bst(bst_pols, filestarttimes, calrunstarttime,
     acc2bstbase = "{}_{}_rcu{}_{}_dur{}_ct{}_v{}_{}".format(
         stnid, calrunstarttime.strftime("%Y%m%dT%H%M%S"), rcumode, calsrc,
         calrundurationstr, caltab_id, version, dtlabel)
-    pntstr = ilisa.observations.directions.normalizebeamctldir(calsrc)
+    pntstr = ilisa.monitorcontrol.directions.normalizebeamctldir(calsrc)
     # Write out the data.
     if saveformat == 'hdf5':
         hf = h5py.File(acc2bstbase + ".hdf5", "w")
