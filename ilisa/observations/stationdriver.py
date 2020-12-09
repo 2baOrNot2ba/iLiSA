@@ -128,7 +128,13 @@ class StationDriver(object):
             self._lcu_interface.cleanup()
 
     def __del__(self):
-        """May shutdown observation mode on station."""
+        """
+        Delete this object
+
+        May shutdown observation mode on station.
+        """
+        # Stop any hanging beams running (can happen if an Exception occurs)
+        self.stop_beam()
         if self.halt_observingstate_when_finished:
             self.halt_observingstate()
         elif self.exit_check:
