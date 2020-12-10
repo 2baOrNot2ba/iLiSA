@@ -29,7 +29,7 @@ def plotbst(bstff, pol_stokes=True):
         stokes_norm = True
         data2plot_p_name = 'Stokes I'
         data2plot_p = BSTdata['X'].T + BSTdata['Y'].T
-        data2plot_q_name = 'Stokes Q'
+        data2plot_q_name = '(antenna) Stokes Q'
         data2plot_q = BSTdata['X'].T - BSTdata['Y'].T
         if stokes_norm:
             data2plot_q = data2plot_q / data2plot_p
