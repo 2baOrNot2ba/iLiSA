@@ -126,24 +126,36 @@ def filefolder2obsfileinfo(filefolderpath):
     """Parse filefolder name and return an obsfileinfo"""
     filefolderpath = os.path.normpath(filefolderpath)
     filefoldername = os.path.basename(filefolderpath)
+    # Format:
+    # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_bst
+    # stnid?_Ymd_HMS_rcustr_intstr_durstr_sst
+    # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_xst
+    filefoldersplit = filefoldername.split('_')
+    ldat_type = filefoldersplit.pop()
+    if ldat_type != 'sst':
+        dirstr = filefoldersplit.pop()
+        sbstr = filefoldersplit.pop(-3)
+    else:
+        dirstr = ",,"
+        sbstr = 'sb0:511'
+    if len(filefoldersplit) == 6:
+        stnid = filefoldersplit.pop(0)
+    else:
+        stnid = None
+    (Ymd, HMS, rcustr, intstr, durstr) = filefoldersplit[:]
+
     obsfileinfo = {}
-    if len(filefoldername.split('_')) < 9:
-        filefoldername = 'None_' + filefoldername
-    try:
-        (stnid, Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, ldat_type
-         ) = filefoldername.split('_')
-        obsfileinfo['station_id'] = stnid
-        obsfileinfo['filenametime'] = Ymd + '_' + HMS
-        obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
-                                                             '%Y%m%dT%H%M%S')
-        obsfileinfo['rcumode'] = rcustr[3:]
-        obsfileinfo['subbands'] = sbstr[2:]
-        obsfileinfo['integration'] = int(intstr[3:])
-        obsfileinfo['duration_scan'] = int(durstr[3:])
-        obsfileinfo['pointing'] = dirstr[3:].split(',')
-        obsfileinfo['ldat_type'] = ldat_type
-    except:
-        raise ValueError("Filename not in bst_ext format.")
+    obsfileinfo['station_id'] = stnid
+    obsfileinfo['filenametime'] = Ymd + '_' + HMS
+    obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
+                                                         '%Y%m%dT%H%M%S')
+    obsfileinfo['rcumode'] = rcustr[3:]
+    obsfileinfo['subbands'] = sbstr[2:]
+    obsfileinfo['integration'] = int(intstr[3:])
+    obsfileinfo['duration_scan'] = int(durstr[3:])
+    obsfileinfo['pointing'] = dirstr[3:].split(',')
+    obsfileinfo['ldat_type'] = ldat_type
+
     if len(obsfileinfo['rcumode']) > 1:
         obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
     if modeparms.RCU_SB_SEP in obsfileinfo['subbands']:
@@ -173,31 +185,34 @@ def filefolder2obsfileinfo(filefolderpath):
             ','.join([str(_b) for _b in range(nrsbs)]))
         beamlets.append(bmltarg)
         totnrsbs += nrsbs
+    bits = 16
 
+    if ldat_type == 'bst':
     # When the beamlets allocated is less than the maximum (given by bit depth)
     # the RSPs fill the remaining ones regardless. Hence we have to account for
     # them:
-    if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
-        maxnrsbs = modeparms.BASE_NR_BEAMLETS
-        bits = 16
-    elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
-        maxnrsbs = modeparms.BASE_NR_BEAMLETS * 2
-        bits = 8
-    else:
-        maxnrsbs = modeparms.BASE_NR_BEAMLETS * 4
-        bits = 4
-    missing_nr_sbs = maxnrsbs - totnrsbs
-    if missing_nr_sbs > 0:
-        nrsbs = missing_nr_sbs
-        sblo = sbhi + 1
-        sbhi = sblo + nrsbs - 1
-        freqlo = modeparms.sb2freq(sblo, nz)
-        freqhi = modeparms.sb2freq(sbhi, nz)
-        obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
-                                                  numpy.linspace(freqlo,
-                                                                 freqhi,
-                                                                 nrsbs))
-    obsfileinfo['max_nr_sbs'] = maxnrsbs
+        if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
+            maxnrbls = modeparms.BASE_NR_BEAMLETS
+            bits = 16
+        elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
+            maxnrbls = modeparms.BASE_NR_BEAMLETS * 2
+            bits = 8
+        else:
+            maxnrbls = modeparms.BASE_NR_BEAMLETS * 4
+            bits = 4
+        missing_nr_sbs = maxnrbls - totnrsbs
+
+        if missing_nr_sbs > 0:
+            nrsbs = missing_nr_sbs
+            sblo = sbhi + 1
+            sbhi = sblo + nrsbs - 1
+            freqlo = modeparms.sb2freq(sblo, nz)
+            freqhi = modeparms.sb2freq(sbhi, nz)
+            obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
+                                                      numpy.linspace(freqlo,
+                                                                     freqhi,
+                                                                     nrsbs))
+        obsfileinfo['max_nr_bls'] = maxnrbls
 
     # Assemble _cmds
     #    rcuctl_cmds
@@ -637,10 +652,14 @@ class LDatInfo(object):
                 rcuctl_cmds = contents['rcuctl_cmds']
                 beamctl_cmds = contents['beamctl_cmds']
                 rspctl_cmds = contents['rspctl_cmds']
-                caltabinfos = contents['caltabinfos']
+                if 'caltabinfos' in contents:
+                    caltabinfos = contents['caltabinfos']
+                else:
+                    caltabinfos = []
                 if 'septonconf' in contents:
                     septonconf = contents['septonconf']
-
+                else:
+                    septonconf = None
         obsinfo = cls(datatype, filenametime, stnid, rcuctl_cmds, beamctl_cmds,
                       rspctl_cmds, caltabinfos=caltabinfos,
                       septonconf=septonconf)
@@ -651,7 +670,7 @@ class LDatInfo(object):
 def readbstfolder(BSTfilefolder):
     """Read a BST filefolder"""
     obsfileinfo = filefolder2obsfileinfo(BSTfilefolder)
-    maxnrsbs = obsfileinfo['max_nr_sbs']
+    maxnrsbs = obsfileinfo['max_nr_bls']
     BSTdirls = os.listdir(BSTfilefolder)
     BSTfiles = [f for f in BSTdirls if f.endswith('.dat')]
 
@@ -728,7 +747,8 @@ def readsstfolder(SSTfolder):
     SSTdatarcu : (192, 512, N)
         The SST data, where N is the number of time samples.
     """
-    obsfolderinfo = parse_sstfolder(SSTfolder)
+    obsfolderinfo = filefolder2obsfileinfo(SSTfolder)
+    #obsfolderinfo = parse_sstfolder(SSTfolder)
     files = os.listdir(SSTfolder)
     SSTfiles = [f for f in files if f.endswith('.dat')]
     SSTfiles.sort()

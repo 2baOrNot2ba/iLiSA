@@ -71,7 +71,9 @@ def plotsst(sstff, freqreq):
     scanrecinfo.read_scanrec(sstff)
     starttime = obsfolderinfo['datetime']
     SSTdata = numpy.array(SSTdata)
-    freqs = modeparms.rcumode2sbfreqs(obsfolderinfo['rcumode'])
+    print(SSTdata.shape)
+    #freqs = modeparms.rcumode2sbfreqs(obsfolderinfo['rcumode'])
+    freqs = obsfolderinfo['frequencies']
     sbreq = None
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
@@ -79,7 +81,7 @@ def plotsst(sstff, freqreq):
     else:
         show = 'mean'
     intg = obsfolderinfo['integration']
-    dur = obsfolderinfo['duration']
+    dur = obsfolderinfo['duration_scan']
     ts = [starttime + datetime.timedelta(seconds=td) for td in 
                                                 numpy.arange(0., dur, intg)]
     if show == 'mean':
