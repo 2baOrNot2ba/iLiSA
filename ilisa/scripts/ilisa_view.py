@@ -34,7 +34,7 @@ def plotbst(bstff, pol_stokes=True):
         data2plot_q_unit = 'Signed flux [arb. units]'
         if stokes_norm:
             data2plot_q = data2plot_q / data2plot_p
-            data2plot_q_name = 'Stokes q'
+            data2plot_q_name = '(antenna) Stokes q'
             data2plot_q_unit = 'Signed relative flux [%]'
             bstplt_q = ax_q.pcolormesh(ts, freqs / 1e6, data2plot_q,
                                        cmap='RdBu_r',
@@ -60,8 +60,8 @@ def plotbst(bstff, pol_stokes=True):
     ax_q.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
     ax_q.set_ylabel('Frequency [MHz]')
 
-    supertitle = ('{} BST Intg: {}s Dur: {}s'.format(stnid, intg, dur)
-                  + ' Pointing: {},{},{}'.format(*pointing))
+    supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur)
+                  + ' pointing: {},{},{}'.format(*pointing))
     plt.suptitle(supertitle)
     plt.show()
 
