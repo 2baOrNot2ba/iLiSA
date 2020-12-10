@@ -31,9 +31,11 @@ def plotbst(bstff, pol_stokes=True):
         data2plot_p = BSTdata['X'].T + BSTdata['Y'].T
         data2plot_q_name = '(antenna) Stokes Q'
         data2plot_q = BSTdata['X'].T - BSTdata['Y'].T
+        data2plot_q_unit = 'Signed flux [arb. units]'
         if stokes_norm:
             data2plot_q = data2plot_q / data2plot_p
             data2plot_q_name = 'Stokes q'
+            data2plot_q_unit = 'Signed relative flux [%]'
             bstplt_q = ax_q.pcolormesh(ts, freqs / 1e6, data2plot_q,
                                        cmap='RdBu_r',
                                        norm=colors.SymLogNorm(linthresh=1e-3))
@@ -50,7 +52,7 @@ def plotbst(bstff, pol_stokes=True):
     ax_p.set_title('{}'.format(data2plot_p_name))
 
     cbar_q = fig.colorbar(bstplt_q, ax=ax_q)
-    cbar_q.set_label('Flux [arb. units]')
+    cbar_q.set_label(data2plot_q_unit)
     ax_q.set_title('{}'.format(data2plot_q_name))
     fig.autofmt_xdate()
 
