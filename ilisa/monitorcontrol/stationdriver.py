@@ -293,7 +293,6 @@ class StationDriver(object):
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
             _antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
-            beamlets = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
             beamlets, bmlt_pntr, nrbmlts \
                 = modeparms.alloc_beamlets(subbands, bmlt_pntr)

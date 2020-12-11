@@ -682,12 +682,18 @@ def alloc_beamlets(subbands, bmlt_start=0):
     """
     beamlets = []
     bmlt_pntr = bmlt_start
+    singleton = False
+    if type(subbands) is not list:
+        singleton = True
+        subbands = [subbands]
     for spw_sb in subbands:
         nrsbs = len(seqarg2list(spw_sb))
         beamlets += \
             [f"{bmlt_pntr}{':'+str(bmlt_pntr+nrsbs-1) if nrsbs>1 else ''}"]
         bmlt_pntr += nrsbs
     nrbmlts = bmlt_pntr - bmlt_start
+    if singleton:
+        beamlets = beamlets.pop()
     return beamlets, bmlt_pntr, nrbmlts
 
 
