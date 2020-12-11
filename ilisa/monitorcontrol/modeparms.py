@@ -175,32 +175,27 @@ class FrequencyBand(object):
     >>> from ilisa.monitorcontrol.modeparms import FrequencyBand
     >>> fbb=FrequencyBand('10_90')
     >>> fbb.__dict__
-    {'arg': '10_90', 'rcumodes': [3], 'rcubands': ['10_90'], 'antsets': ['LBA_INNER'], 'sb_range': ['51:461'], 'bits': 8, 'beamlets': ['0:410'], 'rcusel': ['0:191']}
+    {'arg': '10_90', 'rcumodes': [3], 'sb_range': ['51:461'], 'beamlets': ['0:410'], 'bits': 8, 'rcubands': ['10_90'], 'antsets': ['LBA_INNER'], 'rcusel': ['0:191']}
 
     Set using single frequency, either string or float:
     >>> fb1=FrequencyBand('180e6')
     >>> fb1.__dict__
-    {'arg': '180e6', 'rcumodes': [5], 'rcubands': ['110_190'], 'antsets': ['HBA_JOINED'], 'sb_range': ['410'], 'bits': 16, 'beamlets': ['0'], 'rcusel': ['0:191']}
+    {'arg': '180e6', 'rcumodes': [5], 'sb_range': ['410'], 'beamlets': ['0'], 'bits': 16, 'rcubands': ['110_190'], 'antsets': ['HBA_JOINED'], 'rcusel': ['0:191']}
 
-    Set using a tuple given by (freqlo, freqhi):
-    >>> fbt2=FrequencyBand((40e6,120e6))
-    >>> fbt2.__dict__
-    {'arg': (40000000.0, 120000000.0), 'rcumodes': [4, 5], 'rcubands': ['30_90', '110_190'], 'antsets': ['LBA_INNER', 'HBA_JOINED'], 'sb_range': ['205:461', '51:102'], 'bits': 8, 'beamlets': ['0:256', '257:308'], 'rcusel': ['0:47,96:143', '48:95,144:191']}
-
-    Set using a tuple given by (freqlo, freqstep, freqhi):
-    >>> fbt3=FrequencyBand((150e6,5.0e6,220e6))
+    Set using a tuple given by (freqlo, freqhi, freqstep) (internal rep):
+    >>> fbt3=FrequencyBand((150e6,220e6,5.0e6))
     >>> fbt3.__dict__
-    {'arg': (150000000.0, 5000000.0, 220000000.0), 'rcumodes': [5, 7], 'rcubands': ['110_190', '210_250'], 'antsets': ['HBA_JOINED', 'HBA_JOINED'], 'sb_range': ['256,281,306,331,356,381,406,431,456', '51,76,101'], 'bits': 16, 'beamlets': ['0:8', '9:11'], 'rcusel': ['0:47,96:143', '48:95,144:191']}
+    {'arg': (150000000.0, 220000000.0, 5000000.0), 'rcumodes': [5, 7], 'sb_range': ['256,281,306,331,356,381,406,431,456', '51,76,101'], 'beamlets': ['0:8', '9:11'], 'bits': 16, 'rcubands': ['110_190', '210_250'], 'antsets': ['HBA_JOINED', 'HBA_JOINED'], 'rcusel': ['0:47,96:143', '48:95,144:191']}
 
     Set using slice style index string given by 'freqlo:freqhi':
     >>> fbs2=FrequencyBand('35e6:1e6:210e6')
     >>> fbs2.__dict__
-    {'arg': '35e6:1e6:210e6', 'rcumodes': [4, 5, 7], 'rcubands': ['30_90', '110_190', '210_250'], 'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'], 'sb_range': ['179,184,189,194,199,204,209,214,219,224,229,234,239,244,249,254,259,264,269,274,279,284,289,294,299,304,309,314,319,324,329,334,339,344,349,354,359,364,369,374,379,384,389,394,399,404,409,414,419,424,429,434,439,444,449,454,459', '51,56,61,66,71,76,81,86,91,96,101,106,111,116,121,126,131,136,141,146,151,156,161,166,171,176,181,186,191,196,201,206,211,216,221,226,231,236,241,246,251,256,261,266,271,276,281,286,291,296,301,306,311,316,321,326,331,336,341,346,351,356,361,366,371,376,381,386,391,396,401,406,411,416,421,426,431,436,441,446,451,456,461', '51'], 'bits': 16, 'beamlets': ['0:56', '57:139', '140:140'], 'rcusel': ['0:31,96:127', '32:63,128:159', '64:95,160:191']}
+    {'arg': '35e6:1e6:210e6', 'rcumodes': [4, 5, 7], 'sb_range': ['179,184,189,194,199,204,209,214,219,224,229,234,239,244,249,254,259,264,269,274,279,284,289,294,299,304,309,314,319,324,329,334,339,344,349,354,359,364,369,374,379,384,389,394,399,404,409,414,419,424,429,434,439,444,449,454,459', '51,56,61,66,71,76,81,86,91,96,101,106,111,116,121,126,131,136,141,146,151,156,161,166,171,176,181,186,191,196,201,206,211,216,221,226,231,236,241,246,251,256,261,266,271,276,281,286,291,296,301,306,311,316,321,326,331,336,341,346,351,356,361,366,371,376,381,386,391,396,401,406,411,416,421,426,431,436,441,446,451,456,461', '51'], 'beamlets': ['0:56', '57:139', '140'], 'bits': 16, 'rcubands': ['30_90', '110_190', '210_250'], 'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'], 'rcusel': ['0:31,96:127', '32:63,128:159', '64:95,160:191']}
 
     or using full slice style index string given by 'freqlo:freqstep:freqhi':
     >>> fbs3=FrequencyBand('80e6:10.0e6:220e6')
     >>> fbs3.__dict__
-    {'arg': '80e6:10.0e6:220e6', 'rcumodes': [4, 5, 7], 'rcubands': ['30_90', '110_190', '210_250'], 'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'], 'sb_range': ['410,461', '51,102,153,204,255,306,357,408,459', '51,102'], 'bits': 16, 'beamlets': ['0:1', '2:10', '11:12'], 'rcusel': ['0:31,96:127', '32:63,128:159', '64:95,160:191']}
+    {'arg': '80e6:10.0e6:220e6', 'rcumodes': [4, 5, 7], 'sb_range': ['410,461', '51,102,153,204,255,306,357,408,459', '51,102'], 'beamlets': ['0:1', '2:10', '11:12'], 'bits': 16, 'rcubands': ['30_90', '110_190', '210_250'], 'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'], 'rcusel': ['0:31,96:127', '32:63,128:159', '64:95,160:191']}
 
     """
     # rcumode mappings (rcumode 1,2 not considered here)
@@ -248,104 +243,99 @@ class FrequencyBand(object):
 
     def __init__(self, arg=None):
         self.arg = arg
-        if arg is not None:
-            if type(arg) is not tuple:
-                freqrange = self._freqbandarg2tuple(arg)
-            else:
-                freqrange = arg
-            self.rcumodes, self.rcubands, self.antsets, self.sb_range, \
-                self.bits, self.beamlets, self.rcusel \
-                = self.find_obsctlparams(freqrange)
+        if not arg: return
+        freqrange = self._freqbandarg2tuple(arg)
+        self.rcumodes, self.sb_range = self._subband_hint(*freqrange)
+        self.beamlets, _bmlt_pntr = self.beamlet_alloc_hints(self.sb_range)
+        self.bits = self.bits_hint(self.beamlets)
+        self.rcubands = []
+        self.antsets = []
+        for rcumode in self.rcumodes:
+            self.rcubands.append(self.rcumode_bandnames[rcumode])
+            self.antsets.append(self.rcumode_antsets[rcumode])
+        self.rcusel = self.subarr_rcusel[len(self.rcumodes)-1]
 
     def _freqbandarg2tuple(self, freqbandarg):
         """
         Convert freqbandarg to a tuple
 
-        The tuple is either (freqlo, freqstep, freqhi) or (freqlo, freqhi)
-        or (freqcntr,).
+        Returns
+        -------
+        tuple : (freqlo, freqhi, freqstep)
+            Where freqlo and freqhi are always floats. freqstep can be float or
+            None.
         """
-        if type(freqbandarg) is str:
+        freqlo, freqhi = 0.0, 0.0
+        freqstep = None
+        if type(freqbandarg) is tuple:
+            if len(freqbandarg) < 3:
+                (freqlo, freqhi) = freqbandarg
+                freqstep = None
+            else:
+            # Assume already in right format
+                (freqlo, freqhi, freqstep) = freqbandarg
+        else:
+            # Can be float so convert to str 
+            freqbandarg = str(freqbandarg)
             # Check if freqbandarg has rcuband format 'rcubandlo_rcubandhi'
             if '_' in freqbandarg:
-                band = None
-                freqlo, freqhi = 0.0, 0.0 
-                for rcumode in self.rcumode_bandnames.keys():
-                    if freqbandarg == self.rcumode_bandnames[rcumode]:
-                        band = freqbandarg
-                        freqlo, freqhi = self.rcumode_passbands[rcumode]
-                        break
-                if band is None:
-                    raise ValueError("Unknown rcu band name: {}."\
-                                     .format(freqbandarg))
-                return (freqlo, freqhi)
-            # Check if freqbandarg has format:
-            #   'freqlo:freqstep:freqhi'|'freqlo:freqhi'|'freqcntr'
-            try:
-                freqrange = eval('({},)'.format(freqbandarg.replace(':',',')))
-            except:
-                raise ValueError("Wrong frequency band slice format.")
-            return freqrange
-        elif type(freqbandarg) is float:
-            freqcntr = freqbandarg
-            return (freqcntr,)
-        else:
-            raise ValueError("Wrong frequency band format.")
+                for spw in self.rcumode_bandnames:
+                    bandname =self.rcumode_bandnames[spw]
+                    if freqbandarg == bandname:
+                        (freqlo, freqhi) = self.rcumode_passbands[spw]
+                        freqstep = None
+            else:
+                # Check if freqbandarg has format:
+                #   'freqlo:freqstep:freqhi'|'freqlo:freqhi'|'freqcntr'
+                freqbandlst = freqbandarg.split(':')
+                if len(freqbandlst) == 0 or len(freqbandlst) > 3:
+                    raise ValueError('Wrong number of freqband slice args')
+                if len(freqbandlst) == 3:
+                    (freqlo, freqstep, freqhi) = tuple(map(float, freqbandlst))
+                    return (freqlo, freqhi, freqstep)
+                # Must be only 1 or 2 args in freqbandtuple argument
+                # so complete the incomplete freqband tuple
+                freqlo = float(freqbandlst.pop(0))
+                freqhi = freqlo
+                if len(freqbandlst):
+                    freqhi = float(freqbandlst.pop())
+                freqstep = None
+                if len(freqbandlst):
+                    freqstep = float(freqbandlst.pop())
+        return (freqlo, freqhi, freqstep)
 
-    def find_obsctlparams(self, freqrange):
+    def _subband_hint(self, freqlo, freqhi, freqstep=None):
         """
-        Find and set observation ctrl parameters related to freqband
+        Calculate subbands that fulfill given freqrange
         """
-        nrfrqbndterms = len(freqrange)
-        freqlo, freqhi, freqcntr, freqstep = 0.0, 0.0, 0.0, 0.0
-        if nrfrqbndterms == 3:
-            freqlo, freqstep, freqhi = freqrange
-        elif nrfrqbndterms == 2:
-            freqlo, freqhi = freqrange
-        elif nrfrqbndterms == 1:
-            (freqcntr,) = freqrange
-            freqlo, freqhi = (freqcntr, freqcntr)
-
         # Determine which rcumodes would support desired freqband:
         rcumodes = self.supportrcumodes(freqlo, freqhi)
-        rcubands = []
-        antsets = []
+        
         if not rcumodes:
             # TODO Consider extending to sbs out of passband but still measured
             return None, None, None, None, None, None, None
         sampfreq, sampres = self.getsampinfo(rcumodes[0])
 
-        for rcumode in rcumodes:
-            rcubands.append(self.rcumode_bandnames[rcumode])
-            antsets.append(self.rcumode_antsets[rcumode])
-        if nrfrqbndterms == 1:
-            sb_lo = self.freq2sb(freqcntr, sampfreq)
-            sb_hi = sb_lo
+        sb_lo = self.freq2sb(freqlo, sampfreq)
+        sb_hi = self.freq2sb(freqhi, sampfreq)
+        sbstep = 1  # Default if freqstep None and freqlo != freqhi
+        if freqstep:
+            sbstep = self.freqstep2sbstep(freqstep, sampres)
+        elif freqlo == freqhi:
             sbstep = 0
-        else:
-            sb_lo = self.freq2sb(freqlo, sampfreq)
-            sb_hi = self.freq2sb(freqhi, sampfreq)
-            if nrfrqbndterms == 3:
-                sbstep = self.freqstep2sbstep(freqstep, sampres)
-            else:
-                sbstep = 1
 
         # Compute subband ranges
-        beamlets = []
         sb_range = []
         nrrcumodes = len(rcumodes)
         if sbstep == 0:
             sb_range = ["{}".format(sb_lo)]
-            beamlets = ['0']
         else:
             if nrrcumodes == 1:
                 if sbstep == 1:
                     sb_range = ["{}:{}".format(sb_lo, sb_hi)]
-                    nrsbs0 = sb_hi - sb_lo + 1
                 else:
                     sb_list = range(sb_lo, sb_hi + 1, sbstep)
                     sb_range = [','.join([str(el) for el in sb_list])]
-                    nrsbs0 =  len(sb_list)
-                beamlets = ["0:{}".format(nrsbs0-1)]
             elif nrrcumodes == 2:
                 sb_hi0 = self.freq2sb(self.rcumode_passbands[rcumodes[0]][1],
                                       sampfreq)
@@ -353,18 +343,12 @@ class FrequencyBand(object):
                                       sampfreq)
                 if sbstep == 1:
                     sb_range = ["{}:{}".format(sb_lo, sb_hi0)]
-                    nrsbs0 = sb_hi0 - sb_lo + 1
                     sb_range.append("{}:{}".format(sb_lo1, sb_hi))
-                    nrsbs1 = sb_hi - sb_lo1 + 1
                 else:
                     sb_list = range(sb_lo, sb_hi0 + 1, sbstep)
                     sb_range = [','.join([str(el) for el in sb_list])]
-                    nrsbs0 = len(sb_list)
                     sb_list = range(sb_lo1, sb_hi + 1, sbstep)
                     sb_range.append(','.join([str(el) for el in sb_list]))
-                    nrsbs1 = len(sb_list)
-                beamlets = ["0:{}".format(nrsbs0 - 1)]
-                beamlets.append("{}:{}".format(nrsbs0, nrsbs0 + nrsbs1 - 1))
             elif nrrcumodes == 3:
                 sb_hi0 = self.freq2sb(self.rcumode_passbands[rcumodes[0]][1],
                                       sampfreq)
@@ -376,25 +360,35 @@ class FrequencyBand(object):
                                       sampfreq)
                 if sbstep == 1:
                     sb_range = ["{}:{}".format(sb_lo, sb_hi0)]
-                    nrsbs0 = sb_hi0 - sb_lo + 1
                     sb_range.append("{}:{}".format(sb_lo1, sb_hi1))
-                    nrsbs1 = sb_hi1 - sb_lo1 + 1
                     sb_range.append("{}:{}".format(sb_lo2, sb_hi))
-                    nrsbs2 = sb_hi - sb_lo2 + 1
                 else:
                     sb_list = range(sb_lo, sb_hi0 + 1, sbstep)
                     sb_range = [','.join([str(el) for el in sb_list])]
-                    nrsbs0 = len(sb_list)
                     sb_list = range(sb_lo1, sb_hi1 + 1, sbstep)
                     sb_range.append(','.join([str(el) for el in sb_list]))
-                    nrsbs1 = len(sb_list)
                     sb_list = range(sb_lo2, sb_hi + 1, sbstep)
                     sb_range.append(','.join([str(el) for el in sb_list]))
-                    nrsbs2 = len(sb_list)
-                beamlets = ["0:{}".format(nrsbs0 - 1)]
-                beamlets.append("{}:{}".format(nrsbs0, nrsbs0 + nrsbs1 - 1))
-                beamlets.append("{}:{}".format(nrsbs0+nrsbs1,
-                                               nrsbs0+nrsbs1+nrsbs2-1))
+
+        return rcumodes, sb_range
+
+    def beamlet_alloc_hints(self, subbands, bmlt_start=0):
+        """Allocate subbands to beamlets sequentialy over all spws"""
+        beamlets = []
+        bmlt_pntr = bmlt_start
+        for spw_sb in subbands:
+            nrsbs = len(seqarg2list(spw_sb))
+            beamlets += [f"{bmlt_pntr}{':'+str(bmlt_pntr+nrsbs-1) if nrsbs>1 else ''}"]
+            #beamlets += ['{}:{}'.format(bmlt_pntr, bmlt_pntr+nrsbs-1)]
+            bmlt_pntr += nrsbs
+        #totnrbmlts = bmlt_pntr - bmlt_start
+        return beamlets, bmlt_pntr  #, totnrbmlts 
+
+    def bits_hint(self, beamlets):
+        """
+        Compute maximum number of bits that fulfills number of beamlets
+        """
+        # Compute total number of beamlets
         nrbeamlets = 0
         for rcumode_beamlet in beamlets:
             if ":" in rcumode_beamlet:
@@ -402,16 +396,12 @@ class FrequencyBand(object):
                 nrbeamlets += int(bl_hi) -int(bl_lo) + 1
             else:
                 nrbeamlets += len(rcumode_beamlet.split(','))
-        if nrbeamlets > self.nrbeamletsbybits[4]:
-            raise ValueError("Requires too many beamlets ({} > {})."
-                             .format(nrbeamlets, self.nrbeamletsbybits[4]))
+        # Compute maximum nr of bits that fulfills number of beamlets 
         bits = 16  # Default nr of bits
         for bits in self.nrbeamletsbybits.keys():
-            # Choose largest bit size that fulfills nrbeamlets
             if nrbeamlets <= self.nrbeamletsbybits[bits]:
                 break
-        rcusel = self.subarr_rcusel[nrrcumodes-1]
-        return rcumodes, rcubands, antsets, sb_range, bits, beamlets, rcusel
+        return bits
 
     def getsampinfo(self, rcumode):
         """
