@@ -288,11 +288,16 @@ class StationDriver(object):
         bits = freqbndobj.bits
         rcuctl_cmds = self._rcusetup(bits, attenuation)
         beamctl_cmds = []
+        bmlt_pntr = 0
+        totnrbmlts = 0
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
             _antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
             beamlets = freqbndobj.beamlets[bandbeamidx]
             subbands =  freqbndobj.sb_range[bandbeamidx]
+            beamlets, bmlt_pntr, nrbmlts \
+                = modeparms.alloc_beamlets(subbands, bmlt_pntr)
+            totnrbmlts += nrbmlts  # TODO Check total # beamlets allowed
             # Select RCUs
             rcus_allowed_set = set(modeparms.seqarg2list(
                 self.allowed_rcus(rcumode)))
