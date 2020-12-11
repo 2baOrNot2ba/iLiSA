@@ -688,8 +688,12 @@ def alloc_beamlets(subbands, bmlt_start=0):
         subbands = [subbands]
     for spw_sb in subbands:
         nrsbs = len(seqarg2list(spw_sb))
-        beamlets += \
-            [f"{bmlt_pntr}{':'+str(bmlt_pntr+nrsbs-1) if nrsbs>1 else ''}"]
+        # beamlets += \
+        #     [f"{bmlt_pntr}{':'+str(bmlt_pntr+nrsbs-1) if nrsbs>1 else ''}"]
+        bmltslice = str(bmlt_pntr)
+        if nrsbs > 1:
+            bmltslice += ':'+str(bmlt_pntr+nrsbs-1)
+        beamlets += [bmltslice]
         bmlt_pntr += nrsbs
     nrbmlts = bmlt_pntr - bmlt_start
     if singleton:
