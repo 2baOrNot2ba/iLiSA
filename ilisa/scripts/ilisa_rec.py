@@ -39,7 +39,7 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],  mockrun=False)
     halt_observingstate_when_finished = False
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
-    freqbndobj = modeparms.FrequencyBand(args.freqspec)
+    freqbndobj = modeparms.FreqSetup(args.freqspec)
     try:
         pointing = args.pointing
     except AttributeError:

@@ -41,7 +41,7 @@ class ObsPrograms(object):
             _antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
             beamlets = freqbndobj.beamlets[bandbeamidx]
-            subbands =  freqbndobj.sb_range[bandbeamidx]
+            subbands =  freqbndobj.subbands_spw[bandbeamidx]
             rcusel = freqbndobj.rcusel[bandbeamidx]
             beamctl_main = self.stationdriver._run_beamctl(beamlets, subbands,
                                                            rcumode, pointing,
@@ -159,7 +159,7 @@ def record_obsprog(stationdriver, scan):
     del scan_flat['beam']
     for k in scan['beam'].keys():
         scan_flat[k] = scan['beam'][k]
-    freqbndobj = modeparms.FrequencyBand(scan['beam']['freqspec'])
+    freqbndobj = modeparms.FreqSetup(scan['beam']['freqspec'])
     scan_flat['freqbndobj'] = freqbndobj
     prg = ObsPrograms(stationdriver)
     obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])

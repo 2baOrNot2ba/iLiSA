@@ -114,7 +114,7 @@ class StationDriver(object):
             # seems to crash.
             print("Running warmup beam... @ {}"\
                 .format(datetime.datetime.utcnow()))
-            self.streambeams(modeparms.FrequencyBand('10_90'),
+            self.streambeams(modeparms.FreqSetup('10_90'),
                              '0.,1.5707963,AZELGEO')
             self._lcu_interface.stop_beam()
             print("Finished warmup beam... @ {}"\
@@ -293,7 +293,7 @@ class StationDriver(object):
         for bandbeamidx in range(len(freqbndobj.rcumodes)):
             _antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
-            subbands =  freqbndobj.sb_range[bandbeamidx]
+            subbands =  freqbndobj.subbands_spw[bandbeamidx]
             beamlets, bmlt_pntr, nrbmlts \
                 = modeparms.alloc_beamlets(subbands, bmlt_pntr)
             totnrbmlts += nrbmlts  # TODO Check total # beamlets allowed
@@ -477,12 +477,12 @@ class StationDriver(object):
 
         # Start a beam
         pointing = directions.std_pointings('Z')
-        freqband = modeparms.FrequencyBand(band)
-        # FrequencyBand obtained from band spec sets 8 bit mode,
-        # so create a new FrequencyBand object with only center frequency
+        freqband = modeparms.FreqSetup(band)
+        # FreqSetup obtained from band spec sets 8 bit mode,
+        # so create a new FreqSetup object with only center frequency
         freqlo, freqhi = freqband.edgefreqs()
         freq0 = (freqlo+freqhi)/2.0
-        actualfb = modeparms.FrequencyBand(freq0)
+        actualfb = modeparms.FreqSetup(freq0)
         antset = actualfb.antsets[0]
         self.streambeams(actualfb, pointing)
 
@@ -534,7 +534,7 @@ class StationDriver(object):
 
         Parameters
         ----------
-        freqbndobj: FrequencyBand
+        freqbndobj: FreqSetup
             Frequency specification of scan.
         integration: float
             Integration time in seconds.
@@ -750,7 +750,7 @@ class StationDriver(object):
                 # Repeat rep times (freq sweep)
                 for _itr in range(rep):
                     # Start freq sweep
-                    for sb_rcumode in freqbndobj.sb_range:
+                    for sb_rcumode in freqbndobj.subbands_spw:
                         if ':' in sb_rcumode:
                             sblo, sbhi = sb_rcumode.split(':')
                             subbands = range(int(sblo), int(sbhi) + 1)

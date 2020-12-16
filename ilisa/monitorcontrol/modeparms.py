@@ -168,34 +168,34 @@ def parse_lofar_conf_files(filetext):
     return contentdict
 
 
-class FrequencyBand(object):
+class FreqSetup(object):
     """\
     Class that handles frequency bands and all things related to them.
 
     Examples:
         Set using RCU band name:
-    >>> from ilisa.monitorcontrol.modeparms import FrequencyBand
-    >>> fbb=FrequencyBand('10_90')
+    >>> from ilisa.monitorcontrol.modeparms import FreqSetup
+    >>> fbb=FreqSetup('10_90')
     >>> fbb.__dict__
     {'arg': '10_90', 'rcumodes': [3], 'sb_range': ['51:461'], 'bits': 8, 'rcubands': ['10_90'], 'antsets': ['LBA_INNER'], 'rcusel': ['0:191']}
 
     Set using single frequency, either string or float:
-    >>> fb1=FrequencyBand('180e6')
+    >>> fb1=FreqSetup('180e6')
     >>> fb1.__dict__
     {'arg': '180e6', 'rcumodes': [5], 'sb_range': ['410'], 'bits': 16, 'rcubands': ['110_190'], 'antsets': ['HBA_JOINED'], 'rcusel': ['0:191']}
 
     Set using a tuple given by (freqlo, freqhi, freqstep) (internal rep):
-    >>> fbt3=FrequencyBand((150e6,220e6,5.0e6))
+    >>> fbt3=FreqSetup((150e6,220e6,5.0e6))
     >>> fbt3.__dict__
     {'arg': (150000000.0, 220000000.0, 5000000.0), 'rcumodes': [5, 7], 'sb_range': ['256,281,306,331,356,381,406,431,456', '51,76,101'], 'bits': 16, 'rcubands': ['110_190', '210_250'], 'antsets': ['HBA_JOINED', 'HBA_JOINED'], 'rcusel': ['0:47,96:143', '48:95,144:191']}
 
     Set using slice style index string given by 'freqlo:freqhi':
-    >>> fbs2=FrequencyBand('35e6:1e6:210e6')
+    >>> fbs2=FreqSetup('35e6:1e6:210e6')
     >>> fbs2.__dict__
     {'arg': '35e6:1e6:210e6', 'rcumodes': [4, 5, 7], 'sb_range': ['179,184,189,194,199,204,209,214,219,224,229,234,239,244,249,254,259,264,269,274,279,284,289,294,299,304,309,314,319,324,329,334,339,344,349,354,359,364,369,374,379,384,389,394,399,404,409,414,419,424,429,434,439,444,449,454,459', '51,56,61,66,71,76,81,86,91,96,101,106,111,116,121,126,131,136,141,146,151,156,161,166,171,176,181,186,191,196,201,206,211,216,221,226,231,236,241,246,251,256,261,266,271,276,281,286,291,296,301,306,311,316,321,326,331,336,341,346,351,356,361,366,371,376,381,386,391,396,401,406,411,416,421,426,431,436,441,446,451,456,461', '51'], 'bits': 16, 'rcubands': ['30_90', '110_190', '210_250'], 'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'], 'rcusel': ['0:31,96:127', '32:63,128:159', '64:95,160:191']}
 
     or using full slice style index string given by 'freqlo:freqstep:freqhi':
-    >>> fbs3=FrequencyBand('80e6:10.0e6:220e6')
+    >>> fbs3=FreqSetup('80e6:10.0e6:220e6')
     >>> fbs3.__dict__
     {'arg': '80e6:10.0e6:220e6', 'rcumodes': [4, 5, 7], 'sb_range': ['410,461', '51,102,153,204,255,306,357,408,459', '51,102'], 'bits': 16, 'rcubands': ['30_90', '110_190', '210_250'], 'antsets': ['LBA_INNER', 'HBA_JOINED', 'HBA_JOINED'], 'rcusel': ['0:31,96:127', '32:63,128:159', '64:95,160:191']}
 
@@ -248,8 +248,8 @@ class FrequencyBand(object):
         else:
             # Normal arg spec
             freqbins = self._freqslice2freqbins(arg)
-        self.rcumodes, self.sb_range = self._subband_hint(*freqbins)
-        _beamlets, _bmltpntr, nrbeamlets = alloc_beamlets(self.sb_range)
+        self.rcumodes, self.subbands_spw = self._subband_hint(*freqbins)
+        _beamlets, _bmltpntr, nrbeamlets = alloc_beamlets(self.subbands_spw)
         self.bits = bits_support_nrbeamlets(nrbeamlets)
         self.rcubands = []
         self.antsets = []
@@ -418,26 +418,27 @@ class FrequencyBand(object):
         """
         Return a tuple of lowest and highest frequency in frequency band of spw
         """
-        sbs = seqarg2list(self.sb_range[spw])
+        sbs = seqarg2list(self.subbands_spw[spw])
         freqlo = self.rcumode_sb2freq(self.rcumodes[spw], sbs[0])
         freqhi = self.rcumode_sb2freq(self.rcumodes[spw], sbs[-1])
         return freqlo, freqhi
 
     def nrsubbands(self):
-        """Returns total number of subbands in this FrequencyBand object."""
+        """Returns total number of subbands in this FreqSetup object."""
         nrsbs = 0
-        for sbrange in self.sb_range:
+        for sbrange in self.subbands_spw:
             nrsbs += len(seqarg2list(sbrange))
         return nrsbs
 
     def getlanes(self):
         """Return a dict keyed on lanenr whose value is the beamlets allocated
         """
-        bmlts_per_lane = self.nrbeamletsbybits[self.bits]/self.nrlanes
+        bmlts_per_lane = NRBEAMLETSBYBITS[self.bits]/self.nrlanes
         lanesplitblmt = iter([(lanenr, (lanenr+1)*bmlts_per_lane-1)
                               for lanenr in range(self.nrlanes)])
         bmlts = []
-        for bmltarg in self.beamlets:
+        beamlets, _lstbmlt, _nrbmlts = alloc_beamlets(self.subbands_spw)
+        for bmltarg in beamlets:
             bmlts.extend(seqarg2list(bmltarg))
         lanealloc = {0:[]}
         (lanenr, bmlt_hi) = next(lanesplitblmt)
@@ -457,7 +458,7 @@ class FrequencyBand(object):
                 bits = self.bits
             except NameError:
                 raise ValueError("Need to specify bits.")
-        return self.nrbeamletsbybits[bits]
+        return NRBEAMLETSBYBITS[bits]
 
 
 def elementMap2str(elmap):
