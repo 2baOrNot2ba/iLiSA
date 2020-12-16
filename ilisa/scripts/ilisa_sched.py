@@ -57,7 +57,7 @@ def sched2at(schedfile):
         except KeyError:
             if not station:
                 raise RuntimeError('No station specified')
-        # Setup commands for ilisa_cmd.py
+        # Setup commands for ilisa_cmd
         schedline_cmd = schedline['cmd']
         try:
             scansesfile = schedline['session']
@@ -69,7 +69,7 @@ def sched2at(schedfile):
             cmd, arg = 'adm', schedline_cmd
         cmdline = 'ilisa_cmd -t {} -p {} -s {} {} {} {}'.format(schedline['start'],
                     proj, station, mockflag, cmd, arg)
-        # Send ilisa cmds to pipe
+        # Send ilisa_cmd to pipe
         cmdline_wlog = '{} > err.log\n'.format(cmdline)
         p.communicate(input=cmdline_wlog.encode())
 

@@ -34,11 +34,11 @@ setup(name='iLiSA',
       ],
       entry_points={
           'console_scripts': [
-              'ilisa_cmd = ilisa.scripts.ilisa_cmd:main',
-              'ilisa_rec = ilisa.scripts.ilisa_rec:main',
-              'ilisa_sched = ilisa.scripts.ilisa_sched:main',
-              'ilisa_view = ilisa.scripts.ilisa_view:main',
-              'ilisa_image = ilisa.calim.imaging:main_cli'
+              'ilisa_cmd = ilisa.monitorcontrol.scansession:main',
+              'ilisa_rec = ilisa.monitorcontrol.stationdriver:main',
+              'ilisa_view = ilisa.monitorcontrol.data_io:main',
+              'ilisa_image = ilisa.calim.imaging:main_cli',
+              'ilisa_sched = ilisa.scripts.ilisa_sched:main'
           ]
       }
       )
