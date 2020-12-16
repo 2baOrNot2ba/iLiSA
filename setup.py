@@ -37,6 +37,7 @@ setup(name='iLiSA',
               'ilisa_cmd = ilisa.monitorcontrol.scansession:main',
               'ilisa_rec = ilisa.monitorcontrol.stationdriver:main',
               'ilisa_view = ilisa.monitorcontrol.data_io:main',
+              'ilisa_applycal = ilisa.calim.calibration:main_cli',
               'ilisa_image = ilisa.calim.imaging:main_cli',
               'ilisa_sched = ilisa.scripts.ilisa_sched:main'
           ]

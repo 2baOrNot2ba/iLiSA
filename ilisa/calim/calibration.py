@@ -250,3 +250,23 @@ def gain_cal_bs_lin(vis_pol_src):
     g_yy = stefcal(vis_pol_src[1, 1, ...], vis_mod_yy)
     g_bs_lin = numpy.array([g_xx, g_yy])
     return g_bs_lin
+
+
+import argparse
+
+
+def main_cli():
+    """
+    Apply a calibration file to ACC or XST data folder.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument('cvcpath',
+                        help="""Path to CVC folder""")
+    parser.add_argument('caltabpath', help="""Path to caltab file""")
+    args = parser.parse_args()
+
+    applycal_cvcfolder(args.cvcpath, args.caltabpath)
+
+
+if __name__ == "__main__":
+    main_cli()
