@@ -242,7 +242,6 @@ class ScanSession(object):
         for scan in sesscans['scans']:
             freqbndobj = modeparms.FreqSetup(scan['beam']['freqspec'])
             if scan['obsprog'] is not None:
-                print("scan", scan)
                 _mockrun = False
                 if not _mockrun:
                     scanresult = programs.record_obsprog(self.stndrv, scan)

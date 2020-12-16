@@ -467,7 +467,7 @@ class LCUInterface(object):
         if statistics == 'bst':
             bits = self.get_bits()
             # Write mock bst files. (mock files contain just zeros)
-            nrbls = modeparms.FrequencyBand().get_maxbeamletsbybits(bits)
+            nrbls = modeparms.NRBEAMLETSBYBITS[bits]
             dd_bs = 8
             dd_count = nrbls * nrtimsamps
             dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)

@@ -103,7 +103,8 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
         stndrv.halt_observingstate_when_finished = False
         stndrv.exit_check = False
         rectime = args.starttime
-        lanes = freqbndobj.getlanes()
+        lanes = modeparms.getlanes(freqbndobj.subbands_spw, freqbndobj.bits,
+                                   freqbndobj.nrlanes)
         band = freqbndobj.rcubands[0]
         scanpath_bfdat = stndrv.bf_data_dir
         stnid = stndrv.get_stnid()

@@ -687,7 +687,9 @@ class StationDriver(object):
             scanresult['bfs'] = dataIO.ScanRecInfo()
             scanresult['bfs'].set_stnid(stnid)
             scanpath_bfdat = os.path.join(self.bf_data_dir, scan_id)
-            lanes = tuple(freqbndobj.getlanes().keys())
+            lanesalloc = modeparms.getlanes(freqbndobj.subbands_spw,
+                                            freqbndobj.bits, freqbndobj.nrlanes)
+            lanes = tuple(lanesalloc.keys())
             datafiles, logfiles = \
                 self.dru_interface.rec_bf_proxy(rectime, duration_tot, lanes,
                                                 band, scanpath_bfdat,

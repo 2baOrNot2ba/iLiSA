@@ -430,35 +430,26 @@ class FreqSetup(object):
             nrsbs += len(seqarg2list(sbrange))
         return nrsbs
 
-    def getlanes(self):
-        """Return a dict keyed on lanenr whose value is the beamlets allocated
-        """
-        bmlts_per_lane = NRBEAMLETSBYBITS[self.bits]/self.nrlanes
-        lanesplitblmt = iter([(lanenr, (lanenr+1)*bmlts_per_lane-1)
-                              for lanenr in range(self.nrlanes)])
-        bmlts = []
-        beamlets, _lstbmlt, _nrbmlts = alloc_beamlets(self.subbands_spw)
-        for bmltarg in beamlets:
-            bmlts.extend(seqarg2list(bmltarg))
-        lanealloc = {0:[]}
-        (lanenr, bmlt_hi) = next(lanesplitblmt)
-        for bmlt in bmlts:
-            if bmlt <= bmlt_hi:
-                lanealloc[lanenr].append(bmlt)
-            else:
-                lanealloc[lanenr+1] = []
-                lanealloc[lanenr+1].append(bmlt)
-                (lanenr, bmlt_hi) = next(lanesplitblmt)
-        return lanealloc
-
-    def get_maxbeamletsbybits(self, bits=None):
-        """Return the maximum number of beamlets depending on bit depth."""
-        if not bits:
-            try:
-                bits = self.bits
-            except NameError:
-                raise ValueError("Need to specify bits.")
-        return NRBEAMLETSBYBITS[bits]
+def getlanes(subbands_spw, bits, nrlanes):
+    """Return a dict keyed on lanenr whose value is the beamlets allocated
+    """
+    bmlts_per_lane = NRBEAMLETSBYBITS[bits]/nrlanes
+    lanesplitblmt = iter([(lanenr, (lanenr+1)*bmlts_per_lane-1)
+                          for lanenr in range(nrlanes)])
+    bmlts = []
+    beamlets, _lstbmlt, _nrbmlts = alloc_beamlets(subbands_spw)
+    for bmltarg in beamlets:
+        bmlts.extend(seqarg2list(bmltarg))
+    lanealloc = {0:[]}
+    (lanenr, bmlt_hi) = next(lanesplitblmt)
+    for bmlt in bmlts:
+        if bmlt <= bmlt_hi:
+            lanealloc[lanenr].append(bmlt)
+        else:
+            lanealloc[lanenr+1] = []
+            lanealloc[lanenr+1].append(bmlt)
+            (lanenr, bmlt_hi) = next(lanesplitblmt)
+    return lanealloc
 
 
 def elementMap2str(elmap):
