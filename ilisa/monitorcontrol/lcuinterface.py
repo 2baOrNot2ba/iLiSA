@@ -513,6 +513,8 @@ class LCUInterface(object):
                 dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
                 self.exec_lcu(dd_cmd)
                 filetime += datetime.timedelta(seconds=519)
+        # Wait duration seconds (disregard time code above takes)
+        time.sleep(duration)
         self.DryRun = dryrun
 
     def run_tbbctl(self, select=None, alloc=False, free=False, record=False,
