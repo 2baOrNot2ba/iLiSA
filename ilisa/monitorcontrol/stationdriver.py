@@ -225,10 +225,13 @@ class StationDriver(object):
         """Select a calibration table on LCU to use."""
         self._lcu_interface.selectCalTable(which)
 
-    def get_caltableinfo(self, rcumode):
+    def get_caltableinfos(self, rcumodes):
         """Get Calibration Table Info."""
-        caltabinfo = self._lcu_interface.getCalTableInfo(rcumode)
-        return caltabinfo
+        caltabinfos = []
+        for rcumode in rcumodes:
+            caltabinfo = self._lcu_interface.getCalTableInfo(rcumode)
+            caltabinfos.append(caltabinfo)
+        return caltabinfos
 
     def __load_user_rcu_disable_list(self, rcumode):
         """Load list of rcus that the user wants to disable.
@@ -324,26 +327,76 @@ class StationDriver(object):
                                                                subband)
         return rspctl_cmd
 
-    def start_scanrec(self, bsxtype, integration, duration, subband=0):
+    def start_scanrec(self, bsxtype, integration, duration, freqsetup):
         """\
         Start scan on LCU
         """
         rcusetup_cmds = self.rcusetup_cmds
         beamctl_cmds = self.beamctl_cmds
-        rspctl_cmd = self._lcu_interface.run_rspctl_statistics(bsxtype,
-                                                               integration,
-                                                               duration,
-                                                               subband)
-        obsdatetime_stamp = self.get_data_timestamp(-1)
-        ldatinfo = dataIO.LDatInfo(bsxtype, obsdatetime_stamp, rcusetup_cmds,
-                                   beamctl_cmds, rspctl_cmd, caltabinfos="",
-                                   septonconf="")
+        duration_tot = duration
+        todo_tof = False
+        if todo_tof:
+            septonconf = self.setup_tof()
+        else:
+            septonconf = None
+        caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
+
+        # Record statistic for duration_tot seconds
+        if bsxtype == 'bst' or bsxtype == 'sst':
+            rspctl_cmds = self.rec_bsx(bsxtype, integration,
+                                       duration_tot)
+            ldatinfo = \
+                dataIO.LDatInfo(bsxtype, self.get_stnid(),
+                                rcusetup_cmds, beamctl_cmds, rspctl_cmds,
+                                caltabinfos=caltabinfos, septonconf=septonconf)
+        elif bsxtype == 'xst':
+            nrsubbands = freqsetup.nrsubbands()
+            duration_frq = None  # FIXME set to desired value
+            if duration_frq is None:
+                if nrsubbands > 1:
+                    duration_frq = integration
+                else:
+                    duration_frq = duration_tot
+            # TODO Consider that specified duration is not the same as
+            # actual duration. Each step in frequency sweep take about 6s
+            # for 1s int.
+            (rep, _rst) = divmod(duration_tot, duration_frq * nrsubbands)
+            rep = int(rep)
+            if rep == 0:
+                warnings.warn(
+                    "Total duration too short for 1 full repetition."
+                    "Will increase total duration to get 1 full rep.")
+                duration_tot = duration_frq * nrsubbands
+                rep = 1
+            # Repeat rep times (freq sweep)
+            for _itr in range(rep):
+                # Start freq sweep
+                for sb_rcumode in freqsetup.subbands_spw:
+                    if ':' in sb_rcumode:
+                        sblo, sbhi = sb_rcumode.split(':')
+                        subbands = range(int(sblo), int(sbhi) + 1)
+                    else:
+                        subbands = [int(sb) for sb in sb_rcumode.split(',')]
+                    for subband in subbands:
+                        # Record data
+                        rspctl_cmds = self.rec_bsx(bsxtype, integration,
+                                                   duration_frq, subband)
+                        ldatinfo = \
+                            dataIO.LDatInfo('xst',
+                                            self.get_stnid(),
+                                            rcusetup_cmds, beamctl_cmds,
+                                            rspctl_cmds,
+                                            septonconf=septonconf)
+
         return ldatinfo
     
     def stop_scanrec(self, ldatinfo, freqbndobj):
         """\
         Stop scan on LCU
         """
+        # Get filenametime for the recently taken data
+        ldatinfo.filenametime = self.get_data_timestamp(-1)
+
         # Set scanrecinfo
         scanresult = {'rec': ['bsx']}
         scanresult['bsx'] = dataIO.ScanRecInfo()
@@ -658,11 +711,8 @@ class StationDriver(object):
         self.exit_check = False
 
         # Get metadata about caltables to be used
-        caltabinfos = []
         if not allsky:
-            for rcumode in freqbndobj.rcumodes:
-                caltabinfo = self.get_caltableinfo(rcumode)
-                caltabinfos.append(caltabinfo)
+            caltabinfos = self.get_caltableinfos(freqbndobj.rcumodes)
 
         # Beam
         rcuctl_cmds, beamctl_cmds = [], []
@@ -727,9 +777,10 @@ class StationDriver(object):
                                            duration_tot)
                 file_dt_name = self.get_data_timestamp(-1)
                 curr_obsinfo = \
-                    dataIO.LDatInfo(bsx_type, file_dt_name, self.get_stnid(),
+                    dataIO.LDatInfo(bsx_type, self.get_stnid(),
                                     rcuctl_cmds, beamctl_cmds, rspctl_cmds,
                                     caltabinfos)
+                curr_obsinfo.filenametime = file_dt_name
                 scanresult['bsx'].add_obs(curr_obsinfo)
             elif bsx_type == 'xst':
                 nrsubbands = freqbndobj.nrsubbands()
@@ -764,11 +815,12 @@ class StationDriver(object):
                                                        duration_frq, subband)
                             file_dt_name = self.get_data_timestamp(-1)
                             curr_obsinfo =\
-                                dataIO.LDatInfo('xst', file_dt_name,
+                                dataIO.LDatInfo('xst',
                                                 self.get_stnid(),
                                                 rcuctl_cmds, beamctl_cmds,
                                                 rspctl_cmds,
                                                 septonconf=septonconf)
+                            curr_obsinfo.filenametime = file_dt_name
                             scanresult['bsx'].add_obs(curr_obsinfo)
             else:
                 raise Exception('LOFAR statistic ldat_type "{}" unknown.\
@@ -916,8 +968,6 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     return starttime
 
 
-
-
 def rec(ldat_type, freqspec, duration_tot, pointing, integration, starttime,
         allsky, mockrun):
     """Record a scan of LOFAR station data"""
@@ -975,7 +1025,7 @@ def rec(ldat_type, freqspec, duration_tot, pointing, integration, starttime,
                 pointing)
             stndrv.streambeams(freqbndobj, dir_bmctl)
             ldatinfo = stndrv.start_scanrec(ldat_type, integration,
-                                            duration_tot)
+                                            duration_tot, freqbndobj)
             scanresult = stndrv.stop_scanrec(ldatinfo, freqbndobj)
         for res in scanresult['rec']:
             print("Saved {} scanrec here: {}".format(
@@ -1012,7 +1062,7 @@ def main():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mockrun', help="Run mock rec",
-                        action='store_false')
+                        action='store_true')
     parser.add_argument(
         '-a', '--allsky', help="Set allsky FoV", action='store_true')
     parser.add_argument('-s', '--starttime',
