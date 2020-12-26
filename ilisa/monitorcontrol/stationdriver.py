@@ -343,8 +343,8 @@ class StationDriver(object):
 
         # Record statistic for duration_tot seconds
         if bsxtype == 'bst' or bsxtype == 'sst':
-            rspctl_cmds = self.rec_bsx(bsxtype, integration,
-                                       duration_tot)
+            rspctl_cmds = self._lcu_interface.run_rspctl_statistics(
+                bsxtype, integration, duration_tot)
             ldatinfo = \
                 dataIO.LDatInfo(bsxtype, self.get_stnid(),
                                 rcusetup_cmds, beamctl_cmds, rspctl_cmds,
@@ -379,8 +379,9 @@ class StationDriver(object):
                         subbands = [int(sb) for sb in sb_rcumode.split(',')]
                     for subband in subbands:
                         # Record data
-                        rspctl_cmds = self.rec_bsx(bsxtype, integration,
-                                                   duration_frq, subband)
+                        rspctl_cmds = \
+                            self._lcu_interface.run_rspctl_statistics(
+                                bsxtype, integration, duration_frq, subband)
                         ldatinfo = \
                             dataIO.LDatInfo('xst',
                                             self.get_stnid(),
@@ -968,15 +969,15 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     return starttime
 
 
-def rec(ldat_type, freqspec, duration_tot, pointing, integration, starttime,
-        allsky, mockrun):
+def rec(rec_type, freqspec, duration_tot, pointing, integration, starttime,
+        allsky=False, acc=False, bfs=False, mockrun=False):
     """Record a scan of LOFAR station data"""
     accessconf = ilisa.monitorcontrol.default_access_lclstn_conf()
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=mockrun)
     halt_observingstate_when_finished = False
     stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
-    freqbndobj = modeparms.FreqSetup(freqspec)
+    freqsetup = modeparms.FreqSetup(freqspec)
     try:
         pointing = pointing
     except AttributeError:
@@ -986,47 +987,52 @@ def rec(ldat_type, freqspec, duration_tot, pointing, integration, starttime,
         raise ValueError("Invalid pointing syntax: {}".format(pointing))
     duration_tot = eval(str(duration_tot))
 
-    do_acc = False
-    rec_bfs = False
     bsx_type = None
     sesspath = accessconf['DRU']['LOFARdataArchive']
-    if ldat_type == 'None':
-        # ldat_type None means running a beam with no recording
-        ldat_type = None
-    elif ldat_type == 'acc':
-        do_acc = True
-        sesspath = os.path.join(sesspath, 'acc')
-    elif ldat_type == 'bfs':
-        rec_bfs = True
-        sesspath = os.path.join(sesspath, 'bfs')
-    elif (ldat_type == 'bst' or ldat_type == 'sst'
-          or ldat_type == 'xst'):
-        bsx_type = ldat_type
+    if rec_type == 'None':
+        # rec_type None means running a beam with no recording
+        bsx_type = None
+
+    if (rec_type == 'bst' or rec_type == 'sst'
+          or rec_type == 'xst'):
+        bsx_type = rec_type
         sesspath = os.path.join(sesspath, bsx_type)
-    elif ldat_type == 'tbb' or ldat_type == 'dmp':
+    elif rec_type == 'tbb' or rec_type == 'dmp':
         # 'dmp' is for just recording without setting setting up a beam.
         pass
     else:
-        raise RuntimeError('Unknown ldat_type {}'.format(ldat_type))
+        raise RuntimeError('Unknown rec_type {}'.format(rec_type))
 
-    if ldat_type != 'tbb' and ldat_type != 'dmp':
+    ldat_list = [bsx_type]
+    if acc:
+        ldat_list.append('acc')
+        sesspath = os.path.join(sesspath, 'acc')
+    if bfs:
+        ldat_list.append('bfs')
+        sesspath = os.path.join(sesspath, 'bfs')
+
+    if rec_type != 'tbb' and rec_type != 'dmp':
         bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
         stndrv.scanpath = sesspath
         use_programs = True
         if use_programs:
             # TODO Remove this block
             scanresult = stndrv.record_scan(
-                freqbndobj, duration_tot, pointing,
-                starttime=starttime, rec=(ldat_type,),
+                freqsetup, duration_tot, pointing,
+                starttime=starttime, rec=tuple(ldat_list),
                 integration=integration, allsky=allsky,
                 duration_frq=None)
         else:
             dir_bmctl = ilisa.monitorcontrol.directions.normalizebeamctldir(
                 pointing)
-            stndrv.streambeams(freqbndobj, dir_bmctl)
-            ldatinfo = stndrv.start_scanrec(ldat_type, integration,
-                                            duration_tot, freqbndobj)
-            scanresult = stndrv.stop_scanrec(ldatinfo, freqbndobj)
+            if acc:
+                stndrv.acc_mode(True)
+            stndrv.streambeams(freqsetup, dir_bmctl, allsky)
+            ldatinfo = stndrv.start_scanrec(bsx_type, integration,
+                                            duration_tot, freqsetup)
+            scanresult = stndrv.stop_scanrec(ldatinfo, freqsetup)
+            if acc:
+                stndrv.acc_mode(False)
         for res in scanresult['rec']:
             print("Saved {} scanrec here: {}".format(
                 res, scanresult[res].get_scanrecpath()))
@@ -1034,15 +1040,15 @@ def rec(ldat_type, freqspec, duration_tot, pointing, integration, starttime,
         if not scanresult['rec']:
             print("No data recorded ('None' selected)")
 
-    elif ldat_type == 'tbb':
-        stndrv.do_tbb(duration_tot, freqbndobj.rcubands[0])
-    elif ldat_type == 'dmp':
+    elif rec_type == 'tbb':
+        stndrv.do_tbb(duration_tot, freqsetup.rcubands[0])
+    elif rec_type == 'dmp':
         stndrv.halt_observingstate_when_finished = False
         stndrv.exit_check = False
         rectime = starttime
-        lanes = modeparms.getlanes(freqbndobj.subbands_spw, freqbndobj.bits,
-                                   freqbndobj.nrlanes)
-        band = freqbndobj.rcubands[0]
+        lanes = modeparms.getlanes(freqsetup.subbands_spw, freqsetup.bits,
+                                   freqsetup.nrlanes)
+        band = freqsetup.rcubands[0]
         scanpath_bfdat = stndrv.bf_data_dir
         stnid = stndrv.get_stnid()
         _datafiles, _logfiles = stndrv.dru_interface.rec_bf_proxy(
@@ -1063,18 +1069,22 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mockrun', help="Run mock rec",
                         action='store_true')
-    parser.add_argument(
-        '-a', '--allsky', help="Set allsky FoV", action='store_true')
+    parser.add_argument('-a', '--allsky',
+                        help="Set allsky FoV", action='store_true')
     parser.add_argument('-s', '--starttime',
                         help="Start Time (format: YYYY-mm-ddTHH:MM:SS)",
                         type=str, default='NOW')
     parser.add_argument('-i', '--integration',
                         help="Integration time [s]",
                         type=float, default=modeparms.MIN_STATS_INTG)
+    parser.add_argument('--acc', help="Enabled ACC",
+                        action='store_true')
+    parser.add_argument('-b', '--bfs', help="Record BST",
+                        action='store_true')
     parser.add_argument('ldat_type',
                         help="""\
 lofar data type to record.
-Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
+Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     parser.add_argument('freqspec',
                         help='Frequency spec in Hz.')
     parser.add_argument('duration_tot',
@@ -1087,6 +1097,7 @@ Choose from 'acc', 'bfs', 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
 
     rec(args.ldat_type, args.freqspec, args.duration_tot, args.pointing,
         args.integration, args.starttime, args.allsky, args.mockrun)
+
 
 if __name__ == "__main__":
     main()
