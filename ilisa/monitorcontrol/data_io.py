@@ -96,7 +96,7 @@ def obsfileinfo2filefolder(obsfileinfo):
                     ''.join([str(rcumode) for rcumode in obsfileinfo['rcumode']])
             else:
                 rcumodestr = str(obsfileinfo['mode'])
-            filefoldername += "_rcu" + rcumodestr
+            filefoldername += "_spw" + rcumodestr
         if obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
             filefoldername += "_sb"
             filefoldername += modeparms.seqlists2slicestr(obsfileinfo['sb'])
