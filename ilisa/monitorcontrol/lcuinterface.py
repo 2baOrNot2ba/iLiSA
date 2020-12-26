@@ -392,10 +392,10 @@ class LCUInterface(object):
         self.exec_lcu(rspctl_cmd)
         return rspctl_cmd
 
-    def rcusetup(self, bits, attenuation):
+    def rcusetup(self, bits, attenuation, mode=None):
         """Setup basic RCU setting: bits is 8 or 16, and attenuation is 0 to 31
         (0 means no attenuation & increasing number means more attenutation)"""
-        rcusetup_cmds = rcusetup_args2cmds(bits, attenuation)
+        rcusetup_cmds = rcusetup_args2cmds(bits, attenuation, mode=mode)
         # NOTE Looks like bitmode and rcuattenuation have to be set in separate
         #      commands.
         for rcusetup_cmd in rcusetup_cmds:

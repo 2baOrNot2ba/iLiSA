@@ -91,11 +91,11 @@ def obsfileinfo2filefolder(obsfileinfo):
         if obsfileinfo['ldat_type'] == "bst-357":
             filefoldername += "_rcu357"
         else:
-            if type(obsfileinfo['rcumode']) is list:
+            if obsfileinfo['rcumode'] != []:
                 rcumodestr = \
                     ''.join([str(rcumode) for rcumode in obsfileinfo['rcumode']])
             else:
-                rcumodestr = str(obsfileinfo['rcumode'])
+                rcumodestr = str(obsfileinfo['mode'])
             filefoldername += "_rcu" + rcumodestr
         if obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
             filefoldername += "_sb"
@@ -215,9 +215,9 @@ def filefolder2obsfileinfo(filefolderpath):
         obsfileinfo['max_nr_bls'] = maxnrbls
 
     # Assemble _cmds
-    #    rcuctl_cmds
-    rcuctl_cmds = modeparms.rcusetup_args2cmds(bits, 0)
-    obsfileinfo['rcuctl_cmds'] =  rcuctl_cmds
+    #    rcusetup_cmds
+    rcusetup_cmds = modeparms.rcusetup_args2cmds(bits, 0)
+    obsfileinfo['rcusetup_cmds'] = rcusetup_cmds
     #    beamctl_cmds
     beamctl_cmds = []
     for spw, rcumode in enumerate(obsfileinfo['rcumode']):
@@ -442,7 +442,7 @@ class LDatInfo(object):
 
     """
 
-    def __init__(self, ldat_type, station_id, rcuctl_cmds, beamctl_cmds,
+    def __init__(self, ldat_type, station_id, rcusetup_cmds, beamctl_cmds,
                  rspctl_cmds, caltabinfos=[], septonconf=None,
                  **kwargs):
         """Create observation info from parameters."""
@@ -457,17 +457,18 @@ class LDatInfo(object):
         # station_id attr
         self.station_id = station_id
 
-        # rcuctl_cmds attr
-        if rcuctl_cmds == []:
-            rcuctl_cmds = ['rspctl']
-        self.rcuctl_cmds = rcuctl_cmds
-        rcuctl_args = modeparms.parse_rspctl_args(self.rcuctl_cmds)
+        # rcusetup_cmds attr
+        if rcusetup_cmds == []:
+            rcusetup_cmds = ['rspctl']
+        self.rcusetup_cmds = rcusetup_cmds
+        rcusetup_args = modeparms.parse_rspctl_args(self.rcusetup_cmds)
         self.attenuation = None
-        if 'attentuation' in rcuctl_args:
-            self.attenuation = rcuctl_args['attentuation']
+        if 'attentuation' in rcusetup_args:
+            self.attenuation = rcusetup_args['attentuation']
         self.bits = 16  # Currently default
-        if 'bits' in rcuctl_cmds:
-            self.bits = rcuctl_args['bits']
+        if 'bits' in rcusetup_args:
+            self.bits = int(rcusetup_args['bits'])
+        self.mode = rcusetup_args.get('mode', None)
 
         # beamctl_cmds related attr
         self.rcumode = []
@@ -496,7 +497,7 @@ class LDatInfo(object):
         # septonconf attr
         self.septonconf = septonconf
         if self.septonconf is not None:
-            self.rcumode = ['5']
+            self.rcumode = [5]
         
         # attrs: integration, duration_scan, rcumode, sb
         if self.ldat_type != 'bfs':
@@ -510,7 +511,7 @@ class LDatInfo(object):
             self.sb = ""
         elif self.ldat_type.startswith('xst'):
             self.sb = str(rspctl_args['xcsubband'])
-            self.rcumode = self.rcumode[0]
+            # self.rcumode = self.rcumode[0]
         elif self.ldat_type == 'bst':
             self.sb = self.sb
         
@@ -552,7 +553,7 @@ class LDatInfo(object):
         contents['ldat_type'] = self.ldat_type
         contents['filenametime'] = self.filenametime
         contents['station_id'] = self.station_id
-        contents['rcuctl_cmds'] = self.rcuctl_cmds
+        contents['rcusetup_cmds'] = self.rcusetup_cmds
         contents['beamctl_cmds'] = self.beamctl_cmds
         contents['rspctl_cmds'] = self.rspctl_cmds
         if self.caltabinfos != []:
@@ -577,7 +578,7 @@ class LDatInfo(object):
         """Return data recording frequency in Hz."""
         sb = self.sb
         if self.ldat_type != "xst-SEPTON" and not self.septonconf:
-            rcumode = self.rcumode
+            rcumode = self.rcumode[0]
         else:
             rcumode = 5
         nz = modeparms.rcumode2nyquistzone(rcumode)

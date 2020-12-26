@@ -84,7 +84,7 @@ def parse_beamctl_args(beamctl_str):
     return (args.antennaset, args.rcus, rcumode, args.beamlets,
             args.subbands, args.anadir, args.digdir)
 
-def rcusetup_args2cmds(bits, attenuation):
+def rcusetup_args2cmds(bits, attenuation, mode=None):
     """
     Convert RCU arguments to command lines
     """
@@ -94,6 +94,9 @@ def rcusetup_args2cmds(bits, attenuation):
     if attenuation:
         # NOTE attenuation only set when beamctl is runnning.
         rcusetup_cmd = "rspctl --rcuattenuation=" + str(attenuation)
+        rcusetup_cmds.append(rcusetup_cmd)
+    if mode:
+        rcusetup_cmd = "rspctl --mode=" + str(mode)
         rcusetup_cmds.append(rcusetup_cmd)
     return rcusetup_cmds
 
@@ -126,7 +129,7 @@ def parse_rspctl_args(rspctl_cmds):
     flags.
     """
     # TODO: Add the rest of the arguments
-    rspctl_args ={}
+    rspctl_args = {}
     rspctl_parser = argparse.ArgumentParser(prog='rspctl')
     rspctl_parser.add_argument('--statistics')
     rspctl_parser.add_argument('--xcstatistics', action='store_true')
@@ -136,6 +139,7 @@ def parse_rspctl_args(rspctl_cmds):
     rspctl_parser.add_argument('--xcsubband')
     rspctl_parser.add_argument('--directory')
     rspctl_parser.add_argument('--bitmode')
+    rspctl_parser.add_argument('--mode')
     for rspctl_cmd in rspctl_cmds:
         rspctl_cmd_normal = rspctl_cmd.replace('=', ' ')
         argsdict = vars(rspctl_parser.parse_args(rspctl_cmd_normal.split()[1:]))
