@@ -75,9 +75,10 @@ class DRUinterface:
         rcumode = ilisa.monitorcontrol.modeparms.band2rcumode(band)
         outarg = os.path.join(outdumpdir, outfilepre)
         dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane, rcumode)
-        local_hostname = self.dru['hostname']()
+        local_hostname = self.dru['hostname']().rstrip()
         starttime_arg = starttime + '.000'
-        datafileguess = outarg + '_' + str(port) + local_hostname + starttime_arg
+        datafileguess = outarg + '_' + str(port) + '.' + local_hostname + '.'\
+                        + starttime_arg
         if compress:
             datafileguess += '.zst'
         return outdumpdir, outarg, datafileguess, dumplogname
