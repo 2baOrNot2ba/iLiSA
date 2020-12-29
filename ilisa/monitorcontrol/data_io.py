@@ -465,9 +465,7 @@ class LDatInfo(object):
         self.attenuation = None
         if 'attentuation' in rcusetup_args:
             self.attenuation = rcusetup_args['attentuation']
-        self.bits = 16  # Currently default
-        if 'bits' in rcusetup_args:
-            self.bits = int(rcusetup_args['bits'])
+        self.bits = int(rcusetup_args.get('bitmode', 16))  # 16 is default
         self.mode = rcusetup_args.get('mode', None)
 
         # beamctl_cmds related attr
