@@ -267,10 +267,12 @@ class ScanSession(object):
                 if 'bfs' in rec:
                     bfs = True
                     rec.remove('bfs')
-                rec_type = rec.pop()
+                rec_type = None
+                if len(rec) > 0:
+                    rec_type = rec.pop()  # Should only be bsx left
                 freqspec = scan['beam']['freqspec']
                 record(self.stndrv, rec_type, freqspec, duration_tot, pointing,
-                       integration, starttime, allsky=False, acc=acc, bfs=bfs,
+                       integration, starttime, allsky=allsky, acc=acc, bfs=bfs,
                        destpath=sesspath)
                 scanresult = self.stndrv.scanresult
             scan['id'] = scanresult.pop('scan_id', None)
