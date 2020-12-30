@@ -415,7 +415,7 @@ class StationDriver(object):
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
-    def start_bsx_scan(self, bsxtype, integration, duration, freqsetup):
+    def start_bsx_scan(self, bsxtype, freqsetup, integration, duration):
         """\
         Start BSX scanrec
         """
@@ -489,8 +489,8 @@ class StationDriver(object):
         datafiletimes = self.get_datafiletimes()
         _ldatinfos = ldatinfos
         ldatinfos = []
-        for ldatinfo in _ldatinfos:
-            ldatinfo.filenametime = datafiletimes.pop()
+        for ldatinfo, datafiletime in zip(_ldatinfos, datafiletimes):
+            ldatinfo.filenametime = datafiletime
             ldatinfos.append(ldatinfo)
 
         # Set scanrecinfo
@@ -1150,14 +1150,10 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     return starttime
 
 
-def rec(rec_type, freqspec, duration_tot, pointing, integration, starttime,
-        allsky=False, acc=False, bfs=False, mockrun=False):
+def rec(stndrv, rec_type, freqspec, duration_tot, pointing, integration, starttime,
+        allsky=False, acc=False, bfs=False, destpath=None):
     """Record a scan of LOFAR station data"""
-    accessconf = ilisa.monitorcontrol.default_access_lclstn_conf()
-    stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
-                           mockrun=mockrun)
-    #halt_observingstate_when_finished = False
-    #stndrv.halt_observingstate_when_finished = halt_observingstate_when_finished
+
     freqsetup = modeparms.FreqSetup(freqspec)
     if pointing == 'None':
         pointing = None
@@ -1170,14 +1166,13 @@ def rec(rec_type, freqspec, duration_tot, pointing, integration, starttime,
     duration_tot = eval(str(duration_tot))
 
     bsx_type = None
-    sesspath = accessconf['DRU']['LOFARdataArchive']
     if rec_type == 'None':
         # rec_type None means running a beam with no recording
         bsx_type = None
     elif (rec_type == 'bst' or rec_type == 'sst'
           or rec_type == 'xst'):
         bsx_type = rec_type
-        sesspath = os.path.join(sesspath, bsx_type)
+        destpath = os.path.join(destpath, bsx_type)
     elif rec_type == 'tbb' or rec_type == 'dmp':
         # 'dmp' is for just recording without setting setting up a beam.
         pass
@@ -1188,15 +1183,14 @@ def rec(rec_type, freqspec, duration_tot, pointing, integration, starttime,
     if acc:
         ldat_list.append('acc')
         if not bsx_type:
-            sesspath = os.path.join(sesspath, 'acc')
+            destpath = os.path.join(destpath, 'acc')
     if bfs:
         ldat_list.append('bfs')
         if not bsx_type:
-            sesspath = os.path.join(sesspath, 'bfs')
+            destpath = os.path.join(destpath, 'bfs')
 
     if rec_type != 'tbb' and rec_type != 'dmp':
-        bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
-        stndrv.scanpath = sesspath
+        stndrv.scanpath = destpath
         use_programs = False
         if use_programs:
             # TODO Remove this block
@@ -1233,12 +1227,6 @@ def rec(rec_type, freqspec, duration_tot, pointing, integration, starttime,
                                      pointing, allsky)
             if pointing:
                 stndrv.stop_beam()
-        for res in stndrv.scanresult['rec']:
-            print("Saved {} scanrec here: {}".format(
-                res, stndrv.scanresult[res].get_scanrecpath()))
-            stndrv.scanresult[res].write()
-        if not stndrv.scanresult['rec']:
-            print("No data recorded ('None' selected)")
 
     elif rec_type == 'tbb':
         stndrv.do_tbb(duration_tot, freqsetup.rcubands[0])
@@ -1254,7 +1242,6 @@ def rec(rec_type, freqspec, duration_tot, pointing, integration, starttime,
         _datafiles, _logfiles = stndrv.dru_interface.rec_bf_proxy(
             rectime, duration_tot, lanes, band, scanpath_bfdat, stndrv.bf_port0,
             stnid)
-    sys.stdout.flush()
 
 
 import argparse
@@ -1294,10 +1281,21 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     parser.add_argument('pointing', nargs='?', default='Z',
                         help='Direction in az,el,ref (radians) or source name.')
     args = parser.parse_args()
-
-    rec(args.ldat_type, args.freqspec, args.duration_tot, args.pointing,
+    
+    accessconf = ilisa.monitorcontrol.default_access_lclstn_conf()
+    stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
+                           mockrun=args.mockrun)
+    sesspath = accessconf['DRU']['LOFARdataArchive']
+    bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
+    rec(stndrv, args.ldat_type, args.freqspec, args.duration_tot, args.pointing,
         args.integration, args.starttime, args.allsky, args.acc, args.bfs,
-        args.mockrun)
+        destpath=sesspath)
+    for res in stndrv.scanresult['rec']:
+        print("Saved {} scanrec here: {}".format(
+            res, stndrv.scanresult[res].get_scanrecpath()))
+        stndrv.scanresult[res].write()
+    if not stndrv.scanresult['rec']:
+        print("No data recorded ('None' selected)")
 
 
 if __name__ == "__main__":
