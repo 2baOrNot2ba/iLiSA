@@ -4,6 +4,7 @@ import argparse
 import math
 import numpy
 import datetime
+import warnings
 
 RCU_SB_SEP = "+"
 Nqfreq = 100.0e6  # Nyquist frequency in Hz
@@ -724,3 +725,10 @@ def bits_support_nrbeamlets(nrbeamlets):
             break
     return bits
 
+
+def modelogic(freqspec, pointing, duration_tot, integration, bsx_type, bfs, acc,
+              allsky):
+    """Determine if the mode parameters given make sense"""
+    if acc and not pointing:
+        warnings.warn('ACC requires beamctl')
+    # TODO add more conditions
