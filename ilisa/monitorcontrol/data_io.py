@@ -23,7 +23,6 @@ import yaml
 import warnings
 import ilisa
 import ilisa.monitorcontrol.directions
-import ilisa.monitorcontrol.modeparms as modeparms
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 try:
     import dreambeam
@@ -87,38 +86,30 @@ def obsfileinfo2filefolder(obsfileinfo):
     """Convert obsfileinfo dict to filefolder name"""
     filefoldername = '{}_{}'.format(obsfileinfo['station_id'],
                                     obsfileinfo['filenametime'])
-    if obsfileinfo['ldat_type'] != "acc":
-        if obsfileinfo['ldat_type'] == "bst-357":
-            filefoldername += "_rcu357"
-        else:
-            if obsfileinfo['rcumode'] != []:
-                rcumodestr = \
-                    ''.join([str(rcumode) for rcumode in obsfileinfo['rcumode']])
-            else:
-                rcumodestr = str(obsfileinfo['mode'])
-            filefoldername += "_spw" + rcumodestr
-        if obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
-            filefoldername += "_sb"
-            filefoldername += modeparms.seqlists2slicestr(obsfileinfo['sb'])
-        if 'integration' in obsfileinfo:
-            filefoldername += "_int" + str(int(obsfileinfo['integration']))
-        if 'duration_scan' in obsfileinfo:
-            filefoldername += "_dur" + str(int(obsfileinfo['duration_scan']))
-        if obsfileinfo['ldat_type'] != 'sst':
-            if str(obsfileinfo['pointing']) != "":
-                filefoldername += "_dir" + str(obsfileinfo['pointing'])
-            else:
-                filefoldername += "_dir,,"
+    if obsfileinfo['ldat_type'] == "bst-357":
+        filefoldername += "_rcu357"
     else:
-        # ACC:
-        rcumode = obsfileinfo['rcumode'][0]
-        filefoldername = '_rcu{}_dur{}'.format(rcumode, obsfileinfo['duration_scan'])
-        if int(rcumode) > 4:  # rcumodes more than 4 need pointing
-            filefoldername += "_" + obsfileinfo['source']
-
+        if obsfileinfo['rcumode'] != []:
+            rcumodestr = \
+                ''.join([str(rcumode) for rcumode in obsfileinfo['rcumode']])
+        else:
+            rcumodestr = str(obsfileinfo['mode'])
+        filefoldername += "_spw" + rcumodestr
+    if obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
+        filefoldername += "_sb"
+        filefoldername += modeparms.seqlists2slicestr(obsfileinfo['sb'])
+    if 'integration' in obsfileinfo:
+        filefoldername += "_int" + str(int(obsfileinfo['integration']))
+    if 'duration_scan' in obsfileinfo:
+        filefoldername += "_dur" + str(int(obsfileinfo['duration_scan']))
+    if obsfileinfo['ldat_type'] != 'sst':
+        if str(obsfileinfo['pointing']) != "":
+            filefoldername += "_dir" + str(obsfileinfo['pointing'])
+        else:
+            filefoldername += "_dir,,"
+    # filefoldername += "_" + obsfileinfo['source']
     # ldat_type extension
     filefoldername += "_" + obsfileinfo['ldat_type']
-
     return filefoldername
 
 
@@ -223,7 +214,8 @@ def filefolder2obsfileinfo(filefolderpath):
     for spw, rcumode in enumerate(obsfileinfo['rcumode']):
         band = modeparms.rcumode2band(rcumode)
         anadigdir = ','.join(obsfileinfo['pointing'])
-        beamctl_cmd = modeparms.beamctl_args2cmds(beamlets[spw], obsfileinfo['subbands'][spw],
+        beamctl_cmd = modeparms.beamctl_args2cmds(beamlets[spw],
+                                                  obsfileinfo['subbands'][spw],
                                                   band, anadigdir)
         beamctl_cmds.append(beamctl_cmd)
     obsfileinfo['beamctl_cmds'] = beamctl_cmds
@@ -497,15 +489,16 @@ class LDatInfo(object):
         if self.septonconf is not None:
             self.rcumode = [5]
         
-        # attrs: integration, duration_scan, rcumode, sb
+        # attrs: integration, duration_scan
         if self.ldat_type != 'bfs':
             if self.ldat_type != 'acc':
                 self.integration = float(rspctl_args['integration'])
                 self.duration_scan = float(rspctl_args['duration'])
             else:
                 self.integration = 1.0
-                self.duration_scan = 512        
-        if self.ldat_type == 'sst':
+                self.duration_scan = 512
+        # attrs: sb
+        if self.ldat_type == 'sst' or self.ldat_type == 'acc':
             self.sb = ""
         elif self.ldat_type.startswith('xst'):
             self.sb = str(rspctl_args['xcsubband'])
@@ -527,7 +520,7 @@ class LDatInfo(object):
             obsextname = self.filenametime
             obsextname += "_" + self.ldat_type
         else:
-            self.source_name =  source_name
+            self.source_name = source_name
             obsextname = obsfileinfo2filefolder(vars(self))
         return obsextname
 
