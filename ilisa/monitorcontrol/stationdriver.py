@@ -289,10 +289,11 @@ class StationDriver(object):
         for acc_file in acc_files:
             obsid, _ = acc_file.split('_acc_')
             rspctl_cmds = []  # AAC doesn't have any rspctl cmds
-            this_obsinfo = data_io.LDatInfo('acc', obsid, self.get_stnid(),
+            this_obsinfo = data_io.LDatInfo('acc', self.get_stnid(),
                                             self.rcusetup_cmds,
                                             self.beamctl_cmds,
                                             rspctl_cmds)
+            this_obsinfo.filenametime = obsid
             self.scanresult['acc'].add_obs(this_obsinfo)
 
         # Set scanrecinfo
@@ -415,23 +416,19 @@ class StationDriver(object):
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
-    def start_bsx_scan(self, bsxtype, freqsetup, integration, duration):
+    def start_bsx_scan(self, bsxtype, freqsetup, duration, integration=1.0,
+                       septonconf=None):
         """\
         Start BSX scanrec
         """
         rcusetup_cmds = self.rcusetup_cmds
         beamctl_cmds = self.beamctl_cmds
         duration_tot = duration
-        todo_tof = False
-        if todo_tof:
-            septonconf = self.setup_tof()
-        else:
-            septonconf = None
-        caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
 
         ldatinfos = []
         # Record statistic for duration_tot seconds
         if bsxtype == 'bst' or bsxtype == 'sst':
+            caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
             rspctl_cmds = self._lcu_interface.run_rspctl_statistics(
                 bsxtype, integration, duration_tot)
             ldatinfos.append(
@@ -605,7 +602,7 @@ class StationDriver(object):
 
     def stop_tof(self):
         """Stop tiling off mode."""
-        self._lcu_interface.set_swlevel(2)
+        self._lcu_interface.set_swlevel(3)
 
     def _setupTBBs(self):
         """Setup transient buffer boards and start recording."""
@@ -1145,13 +1142,13 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     secondsleft = int(timeleft.total_seconds())
     if secondsleft < 0:
         secondsleft = 0
-    print("Waiting {}s before starting.".format(secondsleft))
+    print("Waiting {}s until {}.".format(secondsleft, starttime))
     time.sleep(secondsleft)
     return starttime
 
 
-def rec(stndrv, rec_type, freqspec, duration_tot, pointing, integration, starttime,
-        allsky=False, acc=False, bfs=False, destpath=None):
+def rec(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
+        starttime, allsky=False, acc=False, bfs=False, destpath=None):
     """Record a scan of LOFAR station data"""
 
     freqsetup = modeparms.FreqSetup(freqspec)
@@ -1201,32 +1198,45 @@ def rec(stndrv, rec_type, freqspec, duration_tot, pointing, integration, startti
                 duration_frq=None)
         else:
             # Start criteria: Time
-            starttime = waituntil(starttime, datetime.timedelta(2))
+            starttime = waituntil(starttime, datetime.timedelta(seconds=2))
             stndrv.setup_scan()
             ldatinfos = []
             ldatinfo = None
+            septonconf = None
             if pointing:
                 stndrv.streambeams(freqsetup, dir_bmctl)
             else:
                 stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup.rcumodes[0])
+                septonconf = stndrv.setup_tof()
             if acc:
                 duration_tot = stndrv.start_acc_scan(duration_tot)
             if bfs:
                 ldatinfo, bfsdatapaths, bfslogpaths = \
                     stndrv.start_bfs_scan(starttime, freqsetup, duration_tot)
             if bsx_type:
-                ldatinfos = stndrv.start_bsx_scan(bsx_type,  freqsetup,
-                                                  duration_tot, integration)
-            # Finished Recording. Now stop things:
+                ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup,
+                                                  duration_tot, integration,
+                                                  septonconf=septonconf)
+            # Stop criteria: Duration time
+            # (Note: ACC has no time keeping)
+            if not bfs and not bsx_type:
+                print('Recording for {}s'.format(duration_tot+10))
+                time.sleep(duration_tot+10)
+            # Finished Recording. Now stop things that are running
             if bsx_type:
+                for el in range(len(ldatinfos)):
+                    ldatinfos[el].septonconf = septonconf
                 stndrv.stop_bsx_scan(ldatinfos, freqsetup)
             if bfs:
-                stndrv.stop_bfs_scan(starttime, ldatinfo, freqsetup, bfsdatapaths, bfslogpaths)
+                stndrv.stop_bfs_scan(starttime, ldatinfo, freqsetup,
+                                     bfsdatapaths, bfslogpaths)
             if acc:
                 stndrv.stop_acc_scan(freqsetup.rcumodes[0], duration_tot,
                                      pointing, allsky)
             if pointing:
                 stndrv.stop_beam()
+            else:
+                stndrv.stop_tof()
 
     elif rec_type == 'tbb':
         stndrv.do_tbb(duration_tot, freqsetup.rcubands[0])
@@ -1278,7 +1288,7 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
                         help='Duration in seconds. '
                              '(Can be an arithmetic expression)',
                         type=str)
-    parser.add_argument('pointing', nargs='?', default='Z',
+    parser.add_argument('pointing', nargs='?', default=None,
                         help='Direction in az,el,ref (radians) or source name.')
     args = parser.parse_args()
     
