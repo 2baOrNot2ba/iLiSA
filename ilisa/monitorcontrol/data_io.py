@@ -443,8 +443,8 @@ class LDatInfo(object):
         # ldat_type attr
         self.ldat_type = ldat_type
 
-        # filenametime attr
-        #self.filenametime = filenametime
+        # filenametime attr (Is set later, since it's know only after obs)
+        self.filenametime = None
 
         # station_id attr
         self.station_id = station_id
@@ -641,7 +641,7 @@ class LDatInfo(object):
                 datatype = contents['ldat_type']
                 filenametime = contents['filenametime']
                 stnid = contents['station_id']
-                rcuctl_cmds = contents['rcuctl_cmds']
+                rcusetup_cmds = contents['rcusetup_cmds']
                 beamctl_cmds = contents['beamctl_cmds']
                 rspctl_cmds = contents['rspctl_cmds']
                 if 'caltabinfos' in contents:
@@ -652,9 +652,9 @@ class LDatInfo(object):
                     septonconf = contents['septonconf']
                 else:
                     septonconf = None
-        obsinfo = cls(datatype, filenametime, stnid, rcuctl_cmds, beamctl_cmds,
-                      rspctl_cmds, caltabinfos=caltabinfos,
-                      septonconf=septonconf)
+        obsinfo = cls(datatype, stnid, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
+                      caltabinfos=caltabinfos, septonconf=septonconf)
+        obsinfo.filenametime = filenametime
         return obsinfo
 
 
