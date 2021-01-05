@@ -228,10 +228,6 @@ class StationDriver(object):
         port3 = rspdriver_conf['RSPDriver']['LANE_03_DSTPORT']
         return port0, port1, port2, port3
 
-    def get_ACCsrcDir(self):
-        """Get ACC src directory from LCU."""
-        return self._lcu_interface.ACCsrcDir
-
     def get_lcuDumpDir(self):
         """Get LCU dump directory from LCU."""
         return self._lcu_interface.lcuDumpDir
@@ -300,7 +296,7 @@ class StationDriver(object):
             os.makedirs(scanrecpath)
 
         # Move ACC dumps to storage
-        accsrcfiles = self.get_ACCsrcDir() + "/*.dat"
+        accsrcfiles = self._lcu_interface.ACCsrcDir + "/*.dat"
         self.movefromlcu(accsrcfiles, scanrecpath)
 
     def set_caltable(self, which):
