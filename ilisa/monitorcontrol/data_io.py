@@ -271,8 +271,7 @@ class ScanRecInfo(object):
         return stnid
 
     def set_scanrecparms(self, datatype, freqband, duration_tot,
-                         pointing="None,None,None", integration=None,
-                         allsky=False):
+                         pointing="None,None,None", integration=None):
         """Record parameters used as arguments to record_scan program."""
         self.scanrecparms = {}
         self.scanrecparms['datatype'] = datatype
@@ -280,7 +279,6 @@ class ScanRecInfo(object):
         self.scanrecparms['duration_tot'] = duration_tot
         self.scanrecparms['pointing'] = pointing
         self.scanrecparms['integration'] = integration
-        self.scanrecparms['allsky'] = allsky
 
     def write_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), "w") as f:

@@ -287,7 +287,7 @@ class StationDriver(object):
             self._lcu_interface.mockstatistics('acc', 1.0, duration_tot)
         return duration_tot
 
-    def stop_acc_scan(self, band, duration_tot, pointing, allsky):
+    def stop_acc_scan(self, band, duration_tot, pointing):
         self._lcu_interface.set_swlevel(2)
         self._lcu_interface.acc_mode(enable=False)
         self._lcu_interface.set_swlevel(3)
@@ -307,8 +307,7 @@ class StationDriver(object):
         # Set scanrecinfo
         acc_integration = 1.0
         self.scanresult['acc'].set_scanrecparms('acc', band, duration_tot,
-                                                pointing, acc_integration,
-                                                allsky)
+                                                pointing, acc_integration)
         self.scanresult['acc'].set_scanpath(self.scanpath_scdat)
         scanrecpath = self.scanresult['acc'].get_scanrecpath()
 
@@ -767,346 +766,6 @@ class StationDriver(object):
         scan_id = "scan_{}".format(scan_mjd_id)
         return scan_id
 
-    def record_scan(self, freqbndobj, duration_tot, pointing,
-                    starttime='NOW', rec=(None,), integration=1.0, allsky=False,
-                    duration_frq=None):
-        """Run a generic scan.
-
-        Parameters
-        ----------
-        freqbndobj: FreqSetup
-            Frequency specification of scan.
-        integration: float
-            Integration time in seconds.
-        duration_tot: float
-            Total duration of scan in seconds.
-        pointing: str
-            Pointing source direction of scan. Can be a source name or a
-            beamctl direction str.
-        starttime: str
-            The time at which scan should start.
-        rec: tuple
-            The types of LOFAR data to record.
-            This is a tuple of up to three of the following data types:
-                'acc', 'bfs', 'bst', 'sst', 'xst'
-            of which 3 latter types are mutual exclusive.
-
-            'acc': Record autocovariance-cubes (ACC) files. The actual total
-                duration will at most be duration_tot. (Usually it will be
-                shorter so it fits within the cadence of whole ACC aquisition,
-                which is 512+7=519 seconds). ACC files are the covariance of
-                all array elements with each as a function of subband.
-
-            'bfs': Record BeamFormed Stream data.
-
-            'bst': Record Beamlet STatistics data.
-
-            'sst': Record Subband STatistics data.
-
-            'xst': Record Xrosslet STatistics data.
-
-            None: No recording of data.
-        duration_frq: float
-            Duration in seconds of a sampled frequency within a frequency sweep
-            scan.
-        allsky: bool, optional
-            HBA allsky mode.
-
-        Returns
-        -------
-        scanresult : dict
-            Results of scan.
-        """
-        rec_acc = False
-        rec_bfs = False
-        bsx_type = None
-        if rec:
-            for recreq in rec:
-                if recreq == 'acc':
-                    rec_acc = True
-                elif recreq == 'bfs':
-                    rec_bfs = True
-                elif recreq == 'bst' or recreq == 'sst' or recreq == 'xst':
-                    bsx_type = recreq
-        arraytype = freqbndobj.antsets[-1][:3]
-        # Mode logic
-        todo_tof = False  # This is the case when arraytype=='LBA'
-        if allsky and arraytype == 'HBA':
-            if pointing is not None:
-                raise ValueError('hba-allsky & beam cannot run simultaneously.')
-            if bsx_type == 'bst':
-                raise ValueError('bst and hba-allsky cannot be combined.')
-            if rec_acc:
-                raise ValueError('acc and hba-allsky cannot be combined.')
-            if rec_bfs:
-                raise ValueError('bfs and hba-allsky cannot be combined.')
-            todo_tof = True
-        if not allsky and pointing is None:
-            pointing = 'Z'
-
-        stnid = self.get_stnid()
-
-        # Initialize scanresult
-        scanresult = {'rec': []}
-
-        # Setup Calibration tables on LCU:
-        CALTABLESRC = 'default'  # FIXME put this in args
-        ## (Only BST uses calibration tables)
-        # Choose between 'default' or 'local'
-        self.set_caltable(CALTABLESRC)
-
-        # Prepare for obs program.
-        try:
-            self.goto_observingstate()
-        except RuntimeError as e:
-            raise RuntimeError(e)
-
-        duration_tot_req = duration_tot
-        band = freqbndobj.rcubands[0]
-        rcumode = freqbndobj.rcumodes[0]
-
-        if todo_tof:
-            septonconf = self.setup_tof()
-        else:
-            septonconf = None
-
-        if rec_acc:
-            scanresult['rec'].append('acc')
-            scanresult['acc'] = data_io.ScanRecInfo()
-            scanresult['acc'].set_stnid(stnid)
-            # Also duration of ACC sweep since each sb is 1 second.
-            dur1acc = modeparms.TotNrOfsb  # Duration of one ACC
-            interv2accs = 7  # time between end of 1 ACC and start of next one
-            acc_cadence = dur1acc + interv2accs  # =519s between start of 2 ACC
-            (nraccs, timrest) = divmod(duration_tot_req, acc_cadence)
-            if timrest > dur1acc:
-                nraccs += 1
-            duration_tot = nraccs * acc_cadence - interv2accs
-            if duration_tot != duration_tot_req:
-                print("""Note: will use total duration {}s to fit with ACC
-                      cadence.""".format(duration_tot))
-            self.acc_mode(enable=True, mock_dur=duration_tot)
-
-        # Wait until it is time to start
-        starttime_req = starttime
-        starttime = waituntil(starttime_req)
-
-        # Necessary since fork creates multiple instances of myobs and each one
-        # will call it's __del__ on completion and __del__ shutdown...
-        shutdown = self.halt_observingstate_when_finished
-        self.halt_observingstate_when_finished = False
-        self.exit_check = False
-
-        # Get metadata about caltables to be used
-        if not allsky:
-            caltabinfos = self.get_caltableinfos(freqbndobj.rcumodes)
-
-        # Beam
-        rcuctl_cmds, beamctl_cmds = [], []
-        if pointing is not None:
-            # Real beam start:
-            print("Now running real beam... @ {}".format(
-                datetime.datetime.utcnow()))
-            dir_bmctl = directions.normalizebeamctldir(pointing)
-            rcuctl_cmds, beamctl_cmds = self.streambeams(freqbndobj, dir_bmctl)
-            beamstarted = datetime.datetime.utcnow()
-            rectime = beamstarted
-            scan_id = self.get_scanid(beamstarted)
-        else:
-            rectime = starttime
-            scan_id = self.get_scanid()
-
-        lanes = []
-        bfsdatapaths = []
-        bfslogpaths = []
-        if rec_bfs:
-            scanresult['rec'].append('bfs')
-            scanresult['bfs'] = data_io.ScanRecInfo()
-            scanresult['bfs'].set_stnid(stnid)
-            scanpath_bfdat = os.path.join(self.bf_data_dir, scan_id)
-            lanesalloc = modeparms.getlanes(freqbndobj.subbands_spw,
-                                            freqbndobj.bits, freqbndobj.nrlanes)
-            lanes = tuple(lanesalloc.keys())
-            datafiles, logfiles = \
-                self.dru_interface.rec_bf_proxy(rectime, duration_tot, lanes,
-                                                band, scanpath_bfdat,
-                                                self.bf_port0, stnid)
-            rspctl_cmds = []
-            this_obsinfo = \
-                data_io.LDatInfo('bfs', self.get_stnid(),
-                                 rcuctl_cmds, beamctl_cmds, rspctl_cmds,
-                                 caltabinfos)
-            file_dt_name = rectime.strftime("%Y%m%d_%H%M%S")
-            this_obsinfo.filenametime = file_dt_name
-            scanresult['bfs'].add_obs(this_obsinfo)
-            for lane in lanes:
-                datafileguess = datafiles.pop()
-                dumplogname = logfiles.pop()
-                if not datafileguess:
-                    _outdumpdir, _outarg, datafileguess, dumplogname = \
-                        bfbackend.bfsfilepaths(lane, rectime, band, 
-                                               scanpath_bfdat,
-                                               self.bf_port0,
-                                               self.get_stnid())
-                bfsdatapaths.append(datafileguess)
-                bfslogpaths.append(dumplogname)
-        else:
-            scanpath_bfdat = None
-            print("Not recording bfs")
-        sys.stdout.flush()
-
-        if bsx_type is not None:
-            scanresult['rec'].append('bsx')
-            scanresult['bsx'] = data_io.ScanRecInfo()
-            scanresult['bsx'].set_stnid(stnid)
-            # Record statistic for duration_tot seconds
-            if bsx_type == 'bst' or bsx_type == 'sst':
-                rspctl_cmds = self._lcu_interface.run_rspctl_statistics(
-                    bsx_type, integration, duration_tot)
-                curr_obsinfo = \
-                    data_io.LDatInfo(bsx_type, self.get_stnid(),
-                                     rcuctl_cmds, beamctl_cmds, rspctl_cmds,
-                                     caltabinfos)
-                file_dt_name = self.get_data_timestamp(-1)
-                curr_obsinfo.filenametime = file_dt_name
-                scanresult['bsx'].add_obs(curr_obsinfo)
-            elif bsx_type == 'xst':
-                nrsubbands = freqbndobj.nrsubbands()
-                if duration_frq is None:
-                    if nrsubbands > 1:
-                        duration_frq = integration
-                    else:
-                        duration_frq = duration_tot
-                # TODO Consider that specified duration is not the same as 
-                # actual duration. Each step in frequency sweep take about 6s
-                # for 1s int.
-                (rep, _rst) = divmod(duration_tot, duration_frq * nrsubbands)
-                rep = int(rep)
-                if rep == 0:
-                    warnings.warn(
-                        "Total duration too short for 1 full repetition."
-                        "Will increase total duration to get 1 full rep.")
-                    duration_tot = duration_frq * nrsubbands
-                    rep = 1
-                # Repeat rep times (freq sweep)
-                for _itr in range(rep):
-                    # Start freq sweep
-                    for sb_rcumode in freqbndobj.subbands_spw:
-                        if ':' in sb_rcumode:
-                            sblo, sbhi = sb_rcumode.split(':')
-                            subbands = range(int(sblo), int(sbhi) + 1)
-                        else:
-                            subbands = [int(sb) for sb in sb_rcumode.split(',')]
-                        for subband in subbands:
-                            # Record data
-                            rspctl_cmds = \
-                                self._lcu_interface.run_rspctl_statistics(
-                                    bsx_type, integration, duration_frq,
-                                    subband)
-                            curr_obsinfo =\
-                                data_io.LDatInfo('xst',
-                                                 self.get_stnid(),
-                                                 rcuctl_cmds, beamctl_cmds,
-                                                 rspctl_cmds,
-                                                 septonconf=septonconf)
-                            file_dt_name = self.get_data_timestamp(-1)
-                            curr_obsinfo.filenametime = file_dt_name
-                            scanresult['bsx'].add_obs(curr_obsinfo)
-            else:
-                raise Exception('LOFAR statistic ldat_type "{}" unknown.\
-                                (Known are bst, sst, xst)'.format(bsx_type))
-
-        if not rec_acc and not rec_bfs and bsx_type is None:
-            print("Will run beam with no active recording for {} seconds."\
-                  .format(duration_tot))
-            # Since we're not recording anything, just do nothing for the
-            # duration_tot.
-            time.sleep(duration_tot)
-
-        # Finished recording
-        self.stop_beam()
-
-        if todo_tof:
-            self.stop_tof()
-
-        # Work out where station-correlated data should be stored:
-        scanpath_scdat = os.path.join(self.scanpath, scan_id)
-        # and create the directory: (may not have ldat if no rec but will have
-        # info files)
-        os.makedirs(scanpath_scdat)
-
-        if rec_acc:
-            # Switch back to normal state i.e. turn-off ACC dumping:
-            self.acc_mode(enable=False)
-
-            # Create obsinfo each ACC file
-            _, acc_files = self._lcu_interface.getdatalist()
-            for acc_file in acc_files:
-                obsid, _ = acc_file.split('_acc_')
-                rspctl_cmds = []
-                this_obsinfo = data_io.LDatInfo('acc', obsid, self.get_stnid(),
-                                                rcuctl_cmds, beamctl_cmds,
-                                                rspctl_cmds)
-                scanresult['acc'].add_obs(this_obsinfo)
-
-            # Set scanrecinfo
-            acc_integration = 1.0
-            scanresult['acc'].set_scanrecparms('acc', band, duration_tot,
-                                               pointing, acc_integration,
-                                               allsky)
-            scanresult['acc'].set_scanpath(scanpath_scdat)
-            scanrecpath = scanresult['acc'].get_scanrecpath()
-
-            # Transfer data from LCU to DAU
-            if os.path.exists(scanrecpath):
-                print("Dest directory exists already (will put data here)")
-            else:
-                print("Creating directory " + scanrecpath + " for ACC "
-                      + str(duration_tot) + " s rcumode=" + str(rcumode)
-                      + " calibration")
-                os.makedirs(scanrecpath)
-
-            # Move ACC dumps to storage
-            accsrcfiles = self.get_ACCsrcDir() + "/*.dat"
-            self.movefromlcu(accsrcfiles, scanrecpath)
-
-        if bsx_type is not None:
-            # Set scanrecinfo
-            scanresult['bsx'].set_scanrecparms(bsx_type, freqbndobj.arg,
-                                               duration_tot, pointing,
-                                               integration, allsky=allsky)
-            # Move data to archive
-            scanresult['bsx'].set_scanpath(scanpath_scdat)
-            scanrecpath = scanresult['bsx'].get_scanrecpath()
-            self.movefromlcu(self.get_lcuDumpDir() + "/*.dat",
-                             scanrecpath)
-
-        if rec_bfs:
-            scanresult['bfs'].set_stnid(self.get_stnid())
-            scanresult['bfs'].set_scanrecparms('bfs', band, duration_tot,
-                                               pointing, allsky=allsky)
-            # Make a project folder for BFS data
-            scanresult['bfs'].set_scanpath(scanpath_scdat)
-            scanrecpath = scanresult['bfs'].get_scanrecpath()
-            # Create BFS destination folder on DPU:
-            os.makedirs(scanrecpath)
-            if self.dru_interface.hostname == 'localhost':
-                # Make soft links to actual BFS files and move logs to scanrec
-                # folder
-                for lane in lanes:
-                    if bfsdatapaths[lane] is not None:
-                        _basename = os.path.basename(bfsdatapaths[lane])
-                        _lnkname = os.path.join(scanrecpath,_basename)
-                        os.symlink(bfsdatapaths[lane], _lnkname)
-                    if bfslogpaths[lane] is not None:
-                        shutil.move(bfslogpaths[lane], scanrecpath)
-
-        # Necessary due to possible forking
-        self.halt_observingstate_when_finished = shutdown
-        scanresult['scan_id'] = scan_id
-        scanresult['scanpath_scdat'] = scanpath_scdat
-        return scanresult
-
 
 def capture_data_DAL1(tbbraw2h5cmd, TBBh5dumpDir, observer, antennaSet,
                       project, observationID, background=False):
@@ -1158,10 +817,46 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     return starttime
 
 
-def rec(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
-        starttime, allsky=False, acc=False, bfs=False, destpath=None):
-    """Record a scan of LOFAR station data"""
+def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
+        starttime, acc=False, bfs=False, destpath=None):
+    """\
+    Record a scan of LOFAR station data
 
+    Parameters
+    ----------
+    stndrv: StationDriver
+        StationDriver object.
+    rec_type: str
+        Main type of LOFAR data to record.
+        The possible data types are:
+            'bst', 'sst', 'xst', 'tbb', 'None'
+        where:
+        'bst': Beamlet STatistics data
+        'sst': Subband STatistics data
+        'xst': Xrosslet STatistics data
+        None: No recording of data.
+    freqspec: str
+        Frequency specification str as input FreqSetup() class.
+    duration_tot: float
+        Total duration of scan in seconds.
+    pointing: str
+        Pointing source direction of scan. Can be a source name or a
+        beamctl direction str. If None, then allsky image is implied.
+    integration: float
+        Integration time in seconds.
+    starttime: str
+        The time at which scan should start.
+    acc: bool
+        If true, record autocovariance-cubes (ACC) files. The actual total
+        duration will at most be duration_tot. (Usually it will be
+        shorter so it fits within the cadence of whole ACC aquisition,
+        which is 512+7=519 seconds). ACC files are the covariance of
+        all array elements with each as a function of subband.
+    bfs: bool
+        If true, record 'bfs': Record BeamFormed Stream data.
+    destpath: str
+        Destination path for this recording.
+    """
     freqsetup = modeparms.FreqSetup(freqspec)
     if pointing == 'None':
         pointing = None
@@ -1199,55 +894,49 @@ def rec(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
 
     if rec_type != 'tbb' and rec_type != 'dmp':
         stndrv.scanpath = destpath
-        use_programs = False
-        if use_programs:
-            # TODO Remove this block
-            scanresult = stndrv.record_scan(
-                freqsetup, duration_tot, pointing,
-                starttime=starttime, rec=tuple(ldat_list),
-                integration=integration, allsky=allsky,
-                duration_frq=None)
+        # Start criteria: Time
+        starttime = waituntil(starttime, datetime.timedelta(seconds=2))
+        stndrv.setup_scan()
+        ldatinfos = []
+        ldatinfo = None
+        septonconf = None
+        if pointing:
+            stndrv.streambeams(freqsetup, dir_bmctl)
         else:
-            # Start criteria: Time
-            starttime = waituntil(starttime, datetime.timedelta(seconds=2))
-            stndrv.setup_scan()
-            ldatinfos = []
-            ldatinfo = None
-            septonconf = None
-            if pointing:
-                stndrv.streambeams(freqsetup, dir_bmctl)
-            else:
-                stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup.rcumodes[0])
+            stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup.rcumodes[0])
+            if freqsetup.rcumodes[0] > 4:
+                # No pointing for HBA implies tiles-off mode
                 septonconf = stndrv.setup_tof()
-            if acc:
-                duration_tot = stndrv.start_acc_scan(duration_tot)
-            if bfs:
-                ldatinfo, bfsdatapaths, bfslogpaths = \
-                    stndrv.start_bfs_scan(starttime, freqsetup, duration_tot)
-            if bsx_type:
-                ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup,
-                                                  duration_tot, integration,
-                                                  septonconf=septonconf)
-            # Stop criteria: Duration time
-            # (Note: ACC has no time keeping)
-            if not bfs and not bsx_type:
-                print('Recording for {}s'.format(duration_tot+10))
-                time.sleep(duration_tot+10)
-            # Finished Recording. Now stop things that are running
-            if bsx_type:
-                for el in range(len(ldatinfos)):
-                    ldatinfos[el].septonconf = septonconf
-                stndrv.stop_bsx_scan(ldatinfos, freqsetup)
-            if bfs:
-                stndrv.stop_bfs_scan(starttime, ldatinfo, freqsetup,
-                                     bfsdatapaths, bfslogpaths)
-            if acc:
-                stndrv.stop_acc_scan(freqsetup.rcumodes[0], duration_tot,
-                                     pointing, allsky)
-            if pointing:
-                stndrv.stop_beam()
-            else:
-                stndrv.stop_tof()
+        if acc:
+            duration_tot = stndrv.start_acc_scan(duration_tot)
+        if bfs:
+            ldatinfo, bfsdatapaths, bfslogpaths = \
+                stndrv.start_bfs_scan(starttime, freqsetup, duration_tot)
+        if bsx_type:
+            ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup,
+                                              duration_tot, integration,
+                                              septonconf=septonconf)
+        # Stop criteria: Duration time
+        # (Note: ACC has no time keeping)
+        if not bfs and not bsx_type:
+            print('Recording for {}s'.format(duration_tot+10))
+            time.sleep(duration_tot+10)
+        # Finished Recording. Now stop things that are running
+        if bsx_type:
+            for el in range(len(ldatinfos)):
+                ldatinfos[el].septonconf = septonconf
+            stndrv.stop_bsx_scan(ldatinfos, freqsetup)
+        if bfs:
+            stndrv.stop_bfs_scan(starttime, ldatinfo, freqsetup,
+                                 bfsdatapaths, bfslogpaths)
+        if acc:
+            stndrv.stop_acc_scan(freqsetup.rcumodes[0], duration_tot,
+                                 pointing)
+        if pointing:
+            stndrv.stop_beam()
+        elif stndrv.tof:
+            # No pointing and tiles-off mode, so stop tiles-off mode
+            stndrv.stop_tof()
 
     elif rec_type == 'tbb':
         stndrv.do_tbb(duration_tot, freqsetup.rcubands[0])
@@ -1277,17 +966,15 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mockrun', help="Run mock rec",
                         action='store_true')
-    parser.add_argument('-a', '--allsky',
-                        help="Set allsky FoV", action='store_true')
     parser.add_argument('-s', '--starttime',
                         help="Start Time (format: YYYY-mm-ddTHH:MM:SS)",
                         type=str, default='NOW')
     parser.add_argument('-i', '--integration',
                         help="Integration time [s]",
                         type=float, default=modeparms.MIN_STATS_INTG)
-    parser.add_argument('--acc', help="Enabled ACC",
+    parser.add_argument('-a', '--acc', help="Enable ACC",
                         action='store_true')
-    parser.add_argument('-b', '--bfs', help="Record BST",
+    parser.add_argument('-b', '--bfs', help="Record also BST",
                         action='store_true')
     parser.add_argument('ldat_type',
                         help="""\
@@ -1308,9 +995,9 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
                            mockrun=args.mockrun)
     sesspath = accessconf['DRU']['LOFARdataArchive']
     bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
-    rec(stndrv, args.ldat_type, args.freqspec, args.duration_tot, args.pointing,
-        args.integration, args.starttime, args.allsky, args.acc, args.bfs,
-        destpath=sesspath)
+    rec_scan(stndrv, args.ldat_type, args.freqspec, args.duration_tot,
+             args.pointing, args.integration, args.starttime, args.acc,
+             args.bfs, destpath=sesspath)
     for res in stndrv.scanresult['rec']:
         print("Saved {} scanrec here: {}".format(
             res, stndrv.scanresult[res].get_scanrecpath()))

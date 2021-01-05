@@ -8,7 +8,7 @@ import ilisa.monitorcontrol.directions
 import ilisa.monitorcontrol.modeparms as modeparms
 import ilisa.monitorcontrol.programs as programs
 from ilisa.monitorcontrol.stationdriver import StationDriver, waituntil
-from ilisa.monitorcontrol.stationdriver import rec as record
+from ilisa.monitorcontrol.stationdriver import rec_scan
 
 
 
@@ -255,10 +255,6 @@ class ScanSession(object):
                 starttime = scan['starttime']
                 rec = scan['rec']
                 integration = scan['integration']
-                allsky = scan['beam']['allsky']
-                #scanresult = self.stndrv.record_scan(
-                #    freqbndobj, duration_tot, pointing, starttime, rec,
-                #    integration, allsky=allsky)
                 acc = False
                 if 'acc' in rec:
                     acc = True
@@ -271,9 +267,9 @@ class ScanSession(object):
                 if len(rec) > 0:
                     rec_type = rec.pop()  # Should only be bsx left
                 freqspec = scan['beam']['freqspec']
-                record(self.stndrv, rec_type, freqspec, duration_tot, pointing,
-                       integration, starttime, allsky=allsky, acc=acc, bfs=bfs,
-                       destpath=sesspath)
+                rec_scan(self.stndrv, rec_type, freqspec, duration_tot,
+                         pointing, integration, starttime,
+                         acc=acc, bfs=bfs, destpath=sesspath)
                 scanresult = self.stndrv.scanresult
             scan['id'] = scanresult.pop('scan_id', None)
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)
