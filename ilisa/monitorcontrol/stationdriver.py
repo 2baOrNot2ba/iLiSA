@@ -236,26 +236,6 @@ class StationDriver(object):
         """Get LCU dump directory from LCU."""
         return self._lcu_interface.lcuDumpDir
 
-    def acc_mode(self, enable=True, mock_dur=None):
-        """Enable or Disable ACC mode."""
-        if enable:
-            # Make sure swlevel=<2
-            self._lcu_interface.set_swlevel(2)
-
-            # Set CalServ.conf to dump ACCs:
-            self._lcu_interface.acc_mode(enable=True)
-
-            # Boot to swlevel 3 so the calserver service starts
-            self._lcu_interface.set_swlevel(3)
-
-            # Possibly make mock acc statistics:
-            if self.mockrun and mock_dur is not None:
-                self._lcu_interface.mockstatistics('acc', 1.0, mock_dur)
-        else:
-            self._lcu_interface.set_swlevel(2)
-            self._lcu_interface.acc_mode(enable=False)
-            self._lcu_interface.set_swlevel(3)
-
     def start_acc_scan(self, duration_tot_req):
         """Start recording ACC"""
         self.scanresult['rec'].append('acc')
