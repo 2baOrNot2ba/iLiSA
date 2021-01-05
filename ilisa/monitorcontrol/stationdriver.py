@@ -562,7 +562,7 @@ class StationDriver(object):
         self.scanresult['bfs'].set_scanrecparms('bfs', freqsetup.arg,
                                                 ldatinfo.duration_tot,
                                                 ldatinfo.pointing,
-                                                integration=None, allsky=False)
+                                                integration=None)
         # Make a project folder for BFS data
         self.scanresult['bfs'].set_scanpath(self.scanpath_scdat)
         scanrecpath = self.scanresult['bfs'].get_scanrecpath()
@@ -868,35 +868,26 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
         raise ValueError("No pointing, but beam needed")
     duration_tot = eval(str(duration_tot))
 
+    if not destpath:
+        destpath = stndrv.scanpath
+
     bsx_type = None
     if not rec_type or rec_type == 'None':
         # rec_type None means running a beam with no recording
         bsx_type = None
-    elif (rec_type == 'bst' or rec_type == 'sst'
-          or rec_type == 'xst'):
+    elif rec_type == 'bst' or rec_type == 'sst' or rec_type == 'xst':
         bsx_type = rec_type
-        destpath = os.path.join(destpath, bsx_type)
     elif rec_type == 'tbb' or rec_type == 'dmp':
-        # 'dmp' is for just recording without setting setting up a beam.
+        # 'dmp' is for just recording without setting up a beam.
         pass
     else:
         raise RuntimeError('Unknown rec_type {}'.format(rec_type))
 
-    ldat_list = [bsx_type]
-    if acc:
-        ldat_list.append('acc')
-        if not bsx_type:
-            destpath = os.path.join(destpath, 'acc')
-    if bfs:
-        ldat_list.append('bfs')
-        if not bsx_type:
-            destpath = os.path.join(destpath, 'bfs')
+    # Start criteria: Time
+    starttime = waituntil(starttime, datetime.timedelta(seconds=2))
 
     if rec_type != 'tbb' and rec_type != 'dmp':
-        stndrv.scanpath = destpath
-        # Start criteria: Time
-        starttime = waituntil(starttime, datetime.timedelta(seconds=2))
-        stndrv.setup_scan()
+        stndrv.setup_scan(scanroot=destpath)
         ldatinfos = []
         ldatinfo = None
         septonconf = None
@@ -994,6 +985,10 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=args.mockrun)
     sesspath = accessconf['DRU']['LOFARdataArchive']
+    if args.acc:
+        sesspath = os.path.join(sesspath, 'acc')
+    else:
+        sesspath = os.path.join(sesspath, args.ldat_type)
     bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
     rec_scan(stndrv, args.ldat_type, args.freqspec, args.duration_tot,
              args.pointing, args.integration, args.starttime, args.acc,
