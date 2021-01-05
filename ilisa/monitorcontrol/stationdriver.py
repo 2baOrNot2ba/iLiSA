@@ -86,6 +86,8 @@ class StationDriver(object):
         # Initialize beamctl_cmds & rcuctl_cmds
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
+        # Initialize tile off mode
+        self.tof = False
         # Initialize scanresult
         self.scanresult = {'rec': []}
         # Initialize beamstart time
@@ -100,6 +102,12 @@ class StationDriver(object):
         swlevel = self._lcu_interface.get_swlevel()
         if swlevel == 3:
             return True
+        if swlevel == 2:
+            # If in tile-off mode, count it as observing state
+            if self.tof:
+                return True
+            else:
+                return False
         else:
             return False
 
@@ -323,9 +331,10 @@ class StationDriver(object):
     def get_caltableinfos(self, rcumodes):
         """Get Calibration Table Info."""
         caltabinfos = []
-        for rcumode in rcumodes:
-            caltabinfo = self._lcu_interface.getCalTableInfo(rcumode)
-            caltabinfos.append(caltabinfo)
+        if not self.tof:  # calservice not running when tof
+            for rcumode in rcumodes:
+                caltabinfo = self._lcu_interface.getCalTableInfo(rcumode)
+                caltabinfos.append(caltabinfo)
         return caltabinfos
 
     def __load_user_rcu_disable_list(self, rcumode):
@@ -597,12 +606,14 @@ class StationDriver(object):
         self._lcu_interface.set_swlevel(2)
         # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
         self._lcu_interface.turnoffElinTile_byEl(elemsOn)
+        self.tof = True
         septonconf = modeparms.elementMap2str(elemsOn)
         return septonconf
 
     def stop_tof(self):
         """Stop tiling off mode."""
         self._lcu_interface.set_swlevel(3)
+        self.tof = True
 
     def _setupTBBs(self):
         """Setup transient buffer boards and start recording."""
@@ -1163,7 +1174,7 @@ def rec(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
     duration_tot = eval(str(duration_tot))
 
     bsx_type = None
-    if rec_type == 'None':
+    if not rec_type or rec_type == 'None':
         # rec_type None means running a beam with no recording
         bsx_type = None
     elif (rec_type == 'bst' or rec_type == 'sst'
