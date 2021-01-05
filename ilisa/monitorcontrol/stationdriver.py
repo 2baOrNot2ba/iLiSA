@@ -86,8 +86,8 @@ class StationDriver(object):
         # Initialize beamctl_cmds & rcuctl_cmds
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
-        # Initialize tile off mode
-        self.tof = False
+        # Initialize septonconf setting; implies tile-off (tof) mode
+        self.septonconf = None
         # Initialize scanresult
         self.scanresult = {'rec': []}
         # Initialize beamstart time
@@ -104,7 +104,7 @@ class StationDriver(object):
             return True
         if swlevel == 2:
             # If in tile-off mode, count it as observing state
-            if self.tof:
+            if self.septonconf:
                 return True
             else:
                 return False
@@ -247,7 +247,7 @@ class StationDriver(object):
             self._lcu_interface.mockstatistics('acc', 1.0, duration_tot)
         return duration_tot
 
-    def stop_acc_scan(self, band, duration_tot, pointing):
+    def stop_acc_scan(self, duration_tot, band, pointing):
         self._lcu_interface.set_swlevel(2)
         self._lcu_interface.acc_mode(enable=False)
         self._lcu_interface.set_swlevel(3)
@@ -290,7 +290,7 @@ class StationDriver(object):
     def get_caltableinfos(self, rcumodes):
         """Get Calibration Table Info."""
         caltabinfos = []
-        if not self.tof:  # calservice not running when tof
+        if not self.septonconf:  # calservice not running when septonconf
             for rcumode in rcumodes:
                 caltabinfo = self._lcu_interface.getCalTableInfo(rcumode)
                 caltabinfos.append(caltabinfo)
@@ -384,8 +384,7 @@ class StationDriver(object):
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
-    def start_bsx_scan(self, bsxtype, freqsetup, duration, integration=1.0,
-                       septonconf=None):
+    def start_bsx_scan(self, bsxtype, freqsetup, duration, integration=1.0):
         """\
         Start BSX scanrec
         """
@@ -403,7 +402,7 @@ class StationDriver(object):
                 data_io.LDatInfo(bsxtype, self.get_stnid(),
                                  rcusetup_cmds, beamctl_cmds, rspctl_cmds,
                                  caltabinfos=caltabinfos,
-                                 septonconf=septonconf))
+                                 septonconf=self.septonconf))
         elif bsxtype == 'xst':
             nrsubbands = freqsetup.nrsubbands()
             duration_frq = None  # FIXME set to desired value
@@ -442,7 +441,7 @@ class StationDriver(object):
                                              self.get_stnid(),
                                              rcusetup_cmds, beamctl_cmds,
                                              rspctl_cmds,
-                                             septonconf=septonconf))
+                                             septonconf=self.septonconf))
         return ldatinfos
     
     def stop_bsx_scan(self, ldatinfos, freqsetup):
@@ -463,7 +462,6 @@ class StationDriver(object):
         self.scanresult['bsx'] = data_io.ScanRecInfo()
         self.scanresult['bsx'].set_stnid(self.get_stnid())
         for ldatinfo in ldatinfos:
-            ldatinfo.filenametime = datafiletimes.pop()
             self.scanresult['bsx'].add_obs(ldatinfo)
         self.scanresult['bsx'].set_scanrecparms(ldatinfos[0].ldat_type,
                                                 freqsetup.arg,
@@ -477,12 +475,7 @@ class StationDriver(object):
 
     def start_bfs_scan(self, starttime, freqsetup, duration_tot):
         """Start recording BFS data"""
-        caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
         scanpath_bfdat = os.path.join(self.bf_data_dir, self.scan_id)
-        rspctl_cmds = []  # BFS doesn't use rspctl cmds
-        ldatinfo = data_io.LDatInfo('bfs', self.get_stnid(),
-                                    self.rcusetup_cmds, self.beamctl_cmds,
-                                    rspctl_cmds, caltabinfos)
         lanesalloc = modeparms.getlanes(freqsetup.subbands_spw,
                                         freqsetup.bits, freqsetup.nrlanes)
         self.lanes = tuple(lanesalloc.keys())
@@ -504,13 +497,18 @@ class StationDriver(object):
                                            self.get_stnid())
             bfsdatapaths.append(datafileguess)
             bfslogpaths.append(dumplogname)
-        # Duration of BFS not determinable via LCU commands so add this by hand
-        ldatinfo.duration_tot = duration_tot
-        return ldatinfo, bfsdatapaths, bfslogpaths
+        return bfsdatapaths, bfslogpaths
 
-    def stop_bfs_scan(self, rectime, ldatinfo, freqsetup, bfsdatapaths,
+    def stop_bfs_scan(self, rectime, duration_tot, freqsetup, bfsdatapaths,
                       bfslogpaths):
         """Stop BFS scan"""
+        caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
+        rspctl_cmds = []  # BFS doesn't use rspctl cmds
+        ldatinfo = data_io.LDatInfo('bfs', self.get_stnid(),
+                                    self.rcusetup_cmds, self.beamctl_cmds,
+                                    rspctl_cmds, caltabinfos)
+        # Duration of BFS not determinable via LCU commands so add this by hand
+        ldatinfo.duration_scan = duration_tot
         file_dt_name = rectime.strftime("%Y%m%d_%H%M%S")
         ldatinfo.filenametime = file_dt_name
         # Set scanrecinfo
@@ -520,7 +518,7 @@ class StationDriver(object):
         self.scanresult['bfs'].add_obs(ldatinfo)
         # Get duration from monkey patched ldatinfo. No integration for BFS
         self.scanresult['bfs'].set_scanrecparms('bfs', freqsetup.arg,
-                                                ldatinfo.duration_tot,
+                                                ldatinfo.duration_scan,
                                                 ldatinfo.pointing,
                                                 integration=None)
         # Make a project folder for BFS data
@@ -565,14 +563,13 @@ class StationDriver(object):
         self._lcu_interface.set_swlevel(2)
         # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
         self._lcu_interface.turnoffElinTile_byEl(elemsOn)
-        self.tof = True
-        septonconf = modeparms.elementMap2str(elemsOn)
-        return septonconf
+        self.septonconf = modeparms.elementMap2str(elemsOn)
+        return self.septonconf
 
     def stop_tof(self):
         """Stop tiling off mode."""
         self._lcu_interface.set_swlevel(3)
-        self.tof = True
+        self.septonconf = None
 
     def _setupTBBs(self):
         """Setup transient buffer boards and start recording."""
@@ -850,23 +847,21 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
         stndrv.setup_scan(scanroot=destpath)
         ldatinfos = []
         ldatinfo = None
-        septonconf = None
         if pointing:
             stndrv.streambeams(freqsetup, dir_bmctl)
         else:
             stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup.rcumodes[0])
             if freqsetup.rcumodes[0] > 4:
                 # No pointing for HBA implies tiles-off mode
-                septonconf = stndrv.setup_tof()
+                stndrv.setup_tof()
         if acc:
             duration_tot = stndrv.start_acc_scan(duration_tot)
         if bfs:
-            ldatinfo, bfsdatapaths, bfslogpaths = \
+            bfsdatapaths, bfslogpaths = \
                 stndrv.start_bfs_scan(starttime, freqsetup, duration_tot)
         if bsx_type:
-            ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup,
-                                              duration_tot, integration,
-                                              septonconf=septonconf)
+            ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup, duration_tot,
+                                              integration)
         # Stop criteria: Duration time
         # (Note: ACC has no time keeping)
         if not bfs and not bsx_type:
@@ -874,18 +869,17 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
             time.sleep(duration_tot+10)
         # Finished Recording. Now stop things that are running
         if bsx_type:
-            for el in range(len(ldatinfos)):
-                ldatinfos[el].septonconf = septonconf
             stndrv.stop_bsx_scan(ldatinfos, freqsetup)
         if bfs:
-            stndrv.stop_bfs_scan(starttime, ldatinfo, freqsetup,
+            stndrv.stop_bfs_scan(starttime, duration_tot, freqsetup,
                                  bfsdatapaths, bfslogpaths)
         if acc:
-            stndrv.stop_acc_scan(freqsetup.rcumodes[0], duration_tot,
+            stndrv.stop_acc_scan(duration_tot,
+                                 modeparms.rcumode2band(freqsetup.rcumodes[0]),
                                  pointing)
         if pointing:
             stndrv.stop_beam()
-        elif stndrv.tof:
+        elif stndrv.septonconf:
             # No pointing and tiles-off mode, so stop tiles-off mode
             stndrv.stop_tof()
 
