@@ -180,7 +180,7 @@ class StationDriver(object):
 
     def get_datafiletimes(self, acc=False):
         """\
-        Get filetime names of datafiles on LCU
+        Get filetime names of datafiles on LCU sort chronologically
         """
         dd_dir, acc_dir = self._lcu_interface.getdatalist()
         # Assumes files in datadump dir have
@@ -196,22 +196,6 @@ class StationDriver(object):
             _filetimenames.add(obsdatetime_stamp)
         filetimenames = sorted(list(_filetimenames))
         return filetimenames
-
-    def get_data_timestamp(self, order=0, ACC=False):
-        """
-        Get timestamp of datafiles on LCU. order is the temporal order of
-        the data file, order=0 is oldest, order=-1 is newest.
-        """
-        dd_dir, acc_dir = self._lcu_interface.getdatalist()
-        # Assumes only one file in datadump dir with
-        # format YYYYmmdd_HHMMSS_[bsx]st.dat
-        if not ACC:
-             the_dir = dd_dir
-        else:
-            the_dir = acc_dir
-        obsdate, obstime, _obssuff = the_dir[order].split('_', 2)
-        obsdatetime_stamp = obsdate+'_'+obstime
-        return obsdatetime_stamp
 
     def get_stnid(self):
         """Return the station id that this StationDriver is managing."""
@@ -732,7 +716,7 @@ class StationDriver(object):
         (datetime).
         """
         try:
-            scan_dt = datetime.datetime.strptime(self.get_data_timestamp(-1),
+            scan_dt = datetime.datetime.strptime(self.get_datafiletimes()[-1],
                                                  "%Y%m%d_%H%M%S")
         except Exception:
             if beamstarted is None:
