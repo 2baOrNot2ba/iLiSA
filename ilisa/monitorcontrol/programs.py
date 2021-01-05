@@ -122,10 +122,10 @@ class ObsPrograms(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
         bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
-        obsinfo = dataIO.LDatInfo('bfs', bfsnametime,
-                                  self.stationdriver.get_stnid(),
+        obsinfo = dataIO.LDatInfo('bfs', self.stationdriver.get_stnid(),
                                   rcu_setup_cmds, beamctl_cmds,
                                   rspctl_cmds)
+        obsinfo.filenametime = bfsnametime
 
         REC = True
         if REC == True:
@@ -197,7 +197,7 @@ def record_obsprog(stationdriver, scan):
         scan_id = stationdriver.get_scanid(beamstarted)
         scanpath_scdat = os.path.join(stationdriver.scanpath, scan_id)
         # Add caltables used
-        caltabinfos = stationdriver.get_caltableinfo(freqbndobj.rcumodes)
+        caltabinfos = stationdriver.get_caltableinfos(freqbndobj.rcumodes)
         # Add obsinfos to scanrecs
         for obsinfo in obsinfolist:
             obsinfo.caltabinfos = caltabinfos
