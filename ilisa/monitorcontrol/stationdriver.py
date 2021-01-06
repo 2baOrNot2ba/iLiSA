@@ -848,14 +848,15 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
         ldatinfos = []
         ldatinfo = None
         if pointing:
+            if acc:
+                # ACC needs to be enabled before beam
+                duration_tot = stndrv.start_acc_scan(duration_tot)
             stndrv.streambeams(freqsetup, dir_bmctl)
         else:
             stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup.rcumodes[0])
             if freqsetup.rcumodes[0] > 4:
                 # No pointing for HBA implies tiles-off mode
                 stndrv.setup_tof()
-        if acc:
-            duration_tot = stndrv.start_acc_scan(duration_tot)
         if bfs:
             bfsdatapaths, bfslogpaths = \
                 stndrv.start_bfs_scan(starttime, freqsetup, duration_tot)
@@ -873,12 +874,11 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
         if bfs:
             stndrv.stop_bfs_scan(starttime, duration_tot, freqsetup,
                                  bfsdatapaths, bfslogpaths)
-        if acc:
-            stndrv.stop_acc_scan(duration_tot,
-                                 modeparms.rcumode2band(freqsetup.rcumodes[0]),
-                                 pointing)
         if pointing:
             stndrv.stop_beam()
+            if acc:
+                band = modeparms.rcumode2band(freqsetup.rcumodes[0])
+                stndrv.stop_acc_scan(duration_tot, band, pointing)
         elif stndrv.septonconf:
             # No pointing and tiles-off mode, so stop tiles-off mode
             stndrv.stop_tof()
