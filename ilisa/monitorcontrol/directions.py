@@ -173,7 +173,7 @@ def normalizebeamctldir(gendirstr):
         If gendirstr is
         None, then beamctldirstr is None.
     """
-    if gendirstr is None:
+    if gendirstr == 'None' or gendirstr is None:
         return None
     beamctldir = pointing_str2tuple(gendirstr)
     if beamctldir is None:
