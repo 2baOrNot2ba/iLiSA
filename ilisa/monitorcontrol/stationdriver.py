@@ -774,8 +774,24 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     return starttime
 
 
-def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
-        starttime, acc=False, bfs=False, destpath=None):
+def _xtract_bsx(rec_type):
+    """Parse rec_type to bsx_type"""
+    bsx_type = None
+    if not rec_type or rec_type == 'None':
+        # rec_type None means running a beam with no recording
+        bsx_type = None
+    elif rec_type == 'bst' or rec_type == 'sst' or rec_type == 'xst':
+        bsx_type = rec_type
+    elif rec_type == 'tbb' or rec_type == 'dmp':
+        # 'dmp' is for just recording without setting up a beam.
+        pass
+    else:
+        raise RuntimeError('Unknown rec_type {}'.format(rec_type))
+    return bsx_type
+
+
+def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
+                   integration, starttime, acc=False, bfs=False, destpath=None):
     """\
     Record a scan of LOFAR station data
 
@@ -786,14 +802,14 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
     rec_type: str
         Main type of LOFAR data to record.
         The possible data types are:
-            'bst', 'sst', 'xst', 'tbb', 'None'
+            'bst', 'sst', 'xst', 'tbb', None
         where:
         'bst': Beamlet STatistics data
         'sst': Subband STatistics data
         'xst': Xrosslet STatistics data
         None: No recording of data.
-    freqspec: str
-        Frequency specification str as input FreqSetup() class.
+    freqspec: FreqSetup
+        FreqSetup() instance.
     duration_tot: float
         Total duration of scan in seconds.
     pointing: str
@@ -814,9 +830,7 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
     destpath: str
         Destination path for this recording.
     """
-    freqsetup = modeparms.FreqSetup(freqspec)
-    if pointing == 'None':
-        pointing = None
+    bsx_type = _xtract_bsx(rec_type)
     dir_bmctl = ilisa.monitorcontrol.directions.normalizebeamctldir(pointing)
     if pointing and not dir_bmctl:
         raise ValueError("Invalid pointing syntax: {}".format(pointing))
@@ -827,26 +841,11 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
 
     if not destpath:
         destpath = stndrv.scanpath
-
-    bsx_type = None
-    if not rec_type or rec_type == 'None':
-        # rec_type None means running a beam with no recording
-        bsx_type = None
-    elif rec_type == 'bst' or rec_type == 'sst' or rec_type == 'xst':
-        bsx_type = rec_type
-    elif rec_type == 'tbb' or rec_type == 'dmp':
-        # 'dmp' is for just recording without setting up a beam.
-        pass
-    else:
-        raise RuntimeError('Unknown rec_type {}'.format(rec_type))
-
-    # Start criteria: Time
-    starttime = waituntil(starttime, datetime.timedelta(seconds=2))
-
+    ldatinfos = []
+    bfsdatapaths = None
+    bfslogpaths = None
     if rec_type != 'tbb' and rec_type != 'dmp':
         stndrv.setup_scan(scanroot=destpath)
-        ldatinfos = []
-        ldatinfo = None
         if pointing:
             if acc:
                 # ACC needs to be enabled before beam
@@ -864,25 +863,6 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
             ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup, duration_tot,
                                               integration)
         # Stop criteria: Duration time
-        # (Note: ACC has no time keeping)
-        if not bfs and not bsx_type:
-            print('Recording for {}s'.format(duration_tot+10))
-            time.sleep(duration_tot+10)
-        # Finished Recording. Now stop things that are running
-        if bsx_type:
-            stndrv.stop_bsx_scan(ldatinfos, freqsetup)
-        if bfs:
-            stndrv.stop_bfs_scan(starttime, duration_tot, freqsetup,
-                                 bfsdatapaths, bfslogpaths)
-        if pointing:
-            stndrv.stop_beam()
-            if acc:
-                band = modeparms.rcumode2band(freqsetup.rcumodes[0])
-                stndrv.stop_acc_scan(duration_tot, band, pointing)
-        elif stndrv.septonconf:
-            # No pointing and tiles-off mode, so stop tiles-off mode
-            stndrv.stop_tof()
-
     elif rec_type == 'tbb':
         stndrv.do_tbb(duration_tot, freqsetup.rcubands[0])
     elif rec_type == 'dmp':
@@ -897,6 +877,31 @@ def rec_scan(stndrv, rec_type, freqspec, duration_tot, pointing, integration,
         _datafiles, _logfiles = stndrv.dru_interface.rec_bf_proxy(
             rectime, duration_tot, lanes, band, scanpath_bfdat, stndrv.bf_port0,
             stnid)
+    return duration_tot, ldatinfos, bfsdatapaths, bfslogpaths
+
+
+def rec_scan_stop(stndrv, rec_type, freqsetup, duration_tot, pointing,
+                  starttime, acc=False, bfs=False, ldatinfos=None,
+                  bfsdatapaths=None,  bfslogpaths=None):
+    bsx_type = _xtract_bsx(rec_type)
+    if rec_type != 'tbb' and rec_type != 'dmp':
+        if bsx_type:
+            stndrv.stop_bsx_scan(ldatinfos, freqsetup)
+        if bfs:
+            stndrv.stop_bfs_scan(starttime, duration_tot, freqsetup,
+                                 bfsdatapaths, bfslogpaths)
+        if pointing:
+            stndrv.stop_beam()
+            if acc:
+                band = modeparms.rcumode2band(freqsetup.rcumodes[0])
+                stndrv.stop_acc_scan(duration_tot, band, pointing)
+        elif stndrv.septonconf:
+            # No pointing and tiles-off mode, so stop tiles-off mode
+            stndrv.stop_tof()
+    elif rec_type == 'tbb':
+        pass
+    elif rec_type == 'dmp':
+        pass
 
 
 import argparse
@@ -939,14 +944,29 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=args.mockrun)
     sesspath = accessconf['DRU']['LOFARdataArchive']
+    rec_type = args.ldat_type
+    if rec_type == 'None':
+        rec_type = None
     if args.acc:
         sesspath = os.path.join(sesspath, 'acc')
     else:
         sesspath = os.path.join(sesspath, args.ldat_type)
     bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
-    rec_scan(stndrv, args.ldat_type, args.freqspec, args.duration_tot,
-             args.pointing, args.integration, args.starttime, args.acc,
-             args.bfs, destpath=sesspath)
+    freqsetup = modeparms.FreqSetup(args.freqspec)
+    # Start criteria: Time
+    starttime = waituntil(args.starttime, datetime.timedelta(seconds=2))
+    duration_tot, ldatinfos, bfsdatapaths, bfslogpaths =\
+        rec_scan_start(stndrv, rec_type, freqsetup, args.duration_tot,
+                   args.pointing, args.integration, starttime, args.acc,
+                   args.bfs, destpath=sesspath)
+    # (Note: ACC has no time keeping)
+    if not args.bfs and not _xtract_bsx(rec_type):
+        print('Recording for {}s'.format(duration_tot + 10))
+        time.sleep(duration_tot + 10)
+    # Finished Recording. Now stop things that are running
+    rec_scan_stop(stndrv, rec_type, freqsetup, duration_tot,
+                  args.pointing, starttime, args.acc, args.bfs, ldatinfos,
+                  bfsdatapaths, bfslogpaths)
     for res in stndrv.scanresult['rec']:
         print("Saved {} scanrec here: {}".format(
             res, stndrv.scanresult[res].get_scanrecpath()))

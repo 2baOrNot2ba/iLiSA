@@ -1,4 +1,5 @@
 import os
+import time
 import datetime
 
 import yaml
@@ -7,9 +8,9 @@ import ilisa.monitorcontrol
 import ilisa.monitorcontrol.directions
 import ilisa.monitorcontrol.modeparms as modeparms
 import ilisa.monitorcontrol.programs as programs
-from ilisa.monitorcontrol.stationdriver import StationDriver, waituntil
-from ilisa.monitorcontrol.stationdriver import rec_scan
-
+from ilisa.monitorcontrol.stationdriver import StationDriver, waituntil,\
+    _xtract_bsx
+from ilisa.monitorcontrol.stationdriver import rec_scan_start, rec_scan_stop
 
 
 def projid2meta(projectid):
@@ -267,9 +268,19 @@ class ScanSession(object):
                 if len(rec) > 0:
                     rec_type = rec.pop()  # Should only be bsx left
                 freqspec = scan['beam']['freqspec']
-                rec_scan(self.stndrv, rec_type, freqspec, duration_tot,
-                         pointing, integration, starttime,
-                         acc=acc, bfs=bfs, destpath=sesspath)
+                freqsetup = modeparms.FreqSetup(freqspec)
+                starttime = waituntil(starttime, datetime.timedelta(seconds=2))
+                duration_tot, ldatinfos, bfsdatapaths, bfslogpaths =\
+                    rec_scan_start(self.stndrv, rec_type, freqsetup,
+                                   duration_tot, pointing, integration,
+                                   starttime, acc=acc, bfs=bfs,
+                                   destpath=sesspath)
+                if not bfs and not _xtract_bsx(rec_type):
+                    print('Recording for {}s'.format(duration_tot + 10))
+                    time.sleep(duration_tot + 10)
+                rec_scan_stop(self.stndrv, rec_type, freqsetup, duration_tot,
+                              pointing, starttime, acc, bfs, ldatinfos,
+                              bfsdatapaths, bfslogpaths)
                 scanresult = self.stndrv.scanresult
             scan['id'] = scanresult.pop('scan_id', None)
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)
