@@ -83,9 +83,12 @@ class StationDriver(object):
         self.scanpath_scdat = None  # Set under self.scanpath in setup_scan()
         self.exit_check = True
         self.halt_observingstate_when_finished = False
-        # Initialize beamctl_cmds & rcuctl_cmds
+        # Initialize currently running beamctl_cmds & rcuctl_cmds
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
+        # and likewise the last executed commands
+        self.last_rcusetup_cmds = []
+        self.last_beamctl_cmds = []
         # Initialize septonconf setting; implies tile-off (tof) mode
         self.septonconf = None
         # Initialize scanresult
@@ -247,7 +250,7 @@ class StationDriver(object):
             self._lcu_interface.mockstatistics('acc', 1.0, duration_tot)
         return duration_tot
 
-    def stop_acc_scan(self, duration_tot, band, pointing):
+    def stop_acc_scan(self, duration_tot, freqsetup):
         self._lcu_interface.set_swlevel(2)
         self._lcu_interface.acc_mode(enable=False)
         self._lcu_interface.set_swlevel(3)
@@ -256,18 +259,20 @@ class StationDriver(object):
         _, acc_files = self._lcu_interface.getdatalist()
         for acc_file in acc_files:
             obsid, _ = acc_file.split('_acc_')
-            rspctl_cmds = []  # AAC doesn't have any rspctl cmds
-            this_obsinfo = data_io.LDatInfo('acc', self.get_stnid(),
-                                            self.rcusetup_cmds,
-                                            self.beamctl_cmds,
+            rspctl_cmds = []  # ACC doesn't have any rspctl cmds
+            ldatinfo_acc = data_io.LDatInfo('acc', self.get_stnid(),
+                                            self.last_rcusetup_cmds,
+                                            self.last_beamctl_cmds,
                                             rspctl_cmds)
-            this_obsinfo.filenametime = obsid
-            self.scanresult['acc'].add_obs(this_obsinfo)
+            ldatinfo_acc.filenametime = obsid
+            self.scanresult['acc'].add_obs(ldatinfo_acc)
 
         # Set scanrecinfo
+        pointing = ldatinfo_acc.pointing
         acc_integration = 1.0
-        self.scanresult['acc'].set_scanrecparms('acc', band, duration_tot,
-                                                pointing, acc_integration)
+        self.scanresult['acc'].set_scanrecparms('acc', freqsetup.arg,
+                                                duration_tot, pointing,
+                                                acc_integration)
         self.scanresult['acc'].set_scanpath(self.scanpath_scdat)
         scanrecpath = self.scanresult['acc'].get_scanrecpath()
 
@@ -276,7 +281,7 @@ class StationDriver(object):
             print("Dest directory exists already (will put data here)")
         else:
             print("Creating directory " + scanrecpath + " for ACC "
-                  + str(duration_tot) + " s band=" + str(band))
+                  + str(duration_tot) + " s band=" + str(freqsetup.rcumodes[0]))
             os.makedirs(scanrecpath)
 
         # Move ACC dumps to storage
@@ -381,6 +386,9 @@ class StationDriver(object):
     def stop_beam(self):
         """Turn off beam."""
         self._lcu_interface.stop_beam()
+        # Save last commands for e.g. ACC
+        self.last_rcusetup_cmds = self.rcusetup_cmds
+        self.last_beamctl_cmds = self.beamctl_cmds
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
@@ -442,9 +450,18 @@ class StationDriver(object):
                                              rcusetup_cmds, beamctl_cmds,
                                              rspctl_cmds,
                                              septonconf=self.septonconf))
+        # Set scanrecinfo
+        self.scanresult['rec'].append('bsx')
+        self.scanresult['bsx'] = data_io.ScanRecInfo()
+        self.scanresult['bsx'].set_stnid(self.get_stnid())
+        self.scanresult['bsx'].set_scanrecparms(ldatinfos[0].ldat_type,
+                                                freqsetup.arg,
+                                                ldatinfos[0].duration_scan,
+                                                ldatinfos[0].pointing,
+                                                ldatinfos[0].integration)
         return ldatinfos
     
-    def stop_bsx_scan(self, ldatinfos, freqsetup):
+    def stop_bsx_scan(self, ldatinfos):
         """\
         Stop BSX scanrec
         """
@@ -456,18 +473,9 @@ class StationDriver(object):
         for ldatinfo, datafiletime in zip(_ldatinfos, datafiletimes):
             ldatinfo.filenametime = datafiletime
             ldatinfos.append(ldatinfo)
-
-        # Set scanrecinfo
-        self.scanresult['rec'].append('bsx')
-        self.scanresult['bsx'] = data_io.ScanRecInfo()
-        self.scanresult['bsx'].set_stnid(self.get_stnid())
         for ldatinfo in ldatinfos:
             self.scanresult['bsx'].add_obs(ldatinfo)
-        self.scanresult['bsx'].set_scanrecparms(ldatinfos[0].ldat_type,
-                                                freqsetup.arg,
-                                                ldatinfos[0].duration_scan,
-                                                ldatinfos[0].pointing,
-                                                ldatinfos[0].integration)
+
         # Move data to archive
         self.scanresult['bsx'].set_scanpath(self.scanpath_scdat)
         scanrecpath = self.scanresult['bsx'].get_scanrecpath()
@@ -475,6 +483,11 @@ class StationDriver(object):
 
     def start_bfs_scan(self, starttime, freqsetup, duration_tot):
         """Start recording BFS data"""
+        caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
+        rspctl_cmds = []  # BFS doesn't use rspctl cmds
+        ldatinfo_bfs = data_io.LDatInfo('bfs', self.get_stnid(),
+                                    self.rcusetup_cmds, self.beamctl_cmds,
+                                    rspctl_cmds, caltabinfos)
         scanpath_bfdat = os.path.join(self.bf_data_dir, self.scan_id)
         lanesalloc = modeparms.getlanes(freqsetup.subbands_spw,
                                         freqsetup.bits, freqsetup.nrlanes)
@@ -497,30 +510,26 @@ class StationDriver(object):
                                            self.get_stnid())
             bfsdatapaths.append(datafileguess)
             bfslogpaths.append(dumplogname)
-        return bfsdatapaths, bfslogpaths
-
-    def stop_bfs_scan(self, rectime, duration_tot, freqsetup, bfsdatapaths,
-                      bfslogpaths):
-        """Stop BFS scan"""
-        caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
-        rspctl_cmds = []  # BFS doesn't use rspctl cmds
-        ldatinfo = data_io.LDatInfo('bfs', self.get_stnid(),
-                                    self.rcusetup_cmds, self.beamctl_cmds,
-                                    rspctl_cmds, caltabinfos)
         # Duration of BFS not determinable via LCU commands so add this by hand
-        ldatinfo.duration_scan = duration_tot
-        file_dt_name = rectime.strftime("%Y%m%d_%H%M%S")
-        ldatinfo.filenametime = file_dt_name
+        ldatinfo_bfs.duration_scan = duration_tot
         # Set scanrecinfo
         self.scanresult['rec'].append('bfs')
         self.scanresult['bfs'] = data_io.ScanRecInfo()
         self.scanresult['bfs'].set_stnid(self.get_stnid())
-        self.scanresult['bfs'].add_obs(ldatinfo)
-        # Get duration from monkey patched ldatinfo. No integration for BFS
+        # No integration for BFS
         self.scanresult['bfs'].set_scanrecparms('bfs', freqsetup.arg,
-                                                ldatinfo.duration_scan,
-                                                ldatinfo.pointing,
+                                                duration_tot,
+                                                ldatinfo_bfs.pointing,
                                                 integration=None)
+        return ldatinfo_bfs, bfsdatapaths, bfslogpaths
+
+    def stop_bfs_scan(self, ldatinfo_bfs, rectime, bfsdatapaths, bfslogpaths):
+        """Stop BFS scan"""
+
+        file_dt_name = rectime.strftime("%Y%m%d_%H%M%S")
+        ldatinfo_bfs.filenametime = file_dt_name
+        self.scanresult['bfs'].add_obs(ldatinfo_bfs)
+
         # Make a project folder for BFS data
         self.scanresult['bfs'].set_scanpath(self.scanpath_scdat)
         scanrecpath = self.scanresult['bfs'].get_scanrecpath()
@@ -842,6 +851,7 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
     if not destpath:
         destpath = stndrv.scanpath
     ldatinfos = []
+    ldatinfo_bfs = None
     bfsdatapaths = None
     bfslogpaths = None
     if rec_type != 'tbb' and rec_type != 'dmp':
@@ -857,12 +867,11 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
                 # No pointing for HBA implies tiles-off mode
                 stndrv.setup_tof()
         if bfs:
-            bfsdatapaths, bfslogpaths = \
+            ldatinfo_bfs, bfsdatapaths, bfslogpaths = \
                 stndrv.start_bfs_scan(starttime, freqsetup, duration_tot)
         if bsx_type:
             ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup, duration_tot,
                                               integration)
-        # Stop criteria: Duration time
     elif rec_type == 'tbb':
         stndrv.do_tbb(duration_tot, freqsetup.rcubands[0])
     elif rec_type == 'dmp':
@@ -877,24 +886,23 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
         _datafiles, _logfiles = stndrv.dru_interface.rec_bf_proxy(
             rectime, duration_tot, lanes, band, scanpath_bfdat, stndrv.bf_port0,
             stnid)
-    return duration_tot, ldatinfos, bfsdatapaths, bfslogpaths
+    return duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths, bfslogpaths
 
 
-def rec_scan_stop(stndrv, rec_type, freqsetup, duration_tot, pointing,
-                  starttime, acc=False, bfs=False, ldatinfos=None,
-                  bfsdatapaths=None,  bfslogpaths=None):
+def rec_scan_stop(stndrv, rec_type, freqsetup, pointing, starttime, acc, bfs,
+                  duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths,
+                  bfslogpaths):
     bsx_type = _xtract_bsx(rec_type)
     if rec_type != 'tbb' and rec_type != 'dmp':
         if bsx_type:
-            stndrv.stop_bsx_scan(ldatinfos, freqsetup)
+            stndrv.stop_bsx_scan(ldatinfos)
         if bfs:
-            stndrv.stop_bfs_scan(starttime, duration_tot, freqsetup,
-                                 bfsdatapaths, bfslogpaths)
+            stndrv.stop_bfs_scan(ldatinfo_bfs, duration_tot, freqsetup,
+                                 starttime, bfsdatapaths, bfslogpaths)
         if pointing:
             stndrv.stop_beam()
             if acc:
-                band = modeparms.rcumode2band(freqsetup.rcumodes[0])
-                stndrv.stop_acc_scan(duration_tot, band, pointing)
+                stndrv.stop_acc_scan(duration_tot, freqsetup)
         elif stndrv.septonconf:
             # No pointing and tiles-off mode, so stop tiles-off mode
             stndrv.stop_tof()
@@ -955,17 +963,17 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     freqsetup = modeparms.FreqSetup(args.freqspec)
     # Start criteria: Time
     starttime = waituntil(args.starttime, datetime.timedelta(seconds=2))
-    duration_tot, ldatinfos, bfsdatapaths, bfslogpaths =\
+    duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths, bfslogpaths =\
         rec_scan_start(stndrv, rec_type, freqsetup, args.duration_tot,
-                   args.pointing, args.integration, starttime, args.acc,
-                   args.bfs, destpath=sesspath)
+                       args.pointing, args.integration, starttime, args.acc,
+                       args.bfs, destpath=sesspath)
     # (Note: ACC has no time keeping)
     if not args.bfs and not _xtract_bsx(rec_type):
         print('Recording for {}s'.format(duration_tot + 10))
         time.sleep(duration_tot + 10)
     # Finished Recording. Now stop things that are running
-    rec_scan_stop(stndrv, rec_type, freqsetup, duration_tot,
-                  args.pointing, starttime, args.acc, args.bfs, ldatinfos,
+    rec_scan_stop(stndrv, rec_type, freqsetup, args.pointing, starttime,
+                  args.acc, args.bfs, duration_tot, ldatinfos, ldatinfo_bfs,
                   bfsdatapaths, bfslogpaths)
     for res in stndrv.scanresult['rec']:
         print("Saved {} scanrec here: {}".format(

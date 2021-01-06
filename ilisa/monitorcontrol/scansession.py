@@ -270,7 +270,8 @@ class ScanSession(object):
                 freqspec = scan['beam']['freqspec']
                 freqsetup = modeparms.FreqSetup(freqspec)
                 starttime = waituntil(starttime, datetime.timedelta(seconds=2))
-                duration_tot, ldatinfos, bfsdatapaths, bfslogpaths =\
+                duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths,\
+                bfslogpaths =\
                     rec_scan_start(self.stndrv, rec_type, freqsetup,
                                    duration_tot, pointing, integration,
                                    starttime, acc=acc, bfs=bfs,
@@ -278,9 +279,9 @@ class ScanSession(object):
                 if not bfs and not _xtract_bsx(rec_type):
                     print('Recording for {}s'.format(duration_tot + 10))
                     time.sleep(duration_tot + 10)
-                rec_scan_stop(self.stndrv, rec_type, freqsetup, duration_tot,
-                              pointing, starttime, acc, bfs, ldatinfos,
-                              bfsdatapaths, bfslogpaths)
+                rec_scan_stop(self.stndrv, rec_type, freqsetup, pointing,
+                              starttime, acc, bfs, duration_tot, ldatinfos,
+                              ldatinfo_bfs, bfsdatapaths, bfslogpaths)
                 scanresult = self.stndrv.scanresult
             scan['id'] = scanresult.pop('scan_id', None)
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)
