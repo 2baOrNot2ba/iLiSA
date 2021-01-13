@@ -791,7 +791,7 @@ def _xtract_bsx(rec_type):
         bsx_type = None
     elif rec_type == 'bst' or rec_type == 'sst' or rec_type == 'xst':
         bsx_type = rec_type
-    elif rec_type == 'tbb' or rec_type == 'dmp':
+    elif rec_type == 'bfs' or rec_type == 'tbb' or rec_type == 'dmp':
         # 'dmp' is for just recording without setting up a beam.
         pass
     else:
@@ -897,8 +897,8 @@ def rec_scan_stop(stndrv, rec_type, freqsetup, pointing, starttime, acc, bfs,
         if bsx_type:
             stndrv.stop_bsx_scan(ldatinfos)
         if bfs:
-            stndrv.stop_bfs_scan(ldatinfo_bfs, duration_tot, freqsetup,
-                                 starttime, bfsdatapaths, bfslogpaths)
+            stndrv.stop_bfs_scan(ldatinfo_bfs, starttime, bfsdatapaths,
+                                 bfslogpaths)
         if pointing:
             stndrv.stop_beam()
             if acc:
