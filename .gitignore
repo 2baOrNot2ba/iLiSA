@@ -73,6 +73,10 @@ target/
 .idea
 venv
 
+#Visual Studio Code
+.vscode
+iLiSA.code-workspace
+
 #project specific
 apps/**
 docs/**
