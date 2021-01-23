@@ -1222,7 +1222,7 @@ import matplotlib.dates as mdates
 import ilisa.monitorcontrol.modeparms as modeparms
 
 
-def plotbst(bstff, pol_stokes=True):
+def viewbst(bstff, pol_stokes=True, printout=False):
     """Plot BST data."""
     BSTdata, obsfileinfo = readbstfolder(bstff)
     stnid = obsfileinfo['station_id']
@@ -1235,47 +1235,61 @@ def plotbst(bstff, pol_stokes=True):
     ts = numpy.arange(0., dur, intg)
     ts = [starttime+datetime.timedelta(seconds=t) for t in ts]
     fig, (ax_p, ax_q) = plt.subplots(2, 1, sharex=True, sharey=True)
-    data2plot_p_name, data2plot_p = BSTdata['X'].T, 'X-pol'
-    data2plot_q_name, data2plot_q = BSTdata['Y'].T, 'Y-pol'
+    data2plot_p_name, data2plot_p = 'X-pol', BSTdata['X']
+    data2plot_q_name, data2plot_q = 'Y-pol', BSTdata['Y']
+    data2plot_q_unit = 'Flux [arb. units]'
+    norm_p, norm_q = None, None
+    cmap_q = None
     if pol_stokes:
-        stokes_norm = True
         data2plot_p_name = 'Stokes I'
-        data2plot_p = BSTdata['X'].T + BSTdata['Y'].T
+        data2plot_p = BSTdata['X'] + BSTdata['Y']
+        norm_p = colors.LogNorm()
         data2plot_q_name = '(antenna) Stokes Q'
-        data2plot_q = BSTdata['X'].T - BSTdata['Y'].T
+        data2plot_q = BSTdata['X'] - BSTdata['Y']
         data2plot_q_unit = 'Signed flux [arb. units]'
+        cmap_q = 'RdBu_r'
+        norm_q = colors.SymLogNorm(linthresh=1e2)
+        stokes_norm = True
         if stokes_norm:
             data2plot_q = data2plot_q / data2plot_p
             data2plot_q_name = '(antenna) Stokes q'
             data2plot_q_unit = 'Signed relative flux [%]'
-            bstplt_q = ax_q.pcolormesh(ts, freqs / 1e6, data2plot_q,
-                                       cmap='RdBu_r',
-                                       norm=colors.SymLogNorm(linthresh=1e-3))
-        else:
-            bstplt_q = ax_q.pcolormesh(ts, freqs / 1e6, data2plot_q,
-                                       cmap='RdBu_r',
-                                       norm=colors.SymLogNorm(linthresh=1e2))
+            norm_q = colors.SymLogNorm(linthresh=1e-3)
+    if not printout:
+        # Plot quantity p:
+        bstplt_p = ax_p.pcolormesh(ts, freqs/1e6, data2plot_p.T, norm=norm_p)
+        cbar_p = fig.colorbar(bstplt_p, ax=ax_p)
+        cbar_p.set_label('Flux [arb. units]')
+        ax_p.set_ylabel('Frequency [MHz]')
+        ax_p.set_title('{}'.format(data2plot_p_name))
+        # Plot quantity q:
+        bstplt_q = ax_q.pcolormesh(ts, freqs / 1e6, data2plot_q.T, cmap=cmap_q,
+                                   norm=norm_q)
+        cbar_q = fig.colorbar(bstplt_q, ax=ax_q)
+        cbar_q.set_label(data2plot_q_unit)
+        ax_q.set_title('{}'.format(data2plot_q_name))
+        fig.autofmt_xdate()
 
-    bstplt_p = ax_p.pcolormesh(ts, freqs/1e6, data2plot_p,
-                              norm=colors.LogNorm())
-    cbar_p = fig.colorbar(bstplt_p, ax=ax_p)
-    cbar_p.set_label('Flux [arb. units]')
-    ax_p.set_ylabel('Frequency [MHz]')
-    ax_p.set_title('{}'.format(data2plot_p_name))
+        ax_q.xaxis.set_major_formatter( mdates.DateFormatter('%H:%M:%S'))
+        ax_q.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
+        ax_q.set_ylabel('Frequency [MHz]')
 
-    cbar_q = fig.colorbar(bstplt_q, ax=ax_q)
-    cbar_q.set_label(data2plot_q_unit)
-    ax_q.set_title('{}'.format(data2plot_q_name))
-    fig.autofmt_xdate()
-
-    ax_q.xaxis.set_major_formatter( mdates.DateFormatter('%H:%M:%S'))
-    ax_q.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
-    ax_q.set_ylabel('Frequency [MHz]')
-
-    supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur)
-                  + ' pointing: {},{},{}'.format(*pointing))
-    plt.suptitle(supertitle)
-    plt.show()
+        supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur)
+                      + ' pointing: {},{},{}'.format(*pointing))
+        plt.suptitle(supertitle)
+        plt.show()
+    else:
+        # CSV style:
+        #   Header
+        t_prev = ts[0]
+        print("#H:M:S since {} UT".format(t_prev.isoformat()), "Freq[MHz]",
+              data2plot_p_name, data2plot_q_name, sep=', ')
+        #   Data
+        for ti, t in enumerate(ts):
+            for freqi, freq in enumerate(freqs):
+                dataval_p, dataval_q= data2plot_p[ti, freqi], data2plot_q[ti, freqi]
+                del_t = t - t_prev
+                print(del_t, freq/1e6, dataval_p, dataval_q, sep=', ')
 
 
 def plotsst(sstff, freqreq):
@@ -1397,16 +1411,17 @@ def plotacc(accff, freqreq=None):
             sb += 1
 
 
-def plot_bsxst(args):
+def view_bsxst(args):
     lofar_datatype = datafolder_type(args.dataff)
     if lofar_datatype =='acc':
-        plotacc(args.dataff, args.freq)
+        plotacc(args.dataff, args.freq, printout=args.printout)
     if lofar_datatype=='bst' or lofar_datatype=='bst-357':
-        plotbst(args.dataff)
+        viewbst(args.dataff, pol_stokes=not(args.linear),
+                printout=args.printout)
     elif lofar_datatype=='sst':
-        plotsst(args.dataff, args.freq)
+        plotsst(args.dataff, args.freq, printout=args.printout)
     elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
-        plotxst(args.dataff)
+        plotxst(args.dataff, printout=args.printout)
     else:
         raise RuntimeError("Not a bst, sst, or xst filefolder")
 
@@ -1417,13 +1432,18 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.set_defaults(func=plot_bsxst)
+    parser.add_argument('-n', '--filenr', type=int, default=0)
+    parser.add_argument('-s', '--sampnr', type=int, default=0)
+    parser.add_argument('-l', '--linear', action="store_true",
+                        help='Use linear X,Y polarization rather than Stokes')
+    parser.add_argument('-p', '--printout', action="store_true",
+                        help='Print out data to stdout, else plot')
     parser.add_argument('dataff', help="acc, bst, sst or xst filefolder")
     parser.add_argument('freq', type=float, nargs='?', default=None)
 
     args = parser.parse_args()
     args.dataff = os.path.normpath(args.dataff)
-    args.func(args)
+    view_bsxst(args)
 
 
 if __name__ == "__main__":
