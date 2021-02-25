@@ -34,6 +34,8 @@ if canuse_dreambeam:
     from dreambeam.polarimetry import cov_lin2cir
 
 
+_RCU_SB_SEP = "+"
+
 regex_ACCfolder = (
     r"^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
     r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
@@ -82,6 +84,71 @@ def datafolder_type(datafolderpath):
     return datatype
 
 
+def seqlists2slicestr(seqlists):
+    """
+    Convert a sequence list to slice format
+
+    Instead of comma separated list format (e.g. 202,204,206), try to construct
+    subband slice syntax (e.g. 202:2:206), if possible. One use-case is in the
+    construction of file names containing subband selection, in order to avoid
+    file names that are potentially longer than 255 chars.
+
+    Parameters
+    ----------
+    seqlists : list or str
+        List of strings with comma separated numbers that are monotonically
+        increasing by a constant increment.
+
+    Returns
+    -------
+    slicestr : str
+        Slice expression string.
+
+    Examples
+    --------
+    Simple string with comma separated numbers:
+    >>> from ilisa.monitorcontrol.data_io import seqlists2slicestr
+    >>> seqlists2slicestr('2,3,4,5,6')
+    '2:6'
+
+    Lists of strings with comma separated numbers:
+    >>> seqlists2slicestr(['1,2,3','11,12,13'])
+    '1:3+11:13'
+
+    If number sequences increment by more than 1:
+    >>> seqlists2slicestr(['1,3,5','12,15,18'])
+    '1:2:5+12:3:18'
+
+    """
+    def seqlist2slice(seqlist):
+        seqlistcanon = []
+        for seqel in seqlist.split(','):
+            seqel = [int(el) for el in seqel.split(':')]
+            seq = range(seqel[0], seqel[-1]+1)
+            seqlistcanon.extend(seq)
+        seqsteps = set(numpy.diff(seqlistcanon))
+        if len(seqsteps) > 1:
+            raise ValueError('Subband spec {} too complicated.'.format(seqlist))
+        elif len(seqsteps) == 0:
+            slicestr = "{}".format(seqlistcanon[0])
+        else:
+            seqstep = seqsteps.pop()
+            seqstepstr = str(seqstep) + ':' if seqstep > 1 else ''
+            slicestr = "{}:{}{}".format(seqlistcanon[0], seqstepstr,
+                                        seqlistcanon[-1])
+        return slicestr
+
+    if type(seqlists) is list:
+        slicestrlist = []
+        for seqlist in seqlists:
+            seqstr = seqlist2slice(seqlist)
+            slicestrlist.append(seqstr)
+        slicestr = _RCU_SB_SEP.join(slicestrlist)
+    else:
+        slicestr = seqlist2slice(seqlists)
+    return slicestr
+
+
 def obsfileinfo2filefolder(obsfileinfo):
     """Convert obsfileinfo dict to filefolder name"""
     filefoldername = '{}_{}'.format(obsfileinfo['station_id'],
@@ -97,7 +164,7 @@ def obsfileinfo2filefolder(obsfileinfo):
         filefoldername += "_spw" + rcumodestr
     if obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
         filefoldername += "_sb"
-        filefoldername += modeparms.seqlists2slicestr(obsfileinfo['sb'])
+        filefoldername += seqlists2slicestr(obsfileinfo['sb'])
     if 'integration' in obsfileinfo:
         filefoldername += "_int" + str(int(obsfileinfo['integration']))
     if 'duration_scan' in obsfileinfo:
@@ -149,9 +216,9 @@ def filefolder2obsfileinfo(filefolderpath):
 
     if len(obsfileinfo['rcumode']) > 1:
         obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
-    if modeparms.RCU_SB_SEP in obsfileinfo['subbands']:
+    if _RCU_SB_SEP in obsfileinfo['subbands']:
         obsfileinfo['subbands'] = obsfileinfo['subbands'].split(
-            modeparms.RCU_SB_SEP)
+            _RCU_SB_SEP)
 
     if type(obsfileinfo['rcumode']) is not list:
         obsfileinfo['rcumode'] = [obsfileinfo['rcumode']]
@@ -172,7 +239,7 @@ def filefolder2obsfileinfo(filefolderpath):
                                                   numpy.linspace(freqlo,
                                                                  freqhi,
                                                                  nrsbs))
-        bmltarg = modeparms.seqlists2slicestr(
+        bmltarg = seqlists2slicestr(
             ','.join([str(_b) for _b in range(nrsbs)]))
         beamlets.append(bmltarg)
         totnrsbs += nrsbs
@@ -916,7 +983,8 @@ class CVCfiles(object):
             # Try to get obsfile header
             try:
                 (bfilename, _dat) = cvcfile.split('.')
-                hfilename = bfilename + '.h'
+                ymd, hms, _rest = bfilename.split('_', 2)
+                hfilename = ymd+'_'+hms+'.h'
                 hfilepath = os.path.join(self.filefolder, hfilename)
                 obsinfo = LDatInfo.read_ldat_header(hfilepath)
                 self.scanrecinfo.add_obs(obsinfo)
@@ -1023,7 +1091,7 @@ class CVCfiles(object):
         elif crlpolrep is None:
             return self.dataset[filenr]
         else:
-            raise NotImplementedError("Only corr='lin' implemented")
+            raise NotImplementedError("Only corr 'lin','cir','sto' implemented")
 
 
 def cov_flat2polidx(cvc, parity_ord=True):
@@ -1421,7 +1489,7 @@ def view_bsxst(args):
     elif lofar_datatype=='sst':
         plotsst(args.dataff, args.freq, printout=args.printout)
     elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
-        plotxst(args.dataff, printout=args.printout)
+        plotxst(args.dataff)
     else:
         raise RuntimeError("Not a bst, sst, or xst filefolder")
 

@@ -6,7 +6,11 @@ import numpy
 import datetime
 import warnings
 
-RCU_SB_SEP = "+"
+ANTENNA_SETS = ['LBA_INNER', 'LBA_OUTER',
+                'LBA_SPARSE_EVEN', 'LBA_SPARSE_ODD',
+                'LBA_X', 'LBA_Y',
+                'HBA_DUAL', 'HBA_JOINED',
+                'HBA_ZERO', 'HBA_ONE']
 Nqfreq = 100.0e6  # Nyquist frequency in Hz
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
@@ -486,71 +490,6 @@ def seqarg2list(seqarg):
             seqstep = 1
         arglist.extend(range(seqlo, seqhi+1,seqstep))
     return arglist
-
-
-def seqlists2slicestr(seqlists):
-    """
-    Convert a sequence list to slice format
-
-    Instead of comma separated list format (e.g. 202,204,206), try to construct
-    subband slice syntax (e.g. 202:2:206), if possible. One use-case is in the
-    construction of file names containing subband selection, in order to avoid
-    file names that are potentially longer than 255 chars.
-
-    Parameters
-    ----------
-    seqlists : list or str
-        List of strings with comma separated numbers that are monotonically
-        increasing by a constant increment.
-
-    Returns
-    -------
-    slicestr : str
-        Slice expression string.
-
-    Examples
-    --------
-    Simple string with comma separated numbers:
-    >>> import ilisa.monitorcontrol.modeparms as mp
-    >>> mp.seqlists2slicestr('2,3,4,5,6')
-    '2:6'
-
-    Lists of strings with comma separated numbers:
-    >>> mp.seqlists2slicestr(['1,2,3','11,12,13'])
-    '1:3+11:13'
-
-    If number sequences increment by more than 1:
-    >>> mp.seqlists2slicestr(['1,3,5','12,15,18'])
-    '1:2:5+12:3:18'
-
-    """
-    def seqlist2slice(seqlist):
-        seqlistcanon = []
-        for seqel in seqlist.split(','):
-            seqel = [int(el) for el in seqel.split(':')]
-            seq = range(seqel[0], seqel[-1]+1)
-            seqlistcanon.extend(seq)
-        seqsteps = set(numpy.diff(seqlistcanon))
-        if len(seqsteps) > 1:
-            raise ValueError('Subband spec {} too complicated.'.format(seqlist))
-        elif len(seqsteps) == 0:
-            slicestr = "{}".format(seqlistcanon[0])
-        else:
-            seqstep = seqsteps.pop()
-            seqstepstr = str(seqstep) + ':' if seqstep > 1 else ''
-            slicestr = "{}:{}{}".format(seqlistcanon[0], seqstepstr,
-                                        seqlistcanon[-1])
-        return slicestr
-
-    if type(seqlists) is list:
-        slicestrlist = []
-        for seqlist in seqlists:
-            seqstr = seqlist2slice(seqlist)
-            slicestrlist.append(seqstr)
-        slicestr = RCU_SB_SEP.join(slicestrlist)
-    else:
-        slicestr = seqlist2slice(seqlists)
-    return slicestr
 
 
 def band2rcumode(band):
