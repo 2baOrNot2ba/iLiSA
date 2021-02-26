@@ -826,15 +826,11 @@ class CVCfiles(object):
     dataset: list of array_like
         Each item in list corresponds to one CVC file and is the actual
         covariance matrix cube with shape cvcdim0 x cvcdim1 x cvcdim2.
-    fileobstimes: list of str
-        A list of datetimes as specified by the CVC filename.
     samptimeset: list of datetimes
         The datetime of the visibility matrix sample.
-
     """
 
     def __init__(self, datapath):
-        self.fileobstimes = []
         self.dataset = []
         self.samptimeset = []
         self.freqset = []
@@ -859,17 +855,22 @@ class CVCfiles(object):
             for tile, elem in enumerate(elmap):
                 self.stn_antpos[tile] += self.stn_intilepos[elem]
 
-    def __get_cvc_dtype(self):
-        cvc_dtype = numpy.dtype(('c16', (self.cvcdim1, self.cvcdim2)))
+    def __get_cvc_dtype(self, cvcdim1=None, cvcdim2=None):
+        if cvcdim1 is None:
+            cvcdim1 = self.cvcdim1
+        if cvcdim2 is None:
+            cvcdim2 = self.cvcdim2
+        cvc_dtype = numpy.dtype(('c16', (cvcdim1, cvcdim2)))
         return cvc_dtype
 
     def _parse_cvcfile(self, cvcfilepath):
-        """Parse the cvc file name. Sets fileobstimes and sets the dimensions
-        of the visibility cube, which most generally is: 
+        """Parse the cvc file name.
+
+        Sets the dimensions of the visibility cube, which most generally is:
         dimtimes * dimrcu0 * dimrcu1.
 
         The file name should have the format:
-            Ymd_HMS_xst.dat for xst file
+            Ymd_HMS_xst_spw3_sb123_96x96.dat for xst file
             Ymd_HMS_acc_nrsbsxnrrcus0xnrrcus1.dat for acc file
 
         :param cvcfilepath: str
@@ -896,8 +897,6 @@ class CVCfiles(object):
                 seconds=_nr512)
         else:
             filebegindatetime = filenamedatetime
-        # Save the observation datetime of file and the cvc dims.
-        self.fileobstimes.append(filebegindatetime)
         return datatype, filebegindatetime, self.cvcdim1, self.cvcdim2
 
     def _parse_cvcfolder(self, cvcfolderpath):
@@ -906,8 +905,14 @@ class CVCfiles(object):
         The filefolder should have the format:
             stnid_Ymd_HMS_rcumode_subband_integration_duration_pointing_cvc
 
-        :param cvcfolderpath: str
-        :return: scanrecparms
+        Parameters
+        ----------
+        cvcfolderpath: str
+            Path of folder with CVC files.
+
+        Returns
+        -------
+        scanrecparms
         """
         cvcfoldername = os.path.basename(os.path.abspath(cvcfolderpath))
         obsfolderinfo = {}
@@ -983,8 +988,10 @@ class CVCfiles(object):
             # Try to get obsfile header
             try:
                 (bfilename, _dat) = cvcfile.split('.')
-                ymd, hms, _rest = bfilename.split('_', 2)
-                hfilename = ymd+'_'+hms+'.h'
+                ymd, hms, ldattype = bfilename.split('_', 2)
+                if '_' in ldattype:
+                    ldattype, _rest = ldattype.split('_',1)
+                hfilename = ymd+'_'+hms+'_'+ldattype+'.h'
                 hfilepath = os.path.join(self.filefolder, hfilename)
                 obsinfo = LDatInfo.read_ldat_header(hfilepath)
                 self.scanrecinfo.add_obs(obsinfo)
