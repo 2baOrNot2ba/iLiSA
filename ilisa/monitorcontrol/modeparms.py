@@ -665,6 +665,29 @@ def bits_support_nrbeamlets(nrbeamlets):
     return bits
 
 
+def nrrcus_stnid(stnid):
+    """
+    Number of RCUs from station ID
+
+    Parameters
+    ---------
+    stnid: str
+        Station ID
+
+    Returns
+    -------
+    nrrcus: int
+        Number of RCUs
+    """
+    location_id = stnid[:2]
+    if location_id == 'CS' or location_id == 'RS':
+        nrrcus = 96
+    else:
+        # EU station
+        nrrcus = 192
+    return nrrcus
+
+
 def modelogic(freqspec, pointing, duration_tot, integration, bsx_type, bfs, acc,
               allsky):
     """Determine if the mode parameters given make sense"""
