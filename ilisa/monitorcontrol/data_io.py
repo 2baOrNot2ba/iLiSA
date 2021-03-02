@@ -185,11 +185,15 @@ def filefolder2obsfileinfo(filefolderpath):
     filefolderpath = os.path.normpath(filefolderpath)
     filefoldername = os.path.basename(filefolderpath)
     # Format:
-    # stnid_Ymd_HMS_spwstr_intstr_durstr_dirstr_acc
+    # stnid_Ymd_HMS_spwstr_intstr_durstr_dirstr_[cal*]_acc
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_bst
     # stnid?_Ymd_HMS_rcustr_intstr_durstr_sst
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_xst
     filefoldersplit = filefoldername.split('_')
+    # Take care of possible "cal*" tag just before ldattype:
+    if filefoldersplit[-2].startswith('cal'):
+        # Calibration applied to this ldat
+        filefoldersplit.pop(-2)
     ldat_type = filefoldersplit.pop()
     if ldat_type != 'sst' and ldat_type != 'acc':
         # Have a sb<str> field:
@@ -873,9 +877,16 @@ class CVCfiles(object):
 
     def __getitem__(self, filenr):
         cvcfile = self.filenames[filenr]
-        datafromfile, _t_begin,  = self._readcvcfile(os.path.join(self.filefolder,
-                                                                cvcfile))
+        cvcpath = os.path.join(self.filefolder, cvcfile)
+        datafromfile, _t_begin = self._readcvcfile(cvcpath)
         return datafromfile
+
+    def __setitem__(self, filenr, data_arr):
+        """Save CVC data item filenr data into an ldat file."""
+        self.dataset[filenr] = data_arr  # FIXME: remove this line?
+        cvcfile = self.filenames[filenr]
+        cvcpath = os.path.join(self.filefolder, cvcfile)
+        data_arr.tofile(cvcpath)
 
     def __get_cvc_dtype(self, cvcdim1=None, cvcdim2=None):
         if cvcdim1 is None:
@@ -1017,9 +1028,10 @@ class CVCfiles(object):
                 scanrecinfo.set_stnid(obsfolderinfo['stnid'])
                 scanrecinfo.calibrationfile = None
                 print("Read in filefolder meta.")
-        # Select only data files in folder
+        # Select only data files in folder (avoid CalTable*.dat files)
         ls = os.listdir(self.filefolder)
-        filenames = [filename for filename in ls if filename.endswith('.dat')]
+        filenames = [filename for filename in ls if filename.endswith('.dat')
+                     and not filename.startswith('CalTable')]
         filenames.sort()  # This enforces chronological order
         for cvcfile in filenames:
             cvcdim_t = (os.path.getsize(os.path.join(self.filefolder, cvcfile))

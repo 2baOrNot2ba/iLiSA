@@ -95,8 +95,7 @@ def applycal_cvcfolder(cvcpath, caltabpath):
         cvcdata = ilisa.calim.calibration.applycaltab_cvc(cvcdata_unc, caltab,
                                                           sb)
         # Replace uncalibrated data with calibrated:
-        cvcobj_cal.dataset[filestep] = cvcdata
-    cvcobj_cal.save_ldat()
+        cvcobj_cal[filestep] = cvcdata
     # Note in ScanRecInfo about calibrating this dataset:
     cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
 
