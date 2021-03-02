@@ -185,16 +185,22 @@ def filefolder2obsfileinfo(filefolderpath):
     filefolderpath = os.path.normpath(filefolderpath)
     filefoldername = os.path.basename(filefolderpath)
     # Format:
+    # stnid_Ymd_HMS_spwstr_intstr_durstr_dirstr_acc
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_bst
     # stnid?_Ymd_HMS_rcustr_intstr_durstr_sst
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_xst
     filefoldersplit = filefoldername.split('_')
     ldat_type = filefoldersplit.pop()
-    if ldat_type != 'sst':
+    if ldat_type != 'sst' and ldat_type != 'acc':
+        # Have a sb<str> field:
         dirstr = filefoldersplit.pop()
         sbstr = filefoldersplit.pop(-3)
     else:
-        dirstr = ",,"
+        # Do not have a sb<str> field:
+        if ldat_type != 'acc':
+            dirstr = ",,"
+        else:
+            dirstr = filefoldersplit.pop()
         sbstr = 'sb0:511'
     if len(filefoldersplit) == 6:
         stnid = filefoldersplit.pop(0)
@@ -439,7 +445,6 @@ class ScanRecInfo(object):
         return int(self.obsinfos[filenr].rspctl_cmd['xcsubband'])
 
     def get_integration(self):
-
         return self.scanrecparms['integration']
 
     def get_pointingstr(self, filenr=0):
@@ -829,17 +834,28 @@ class CVCfiles(object):
     samptimeset: list of datetimes
         The datetime of the visibility matrix sample.
     """
+    NRRCUS_EU = 192  # Default number of RCUs on EU stations
 
     def __init__(self, datapath):
         self.dataset = []
         self.samptimeset = []
         self.freqset = []
-        self.scanrecinfo = ScanRecInfo()
+
+        self.cvcdim1 = self.NRRCUS_EU
+        self.cvcdim2 = self.NRRCUS_EU
+
         datapath = os.path.abspath(datapath)
         if os.path.isdir(datapath):
+            obsfileinfo = filefolder2obsfileinfo(datapath)
+            stnid = obsfileinfo['station_id']
+            nrrcus = modeparms.nrrcus_stnid(stnid)
+            self.cvcdim1 = nrrcus
+            self.cvcdim2 = nrrcus
             self.filefolder = datapath
-            self._readcvcfolder()
+            (self.scanrecinfo, self.filenames, self.dataset, self.samptimeset,
+             self.freqset) = self._readcvcfolder()
         elif os.path.isfile(datapath):
+            # FIXME:
             self._readcvcfile(datapath)
         else:
             raise ValueError('Path does not exist')
@@ -854,6 +870,12 @@ class CVCfiles(object):
             elmap = self.scanrecinfo.get_septon_elmap()
             for tile, elem in enumerate(elmap):
                 self.stn_antpos[tile] += self.stn_intilepos[elem]
+
+    def __getitem__(self, filenr):
+        cvcfile = self.filenames[filenr]
+        datafromfile, _t_begin,  = self._readcvcfile(os.path.join(self.filefolder,
+                                                                cvcfile))
+        return datafromfile
 
     def __get_cvc_dtype(self, cvcdim1=None, cvcdim2=None):
         if cvcdim1 is None:
@@ -880,15 +902,10 @@ class CVCfiles(object):
         (Ymd, HMS, cvcextrest) = cvcfilename.split('_', 2)
         datatype, restdat = cvcextrest[0:3], cvcextrest[3:]
         (rest, _datstr) = restdat.split('.')
+        _nr512 = 512
         if datatype == 'acc':
             rest = rest.lstrip('_')
             (_nr512, nrrcus0, nrrcus1) = map(int, rest.split('x'))
-        else:
-            _nr512 = 512
-            nrrcus0 = 192
-            nrrcus1 = 192
-        self.cvcdim1 = nrrcus0
-        self.cvcdim2 = nrrcus1
         filenamedatetime = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                       '%Y%m%dT%H%M%S')
         # NOTE: For ACC, filename is last obstime, while for XST, it is first.
@@ -897,7 +914,7 @@ class CVCfiles(object):
                 seconds=_nr512)
         else:
             filebegindatetime = filenamedatetime
-        return datatype, filebegindatetime, self.cvcdim1, self.cvcdim2
+        return datatype, filebegindatetime
 
     def _parse_cvcfolder(self, cvcfolderpath):
         """Parse the cvc filefolder.
@@ -918,15 +935,17 @@ class CVCfiles(object):
         obsfolderinfo = {}
         cvcextstr = cvcfoldername.split('_')[-1]
         if cvcextstr == 'xst' or cvcextstr == 'xst-SEPTON':
+            cvcfoldername_split = cvcfoldername.split('_')
             try:
-                (Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, cvcextstr
-                 ) = cvcfoldername.split('_')
+                (stnid, Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, cvcextstr
+                 ) = cvcfoldername_split
+                obsfolderinfo['stnid'] = stnid
                 obsfolderinfo['datetime'] = datetime.datetime.strptime(
                     Ymd + 'T' + HMS, '%Y%m%dT%H%M%S')
                 obsfolderinfo['rcumode'] = rcustr[3:]
                 obsfolderinfo['subband'] = sbstr[2:]
                 obsfolderinfo['integration'] = float(intstr[3:])
-                obsfolderinfo['duration'] = float(durstr[3:])
+                obsfolderinfo['duration_tot'] = float(durstr[3:])
                 obsfolderinfo['pointing'] = dirstr[3:].split(',')
             except:
                 raise ValueError("Foldername not in xst_ext format.")
@@ -969,22 +988,42 @@ class CVCfiles(object):
         where N is nominally the number of time samples and the len of data is
         the number of files in the folder.
         """
+        # Initialize
+        scanrecinfo = ScanRecInfo()
+        dataset = []
+        samptimeset = []
+        freqset = []
         try:
-            self.scanrecinfo.read_scanrec(self.filefolder)
+            scanrecinfo.read_scanrec(self.filefolder)
         except Exception:
             warnings.warn("Could not read session header."
                           +" Will try filefolder name...")
             try:
-                self.scanrecinfo.scanrecparms = \
-                    self._parse_cvcfolder(self.filefolder)
-            except ValueError:
-                self.scanrecinfo.scanrecparms = None
+                obsfolderinfo = self._parse_cvcfolder(self.filefolder)
+            except ValueError as er:
+                print(er)
+                scanrecinfo.scanrecparms = None
             else:
+                spw =  obsfolderinfo['rcumode']
+                nqz = modeparms.rcumode2nyquistzone(spw)
+                sbs = modeparms.seqarg2list(obsfolderinfo['subband'])
+                freqspec_hi = modeparms.sb2freq(sbs[-1], nqz)
+                scanrecinfo.set_scanrecparms(obsfolderinfo['datatype'],
+                                             str(freqspec_hi),
+                                             obsfolderinfo['duration_tot'],
+                                             obsfolderinfo['pointing'],
+                                             obsfolderinfo['integration'])
+                scanrecinfo.scanrecparms['rcumode'] = spw
+                scanrecinfo.set_stnid(obsfolderinfo['stnid'])
+                scanrecinfo.calibrationfile = None
                 print("Read in filefolder meta.")
         # Select only data files in folder
-        self.filenames = self.scanrecinfo.get_ldat_filenames()
-        self.filenames.sort()  # This enforces chronological order
-        for cvcfile in self.filenames:
+        ls = os.listdir(self.filefolder)
+        filenames = [filename for filename in ls if filename.endswith('.dat')]
+        filenames.sort()  # This enforces chronological order
+        for cvcfile in filenames:
+            cvcdim_t = (os.path.getsize(os.path.join(self.filefolder, cvcfile))
+                        // self.__get_cvc_dtype().itemsize)
             # Try to get obsfile header
             try:
                 (bfilename, _dat) = cvcfile.split('.')
@@ -994,7 +1033,7 @@ class CVCfiles(object):
                 hfilename = ymd+'_'+hms+'_'+ldattype+'.h'
                 hfilepath = os.path.join(self.filefolder, hfilename)
                 obsinfo = LDatInfo.read_ldat_header(hfilepath)
-                self.scanrecinfo.add_obs(obsinfo)
+                scanrecinfo.add_obs(obsinfo)
             except:
                 warnings.warn(
                     "Couldn't find a header file for {}".format(cvcfile))
@@ -1002,28 +1041,29 @@ class CVCfiles(object):
             datafromfile, t_begin = self._readcvcfile(
                 os.path.join(self.filefolder, cvcfile))
             cvcdim_t, _cvcdim_rcu1, _cvcdim_rcu2 = datafromfile.shape
-            self.dataset.append(datafromfile)
+            dataset.append(datafromfile)
 
             # Compute time of each autocovariance matrix sample per subband
-            integration = self.scanrecinfo.get_integration()
+            integration = scanrecinfo.get_integration()
             obscvm_datetimes = [None] * cvcdim_t
             for t_idx in range(cvcdim_t):
                 t_delta = datetime.timedelta(
                     seconds=t_idx * integration
                 )
                 obscvm_datetimes[t_idx] = t_begin + t_delta
-            self.samptimeset.append(obscvm_datetimes)
+            samptimeset.append(obscvm_datetimes)
 
             # Compute frequency of corresponding time sample
-            rcumode = self.scanrecinfo.get_rcumode()
+            rcumode = scanrecinfo.get_rcumode()
             nz = modeparms.rcumode2nyquistzone(rcumode)
-            if self.scanrecinfo.get_datatype() == 'acc':
+            if scanrecinfo.get_datatype() == 'acc':
                 freqs = modeparms.rcumode2sbfreqs(rcumode)
             else:
                 sb = obsinfo.sb
                 freq = modeparms.sb2freq(sb, nz)
                 freqs = [freq] * cvcdim_t
-            self.freqset.append(freqs)
+            freqset.append(freqs)
+        return scanrecinfo, filenames, dataset, samptimeset, freqset
 
     def _readcvcfile(self, cvcfilepath):
         """Reads in a single acc or xst data file by filepath and creates
@@ -1035,10 +1075,14 @@ class CVCfiles(object):
         Parameters
         ----------
         cvcfilepath : str
+            Full path to cvc file
+
+        Returns
+        -------
+        datafromfile, t_begin
+            Data contents of file. Time stamp.
         """
-        _datatype, filenamedatetime, _cvcdim_rcu1, _cvcdim_rcu2 = \
-            self._parse_cvcfile(cvcfilepath)
-        t_begin = filenamedatetime
+        _datatype, t_begin = self._parse_cvcfile(cvcfilepath)
         # Get cvc data from file.
         cvc_dtype = self.__get_cvc_dtype()
         with open(cvcfilepath, 'rb') as fin:
@@ -1446,7 +1490,7 @@ def plotxst(xstff):
 
         freq = obsinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
-        xstdata = xstobj.covcube_fb(sbstepidx, crlpolrep=None)
+        xstdata = xstobj[sbstepidx]
         for tidx in range(xstdata.shape[0]):
             print("Kill plot window for next plot...")
             plt.imshow(numpy.abs(xstdata[tidx,...]), norm=normcolor,
@@ -1467,7 +1511,7 @@ def plotacc(accff, freqreq=None):
         freqreq = 0.0
     sb, _nqzone = modeparms.freq2sb(freqreq)
     for fileidx in range(0, dataobj.getnrfiles()):
-        filecvc = dataobj.covcube_fb(fileidx, crlpolrep=None)
+        filecvc = dataobj[fileidx]
         while sb < 512:
             fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
             absdatplt = ax1.pcolormesh(numpy.abs(filecvc[sb]))
@@ -1489,7 +1533,7 @@ def plotacc(accff, freqreq=None):
 def view_bsxst(args):
     lofar_datatype = datafolder_type(args.dataff)
     if lofar_datatype =='acc':
-        plotacc(args.dataff, args.freq, printout=args.printout)
+        plotacc(args.dataff, args.freq)
     if lofar_datatype=='bst' or lofar_datatype=='bst-357':
         viewbst(args.dataff, pol_stokes=not(args.linear),
                 printout=args.printout)

@@ -270,7 +270,7 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, use_autocorr=False):
     (Useful for RFI).
     """
     freq = cvcobj.freqset[filestep][cubeslice]
-    cvcpol_lin = cvcobj.covcube_fb(filestep, crlpolrep='lin')
+    cvcpol_lin = dataIO.cvc2polrep(cvcobj[filestep], crlpolrep='lin')
     vis_S0 = cvcpol_lin[0, 0, cubeslice, ...] + cvcpol_lin[1, 1, cubeslice, ...]
     stn_antpos = cvcobj.stn_antpos
     if not use_autocorr:
@@ -339,7 +339,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     stn_pos = cvcobj.stn_pos
     stn_antpos = cvcobj.stn_antpos
 
-    cvcpol_lin = cvcobj.covcube_fb(filestep, crlpolrep='lin')
+    cvcpol_lin = dataIO.cvc2polrep(cvcobj[filestep], crlpolrep='lin')
 
     allsky = cvcobj.scanrecinfo.get_allsky()
     phaseref = _req_calsrc_proc(req_calsrc, allsky, pointingstr)
@@ -641,8 +641,7 @@ def image(args):
     stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
-        cvpol = cvcobj.covcube_fb(fileidx)
-        intgs = cvpol.shape[-3]
+        intgs = len(cvcobj.samptimeset[fileidx])
         for tidx in range(args.sampnr, intgs):
             t = cvcobj.samptimeset[fileidx][tidx]
             freq = cvcobj.freqset[fileidx][tidx]
@@ -669,8 +668,7 @@ def nfimage(args):
     stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(args.filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
-        cvpol = cvcobj.covcube_fb(fileidx)
-        intgs = cvpol.shape[-3]
+        intgs = len(cvcobj.samptimeset[fileidx])
         for tidx in range(args.sampnr, intgs):
             xx, yy, nfimages = nearfield_grd_image(cvcobj, fileidx,
                                                            tidx)
