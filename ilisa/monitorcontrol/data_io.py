@@ -841,7 +841,7 @@ class CVCfiles(object):
     NRRCUS_EU = 192  # Default number of RCUs on EU stations
 
     def __init__(self, datapath):
-        self.dataset = []
+        self._getitem_prev_file_nr_data_ = (None, None)
         self.samptimeset = []
         self.freqset = []
 
@@ -856,8 +856,8 @@ class CVCfiles(object):
             self.cvcdim1 = nrrcus
             self.cvcdim2 = nrrcus
             self.filefolder = datapath
-            (self.scanrecinfo, self.filenames, self.dataset, self.samptimeset,
-             self.freqset) = self._readcvcfolder()
+            (self.scanrecinfo, self.filenames, self.samptimeset, self.freqset
+             ) = self._readcvcfolder()
         elif os.path.isfile(datapath):
             # FIXME:
             self._readcvcfile(datapath)
@@ -876,14 +876,22 @@ class CVCfiles(object):
                 self.stn_antpos[tile] += self.stn_intilepos[elem]
 
     def __getitem__(self, filenr):
-        cvcfile = self.filenames[filenr]
-        cvcpath = os.path.join(self.filefolder, cvcfile)
-        datafromfile, _t_begin = self._readcvcfile(cvcpath)
+        """Get data from a CVC file (in this set of files) by filenr
+
+        (Caches file data)
+        """
+        prev_filenr, prev_datafromfile = self._getitem_prev_file_nr_data_
+        if filenr == prev_filenr:
+            datafromfile = prev_datafromfile
+        else:
+            cvcfile = self.filenames[filenr]
+            cvcpath = os.path.join(self.filefolder, cvcfile)
+            datafromfile, _t_begin = self._readcvcfile(cvcpath)
+            self._getitem_prev_file_nr_data_ = (filenr, datafromfile)
         return datafromfile
 
     def __setitem__(self, filenr, data_arr):
         """Save CVC data item filenr data into an ldat file."""
-        self.dataset[filenr] = data_arr  # FIXME: remove this line?
         cvcfile = self.filenames[filenr]
         cvcpath = os.path.join(self.filefolder, cvcfile)
         data_arr.tofile(cvcpath)
@@ -1001,7 +1009,6 @@ class CVCfiles(object):
         """
         # Initialize
         scanrecinfo = ScanRecInfo()
-        dataset = []
         samptimeset = []
         freqset = []
         try:
@@ -1049,11 +1056,7 @@ class CVCfiles(object):
             except:
                 warnings.warn(
                     "Couldn't find a header file for {}".format(cvcfile))
-            print("Reading cvcfile: {}".format(cvcfile))
-            datafromfile, t_begin = self._readcvcfile(
-                os.path.join(self.filefolder, cvcfile))
-            cvcdim_t, _cvcdim_rcu1, _cvcdim_rcu2 = datafromfile.shape
-            dataset.append(datafromfile)
+            _datatype, t_begin = self._parse_cvcfile(os.path.join(self.filefolder, cvcfile))
 
             # Compute time of each autocovariance matrix sample per subband
             integration = scanrecinfo.get_integration()
@@ -1075,7 +1078,7 @@ class CVCfiles(object):
                 freq = modeparms.sb2freq(sb, nz)
                 freqs = [freq] * cvcdim_t
             freqset.append(freqs)
-        return scanrecinfo, filenames, dataset, samptimeset, freqset
+        return scanrecinfo, filenames, samptimeset, freqset
 
     def _readcvcfile(self, cvcfilepath):
         """Reads in a single acc or xst data file by filepath and creates
@@ -1097,6 +1100,7 @@ class CVCfiles(object):
         _datatype, t_begin = self._parse_cvcfile(cvcfilepath)
         # Get cvc data from file.
         cvc_dtype = self.__get_cvc_dtype()
+        print("Reading cvcfile: {}".format(cvcfilepath))
         with open(cvcfilepath, 'rb') as fin:
             datafromfile = numpy.fromfile(fin, dtype=cvc_dtype)
         return datafromfile, t_begin
