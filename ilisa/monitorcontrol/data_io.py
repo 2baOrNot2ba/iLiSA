@@ -1101,60 +1101,9 @@ class CVCfiles(object):
             datafromfile = numpy.fromfile(fin, dtype=cvc_dtype)
         return datafromfile, t_begin
 
-    def save_ldat(self):
-        """Save CVC dataset as ldat file."""
-        for filenr, cvcfile in enumerate(self.filenames):
-            cvcpath = os.path.join(self.filefolder, cvcfile)
-            self.dataset[filenr].tofile(cvcpath)
-
     def getnrfiles(self):
         """Return number of data files in this filefolder."""
         return len(self.filenames)
-
-    def covcube_fb(self, filenr, crlpolrep='lin'):
-        """
-        Get covariance cube based on file number.
-
-        Returns the polarized, covariance matrix cube contained in the file
-        numbered `filenr` in the filefolder with correlated polarization
-        representation `crlpolrep`.
-
-        Parameters
-        ----------
-        filenr: int
-            Index number of file in filefolder. Files are numbered in the
-            order they were sampled.   
-        crlpolrep: str
-            Correlated polarization representation can be 'lin', 'cir', 'sto'
-            or None where:
-                'lin' is a linear,
-                'cir' is circular,
-                'sto' is Stokes
-                None is no cor. pol. rep. (i.e. flat 'lin' structure)
-        
-        Returns
-        -------
-        array_like
-            Polarized visibilities. Shape depends on `crlpolrep`.
-            For:
-                * 'lin' and 'cir', the basis is indexed with shape (2,2,T,N,N),
-                  where components 0, 1 correspond 'X','Y' or 'L','R' resp.
-                * 'sto', the basis is indexed with shape (4,T,N,N),
-                  where components 0,1,2,3 correspond to Stokes I,Q,U,V resp.
-                * `None`, there is no explicit indexed dimension for correlated
-                  polarization. The structure is equivalent to the structure of
-                  the LOFAR CVC file format (T, 2*N, 2*N) where odd, even
-                  covariance indices correspond to 'X','Y' polarized components
-                  resp.
-            Here N is the number of dual-pol antenna elements and T is the
-            number of sequenced samples.
-        """
-        if crlpolrep == 'lin' or crlpolrep == 'cir' or crlpolrep == 'sto':
-            return cvc2polrep(self.dataset[filenr], crlpolrep=crlpolrep)
-        elif crlpolrep is None:
-            return self.dataset[filenr]
-        else:
-            raise NotImplementedError("Only corr 'lin','cir','sto' implemented")
 
 
 def cov_flat2polidx(cvc, parity_ord=True):
