@@ -110,7 +110,9 @@ def phaseref_xstpol(xstpol, UVWxyz, freq):
     """
     Phase up polarized visibilities stack to U,V-align them at frequency 
     """
-    lambda0 = c/freq
+    lambda0 = sys.float_info.max
+    if freq != 0.0:
+        lambda0 = c / freq
     phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
     PP = numpy.einsum('i,k->ik', phasefactors, numpy.conj(phasefactors))
     xstpupol = numpy.array(
@@ -152,7 +154,9 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
         for antnr in range(nrant):
             UVWxyz[antnr,:] = numpy.asarray(
                 obsme.to_uvw(bl[antnr])["xyz"].get_value('m'))
-        lambda0 = c/freqs[sb]
+        lambda0 = sys.float_info.max
+        if freqs[sb] != 0.0:
+            lambda0 = c/freqs[sb]
         # Compute phase factors. w-direction (component 2) is towards pointing
         phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:, 2]/lambda0)
         PP = numpy.einsum('i,j->ij', phasefactors, numpy.conj(phasefactors))
@@ -221,7 +225,9 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
             for indj in range(2):
                 numpy.fill_diagonal(xstpol[indi, indj, :, :], 0.0)
     posU, posV = stn2Dcoord[0, :].squeeze(), stn2Dcoord[1, :].squeeze()
-    lambda0 = c / freq
+    lambda0 = sys.float_info.max
+    if freq != 0.0:
+        lambda0 = c / freq
     k = 2 * numpy.pi / lambda0
     lmext = lmsize/2.0
     nrpix = 101
