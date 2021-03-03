@@ -545,8 +545,9 @@ class LDatInfo(object):
             if type(self.beamctl_cmds) is not list:
                 self.beamctl_cmds = [self.beamctl_cmds]
             for _beamctl_cmd in self.beamctl_cmds:
-                (_antset, _rcus, rcumode, beamlets, subbands, _anadir,
+                (antset, _rcus, rcumode, beamlets, subbands, _anadir,
                     digdir) = modeparms.parse_beamctl_args(_beamctl_cmd)
+                self.antset = antset
                 self.rcumode.append(int(rcumode))
                 self.sb.append(subbands)
                 self.bl.append(beamlets)
@@ -865,9 +866,9 @@ class CVCfiles(object):
             raise ValueError('Path does not exist')
         # Get/Compute ant positions
         stnid = self.scanrecinfo.get_stnid()
-        bandarr = self.scanrecinfo.get_bandarr()
+        antset = next(iter(self.scanrecinfo.obsinfos.values())).antset
         self.stn_pos, self.stn_rot, self.stn_antpos, self.stn_intilepos \
-            = antennafieldlib.getArrayBandParams(stnid, bandarr)
+            = antennafieldlib.get_antset_params(stnid, antset)
         # Account for SEPTON antenna positions
         septon = self.scanrecinfo.is_septon()
         if septon:
