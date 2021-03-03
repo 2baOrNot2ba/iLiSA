@@ -52,12 +52,14 @@ def parseAntennaFieldFile(filename, AFfileNameType=3):
     """Parse LOFAR AntennaField file by name and return data as a dict.
     Note that this reads in both LBA and HBA parameters.
     """
-    AntFldData={'LBA': {'NORMAL_VECTOR': [], 'ROTATION_MATRIX':[],'POSITION':[],'REL_POS':[]},
-                'HBA': {'NORMAL_VECTOR': [], 'ROTATION_MATRIX':[],'POSITION':[],'REL_POS':[]},
-                'HBA0': {'NORMAL_VECTOR': [], 'ROTATION_MATRIX':[],'POSITION':[]},
-                'HBA1': {'NORMAL_VECTOR': [], 'ROTATION_MATRIX':[],'POSITION':[]}
-               }
-    
+    # All bandarrays and hba-sub-bandarrays will have attributes
+    _all_ba_min = ['POSITION' , 'NORMAL_VECTOR', 'ROTATION_MATRIX']
+    # All bandarrays but not hba-sub-bandarrays will have attribute
+    _all_ba_xtr = 'REL_POS'
+    antflddata = {}
+    for antband in BANDARRS:
+        antflddata[antband] = {k: [] for k in _all_ba_min}
+        antflddata[antband][_all_ba_xtr] = []
     try:
         f = open(filename)
     except IOError:
@@ -67,18 +69,21 @@ def parseAntennaFieldFile(filename, AFfileNameType=3):
     while line:
         if COMMENT_CHAR in line:
             line, comment = line.split(COMMENT_CHAR, 1)
+        if ("HBA0" in line or "HBA1" in line) and ('HBA0' not in antflddata):
+            for antband in HBASUBARRS:
+                antflddata[antband] = {k: [] for k in _all_ba_min}
         if "HBA0" in line:
-            AntBand = "HBA0"
+            antband = "HBA0"
         elif "HBA1" in line:
-            AntBand = "HBA1"
+            antband = "HBA1"
         elif "HBA" in line:
-            AntBand = "HBA"
+            antband = "HBA"
         elif "LBA" in line:
-            AntBand = "LBA"
+            antband = "LBA"
         else:
             line=f.readline()
             continue
-        where, rest = line.split(AntBand, 1)
+        where, rest = line.split(antband, 1)
         where = where.strip()
         if where == '':
             # Read absolute position of station origin
@@ -86,8 +91,8 @@ def parseAntennaFieldFile(filename, AFfileNameType=3):
             elementposshape, elementposLine = line.split(' ',1)
             elementposLine = elementposLine.strip('[] \n').split()
             position = [float(v) for v in elementposLine]
-            AntFldData[AntBand]['POSITION'] = position
-            if AntBand != "HBA0" and AntBand != "HBA1":
+            antflddata[antband]['POSITION'] = position
+            if antband != "HBA0" and antband != "HBA1":
                 # Read relative position of each element
                 line = f.readline()
                 dimstr,rest = line.split('[',1)
@@ -102,16 +107,16 @@ def parseAntennaFieldFile(filename, AFfileNameType=3):
                     vals = line.split()
                     posxpol = [float(v) for v in vals[0:3]]
                     posypol = [float(v) for v in vals[3:6]]
-                    AntFldData[AntBand]['REL_POS'].append(posxpol) 
+                    antflddata[antband]['REL_POS'].append(posxpol)
                     # Note: Skip ypol as it is identical to xpol
                 # Read ending ']' line
-                line=f.readline()
+                line = f.readline()
         elif where == 'NORMAL_VECTOR':
             line = f.readline()
             elementposshape, elementposLine = line.split(' ',1)
             elementposLine = elementposLine.strip('[] \n').split()
             nrmv = [float(v) for v in elementposLine]
-            AntFldData[AntBand][where]=nrmv
+            antflddata[antband][where] = nrmv
         elif where == 'ROTATION_MATRIX':
               line = f.readline()
               elementposshape, elementposLine = line.split(' ',1)
@@ -123,11 +128,11 @@ def parseAntennaFieldFile(filename, AFfileNameType=3):
                   line = f.readline()
                   rowstr = line.split()
                   row = [float(v) for v in rowstr]
-                  AntFldData[AntBand][where].append(row)
+                  antflddata[antband][where].append(row)
               # Read ending ']' line
               line = f.readline()
         line = f.readline()
-    return AntFldData
+    return antflddata
 
 
 def parseiHBADeltasfile(stationName):
@@ -222,6 +227,54 @@ def getArrayBandParams(stnid, arrband):
     return stnpos, stnrot, stnrelpos, stnintilepos
 
 
+def get_antset_params(stnid, antset):
+    """Get configuration parameters for the antenna_set of the station.
+
+    Parameters
+    ----------
+    stnid: str
+        Station ID
+    antset: str
+        Antenna set specifier. E.g. LBA_INNER.
+    """
+    antfld = parseAntennaField(stnid)
+    if antset.startswith('LBA'):
+        arrband = 'LBA'
+        hbadeltas = [0., 0., 0.]
+    elif antset.startswith('HBA'):
+        arrband = 'HBA'
+        hbadeltas = parseiHBADeltasfile(stnid)
+    stnpos = np.atleast_2d(antfld[arrband]['POSITION']).T
+    stnrot = np.array(antfld[arrband]['ROTATION_MATRIX'])
+    stnrelpos_all = np.array(antfld[arrband]['REL_POS'])
+    stnintilepos = np.array(hbadeltas)
+    nrhbaelems = len(antfld['HBA']['REL_POS'])
+    if arrband == 'LBA' and nrhbaelems < 96:
+        if '_' in antset:
+            _LBA, antsettype = antset.split('_', 1)
+        else:
+            raise RuntimeError('Need to specify antset_type')
+        if antsettype == 'INNER':
+            stnrelpos = stnrelpos_all[:48]
+        elif antsettype == 'OUTER':
+            stnrelpos = stnrelpos_all[48:]
+        stnrelpos_x = stnrelpos_all
+        stnrelpos_y = stnrelpos_all
+        if antsettype == 'X':
+            # FIXME:
+            stnrelpos = stnrelpos_x
+        elif antsettype == 'Y':
+            # FIXME:
+            stnrelpos = stnrelpos_y
+        elif antsettype == 'SPARSE_EVEN':
+            stnrelpos = stnrelpos_all[0::2]
+        elif antsettype == 'SPARSE_ODD':
+            stnrelpos = stnrelpos_all[1::2]
+    else:
+        stnrelpos = stnrelpos_all
+    return stnpos, stnrot, stnrelpos, stnintilepos
+
+
 def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
     """List all the available LOFAR station-ids.
     """
@@ -236,3 +289,4 @@ def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
 
 
 BANDARRS = ['LBA', 'HBA']
+HBASUBARRS = ['HBA0', 'HBA1']
