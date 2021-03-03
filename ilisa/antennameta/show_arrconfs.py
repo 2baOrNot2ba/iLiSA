@@ -101,7 +101,7 @@ if __name__ == '__main__':
                         """.format(stnId_list))
     parser.add_argument('bandarr',
                         help="""Band array to process.
-                        Choose from tile or {}.""".format(BANDARRS))
+                        Choose from 'tile' or {}.""".format(BANDARRS))
     parser.add_argument('-c', '--coordsys',
                         help="""Coordinate system to use.
                         Choose from 'local' or 'ITRF'.
