@@ -661,8 +661,9 @@ def sb2freq(sb, nqzone):
     freq = NQFREQ_NOM * (int(sb) / float(TotNrOfsb) + int(nqzone))
     return freq
 
+
 def nqz2rcumode(nqzone, nqfreq=100e6, filt_on=False):
-    """
+    """\
     Convert Nyquist zone number and Nyquist frequency to RCU mode.
 
     Parameters
