@@ -11,7 +11,7 @@ ANTENNA_SETS = ['LBA_INNER', 'LBA_OUTER',
                 'LBA_X', 'LBA_Y',
                 'HBA_DUAL', 'HBA_JOINED',
                 'HBA_ZERO', 'HBA_ONE']
-Nqfreq = 100.0e6  # Nyquist frequency in Hz
+NQFREQ_NOM = 100.0e6  # Nominal Nyquist frequency in Hz
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
 MIN_STATS_INTG = 1.0  # Minimum integration for statistics data in seconds.
@@ -529,17 +529,35 @@ def rcumode2sbfreqs(rcumode):
     """
     Get the frequencies (in Hz) of the subbands for the given rcumode
 
-    Returns an array of frequencies where index is subband number.
+    Parameters
+    ----------
+    rcumode: int
+        The RCUmode.
+
+    Returns
+    -------
+    freqs: array of floats
+        Frequencies in Hz. Array index corresponds to subband number.
     """
-    NZ = (int(rcumode)-3)/2
+    nqzone = (int(rcumode)-3)/2
     # Note the endpoint=False here. Before it 2018-03-22 it was missing.
-    freqs = numpy.linspace(NZ*Nqfreq, (NZ+1)*Nqfreq, TotNrOfsb, endpoint=False)
+    freqs = numpy.linspace(nqzone * NQFREQ_NOM, (nqzone + 1) * NQFREQ_NOM,
+                           TotNrOfsb, endpoint=False)
     return freqs
 
 
 def rcumode2band(rcumode):
     """
     Map rcumode to band string as used in beamctl arguments
+
+    Parameters
+    ----------
+    rcumode: int or str
+        The RCU mode.
+    Returns
+    -------
+    band: str
+        The band name.
     """
     rcumode = str(rcumode)
     if rcumode == "3":
@@ -557,14 +575,23 @@ def rcumode2band(rcumode):
     return band
 
 
-def rcumode2antset(rcumode):
+def rcumode2antset_eu(rcumode):
     """
-    Map rcumode to antennaset, which is used in beamctl arguments
+    Map rcumode to antenna set for EU stations.
 
-    Assumption is that one wants to use as many of antennas in field as
-    possible. (This function may soon be deprecated.)
+    Antenna set is only meaningful in Dutch stations.
+    But it is required in beamctl arguments.
+
+    Parameters
+    ----------
+    rcumode: int
+        The RCU mode.
+
+    Returns
+    -------
+    antset: str
+        Antenna set name.
     """
-    # NOTE new/more antennasets are now available.
     rcumode = int(rcumode)
     if rcumode == 3 or rcumode == 4:
         antset = 'LBA_INNER'
@@ -576,31 +603,120 @@ def rcumode2antset(rcumode):
 
 
 def rcumode2nyquistzone(rcumode):
-    nz = int((int(rcumode)-3)/2)
-    return nz
+    """\
+    Compute Nyquist zone for given RCU mode.
+
+    Parameters
+    ----------
+    rcumode: int or str
+        The RCU mode (a.k.a SPW).
+
+    Returns
+    -------
+    nqzone: int
+        Nyquist zone number.
+    """
+    nqzone = int((int(rcumode)-3)/2)
+    return nqzone
 
 
 def freq2sb(freq):
-    """
+    """\
     Convert frequency in Hz to subband number and Nyquist zone
+
+    Parameters
+    ----------
+    freq: float
+        Frequency in Hz
+
+    Returns
+    -------
+    sb: int
+        Subband number
+    nqzone: int
+        Nyquist zone number
     """
-    absSB = int(round(freq/Nqfreq*TotNrOfsb))
-    sb = absSB % TotNrOfsb
-    NqZone = absSB / TotNrOfsb
-    return sb, NqZone
+    abs_sb = int(round(freq / NQFREQ_NOM * TotNrOfsb))
+    sb = abs_sb % TotNrOfsb
+    nqzone = abs_sb / TotNrOfsb
+    return sb, nqzone
 
 
-def sb2freq(sb, NqZone):
+def sb2freq(sb, nqzone):
     """
     Convert subband in a given Nyquist zone to a frequency
+
+    Parameters
+    ----------
+    sb: int or str
+        Subband number
+    nqzone: int or str
+        Nyquist zone number
+
+    Returns
+    -------
+    freq: float
+        Frequency in Hz
     """
-    freq = Nqfreq*(int(sb)/float(TotNrOfsb)+int(NqZone))
+    freq = NQFREQ_NOM * (int(sb) / float(TotNrOfsb) + int(nqzone))
     return freq
+
+def nqz2rcumode(nqzone, nqfreq=100e6, filt_on=False):
+    """
+    Convert Nyquist zone number and Nyquist frequency to RCU mode.
+
+    Parameters
+    ----------
+    nqzone: int
+        Nyquist zone number.
+    nqfreq: float, optional
+        Nyquist frequency in Hz. Default 100 MHz.
+    filt_on: bool, optional.
+        Is narrower band-pass filter on? Default False.
+
+    Returns
+    -------
+    rcumode: int
+        RCU mode.
+
+    Raises
+    ------
+    ValueError
+        If nqzone is out of range for nqfreq.
+    """
+    if nqfreq == 100e6:
+        if nqzone == 0:
+            if not filt_on:
+                rcumode = 3
+            else:
+                rcumode = 4
+        elif nqzone == 1:
+            rcumode = 5
+        elif nqzone == 2:
+            rcumode = 7
+        else:
+            raise ValueError('nqzone out of range for 100MHz NQ')
+    else:
+        if nqzone == 1:
+            rcumode = 6
+        else:
+            raise ValueError('nqzone out of range for non 100MHz NQ')
+    return rcumode
 
 
 def dt2mjd(dt):
     """
     Convert a python datetime to modified julian date
+
+    Parameters
+    ----------
+    dt: datetime
+        Datetime
+
+    Returns
+    -------
+    mjd: float
+        Modified Julian date
     """
     sigdec = 5
     ymd, hms = dt.date(), dt.time()
