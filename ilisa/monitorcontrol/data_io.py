@@ -256,9 +256,9 @@ def filefolder2obsfileinfo(filefolderpath):
     bits = 16
 
     if ldat_type == 'bst':
-    # When the beamlets allocated is less than the maximum (given by bit depth)
-    # the RSPs fill the remaining ones regardless. Hence we have to account for
-    # them:
+        # When the beamlets allocated is less than the maximum (given by bit
+        # depth) the RSPs fill the remaining ones regardless. Hence we have to
+        # account for them:
         if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
             maxnrbls = modeparms.BASE_NR_BEAMLETS
             bits = 16
@@ -442,7 +442,7 @@ class ScanRecInfo(object):
         return modeparms.rcumode2band(self.get_rcumode())
 
     def get_bandarr(self):
-        antset = modeparms.rcumode2antset(self.get_rcumode())
+        antset = modeparms.rcumode2antset_eu(self.get_rcumode())
         return antset.split('_')[0]
 
     def get_xcsubband(self, filenr=0):
@@ -1023,7 +1023,7 @@ class CVCfiles(object):
                 print(er)
                 scanrecinfo.scanrecparms = None
             else:
-                spw =  obsfolderinfo['rcumode']
+                spw = obsfolderinfo['rcumode']
                 nqz = modeparms.rcumode2nyquistzone(spw)
                 sbs = modeparms.seqarg2list(obsfolderinfo['subband'])
                 freqspec_hi = modeparms.sb2freq(sbs[-1], nqz)
@@ -1047,10 +1047,16 @@ class CVCfiles(object):
             # Try to get obsfile header
             try:
                 (bfilename, _dat) = cvcfile.split('.')
-                ymd, hms, ldattype = bfilename.split('_', 2)
-                if '_' in ldattype:
-                    ldattype, _rest = ldattype.split('_',1)
-                hfilename = ymd+'_'+hms+'_'+ldattype+'.h'
+                hfilename = bfilename + '.h'
+                # Check if xst might have some extra stuff in name
+                #   So first get ldattype
+                ymd, hms, ldattype_full = bfilename.split('_', 2)
+                if '_' in ldattype_full:
+                    ldattype, _rest = ldattype_full.split('_', 1)
+                else:
+                    ldattype = ldattype_full
+                if ldattype == 'xst':
+                    hfilename = ymd+'_'+hms+'_'+ldattype+'.h'
                 hfilepath = os.path.join(self.filefolder, hfilename)
                 obsinfo = LDatInfo.read_ldat_header(hfilepath)
                 scanrecinfo.add_obs(obsinfo)
@@ -1109,6 +1115,19 @@ class CVCfiles(object):
     def getnrfiles(self):
         """Return number of data files in this filefolder."""
         return len(self.filenames)
+
+    def getfreqs(self):
+        """Return tuple of the frequency axis of the data"""
+        return tuple(sorted(set([freq for f in self.freqset for freq in f])))
+
+    def getfsamps(self):
+        """Return number of data samples per frequency"""
+        fsamps = {}
+        freqset_flat = [freq for fil in self.freqset for freq in fil]
+        freqs = sorted(set(freqset_flat))  # freqs = self.getfreqs()
+        for freq in freqs:
+            fsamps[freq] = freqset_flat.count(freq)
+        return fsamps
 
 
 def cov_flat2polidx(cvc, parity_ord=True):
@@ -1212,13 +1231,15 @@ def cvc2polrep(cvc, crlpolrep='lin'):
 
 
 def readacc2bst(anacc2bstfilepath, datformat='hdf'):
-    """Read an acc2bst file. The fileformat can be either hdf or numpy."""
+    """Read an acc2bst file.
+
+    The fileformat can be either hdf or numpy."""
     anacc2bstfilepath = os.path.abspath(anacc2bstfilepath)
     acc2bstfiledir = os.path.dirname(anacc2bstfilepath)
     anacc2bstfilename = os.path.basename(anacc2bstfilepath)
     (stnid, beginUTCstr, rcuarg, calsrc, durarg, caltabdate, acc2bst, _version
      ) = anacc2bstfilename.split('_')
-    beginUTC = datetime.datetime.strptime(beginUTCstr, "%Y%m%dT%H%M%S")
+    begin_utc = datetime.datetime.strptime(beginUTCstr, "%Y%m%dT%H%M%S")
     rcumode = rcuarg[3]
     dur = durarg[3:]
     acc2bstvarstr = ['XX', 'YY', 'XY', 'times']
@@ -1229,7 +1250,6 @@ def readacc2bst(anacc2bstfilepath, datformat='hdf'):
         acc2bstvars['XY'] = hf['XY']
         acc2bstvars['YY'] = hf['YY']
         acc2bstvars['times'] = hf['timeaccstart']
-        # freqs = hf['frequency']
     else:
         for varstr in acc2bstvarstr:
             acc2bstfilename = '_'.join((beginUTCstr, acc2bst, rcuarg, calsrc,
@@ -1238,27 +1258,32 @@ def readacc2bst(anacc2bstfilepath, datformat='hdf'):
             acc2bstfilename += '.npy'
             acc2bstvars[varstr] = numpy.load(acc2bstfiledir + '/'
                                              + acc2bstfilename)
-    return acc2bstvars, beginUTC, rcumode, calsrc, dur, caltabdate, stnid
+    return acc2bstvars, begin_utc, rcumode, calsrc, dur, caltabdate, stnid
 
 
-def saveacc2bst(bst_pols, filestarttimes, calrunstarttime,
-                calrunduration, rcumode, calsrc, caltab_id, stnid,
+def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
+                calrunduration, calsrc, caltab_id, stnid,
                 used_autocorr, saveformat="hdf5"):
-    """Save acc2bst data to file. Dataformat can be hdf or numpy."""
+    """\
+    Save acc2bst data to file.
+
+    Dataformat can be hdf or numpy.
+    """
     (bstXX, bstXY, bstYY) = bst_pols
-    version = '5'  # Version of this dataformat
+    version = '6'  # Version of this dataformat
     calrundurationstr = str(int(calrunduration.total_seconds()))
     # Calculate start of ACC run.
     # Form self describing filename.
     dtlabel = 'acc2bst'
-    acc2bstbase = "{}_{}_rcu{}_{}_dur{}_ct{}_v{}_{}".format(
+    _sb, nqz = modeparms.freq2sb(freqs[0])
+    rcumode = modeparms.nqz2rcumode(nqz)
+    acc2bstbase = "{}_{}_spw{}_{}_dur{}_ct{}_v{}_{}".format(
         stnid, calrunstarttime.strftime("%Y%m%dT%H%M%S"), rcumode, calsrc,
         calrundurationstr, caltab_id, version, dtlabel)
     pntstr = ilisa.monitorcontrol.directions.normalizebeamctldir(calsrc)
     # Write out the data.
     if saveformat == 'hdf5':
         hf = h5py.File(acc2bstbase + ".hdf5", "w")
-        freqs = modeparms.rcumode2sbfreqs(rcumode)
         hf.attrs['DataDescription'] = 'LOFAR acc2bst data'
         hf.attrs['StationID'] = stnid
         hf.attrs['calibrationSource'] = calsrc
@@ -1300,10 +1325,10 @@ def saveacc2bst(bst_pols, filestarttimes, calrunstarttime,
         numpy.save(acc2bstbase + '_YY', bstYY)
     return acc2bstbase + "." + saveformat
 
+
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.dates as mdates
-
 import ilisa.monitorcontrol.modeparms as modeparms
 
 
@@ -1385,7 +1410,6 @@ def plotsst(sstff, freqreq):
     starttime = obsfolderinfo['datetime']
     SSTdata = numpy.array(SSTdata)
     print(SSTdata.shape)
-    #freqs = modeparms.rcumode2sbfreqs(obsfolderinfo['rcumode'])
     freqs = obsfolderinfo['frequencies']
     sbreq = None
     if freqreq:
@@ -1396,7 +1420,7 @@ def plotsst(sstff, freqreq):
     intg = obsfolderinfo['integration']
     dur = obsfolderinfo['duration_scan']
     ts = [starttime + datetime.timedelta(seconds=td) for td in
-                                                numpy.arange(0., dur, intg)]
+          numpy.arange(0., dur, intg)]
     if show == 'mean':
         meandynspec = numpy.mean(SSTdata, axis=0)
         res = meandynspec
@@ -1404,7 +1428,7 @@ def plotsst(sstff, freqreq):
             plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm())
             plt.colorbar()
             plt.title('Mean (over RCUs) dynamicspectrum\n'
-                      +'Starttime: {} Station: {}'
+                      + 'Starttime: {} Station: {}'
                       .format(starttime, scanrecinfo.stnid))
             plt.xlabel('Frequency [MHz]')
             plt.ylabel('Time [h]')
