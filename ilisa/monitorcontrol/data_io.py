@@ -1231,18 +1231,51 @@ def cvc2polrep(cvc, crlpolrep='lin'):
 
 
 def readacc2bst(anacc2bstfilepath, datformat='hdf'):
-    """Read an acc2bst file.
+    """\
+    Read an acc2bst file.
 
-    The fileformat can be either hdf or numpy."""
+    The fileformat can be either hdf or numpy.
+
+    Parameters
+    ----------
+    anacc2bstfilepath: str
+        Full path to an acc2bst file.
+    datformat: str, optional
+        Dataformat of file to be read. Can be be 'hdf' or 'npy' (default: 'hdf')
+
+    Returns
+    -------
+    bst_pols: tuple of floatarray
+        Tuple contains polarized BST-like data: (bst_xx, bst_xy, bst_yy).
+    filestarttimes: list of datetime
+        List of start times of the file partitioned data.
+    freqs: list of floats
+        List of frequencies.
+    calrunstarttime: datetime
+        Start time of this calibration run.
+    calrunduration: float
+        Duration of this calibration run.
+    calsrc: str
+        Source pointed to and which is intended as a calibration source.
+    caltab_id: str
+        Calibration table ID used for calibrating the input visibilities.
+    stnid: str
+        ID string of the station used.
+    used_autocorr: bool
+        Was autocorrelation used in beamforming or not?
+
+    See Also
+    --------
+    saveacc2bst: converse of this function.
+    """
     anacc2bstfilepath = os.path.abspath(anacc2bstfilepath)
     acc2bstfiledir = os.path.dirname(anacc2bstfilepath)
     anacc2bstfilename = os.path.basename(anacc2bstfilepath)
-    (stnid, beginUTCstr, rcuarg, calsrc, durarg, caltabdate, acc2bst, _version
+    (stnid, begin_utc_str, rcuarg, calsrc, durarg, caltabdate, acc2bst, _version
      ) = anacc2bstfilename.split('_')
-    begin_utc = datetime.datetime.strptime(beginUTCstr, "%Y%m%dT%H%M%S")
+    calrunstarttime = datetime.datetime.strptime(begin_utc_str, "%Y%m%dT%H%M%S")
     rcumode = rcuarg[3]
-    dur = durarg[3:]
-    acc2bstvarstr = ['XX', 'YY', 'XY', 'times']
+    calrunduration = durarg[3:]
     acc2bstvars = {}
     if datformat == 'hdf':
         hf = h5py.File(anacc2bstfilepath, 'r')
@@ -1250,15 +1283,31 @@ def readacc2bst(anacc2bstfilepath, datformat='hdf'):
         acc2bstvars['XY'] = hf['XY']
         acc2bstvars['YY'] = hf['YY']
         acc2bstvars['times'] = hf['timeaccstart']
+        bst_pols = (hf['XX'], hf['XY'], hf['YY'])
+        filestarttimes = hf['timeaccstart']
+        freqs = hf['frequency']
+        # Use calrunstarttime in filename
+        # Use calrunduration in filename
+        # Use calsrc in filename
+        caltab_id = hf.attrs['calibrationTableDate']
+        used_autocorr = hf.attrs['use_ac']
     else:
-        for varstr in acc2bstvarstr:
-            acc2bstfilename = '_'.join((beginUTCstr, acc2bst, rcuarg, calsrc,
-                                        durarg, caltabdate))
-            acc2bstfilename += '_' + varstr
-            acc2bstfilename += '.npy'
-            acc2bstvars[varstr] = numpy.load(acc2bstfiledir + '/'
-                                             + acc2bstfilename)
-    return acc2bstvars, begin_utc, rcumode, calsrc, dur, caltabdate, stnid
+        acc2bstfilename = '_'.join((begin_utc_str, acc2bst, rcuarg, calsrc,
+                                    durarg, caltabdate))
+        acc2bstfilepath = acc2bstfiledir + '/' + acc2bstfilename
+        bst_xx = numpy.load(acc2bstfilepath + '_XX' + '.npy')
+        bst_xy = numpy.load(acc2bstfilepath + '_XY' + '.npy')
+        bst_yy = numpy.load(acc2bstfilepath + '_YY' + '.npy')
+        bst_pols = (bst_xx, bst_xy, bst_yy)
+        filestarttimes = numpy.load(acc2bstfilepath + '_times' + '.npy')
+        freqs = numpy.load(acc2bstfilepath + '_freqs' + '.npy')
+        # Use calrunstarttime in filename
+        # Use calrunduration in filename
+        # Use calsrc in filename
+        caltab_id = ""
+        used_autocorr = None
+    return (bst_pols, filestarttimes, freqs, calrunstarttime, calrunduration,
+            calsrc, caltab_id, stnid, used_autocorr)
 
 
 def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
@@ -1268,6 +1317,31 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
     Save acc2bst data to file.
 
     Dataformat can be hdf or numpy.
+
+    Parameters
+    ----------
+    bst_pols: tuple of floatarray
+        Tuple contains polarized BST-like data: (bst_xx, bst_xy, bst_yy).
+    filestarttimes: list of datetime
+        List of start times of the file partitioned data.
+    freqs: list of floats
+        List of frequencies.
+    calrunstarttime: datetime
+        Start time of this calibration run.
+    calrunduration: float
+        Duration of this calibration run.
+    calsrc: str
+        Source pointed to and which is intended as a calibration source.
+    caltab_id: str
+        Calibration table ID used for calibrating the input visibilities.
+    stnid: str
+        ID string of the station used.
+    used_autocorr: bool
+        Was autocorrelation used in beamforming or not?
+
+    See Also
+    --------
+    readacc2bst: converse of this function.
     """
     (bstXX, bstXY, bstYY) = bst_pols
     version = '6'  # Version of this dataformat
@@ -1320,6 +1394,7 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
         hf.close()
     else:
         numpy.save(acc2bstbase + '_times', filestarttimes)
+        numpy.save(acc2bstbase + '_freqs', freqs)
         numpy.save(acc2bstbase + '_XX', bstXX)
         numpy.save(acc2bstbase + '_XY', bstXY)
         numpy.save(acc2bstbase + '_YY', bstYY)
