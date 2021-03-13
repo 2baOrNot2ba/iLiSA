@@ -9,11 +9,13 @@ import argparse
 
 import numpy
 import matplotlib.pyplot as plt
+from matplotlib import pylab
 from scipy.constants import speed_of_light
 
 import casacore.measures
 import casacore.quanta.quantity
 import ilisa.antennameta.antennafieldlib as antennafieldlib
+from ilisa.antennameta.export import ITRF2lonlat
 from ilisa.monitorcontrol import data_io as dataIO
 from ilisa.monitorcontrol.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
@@ -595,7 +597,6 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         plotcomp(numpy.imag(skyimages[2]), 'Im(YX*)', 2)
         plotcomp(numpy.real(skyimages[3]), 'YY*', 3)
     elif polrep == 'S0':
-        #print(skyimages.shape)
         plt.imshow(skyimages[0], origin='lower',
                    extent=[lmin, lmax, mmin, mmax], interpolation='none',
                    cmap=plt.get_cmap("jet")) #, vmax=vmax, vmin=vmin)
@@ -632,8 +633,60 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
     return ll, mm, (img_S0, img_S1, img_S2, img_S3)
 
 
-def image(args):
-    """Image visibility-type data."""
+def plotgdsm(dattim, geopos, freq, gs_model='LFSM'):
+    """\
+    Plot hemisphere of global diffuse sky model (GDSM) over a position and for
+    given datetime and freq.
+    """
+    from pygdsm.pygsm import GlobalSkyModel
+    from pygdsm.pygsm2016 import GlobalSkyModel2016
+    from pygdsm.lfsm import LowFrequencySkyModel
+    from pygdsm.base_observer import CommonGSMObserver
+    import healpy as hp
+    (longitude, latitude, elevation) = geopos
+    freq_unit = 'Hz'  # ('Hz', 'MHz', 'GHz')
+    if gs_model =='LFSM':
+        gsm = LowFrequencySkyModel(freq_unit=freq_unit)
+    elif gs_model == 'GSM' or gs_model == 'GSM2008':
+        gsm = GlobalSkyModel(freq_unit=freq_unit,
+                             basemap='haslam',  # 'haslam', 'wmap' or '5deg'
+                             interpolation='pchip'  # 'cubic' or 'pchip'
+                             )
+    else:
+        gsm = GlobalSkyModel2016(freq_unit=freq_unit,
+                                 data_unit='MJysr',  # ('TCMB', 'MJysr', 'TRJ')
+                                 resolution='hi',  # ('hi', 'lo')
+                                 theta_rot=0, phi_rot=0)
+    # NOTE: CommonGSMObserver() is my addition to PyGDSM
+    gsm_obs = CommonGSMObserver(gsm)
+    gsm_obs.lon = str(longitude)
+    gsm_obs.lat = str(latitude)
+    gsm_obs.elev = elevation
+    gsm_obs.date = dattim
+    try:
+        gsm_map = gsm_obs.generate(freq)
+    except RuntimeError as e:
+        raise ValueError(e)
+    f = pylab.figure(None, figsize=None)
+    extent = (0.0, 0.0, 1.0, 1.0)
+    ax = hp.projaxes.HpxOrthographicAxes(f, extent)
+    img_ma = ax.projmap(gsm_map, xsize=10, half_sky=True)
+    img = numpy.ma.getdata(img_ma)
+    img[img==-numpy.inf] = 0.0
+    print(img)
+    plt.pcolormesh(numpy.log10(img))
+    plt.title(gs_model)
+    plt.axis('equal')
+    plt.colorbar()
+    plt.draw()
+
+
+def image(args, show_gsm=False):
+    """\
+    Image visibility-type data.
+
+    Optional show corresponding GSM map (requires PyGDSM).
+    """
     polrep = 'stokes'
     lofar_datatype = dataIO.datafolder_type(args.dataff)
     fluxperbeam = not args.fluxpersterradian
@@ -655,6 +708,15 @@ def image(args):
                 cvc_image(cvcobj, fileidx, tidx, args.phaseref,
                                   polrep=polrep, pbcor=args.correctpb,
                                   fluxperbeam=fluxperbeam)
+            lon, lat, h = ITRF2lonlat(cvcobj.stn_pos[0, 0],
+                                      cvcobj.stn_pos[1, 0],
+                                      cvcobj.stn_pos[2, 0])
+            if show_gsm:
+                try:
+                    plotgdsm(t, (lon, lat, h), freq)
+                except ValueError:
+                    print("Warning: skipping GSM plot since frequency invalid")
+            plt.figure()
             plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
                                  integration, phaseref, calibrated,
                                  pbcor=args.correctpb, maskhrz=False,
