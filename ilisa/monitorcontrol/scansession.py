@@ -418,7 +418,11 @@ def main():
     """CLI to send hi-level commands to a LOFAR station.
     """
     args = parse_cmdline(sys.argv[1:])
-    exec_cmdline(args)
+    try:
+        exec_cmdline(args)
+    except RuntimeError as e:
+        print('Exiting due to RuntimeError:', e)
+        sys.exit(1)
     with open(LOGFILE, 'a') as lgf:
         if args.mockrun:
             priority_fld = 'M'
