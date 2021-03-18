@@ -236,6 +236,20 @@ def get_antset_params(stnid, antset):
         Station ID
     antset: str
         Antenna set specifier. E.g. LBA_INNER.
+
+    Returns
+    -------
+    stnpos : array_like
+        ITRF position vector of station's antset center in meters.
+    stnrot : array_like
+        Rotation matrix
+    stnrelpos : array_like
+        Positions of dual-pol antenna elements. (For HBA these refer to tiles)
+        Axis 0 is antenna element number
+        & axis 1 is cartesian 'x','y','z' coords,
+        while values are in meters.
+    stnintilepos : array_like
+        Position of antennas within tile.
     """
     antfld = parseAntennaField(stnid)
     if antset.startswith('LBA'):
