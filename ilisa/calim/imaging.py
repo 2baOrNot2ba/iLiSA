@@ -213,7 +213,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
         Polarimetric image maps.
         If polrep='Stokes' (and dreamBeam package accessible) then the elements
         correspond to Stokes I,Q,U,V.
-        If  polrep='XY' then the elements correspond to XX,XY,YX,YY.
+        If  polrep='linear' then the elements correspond to XX,XY,YX,YY.
     ll : array
         The l direction cosine of the image.
     mm : array
@@ -633,9 +633,9 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
     return ll, mm, (img_S0, img_S1, img_S2, img_S3)
 
 
-def plotgdsm(dattim, geopos, freq, gs_model='LFSM'):
+def gdsm(dattim, geopos, freq, gs_model='LFSM', imsize=200):
     """\
-    Plot hemisphere of global diffuse sky model (GDSM) over a position and for
+    Generate hemisphere of global diffuse sky model (GDSM) over a position and for
     given datetime and freq.
     """
     from pygdsm.pygsm import GlobalSkyModel
@@ -670,15 +670,11 @@ def plotgdsm(dattim, geopos, freq, gs_model='LFSM'):
     f = pylab.figure(None, figsize=None)
     extent = (0.0, 0.0, 1.0, 1.0)
     ax = hp.projaxes.HpxOrthographicAxes(f, extent)
-    img_ma = ax.projmap(gsm_map, xsize=10, half_sky=True)
+    img_ma = ax.projmap(gsm_map, xsize=imsize, half_sky=True)
     img = numpy.ma.getdata(img_ma)
-    img[img==-numpy.inf] = 0.0
-    print(img)
-    plt.pcolormesh(numpy.log10(img))
-    plt.title(gs_model)
-    plt.axis('equal')
-    plt.colorbar()
-    plt.draw()
+    img[img == -numpy.inf] = 0.0
+    img = numpy.fliplr(img)  # Sky-model has a flip along East-West, so flipback
+    return img
 
 
 def image(args, show_gsm=False):
@@ -708,16 +704,25 @@ def image(args, show_gsm=False):
                 cvc_image(cvcobj, fileidx, tidx, args.phaseref,
                                   polrep=polrep, pbcor=args.correctpb,
                                   fluxperbeam=fluxperbeam)
-            lon, lat, h = ITRF2lonlat(cvcobj.stn_pos[0, 0],
-                                      cvcobj.stn_pos[1, 0],
-                                      cvcobj.stn_pos[2, 0])
+            plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
+                                 integration, phaseref, calibrated,
+                                 pbcor=args.correctpb, maskhrz=False,
+                                 fluxperbeam=fluxperbeam)
             if show_gsm:
+                gs_model = 'LFSM'
+                imsize = 200
+                lon, lat, h = ITRF2lonlat(cvcobj.stn_pos[0, 0],
+                                          cvcobj.stn_pos[1, 0],
+                                          cvcobj.stn_pos[2, 0])
                 try:
-                    plotgdsm(t, (lon, lat, h), freq)
+                    img = gdsm(t, (lon, lat, h), freq, gs_model=gs_model,
+                               imsize=imsize)
                 except ValueError:
                     print("Warning: skipping GSM plot since frequency invalid")
-            plt.figure()
-            plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
+                l, m = numpy.linspace(-1, 1, imsize), numpy.linspace(-1, 1, imsize)
+                ll, mm = numpy.meshgrid(l, m)
+                img_zero = numpy.zeros_like(img, dtype=float)
+                plotskyimage(ll, mm, (img, img_zero, img_zero, img_zero), 'stokes', t, freq, stnid,
                                  integration, phaseref, calibrated,
                                  pbcor=args.correctpb, maskhrz=False,
                                  fluxperbeam=fluxperbeam)
