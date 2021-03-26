@@ -677,36 +677,52 @@ def gdsm(dattim, geopos, freq, gs_model='LFSM', imsize=200):
     return img
 
 
-def image(args, show_gsm=False):
+def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
+          show_gsm=False):
     """\
     Image visibility-type data.
 
-    Optional show corresponding GSM map (requires PyGDSM).
+    Optionally show corresponding GSM map (requires PyGDSM).
+
+    Parameters
+    ----------
+    filenr :  int
+        File number.
+    sampnr : int
+        Sample number.
+    phaseref : tuple
+        Direction of phase center.
+    correctpb : bool
+        Should primary beam correction be applied?
+    fluxpersterradian : bool
+        Should returned data be in physical dimension of flux per sterradian?
+    show_gsm : bool
+        Should a global sky model be shown?
     """
     polrep = 'stokes'
-    lofar_datatype = dataIO.datafolder_type(args.dataff)
-    fluxperbeam = not args.fluxpersterradian
+    lofar_datatype = dataIO.datafolder_type(dataff)
+    fluxperbeam = not fluxpersterradian
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
-                           .format(args.dataff))
-    cvcobj = dataIO.CVCfiles(args.dataff)
+                           .format(dataff))
+    cvcobj = dataIO.CVCfiles(dataff)
     calibrated = False
     if cvcobj.scanrecinfo.calibrationfile:
         calibrated = True
     stnid = cvcobj.scanrecinfo.get_stnid()
-    for fileidx in range(args.filenr, cvcobj.getnrfiles()):
+    for fileidx in range(filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
         intgs = len(cvcobj.samptimeset[fileidx])
-        for tidx in range(args.sampnr, intgs):
+        for tidx in range(sampnr, intgs):
             t = cvcobj.samptimeset[fileidx][tidx]
             freq = cvcobj.freqset[fileidx][tidx]
-            skyimages, ll, mm, phaseref = \
-                cvc_image(cvcobj, fileidx, tidx, args.phaseref,
-                                  polrep=polrep, pbcor=args.correctpb,
+            skyimages, ll, mm, _phaseref_ = \
+                cvc_image(cvcobj, fileidx, tidx, phaseref,
+                                  polrep=polrep, pbcor=correctpb,
                                   fluxperbeam=fluxperbeam)
             plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
-                                 integration, phaseref, calibrated,
-                                 pbcor=args.correctpb, maskhrz=False,
+                                 integration, _phaseref_, calibrated,
+                                 pbcor=correctpb, maskhrz=False,
                                  fluxperbeam=fluxperbeam)
             if show_gsm:
                 gs_model = 'LFSM'
@@ -723,32 +739,31 @@ def image(args, show_gsm=False):
                 ll, mm = numpy.meshgrid(l, m)
                 img_zero = numpy.zeros_like(img, dtype=float)
                 plotskyimage(ll, mm, (img, img_zero, img_zero, img_zero), 'stokes', t, freq, stnid,
-                                 integration, phaseref, calibrated,
-                                 pbcor=args.correctpb, maskhrz=False,
+                                 integration, _phaseref_, calibrated,
+                                 pbcor=correctpb, maskhrz=False,
                                  fluxperbeam=fluxperbeam)
 
 
-def nfimage(args):
+def nfimage(dataff, filenr, sampnr):
     """
-    Near field image.
+    Make near-field image.
     """
     polrep = 'S0'
-    lofar_datatype = dataIO.datafolder_type(args.dataff)
+    lofar_datatype = dataIO.datafolder_type(dataff)
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
-                           .format(args.dataff))
-    cvcobj = dataIO.CVCfiles(args.dataff)
+                           .format(dataff))
+    cvcobj = dataIO.CVCfiles(dataff)
     stnid = cvcobj.scanrecinfo.get_stnid()
-    for fileidx in range(args.filenr, cvcobj.getnrfiles()):
+    for fileidx in range(filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
         intgs = len(cvcobj.samptimeset[fileidx])
-        for tidx in range(args.sampnr, intgs):
-            xx, yy, nfimages = nearfield_grd_image(cvcobj, fileidx,
-                                                           tidx)
+        for tidx in range(sampnr, intgs):
+            xx, yy, nfimages = nearfield_grd_image(cvcobj, fileidx, tidx)
             t = cvcobj.samptimeset[fileidx][tidx]
             freq = cvcobj.freqset[fileidx][tidx]
-            plotskyimage(xx, yy, nfimages, polrep, t, freq, stnid,
-                                 integration, maskhrz=False)
+            plotskyimage(xx, yy, nfimages, polrep, t, freq, stnid, integration,
+                         maskhrz=False)
 
 
 def main_cli():
@@ -778,7 +793,12 @@ def main_cli():
 
     args = parser.parse_args()
     args.dataff = os.path.normpath(args.dataff)
-    args.func(args)
+    if args.func == nfimage:
+        nfimage(args.dataff, args.filenr, args.sampnr)
+    else:
+        image(args.dataff, args.filenr, args.sampnr, args.phaseref,
+              args.correctpb, args.fluxpersterradian)
+
 
 if __name__ == "__main__":
     main_cli()
