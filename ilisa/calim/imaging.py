@@ -19,6 +19,7 @@ from ilisa.antennameta.export import ITRF2lonlat
 from ilisa.monitorcontrol import data_io as dataIO
 from ilisa.monitorcontrol.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
+from ilisa.calim.skymodels import globaldiffuseskymodel
 
 try:
     import dreambeam
@@ -731,8 +732,9 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
                                           cvcobj.stn_pos[1, 0],
                                           cvcobj.stn_pos[2, 0])
                 try:
-                    img = gdsm(t, (lon, lat, h), freq, gs_model=gs_model,
-                               imsize=imsize)
+                    img = globaldiffuseskymodel(t, (lon, lat, h), freq,
+                                                gs_model=gs_model,
+                                                imsize=imsize)
                 except ValueError:
                     print("Warning: skipping GSM plot since frequency invalid")
                 l, m = numpy.linspace(-1, 1, imsize), numpy.linspace(-1, 1, imsize)
