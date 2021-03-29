@@ -361,7 +361,7 @@ def gsmcal(dataff, filenr, sampnr, fluxpersterradian):
             inv_g_xx = 1/g_xx
             inv_g_yy = 1/g_yy
             vis_cal_xx = inv_g_xx[:,numpy.newaxis]*vis_meas_xx*numpy.conj(inv_g_xx)
-            vis_cal_yy = inv_g_xx[:,numpy.newaxis]*vis_meas_xx*numpy.conj(inv_g_xx)
+            vis_cal_yy = inv_g_yy[:,numpy.newaxis]*vis_meas_yy*numpy.conj(inv_g_yy)
             vis_cal_I = vis_cal_xx + vis_cal_yy
             vis_resid_I = vis_cal_I - vis_mod
             xstpol = numpy.array([[vis_cal_I, numpy.zeros_like(vis_mod)],
