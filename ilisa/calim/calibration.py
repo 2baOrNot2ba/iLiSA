@@ -252,7 +252,7 @@ def gain_cal_bs_lin(vis_pol_src):
     return g_bs_lin
 
 
-def vcz(ll, mm, skyimage, freq, ant_pos):
+def vcz(ll, mm, skyimage, freq, ant_pos, imag_is_fd=False):
     """\
     Compute visibility from image via the van Cittert-Zernicke relation
 
@@ -266,24 +266,38 @@ def vcz(ll, mm, skyimage, freq, ant_pos):
         Total flux image of sky.
     uv: array_like
         U,V vectors corresponding to 2D array configuration.
+    imag_is_fd : bool
+        Input image is flux distribution map (fd) rather than flux density
+        distribution (fdd) map.
 
     Returns
     -------
     vis : array_like
         Visibility corresponding to input skyimage via vCZ relation.
     """
-    pos_x, pos_y = ant_pos[:,0].squeeze(), ant_pos[ :,1].squeeze()
+    pos_x = ant_pos[:, 0].squeeze()
+    pos_y = ant_pos[:, 1].squeeze()
+    pos_z = ant_pos[:, 2].squeeze()
 
     nr_ants = pos_x.shape[0]
     vis = numpy.zeros((nr_ants, nr_ants), dtype=complex)
     phas = 0.0
     k = 2 * numpy.pi * freq / c
+    lm_r2 = (ll**2+mm**2).astype(numpy.complex)
+    nn = numpy.sqrt(1-lm_r2)
+    nn[lm_r2 >= 1.0] = 1.0
+    numpy.imag(nn)
+    if imag_is_fd:
+        fdd = skyimage / nn
+    else:
+        fdd = skyimage
     for ant_i in range(nr_ants):
         for ant_j in range(ant_i, nr_ants):
             u = pos_x[ant_i] - pos_x[ant_j]
             v = pos_y[ant_i] - pos_y[ant_j]
+            w = pos_z[ant_i] - pos_z[ant_j]
             vis[ant_i, ant_j] = numpy.sum(
-                skyimage * numpy.exp(+1.0j * k * (ll * u + mm * v) + phas))
+                fdd * numpy.exp(+1.0j * k * (ll * u + mm * v + (nn-1) * w)))
     do_conj = True
     if do_conj:
         for ant_i in range(nr_ants):
@@ -296,6 +310,12 @@ from ilisa.calim import skymodels # import gdskymodel
 import matplotlib.pyplot as plt
 def gsmcal(dataff, filenr, sampnr, fluxpersterradian):
     ccm = measures()
+    gs_model = 'LFSM'
+    imsize = 200
+    fluxperbeam = True
+    l = numpy.linspace(-1, 1, imsize)
+    m = numpy.linspace(-1, 1, imsize)
+    ll, mm = numpy.meshgrid(l, m)
     #normcolor = colors.LogNorm()
     # The code below is almost cut-n-pasted from imaging.image()
     polrep = 'stokes'
@@ -309,73 +329,51 @@ def gsmcal(dataff, filenr, sampnr, fluxpersterradian):
     if cvcobj.scanrecinfo.calibrationfile:
         calibrated = True
     stnid = cvcobj.scanrecinfo.get_stnid()
+    lon, lat, h = imaging.ITRF2lonlat(cvcobj.stn_pos[0, 0],
+                                      cvcobj.stn_pos[1, 0],
+                                      cvcobj.stn_pos[2, 0])
+    stn_pos_x, stn_pos_y, stn_pos_z = cvcobj.stn_pos[0, 0], cvcobj.stn_pos[1, 0], \
+                                      cvcobj.stn_pos[2, 0]
+    ccm.doframe(ccm.position('ITRF', str(stn_pos_x) + 'm', str(stn_pos_y) + 'm',
+                             str(stn_pos_z) + 'm'))
     for fileidx in range(filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
         intgs = len(cvcobj.samptimeset[fileidx])
         for tidx in range(sampnr, intgs):
             t = cvcobj.samptimeset[fileidx][tidx]
             freq = cvcobj.freqset[fileidx][tidx]
-            gs_model = 'LFSM'
-            imsize = 200
-            lon, lat, h = imaging.ITRF2lonlat(cvcobj.stn_pos[0, 0],
-                                              cvcobj.stn_pos[1, 0],
-                                              cvcobj.stn_pos[2, 0])
-            img = skymodels.gdskymodel(t, (lon, lat, h), freq, gs_model=gs_model, imsize=imsize)
-            l = numpy.linspace(-1, 1, imsize)
-            m = numpy.linspace(-1, 1, imsize)
-            ll, mm = numpy.meshgrid(l, m)
-            # Take normal or zenith? as phaseref
-            stn_pos_x, stn_pos_y, stn_pos_z = cvcobj.stn_pos[0,0], cvcobj.stn_pos[1, 0], cvcobj.stn_pos[2, 0]
-            ccm.doframe(ccm.position('ITRF', str(stn_pos_x)+'m', str(stn_pos_y)+'m', str(stn_pos_z)+'m'))
+            img = skymodels.globaldiffuseskymodel(t, (lon, lat, h), freq,
+                                                  gs_model=gs_model,
+                                                  imsize=imsize)
             ccm.doframe(ccm.epoch('UTC', t.isoformat('T')))
             phaseref_ccm = ccm.measure(ccm.direction('AZEL', '0.0rad', str(numpy.deg2rad(90))+'rad'), 'J2000')
             phaseref = (phaseref_ccm['m0']['value'],  phaseref_ccm['m1']['value'], phaseref_ccm['refer'])
             uvw_sl = imaging.calc_uvw(t, phaseref, cvcobj.stn_pos, cvcobj.stn_antpos)
-            vis_mod = vcz(ll, mm, img, freq, uvw_sl)
+            vis_mod = vcz(ll, mm, img, freq, uvw_sl, imag_is_fd=not(fluxperbeam))
             cvcpol_lin = dataIO.cvc2polrep(cvcobj[fileidx], crlpolrep='lin')
             cvpol_lin = cvcpol_lin[:, :, tidx, ...].squeeze()
             cvpol_x = cvpol_lin[0,0,...].squeeze()
             cvpol_y = cvpol_lin[1,1,...].squeeze()
-            vis_meas = cvpol_x
-            vis_resid = vis_meas - vis_mod
-            if False:
-                print("Kill plot window for next plot...")
-                fig, axs = plt.subplots(nrows=1, ncols=3)
-                #plt.subplot(1,3,1)
-
-                #sp0= axs[0].imshow(numpy.log10(numpy.abs(vis_meas)), interpolation='none')# , norm=normcolor )
-                sp0= axs[0].imshow(numpy.angle(vis_meas), cmap=plt.get_cmap('hsv'), interpolation='none')# , norm=normcolor )
-                #axs[0].set_title("""Time (from start {}) {}s @ freq={} MHz""".format(t, integration, freq/1e6))
-                #axs[0].set_xlabel('RCU [#]')
-                #axs[0].set_ylabel('RCU [#]')
-                fig.colorbar(sp0, ax=axs[0], orientation='horizontal')
-
-                #plt.subplot(1, 3, 2)
-                #sp1=axs[1].imshow(numpy.log10(numpy.abs(vis_mod)), interpolation='none')
-                sp1=axs[1].imshow(numpy.angle(vis_mod), cmap=plt.get_cmap('hsv'), interpolation='none')
-                #axs[1].set_title("""Time (from start {}) {}s @ freq={} MHz""".format(t, integration, freq / 1e6))
-                #axs[1].set_xlabel('RCU [#]')
-                #axs[1].set_ylabel('RCU [#]')
-                fig.colorbar(sp1, ax=axs[1], orientation='horizontal')
-
-                #plt.subplot(1, 3, 3)
-                sp2 =axs[2].imshow(numpy.log10(numpy.abs(vis_meas - vis_mod)), interpolation='none')
-                #axs[2].set_title("""Time (from start {}) {}s @ freq={} MHz""".format(t, integration, freq / 1e6))
-                #axs[2].set_xlabel('RCU [#]')
-                #axs[2].set_ylabel('RCU [#]')
-                fig.colorbar(sp2, ax=axs[2], orientation='horizontal')
-
-                plt.show()
-            fluxperbeam = True
-            xstpol = numpy.array([[vis_meas, numpy.zeros_like(vis_mod)],
-                                  [numpy.zeros_like(vis_mod), vis_mod]])
-            skyimages, ll, mm = imaging.beamformed_image(xstpol, uvw_sl.T, freq,
+            vis_meas_xx = cvpol_x
+            vis_meas_yy = cvpol_y
+            g_xx = stefcal(vis_meas_xx, vis_mod/2.0)
+            g_yy = stefcal(vis_meas_yy, vis_mod/2.0)
+            inv_g_xx = 1/g_xx
+            inv_g_yy = 1/g_yy
+            vis_cal_xx = inv_g_xx[:,numpy.newaxis]*vis_meas_xx*numpy.conj(inv_g_xx)
+            vis_cal_yy = inv_g_xx[:,numpy.newaxis]*vis_meas_xx*numpy.conj(inv_g_xx)
+            vis_cal_I = vis_cal_xx + vis_cal_yy
+            vis_resid_I = vis_cal_I - vis_mod
+            xstpol = numpy.array([[vis_cal_I, numpy.zeros_like(vis_mod)],
+                                  [numpy.zeros_like(vis_mod), vis_resid_I]])
+            skyimages, _l, _m = imaging.beamformed_image(xstpol, uvw_sl.T, freq,
                                                          use_autocorr=True,
                                                          lmsize=2.0,
+                                                         nrpix=imsize,
                                                          polrep='linear',
                                                          fluxperbeam=fluxperbeam
                                                          )
-            imaging.plotskyimage(ll, mm, skyimages, 'linear', t, freq, stnid,
+            imaging.plotskyimage(_l, _m, skyimages, 'linear', t, freq, stnid,
                                  integration, phaseref, calibrated, pbcor=False,
                                  maskhrz=False, fluxperbeam=fluxperbeam)
 
