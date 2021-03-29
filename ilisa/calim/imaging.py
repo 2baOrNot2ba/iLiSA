@@ -182,7 +182,7 @@ def phasedup_vis(vis, srcname, t, freq, polrep, stn_pos, stn_antpos):
 
 
 def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
-                     lmsize=2.0, polrep='linear', fluxperbeam=True):
+                     lmsize=2.0, nrpix=101, polrep='linear', fluxperbeam=True):
     """
     Beamformed image XSTpol data.
 
@@ -201,6 +201,8 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
         Whether or not to include the autocorrelations.
     lmsize : float
         Size of image in (lm) direction-cosine units. Default 2.0 means allsky.
+    nrpix : int
+        Nr of pixels in image along one axis.
     polrep : str
         Requested type of representation for the polarimetric data.
         Can be 'linear' (default), 'circular', or 'stokes'.
@@ -233,7 +235,6 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
         lambda0 = c / freq
     k = 2 * numpy.pi / lambda0
     lmext = lmsize/2.0
-    nrpix = 101
     l, m = numpy.linspace(-lmext, lmext, nrpix), numpy.linspace(-lmext, lmext,
                                                                 nrpix)
     ll, mm = numpy.meshgrid(l, m)
