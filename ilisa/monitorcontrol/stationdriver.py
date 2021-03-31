@@ -205,7 +205,26 @@ class StationDriver(object):
         return self._lcu_interface.stnid
 
     def get_laneports(self):
-        """Return the UDP ports the 4 data lanes are sent to on the DRU."""
+        """
+        Return the UDP ports the 4 data lanes are sent to on the DRU.
+
+        Returns
+        -------
+        port0: int
+            1st port
+        port1: int
+            2nd port
+        part2: int
+            3rd port
+        part3: int
+            4th port
+
+        Notes
+        -----
+        Seen as a string, the standard format for UDP ports are
+        '1'+stnid+port_ordinal, where stnid is a three digit number
+        and port_ordinal is 0,1,2 or 3.
+        """
         if self.mockrun:
             return 1, 2, 3, 4
         rspdriver_conf = self._lcu_interface.get_RSPDriver_conf()
@@ -811,12 +830,14 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
     rec_type: str
         Main type of LOFAR data to record.
         The possible data types are:
-            'bst', 'sst', 'xst', 'tbb', None
+            'bst', 'sst', 'xst', 'tbb', 'dmp', None
         where:
-        'bst': Beamlet STatistics data
-        'sst': Subband STatistics data
-        'xst': Xrosslet STatistics data
-        None: No recording of data.
+            'bst': Beamlet STatistics data
+            'sst': Subband STatistics data
+            'xst': Xrosslet STatistics data
+            'tbb': Transient Buffer Board data
+            'dmp': Only record bfs, do not start a beam
+            None: No recording of data.
     freqspec: FreqSetup
         FreqSetup() instance.
     duration_tot: float
