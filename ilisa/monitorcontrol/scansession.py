@@ -388,25 +388,31 @@ def parse_cmdline(argv):
     return args
 
 
-def exec_cmdline(args):
-    """Run a schedule commandline."""
-    projectmeta, accessfiles = projid2meta(args.project)
-    if args.station is None:
+def get_proj_stn_access_conf(projid, stnid):
+    """Get access conf for stnid as per projid"""
+    projectmeta, accessfiles = projid2meta(projid)
+    if stnid is None:
         # Try to get station from accessfiles in project config file
         try:
-            args.station = list(accessfiles.keys()).pop()
+            stnid = list(accessfiles.keys()).pop()
         except:
-            raise RuntimeError("No stations found for project {}".format(args.project))
+            raise RuntimeError("No stations for project {}".format(projid))
     try:
         # See if station has an access config file
-        acf_name = accessfiles[args.station]
+        acf_name = accessfiles[stnid]
     except:
-        raise RuntimeError("Station {} not found for project {}".format(args.station,
-                                                                        args.project))
+        raise RuntimeError("Station {} not found for project {}".format(stnid,
+                                                                        projid))
     userilisadir = ilisa.monitorcontrol.user_conf_dir
     acf_path = os.path.join(userilisadir, acf_name)
     with open(acf_path) as acffp:
         ac = yaml.safe_load(acffp)
+    return ac
+
+
+def exec_cmdline(args):
+    """Run a schedule commandline."""
+    ac = get_proj_stn_access_conf(args.project, args.station)
     # Initialize stationdriver :
     stndrv = StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
     args.func(stndrv, args)
