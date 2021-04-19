@@ -39,7 +39,8 @@ setup(name='iLiSA',
               'ilisa_view = ilisa.monitorcontrol.data_io:main',
               'ilisa_applycal = ilisa.calim.calibration:main_cli',
               'ilisa_image = ilisa.calim.imaging:main_cli',
-              'ilisa_sched = ilisa.scripts.ilisa_sched:main'
+              'ilisa_sched = ilisa.scripts.ilisa_sched:main',
+              'pl_rec = ilisa.pipelines.bfbackend:bfsrec_main_cli'
           ]
       }
       )

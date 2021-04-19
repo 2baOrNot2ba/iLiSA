@@ -1,12 +1,13 @@
 import os
 import plumbum
+from ilisa.monitorcontrol._rem_exec import _exec_ssh
 import ilisa.monitorcontrol.modeparms
 
 # Name of binary executable on DRU to run when capturing
 # UDP packets with LOFAR beamformed voltages data.
 # (Currently requires manually install putting it in DRU user's PATH env var.
 # )
-dumpername = 'dump_udp_ow'
+dumpername = 'pl_rec'
 
 
 class DRUinterface:
@@ -27,8 +28,37 @@ class DRUinterface:
             dru = plumbum.SshMachine(self.hostname, user=user)
         else:
             dru = plumbum.local
+        self.accessible = True
+        dru = self._exec_dru_func()
         self.dru = dru
         self.ports = ports
+
+    def _exec_dru_func(self):
+        def exec_ssh_inner(cmdline, remnode=self.hostname, stdoutdir=None,
+                           nodetype='DRU', background_job=False, dryrun=False,
+                           accessible=self.accessible, quotes="'", verbose=self.verbose):
+            return _exec_ssh(remnode, cmdline, stdoutdir=stdoutdir,
+                             nodetype=nodetype, background_job=background_job,
+                             dryrun=dryrun, accessible=accessible,
+                             quotes=quotes, verbose=verbose)
+        return exec_ssh_inner
+
+    def bfsfilepathslist(self, starttime, band, bf_data_dir, ports, stnid,
+                         compress=True):
+        port0 = ports[0]
+        outdumpdirs = []
+        outargs = []
+        datafileguesses = []
+        dumplognames = []
+        for lane in range(len(ports)):
+            outdumpdir, outarg, datafileguess, dumplogname = \
+                self.bfsfilepaths(lane, starttime, band, bf_data_dir, port0,
+                                  stnid, compress=compress)
+            outdumpdirs.append(outdumpdir)
+            outargs.append(outarg)
+            datafileguesses.append(datafileguess)
+            dumplognames.append(dumplogname)
+        return outdumpdirs, outargs, datafileguesses, dumplognames
 
     def bfsfilepaths(self, lane, starttime, band, bf_data_dir, port0, stnid,
                      compress=True):
@@ -75,13 +105,40 @@ class DRUinterface:
         rcumode = ilisa.monitorcontrol.modeparms.band2rcumode(band)
         outarg = os.path.join(outdumpdir, outfilepre)
         dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane, rcumode)
-        local_hostname = self.dru['hostname']().rstrip()
+        # local_hostname = self.dru['hostname']().rstrip()
+        local_hostname = self.dru('hostname').rstrip()
         starttime_arg = starttime + '.000'
         datafileguess = outarg + '_' + str(port) + '.' + local_hostname + '.'\
                         + starttime_arg
         if compress:
             datafileguess += '.zst'
         return outdumpdir, outarg, datafileguess, dumplogname
+
+    def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime='NOW',
+                      compress=False, band=None, stnid=None):
+        """\
+        Record beamformed streams using recording process on DRU
+
+        Note: Blocks until finished recording on DRU
+        """
+        dumpercmd = dumpername
+        startarg = starttime
+        if starttime != 'NOW':
+            startarg = starttime.strftime("%Y-%m-%dT%H:%M:%S")
+        outdumpdirs, outargs, datafiles, logfiles = \
+            self.bfsfilepathslist(startarg, band, bf_data_dir, ports, stnid,
+                                  compress)
+        for outdumpdir in outdumpdirs:
+            self.dru('mkdir -p '+outdumpdir)
+        portlststr = ','.join([str(p) for p in ports])
+        cmdlineargs = ['--ports', portlststr, '--duration', str(duration)]
+        if startarg != 'NOW':
+            cmdlineargs.extend(['--Start', startarg])
+        if compress:
+            pass
+            # cmdlineargs.append('--compress')
+        self.dru(' '.join([dumpercmd] + cmdlineargs))
+        return datafiles, logfiles
 
     def rec_bf_proxy(self, starttime, duration, lanes, band, bf_data_dir,
                      port0, stnid, compress=False):
@@ -120,3 +177,14 @@ class DRUinterface:
         for reclane in reclanes:
             reclane.wait()
         return datafiles, logfiles
+
+
+if __name__ == "__main__":
+    import sys
+    from ilisa.monitorcontrol.scansession import get_proj_stn_access_conf
+    stnid = sys.argv.pop()
+    projid = sys.argv.pop()
+    accessconf = get_proj_stn_access_conf(projid, stnid)
+    dru_interface = DRUinterface(accessconf['DRU'])
+    #dru_interface._rec_bf_proxy([16070, 16071], 5, '/mnt/lane?/BF/SE607/Scans/',
+    #                            starttime='NOW', compress=False, band='110_190', stnid='SE607')
