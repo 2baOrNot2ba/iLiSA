@@ -150,3 +150,44 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0,
     return datafiles, logfiles
 
 
+import argparse
+import datetime
+from ilisa.pipelines.rec_bf_streams_py import main as rec_bf_streams_py
+
+def bfsrec_main_cli():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--starttime',
+                        type=str, default='NOW',
+                        help = "Start-time,: (iso format) YYYY-mm-ddTHH:MM:SS"
+                        )
+    parser.add_argument('-p', '--ports',
+                        type=str, default='4346',
+                        help = "List of port number(s)"
+                        )
+    parser.add_argument('-b', '--bfdatadir',
+                        type=str, default='/mnt/lane?/BF/SE607/Scans/',
+                        help="Template directory for BF data"
+                        )
+    parser.add_argument('-d', '--duration',
+                        type=int, default=None,
+                        help="Duration of recording in seconds"
+                        )
+    parser.add_argument('-w', '--which',
+                        type=str, default='ow',
+                        help="Which backend recorder: ow or py",
+                        )
+    args = parser.parse_args()
+    if args.starttime == "NOW":
+        args.starttime = datetime.datetime.utcnow()
+    args.ports = [int(portstr) for portstr in args.ports.split(',')]
+    if args.which == 'py':
+        rec_bf_streams_py(args.port0, args.bfdatadir, args.duration)
+    else:
+        port0 = args.ports[0]
+        lanes = range(len(args.ports))
+        rec_bf_streams(args.starttime, args.dur, lanes, '110_190', args.bfdatadir,
+                       port0, 'SE607')
+
+
+if __name__ == '__main__':
+    bfsrec_main_cli()
