@@ -2,6 +2,7 @@ import os
 import plumbum
 from ilisa.monitorcontrol._rem_exec import _exec_ssh
 import ilisa.monitorcontrol.modeparms
+from ilisa.pipelines.bfbackend import pl_rec_wrapper, dumpername
 
 # Name of binary executable on DRU to run when capturing
 # UDP packets with LOFAR beamformed voltages data.
@@ -104,7 +105,8 @@ class DRUinterface:
         outfilepre = "udp_" + stnid
         rcumode = ilisa.monitorcontrol.modeparms.band2rcumode(band)
         outarg = os.path.join(outdumpdir, outfilepre)
-        dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane, rcumode)
+        dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane,
+                                                   rcumode)
         # local_hostname = self.dru['hostname']().rstrip()
         local_hostname = self.dru('hostname').rstrip()
         starttime_arg = starttime + '.000'
@@ -121,7 +123,7 @@ class DRUinterface:
 
         Note: Blocks until finished recording on DRU
         """
-        dumpercmd = dumpername
+        dumpercmd = pl_rec_wrapper
         startarg = starttime
         if starttime != 'NOW':
             startarg = starttime.strftime("%Y-%m-%dT%H:%M:%S")
@@ -131,7 +133,8 @@ class DRUinterface:
         for outdumpdir in outdumpdirs:
             self.dru('mkdir -p '+outdumpdir)
         portlststr = ','.join([str(p) for p in ports])
-        cmdlineargs = ['--ports', portlststr, '--duration', str(duration)]
+        cmdlineargs = ['--ports', portlststr, '--duration', str(duration),
+                       '--bfdatadir', '"'+bf_data_dir+'"']
         if startarg != 'NOW':
             cmdlineargs.extend(['--starttime', startarg])
         if compress:
@@ -147,7 +150,7 @@ class DRUinterface:
         recorders = ['ow', 'py']
         _which_recorder = recorders[0]
         # dumpercmd = self.dru.path(self.pipeline_path) / dumpername
-        dumpercmd = dumpername
+        dumpercmd = pl_rec_wrapper
         rec_cmd = self.dru[dumpercmd]
         startarg = starttime
         if starttime != 'NOW':
