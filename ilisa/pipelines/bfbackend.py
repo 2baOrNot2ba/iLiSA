@@ -182,6 +182,9 @@ def bfsrec_main_cli():
     args = parser.parse_args()
     if args.starttime == "NOW":
         args.starttime = datetime.datetime.utcnow()
+    else:
+        args.starttime = datetime.datetime.strptime(args.starttime,
+                                                    '%Y-%m-%dT%H:%M:%S')
     args.ports = [int(portstr) for portstr in args.ports.split(',')]
     if args.which == 'py':
         rec_bf_streams_py(args.port0, args.bfdatadir, args.duration)
