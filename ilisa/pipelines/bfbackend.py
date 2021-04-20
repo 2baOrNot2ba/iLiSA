@@ -8,9 +8,10 @@ import platform
 import ilisa.pipelines
 import ilisa.pipelines.rec_bf_streams_py as rec_bf_streams_py
 
-dumpername = 'dump_udp_ow_12'
+dumpername = 'dump_udp_ow'  # Alias to local version
 pathtodumper = os.path.dirname(ilisa.pipelines.__file__)
-dumpercmd = os.path.join(pathtodumper, dumpername)
+#dumpercmd = os.path.join(pathtodumper, dumpername)
+dumpercmd = dumpername  # Assume dumper is in user's PATH
 # dumpercmd = 'echo'  # For testing purposes
 
 
@@ -82,10 +83,13 @@ def _startlanerec(lane, starttime, duration, band, bf_data_dir, port0, stnid,
                      port0, stnid, compress)
     if not os.path.exists(outdumpdir):
         os.mkdir(outdumpdir)
+    dur_flagarg = ''
+    if duration:
+        dur_flagarg = ' --duration ' + str(duration)
     cmdline_full_shell = (dumpercmd + ' --ports ' + str(port) + ' --check '
                           + ' --Start ' +
                           starttime.strftime("%Y-%m-%dT%H:%M:%S")
-                          + ' --duration ' + str(duration)
+                          + dur_flagarg
                           + ' --timeout 9999'
                           + compress_flag
                           + ' --out ' + outarg
