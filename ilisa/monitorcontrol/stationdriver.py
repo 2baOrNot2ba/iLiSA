@@ -65,7 +65,7 @@ class StationDriver(object):
         self.mockrun = mockrun
         self._lcu_interface = LCUInterface(accessconf_lcu)
         bf_ports = self.get_laneports()
-        self.bf_port0 = int(bf_ports[0])
+        self.bf_port0 = bf_ports[0]
         self.dru_interface = DRUinterface(accessconf_dru, bf_ports)
         if self.mockrun:
             self._lcu_interface.DryRun = self.mockrun
@@ -228,10 +228,10 @@ class StationDriver(object):
         if self.mockrun:
             return 1, 2, 3, 4
         rspdriver_conf = self._lcu_interface.get_RSPDriver_conf()
-        port0 = rspdriver_conf['RSPDriver']['LANE_00_DSTPORT']
-        port1 = rspdriver_conf['RSPDriver']['LANE_01_DSTPORT']
-        port2 = rspdriver_conf['RSPDriver']['LANE_02_DSTPORT']
-        port3 = rspdriver_conf['RSPDriver']['LANE_03_DSTPORT']
+        port0 = int(rspdriver_conf['RSPDriver']['LANE_00_DSTPORT'])
+        port1 = int(rspdriver_conf['RSPDriver']['LANE_01_DSTPORT'])
+        port2 = int(rspdriver_conf['RSPDriver']['LANE_02_DSTPORT'])
+        port3 = int(rspdriver_conf['RSPDriver']['LANE_03_DSTPORT'])
         return port0, port1, port2, port3
 
     def get_lcuDumpDir(self):
