@@ -805,6 +805,32 @@ def nrrcus_stnid(stnid):
     return nrrcus
 
 
+def timestr2datetime(timestr):
+    """\
+    Convert time string into a python datetime object
+
+    Parameters
+    ----------
+    timestr: str
+        Date-Time string in ISO-like format '%Y-%m-%dT%H:%M:%S'.
+
+    Returns
+    -------
+    dattim: datetime.datetime
+        Pytohon datetime object corresponding to input.
+    """
+    if timestr == 'NOW':
+        # Set time to nearest rounded second from now:
+        dattim = datetime.datetime.utcnow()
+        dattim = dattim.replace(microsecond=0)
+        dattim += datetime.timedelta(seconds=1)
+    else:
+        try:
+            dattim = datetime.datetime.strptime(timestr, '%Y-%m-%dT%H:%M:%S')
+        except:
+            raise RuntimeError("Wrong datetime format.")
+    return dattim
+
 def modelogic(freqspec, pointing, duration_tot, integration, bsx_type, bfs, acc,
               allsky):
     """Determine if the mode parameters given make sense"""

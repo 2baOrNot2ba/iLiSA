@@ -375,16 +375,7 @@ def parse_cmdline(argv):
     parser_obs.set_defaults(func=obs)
     parser_obs.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(argv)
-    if args.time == 'NOW':
-        # Set time to nearest rounded second from now:
-        args.time = datetime.datetime.utcnow()
-        args.time = args.time.replace(microsecond=0)
-        args.time += datetime.timedelta(seconds=1)
-    else:
-        try:
-            args.time = datetime.datetime.strptime(args.time, '%Y-%m-%dT%H:%M:%S')
-        except:
-            raise RuntimeError("Wrong datetime format.")
+    args.time = modeparms.timestr2datetime(args.time)
     return args
 
 
