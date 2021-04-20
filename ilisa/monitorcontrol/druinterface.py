@@ -133,7 +133,7 @@ class DRUinterface:
         portlststr = ','.join([str(p) for p in ports])
         cmdlineargs = ['--ports', portlststr, '--duration', str(duration)]
         if startarg != 'NOW':
-            cmdlineargs.extend(['--Start', startarg])
+            cmdlineargs.extend(['--starttime', startarg])
         if compress:
             pass
             # cmdlineargs.append('--compress')
