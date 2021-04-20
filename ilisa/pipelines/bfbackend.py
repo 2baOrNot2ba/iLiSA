@@ -13,6 +13,7 @@ pathtodumper = os.path.dirname(ilisa.pipelines.__file__)
 #dumpercmd = os.path.join(pathtodumper, dumpername)
 dumpercmd = dumpername  # Assume dumper is in user's PATH
 # dumpercmd = 'echo'  # For testing purposes
+pl_rec_wrapper = 'pl_rec'
 
 
 def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
