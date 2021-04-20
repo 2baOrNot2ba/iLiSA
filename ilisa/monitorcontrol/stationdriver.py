@@ -511,10 +511,16 @@ class StationDriver(object):
         lanesalloc = modeparms.getlanes(freqsetup.subbands_spw,
                                         freqsetup.bits, freqsetup.nrlanes)
         self.lanes = tuple(lanesalloc.keys())
+        # datafiles, logfiles = \
+        #     self.dru_interface.rec_bf_proxy(starttime, duration_tot, self.lanes,
+        #                                     freqsetup.rcubands[0], scanpath_bfdat,
+        #                                     self.bf_port0, self.get_stnid())
         datafiles, logfiles = \
-            self.dru_interface.rec_bf_proxy(starttime, duration_tot, self.lanes,
-                                            freqsetup.rcubands[0], scanpath_bfdat,
-                                            self.bf_port0, self.get_stnid())
+            self.dru_interface._rec_bf_proxy(self.get_laneports(), duration_tot,
+                                             scanpath_bfdat, starttime=starttime,
+                                             compress=False,
+                                             band=freqsetup.rcubands[0],
+                                             stnid=self.get_stnid())
         bfsdatapaths = []
         bfslogpaths = []
         for lane in self.lanes:
@@ -940,7 +946,7 @@ def main():
     """
     Record LOFAR station data via CLI
 
-    Entry_point for ilisa_cmd.
+    Entry_point for ilisa_rec.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mockrun', help="Run mock rec",
@@ -983,6 +989,7 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     bfdsesdumpdir = accessconf['DRU']['BeamFormDataDir']
     freqsetup = modeparms.FreqSetup(args.freqspec)
     # Start criteria: Time
+    args.starttime = modeparms.timestr2datetime(args.starttime)
     starttime = waituntil(args.starttime, datetime.timedelta(seconds=2))
     duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths, bfslogpaths =\
         rec_scan_start(stndrv, rec_type, freqsetup, args.duration_tot,
