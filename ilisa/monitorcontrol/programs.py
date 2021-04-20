@@ -139,7 +139,8 @@ class ObsPrograms(object):
                 datafileguess = datafiles.pop()
                 if not datafileguess:
                     _outdumpdir, _outarg, datafileguess, _dumplogname = \
-                        bfbackend.bfsfilepaths(lane, rectime, band,
+                        bfbackend.bfsfilepaths(lane, rectime,
+                                               modeparms.band2rcumode(band),
                                                bfdsesdumpdir, port0, stnid)
                 bfsdatapaths.append(datafileguess)
         else:

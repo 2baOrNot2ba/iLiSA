@@ -5,7 +5,6 @@ import subprocess
 import multiprocessing
 import platform
 
-import ilisa.monitorcontrol.modeparms
 import ilisa.pipelines
 import ilisa.pipelines.rec_bf_streams_py as rec_bf_streams_py
 
@@ -15,7 +14,7 @@ dumpercmd = os.path.join(pathtodumper, dumpername)
 # dumpercmd = 'echo'  # For testing purposes
 
 
-def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid,
+def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
                  compress=True):
     """Generate paths and name for BFS recording.
 
@@ -57,7 +56,6 @@ def bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid,
     pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
     outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
     outfilepre = "udp_" + stnid
-    rcumode = ilisa.monitorcontrol.modeparms.band2rcumode(band)
     outarg = os.path.join(outdumpdir, outfilepre)
     dumplogname = os.path.join(outdumpdir,
                                '{}_lane{}_rcu{}.log'.format(dumpername, lane,
@@ -185,7 +183,7 @@ def bfsrec_main_cli():
     else:
         port0 = args.ports[0]
         lanes = range(len(args.ports))
-        rec_bf_streams(args.starttime, args.dur, lanes, '110_190', args.bfdatadir,
+        rec_bf_streams(args.starttime, args.duration, lanes, '110_190', args.bfdatadir,
                        port0, 'SE607')
 
 

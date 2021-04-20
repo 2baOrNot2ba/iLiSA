@@ -523,7 +523,7 @@ class StationDriver(object):
             if not datafileguess:
                 _outdumpdir, _outarg, datafileguess, dumplogname = \
                     bfbackend.bfsfilepaths(lane, starttime,
-                                           freqsetup.rcubands[0],
+                                           modeparms.band2rcumode(freqsetup.rcubands[0]),
                                            scanpath_bfdat,
                                            self.bf_port0,
                                            self.get_stnid())
