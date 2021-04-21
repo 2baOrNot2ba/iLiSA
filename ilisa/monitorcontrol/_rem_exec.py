@@ -17,7 +17,11 @@ def _exec_ssh(remnode, cmdline, stdoutdir, nodetype='LCU',
     (To speed things up use the ssh CommandMaster option.)
     """
     nodeprompt = "On " + nodetype + "> "
-    shellinvoc = "ssh " + remnode
+    if remnode == 'localhost':
+        shellinvoc = ''
+        quotes = ''
+    else:
+        shellinvoc = "ssh " + remnode
     output = None
     if background_job is True:
         # Currently only run_beamctl & run_tbbctl run in background
