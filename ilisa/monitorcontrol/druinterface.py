@@ -1,7 +1,7 @@
 import os
 import plumbum
 from ilisa.monitorcontrol._rem_exec import _exec_ssh
-import ilisa.monitorcontrol.modeparms
+from ilisa.monitorcontrol.modeparms import band2rcumode
 from ilisa.pipelines.bfbackend import pl_rec_wrapper, dumpername
 
 # dumpername is name of binary executable on DRU which is run by
@@ -101,7 +101,7 @@ class DRUinterface:
         pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
         outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
         outfilepre = "udp_" + stnid
-        rcumode = ilisa.monitorcontrol.modeparms.band2rcumode(band)
+        rcumode = band2rcumode(band)
         outarg = os.path.join(outdumpdir, outfilepre)
         dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane,
                                                    rcumode)
@@ -116,7 +116,7 @@ class DRUinterface:
         return outdumpdir, outarg, datapathguess, dumplogpath
 
     def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime='NOW',
-                      compress=False, band=None, stnid=None):
+                      compress=False, band='110_190', stnid=None):
         """\
         Record beamformed streams using recording process on DRU
 
@@ -132,8 +132,10 @@ class DRUinterface:
         for outdumpdir in outdumpdirs:
             self.dru('mkdir -p '+outdumpdir)
         portlststr = ','.join([str(p) for p in ports])
+        rcumode = band2rcumode(band)
         cmdlineargs = ['--ports', portlststr, '--duration', str(duration),
-                       '--bfdatadir', '"'+bf_data_dir+'"']
+                       '--bfdatadir', '"'+bf_data_dir+'"', '--rcumode', rcumode,
+                       '--stnid', stnid]
         if startarg != 'NOW':
             cmdlineargs.extend(['--starttime', startarg])
         if compress:
@@ -188,5 +190,3 @@ if __name__ == "__main__":
     projid = sys.argv.pop()
     accessconf = get_proj_stn_access_conf(projid, stnid)
     dru_interface = DRUinterface(accessconf['DRU'])
-    #dru_interface._rec_bf_proxy([16070, 16071], 5, '/mnt/lane?/BF/SE607/Scans/',
-    #                            starttime='NOW', compress=False, band='110_190', stnid='SE607')
