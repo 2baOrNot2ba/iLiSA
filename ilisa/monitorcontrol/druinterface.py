@@ -4,11 +4,9 @@ from ilisa.monitorcontrol._rem_exec import _exec_ssh
 import ilisa.monitorcontrol.modeparms
 from ilisa.pipelines.bfbackend import pl_rec_wrapper, dumpername
 
-# Name of binary executable on DRU to run when capturing
-# UDP packets with LOFAR beamformed voltages data.
-# (Currently requires manually install putting it in DRU user's PATH env var.
-# )
-dumpername = 'pl_rec'
+# dumpername is name of binary executable on DRU which is run by
+# pl_rec_wrapper when capturing UDP packets with LOFAR beamformed voltages data.
+# (Currently requires manually install putting it in DRU user's PATH env var)
 
 
 class DRUinterface:
