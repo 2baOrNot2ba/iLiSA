@@ -26,7 +26,7 @@ def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
         Lane number 0,1,2, or 3.
     starttime : str
         The datetime string when the BF stream started.
-    band :
+    rcumode :
         The band name for the BF stream.
     bf_data_dir : str
         Template for BF data lane dump directory. Should have format:
@@ -69,7 +69,7 @@ def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
     return outdumpdir, outarg, datafileguess, dumplogname
 
 
-def _startlanerec(lane, starttime, duration, band, bf_data_dir, port0, stnid,
+def _startlanerec(lane, starttime, duration, rcumode, bf_data_dir, port0, stnid,
                   compress=True, threadqueue=None):
     """Start recording a lane using an external dumper process.
     """
@@ -80,7 +80,7 @@ def _startlanerec(lane, starttime, duration, band, bf_data_dir, port0, stnid,
         compress_flag = ''
     port = port0 + lane
     outdumpdir, outarg, datafileguess, dumplogname = \
-        bfsfilepaths(lane, starttime, band, bf_data_dir,
+        bfsfilepaths(lane, starttime, rcumode, bf_data_dir,
                      port0, stnid, compress)
     if not os.path.exists(outdumpdir):
         os.mkdir(outdumpdir)
@@ -104,7 +104,7 @@ def _startlanerec(lane, starttime, duration, band, bf_data_dir, port0, stnid,
     # return datafileguess, dumplogname
 
 
-def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0,
+def rec_bf_streams(starttime, duration, lanes, rcumode, bf_data_dir, port0,
                    stnid):
     """
     Wrapper that runs dump_udp processes to capture beamformed data streams.
@@ -118,7 +118,7 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0,
         for lane in lanes:
             newpid = os.fork()
             if newpid == 0:
-                _startlanerec(lane, starttime, duration, band, bf_data_dir,
+                _startlanerec(lane, starttime, duration, rcumode, bf_data_dir,
                               port0, stnid)
                 sys.exit(0)
             else:
@@ -136,7 +136,7 @@ def rec_bf_streams(starttime, duration, lanes, band, bf_data_dir, port0,
             for lane in lanes:
                 laneproc = multiprocessing.Process(target=_startlanerec,
                                                    args=(lane, starttime,
-                                                         duration, band,
+                                                         duration, rcumode,
                                                          bf_data_dir, port0,
                                                          stnid, True, retvalq)
                                                    )
@@ -159,7 +159,7 @@ from ilisa.pipelines.rec_bf_streams_py import main as rec_bf_streams_py
 
 def bfsrec_main_cli():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--starttime',
+    parser.add_argument('-t', '--starttime',
                         type=str, default='NOW',
                         help = "Start-time,: (iso format) YYYY-mm-ddTHH:MM:SS"
                         )
@@ -179,6 +179,14 @@ def bfsrec_main_cli():
                         type=str, default='ow',
                         help="Which backend recorder: ow or py",
                         )
+    parser.add_argument('-r', '--rcumode',
+                        type=str, default='5',
+                        help="rcumode or spectral window",
+                        )
+    parser.add_argument('-s', '--stnid',
+                        type=str, default='SE607',
+                        help="rcumode or spectral window",
+                        )
     args = parser.parse_args()
     if args.starttime == "NOW":
         args.starttime = datetime.datetime.utcnow()
@@ -191,8 +199,8 @@ def bfsrec_main_cli():
     else:
         port0 = args.ports[0]
         lanes = range(len(args.ports))
-        rec_bf_streams(args.starttime, args.duration, lanes, '110_190', args.bfdatadir,
-                       port0, 'SE607')
+        rec_bf_streams(args.starttime, args.duration, lanes, args.rcumode,
+                       args.bfdatadir, port0, args.stnid)
 
 
 if __name__ == '__main__':
