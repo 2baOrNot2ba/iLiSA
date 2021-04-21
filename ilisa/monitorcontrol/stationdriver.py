@@ -567,7 +567,6 @@ class StationDriver(object):
                 if bfsdatapaths[lane] is not None:
                     _basename = os.path.basename(bfsdatapaths[lane])
                     _lnkname = os.path.join(scanrecpath, _basename)
-                    print(bfsdatapaths[lane], _lnkname)
                     os.symlink(bfsdatapaths[lane], _lnkname)
                 if bfslogpaths[lane] is not None:
                     shutil.move(bfslogpaths[lane], scanrecpath)
