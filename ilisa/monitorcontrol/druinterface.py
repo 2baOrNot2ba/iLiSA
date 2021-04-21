@@ -105,14 +105,15 @@ class DRUinterface:
         outarg = os.path.join(outdumpdir, outfilepre)
         dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane,
                                                    rcumode)
+        dumplogpath = os.path.join(outdumpdir, dumplogname)
         # local_hostname = self.dru['hostname']().rstrip()
         local_hostname = self.dru('hostname').rstrip()
         starttime_arg = starttime + '.000'
-        datafileguess = outarg + '_' + str(port) + '.' + local_hostname + '.'\
+        datapathguess = outarg + '_' + str(port) + '.' + local_hostname + '.'\
                         + starttime_arg
         if compress:
-            datafileguess += '.zst'
-        return outdumpdir, outarg, datafileguess, dumplogname
+            datapathguess += '.zst'
+        return outdumpdir, outarg, datapathguess, dumplogpath
 
     def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime='NOW',
                       compress=False, band=None, stnid=None):
