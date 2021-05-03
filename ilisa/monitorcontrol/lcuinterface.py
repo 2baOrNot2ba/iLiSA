@@ -25,10 +25,16 @@ class LCUInterface(object):
     lofarbin = "/opt/lofar/bin"
     lofaroperationsbin = "/opt/operations/bin"
     lofarstationtestdir = "/localhome/stationtest/"
+    CalServer_conf = lofarroot + "etc/CalServer.conf"
+    RSPDriver_conf = lofarroot + "etc/RSPDriver.conf"
+
+    # User dirs & files:
+    ## Directory containing user homes dirs
+    lcuhomespath = "/data/home/"
+    ## Cache
+    cache_dir = "~/.cache/ilisa/"
     # ACCsrcDir is set in CalServer.conf and used when CalServer is running.
-    ACCsrcDir = "/localhome/data/ACCdata/"  # "/data/home/user4/ACCdata/"
-    CalServer_conf = lofarroot + "/etc/CalServer.conf"
-    RSPDriver_conf = lofarroot + "/etc/RSPDriver.conf"
+    ACCsrcDir = cache_dir + "ACC_data/"
 
     def checkLCUenv(self):
         """Check the LCU environment, especially for data taking assumptions."""
@@ -73,7 +79,7 @@ class LCUInterface(object):
         self.user = lcuaccessconf['user']
         self.hostname = lcuaccessconf['hostname']
         self.lcuURL = self.user + "@" + self.hostname
-        self.lcuHome = lcuaccessconf['home']
+        self._home_dir = self.lcuhomespath + self.user
         # This where the statistics data goes:
         self.lcuDumpDir = lcuaccessconf['dumpdir']
         # Should lcu scripts be used?:
@@ -111,7 +117,8 @@ class LCUInterface(object):
         else:
             preprompt = ""
         if backgroundJOB is True:
-            cmdline = "(( "+cmdline+" ) > "+self.lcuHome+"lofarctl.log 2>&1) &"
+            cmdline = "(( " + cmdline + " ) > " + self._home_dir +\
+                      "lofarctl.log 2>&1) &"
         if self.verbose:
             print("{} {} {}".format(preprompt, lcuprompt, cmdline))
 
