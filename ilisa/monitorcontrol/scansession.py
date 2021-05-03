@@ -405,7 +405,13 @@ def exec_cmdline(args):
     """Run a schedule commandline."""
     ac = get_proj_stn_access_conf(args.project, args.station)
     # Initialize stationdriver :
-    stndrv = StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
+    try:
+        stndrv = StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
+    except AssertionError as ass_err:
+        print("Error: Cannot setup {}'s LCU correctly".format(ac['LCU']['stnid']
+                                                              ))
+        print(ass_err)
+        sys.exit(1)
     args.func(stndrv, args)
 
 

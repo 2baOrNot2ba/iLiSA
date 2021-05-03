@@ -48,7 +48,7 @@ class LCUInterface(object):
             path_ok = False
         try:
             self.getdatalist()
-        except OSError:
+        except:
             datadirs_ok = False
         else:
             datadirs_ok = True

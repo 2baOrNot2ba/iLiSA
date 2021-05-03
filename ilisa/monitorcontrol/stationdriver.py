@@ -63,7 +63,11 @@ class StationDriver(object):
         """
 
         self.mockrun = mockrun
-        self._lcu_interface = LCUInterface(accessconf_lcu)
+        try:
+            self._lcu_interface = LCUInterface(accessconf_lcu)
+        except AssertionError as a_err:
+            self._lcu_interface = None
+            raise a_err
         bf_ports = self.get_laneports()
         self.bf_port0 = bf_ports[0]
         self.dru_interface = DRUinterface(accessconf_dru, bf_ports)
@@ -152,16 +156,18 @@ class StationDriver(object):
 
         May shutdown observation mode on station.
         """
-        # Stop any hanging beams running (can happen if an Exception occurs)
-        self.stop_beam()
-        if self.halt_observingstate_when_finished:
-            self.halt_observingstate()
-        elif self.exit_check:
-            if self.checkobservingallowed():
-                swlevel = self._lcu_interface.get_swlevel()
-                if swlevel != 0:
-                    print("Warning: You are leaving station in swlevel {} != 0"
-                          .format(swlevel))
+        if self._lcu_interface:
+            # If LCU is connected, do the following:
+            # Stop any hanging beams running (can happen if an Exception occurs)
+            self.stop_beam()
+            if self.halt_observingstate_when_finished:
+                self.halt_observingstate()
+            elif self.exit_check:
+                if self.checkobservingallowed():
+                    swlevel = self._lcu_interface.get_swlevel()
+                    if swlevel != 0:
+                        print("Warning: You are leaving station in swlevel {} != 0"
+                              .format(swlevel))
 
     def movefromlcu(self, source, dest, recursive=False):
         """Move file(s) off LCU to DPU."""
