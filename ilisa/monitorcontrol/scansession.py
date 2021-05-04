@@ -177,13 +177,12 @@ class ScanSession(object):
             # -- Allsky
             allsky = beam.get('allsky', False)
             # Postprocess beam to get pointing
-            print(pointing_in, direction, source)
             if pointing_in:
                 pointing = directions.normalizebeamctldir(pointing_in)
             elif direction:
                 pointing = directions.normalizebeamctldir(direction)
             elif source:
-                pointing = directions.lookupsource(source)
+                pointing = directions.std_pointings(source)
 
             # - Record
             #     defaults
