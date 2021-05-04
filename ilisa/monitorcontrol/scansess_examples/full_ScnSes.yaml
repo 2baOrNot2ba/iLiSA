@@ -7,4 +7,4 @@ scans:
       pointing: CasA
     rec: [acc, bfs, sst]
     integration:  60
-    duration_tot: 601
+    duration: 601

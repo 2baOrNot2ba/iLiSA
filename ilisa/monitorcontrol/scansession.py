@@ -118,8 +118,12 @@ class ScanSession(object):
         if mockrun:
             sesscans['mockrun'] = True
 
-        starttime0 = sesscans_in['start']
-        if starttime0 == 'NOW':
+        if sesscans_in['cli_start']:
+            # Command Line Interface requested starttime takes priority
+            starttime0 = sesscans_in['cli_start']
+        else:
+            starttime0 = sesscans_in.get('start', 'ASAP')
+        if starttime0 == 'ASAP':
             starttime0 = datetime.datetime.utcnow()
 
         # Initialize "previous" values for scan loop
@@ -134,31 +138,17 @@ class ScanSession(object):
                 after = scan['after']
             except:
                 after = None
-            #   if not aft:
-            #       st[n] = st[n-1] + aft + gap
-            #   else:
-            #       st[n] = st[n-1] + dur[n-1] + gap
             if after:
-                after_t = datetime.datetime.strptime(after, "%Hh%Mm%Ss")
-                after_delta = datetime.timedelta(hours=after_t.hour,
-                                                 minutes=after_t.minute,
-                                                 seconds=after_t.second)
+                after_delta = modeparms.hmsstr2deltatime(after)
                 starttime = starttimeprev + after_delta
             else:
                 dur_delta = datetime.timedelta(seconds=duration_totprev)
                 starttime = starttimeprev + dur_delta
-            # - - plus a gap:
-            try:
-                gap = scan['gap']
-            except:
-                gap = "00h00m00s"
-            gap_t = datetime.datetime.strptime(gap, "%Hh%Mm%Ss")
-            gap_delta = datetime.timedelta(hours=gap_t.hour, minutes=gap_t.minute,
-                                           seconds=gap_t.second)
-            starttime += gap_delta
 
             # - Duration total
-            duration_tot = eval(str(scan['duration_tot']))
+            duration_in = scan.get('duration')
+            duration_tot = modeparms.hmsstr2deltatime(duration_in).total_seconds()
+            # duration_tot = eval(str(scan['duration']))
             # Next scan use current time as previous time and current time
             starttimeprev = starttime
             duration_totprev = duration_tot
@@ -183,7 +173,6 @@ class ScanSession(object):
                 pointing = directions.normalizebeamctldir(direction)
             elif source:
                 pointing = directions.std_pointings(source)
-
             # - Record
             #     defaults
             try:
@@ -216,7 +205,7 @@ class ScanSession(object):
                                'allsky': allsky},
                           'rec': rec,
                           'integration': integration,
-                          'duration_tot': duration_tot,
+                          'duration': duration_tot,
                           'starttime': starttime,
                           }
             obsargs_in.update({'obsprog': obsprog})
@@ -237,7 +226,7 @@ class ScanSession(object):
         # Boot Time handling
         nw = datetime.datetime.utcnow()
         startscantime = sesscans['scans'][0]['starttime']
-        if startscantime == 'NOW':
+        if startscantime == 'ASAP':
             startscantime = nw
         beaminittime = 13
         bootupstart = startscantime - datetime.timedelta(seconds=beaminittime)
@@ -257,7 +246,7 @@ class ScanSession(object):
                 else:
                     scanresult = {}
             else:
-                duration_tot = scan['duration_tot']
+                duration_tot = scan['duration']
                 # Only pointing used not source name but it's in scan metadata
                 pointing = scan['beam']['pointing']
                 starttime = scan['starttime']
@@ -349,7 +338,7 @@ def obs(stndrv, args):
     """Observe a scansession from ScanSes file."""
     with open(args.file, 'r') as f:
         scansess_in = yaml.safe_load(f)
-    scansess_in['start'] = args.time
+    scansess_in['cli_start'] = args.time
     scansess_in['mockrun'] = args.mockrun
     scansess_in['projectid'] = args.project
 
@@ -364,7 +353,7 @@ import argparse
 def parse_cmdline(argv):
     """Parse a schedule commandline."""
     cmdln_prsr = argparse.ArgumentParser()
-    cmdln_prsr.add_argument('-t', '--time', type=str, default='NOW',
+    cmdln_prsr.add_argument('-t', '--time', type=str, default=None,
                             help="Start Time (format: YYYY-mm-ddTHH:MM:SS)"
                             )
     cmdln_prsr.add_argument('-p', '--project', type=str, default='0', help="Project ID")
@@ -382,7 +371,8 @@ def parse_cmdline(argv):
     parser_obs.set_defaults(func=obs)
     parser_obs.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(argv)
-    args.time = modeparms.timestr2datetime(args.time)
+    if args.time:
+        args.time = modeparms.timestr2datetime(args.time)
     return args
 
 
