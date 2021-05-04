@@ -5,12 +5,11 @@ import datetime
 import yaml
 import ilisa
 import ilisa.monitorcontrol
-import ilisa.monitorcontrol.directions
+import ilisa.monitorcontrol.directions as directions
 import ilisa.monitorcontrol.modeparms as modeparms
 import ilisa.monitorcontrol.programs as programs
 from ilisa.monitorcontrol.stationdriver import StationDriver, waituntil,\
-    _xtract_bsx
-from ilisa.monitorcontrol.stationdriver import rec_scan_start, rec_scan_stop
+    _xtract_bsx, rec_scan_start, rec_scan_stop
 
 
 def projid2meta(projectid):
@@ -165,19 +164,26 @@ class ScanSession(object):
             duration_totprev = duration_tot
 
             # - Beam
+            beam = scan.get('beam', {})
             # -- Freq
-            freqspec = scan['beam']['freqspec']
+            freqspec = beam.get('freqspec')
             # -- Pointing
-            try:
-                pointing = scan['beam']['pointing']
-            except KeyError:
-                # No pointing specified so set to None
-                pointing = None
+            pointing_in = beam.get('pointing')
+            # -- direction: alternative to pointing but can't be name
+            direction = beam.get('direction')
+
+            # -- Source name
+            source = beam.get('source')
             # -- Allsky
-            try:
-                allsky = scan['beam']['allsky']
-            except KeyError:
-                allsky = False
+            allsky = beam.get('allsky', False)
+            # Postprocess beam to get pointing
+            print(pointing_in, direction, source)
+            if pointing_in:
+                pointing = directions.normalizebeamctldir(pointing_in)
+            elif direction:
+                pointing = directions.normalizebeamctldir(direction)
+            elif source:
+                pointing = directions.lookupsource(source)
 
             # - Record
             #     defaults
@@ -207,6 +213,7 @@ class ScanSession(object):
             obsargs_in = {'beam':
                               {'freqspec': freqspec,
                                'pointing': pointing,
+                               'source' : source,
                                'allsky': allsky},
                           'rec': rec,
                           'integration': integration,
@@ -252,6 +259,7 @@ class ScanSession(object):
                     scanresult = {}
             else:
                 duration_tot = scan['duration_tot']
+                # Only pointing used not source name but it's in scan metadata
                 pointing = scan['beam']['pointing']
                 starttime = scan['starttime']
                 rec = scan['rec']

@@ -46,8 +46,10 @@ def pointing_str2tuple(beamctldirarg):
         or None if beamctldirarg was not correct format.
     """
     try:
-        angle1str, angle2str, refsys = beamctldirarg.split(',')
-        angle1, angle2 = float(angle1str), float(angle2str)
+        beamctldirargs = beamctldirarg.split(',')
+        angle1str, angle2str, refsys = [arg.strip() for arg in beamctldirargs]
+        angle1 = gen_angle2rad(angle1str)
+        angle2 = gen_angle2rad(angle2str)
         # TODO should check that refsys is one of the valid refsys strings.
         dirtuple = (angle1, angle2, refsys)
         return dirtuple
@@ -279,6 +281,30 @@ def read_sched_srccatre(filename):
         src_ent['equinox'] = equinox
         print(src_ent)
 
+
+def gen_angle2rad(anglestr):
+    """\
+    Parse angle string to radians
+
+    Parameters
+    ----------
+    anglestr : str
+        Angle string in format accepted by casacore.
+
+    Returns
+    -------
+    angle : float
+        Angle corresponding to input in radians.
+    """
+    from casacore.quanta import quantity
+
+    to_unit = 'rad'
+    ang = quantity(anglestr)
+    return ang.get_value(to_unit)
+
+
+import sys
+
+
 if __name__=="__main__":
-    import sys
-    read_sched_srccatre(sys.argv[1])
+    print(gen_angle2rad(sys.argv[1]), 'rad')
