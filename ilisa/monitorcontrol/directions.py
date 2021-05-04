@@ -50,11 +50,11 @@ def pointing_str2tuple(beamctldirarg):
         angle1str, angle2str, refsys = [arg.strip() for arg in beamctldirargs]
         angle1 = gen_angle2rad(angle1str)
         angle2 = gen_angle2rad(angle2str)
-        # TODO should check that refsys is one of the valid refsys strings.
-        dirtuple = (angle1, angle2, refsys)
-        return dirtuple
-    except ValueError:
+    except:
         return None
+    # TODO should check that refsys is one of the valid refsys strings.
+    dirtuple = (angle1, angle2, refsys)
+    return dirtuple
 
 
 def pointing_tuple2str(dirtuple):
@@ -72,7 +72,7 @@ def pointing_tuple2str(dirtuple):
     Returns
     -------
     beamctldirarg : str
-        String with format 'angle1,angle2,refsys'
+        String with format 'angle1,angle2,refsys'. Returns None if input is incorrect value.
     
     Examples
     --------
@@ -83,8 +83,10 @@ def pointing_tuple2str(dirtuple):
     >>> pointing_str2tuple(pointing_tuple2str((1.0,2.0,'AZELGEO')))
     (1.0, 2.0, 'AZELGEO')
     """
-    dir_str_tuple = (str(dirtuple[0]), str(dirtuple[1]), dirtuple[2])
-    beamctldirarg = ",".join(dir_str_tuple)
+    beamctldirarg = None
+    if type(dirtuple) is tuple and len(dirtuple) == 3:
+        dir_str_tuple = (str(dirtuple[0]), str(dirtuple[1]), dirtuple[2])
+        beamctldirarg = ",".join(dir_str_tuple)
     return beamctldirarg
 
 
@@ -185,7 +187,7 @@ def normalizebeamctldir(gendirstr):
             raise ValueError(
                         'General direction term {} unknown.'.format(gendirstr))
     else:
-        beamctldirstr = gendirstr
+        beamctldirstr = pointing_tuple2str(beamctldir)
     return beamctldirstr
 
 
