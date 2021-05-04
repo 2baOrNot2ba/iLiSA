@@ -175,17 +175,9 @@ class ScanSession(object):
                 pointing = directions.std_pointings(source)
             # - Record
             #     defaults
-            try:
-                scan['rec']
-            except KeyError:
-                scan['rec'] = []
-            rec = scan['rec']
+            rec = scan.get('rec', [])
             # - Integration for rec bsx
-            try:
-                scan['integration']
-            except KeyError:
-                scan['integration'] = 1.0
-            integration = eval(str(scan['integration']))
+            integration = scan.get('integration', 1.0)
             if integration > duration_tot:
                 raise ValueError("integration {} is longer than duration_scan {}."
                                  .format(integration, duration_tot))
