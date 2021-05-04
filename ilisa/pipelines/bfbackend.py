@@ -105,7 +105,7 @@ def _startlanerec(lane, starttime, duration, rcumode, bf_data_dir, port0, stnid,
 
 
 def rec_bf_streams(starttime, duration, lanes, rcumode, bf_data_dir, port0,
-                   stnid):
+                   stnid, compress):
     """
     Wrapper that runs dump_udp processes to capture beamformed data streams.
     It sets up multiple processes that record one lane each.
@@ -138,8 +138,8 @@ def rec_bf_streams(starttime, duration, lanes, rcumode, bf_data_dir, port0,
                                                    args=(lane, starttime,
                                                          duration, rcumode,
                                                          bf_data_dir, port0,
-                                                         stnid, True, retvalq)
-                                                   )
+                                                         stnid, compress,
+                                                         retvalq))
                 laneproc.start()
                 laneprocs.append(laneproc)
             for laneproc in laneprocs:
@@ -188,6 +188,8 @@ def bfsrec_main_cli():
                         type=str, default='SE607',
                         help="rcumode or spectral window",
                         )
+    parser.add_argument('-c', '--compress', type=bool, action="store_true",
+                        help="Compress recorded data")
     args = parser.parse_args()
     if args.starttime == "NOW":
         args.starttime = datetime.datetime.utcnow()
@@ -201,7 +203,7 @@ def bfsrec_main_cli():
         port0 = args.ports[0]
         lanes = range(len(args.ports))
         rec_bf_streams(args.starttime, args.duration, lanes, args.rcumode,
-                       args.bfdatadir, port0, args.stnid)
+                       args.bfdatadir, port0, args.stnid, args.compress)
 
 
 if __name__ == '__main__':
