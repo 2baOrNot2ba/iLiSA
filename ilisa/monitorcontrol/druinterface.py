@@ -14,17 +14,10 @@ class DRUinterface:
     verbose = True
 
     def __init__(self, accessconf_dru, ports=None):
-        try:
-            hostname = accessconf_dru['hostname']
-        except KeyError:
-            hostname = 'localhost'
-        self.hostname = hostname
-        try:
-            user = accessconf_dru['user']
-        except KeyError:
-            user = None
-        if hostname != 'localhost':
-            dru = plumbum.SshMachine(self.hostname, user=user)
+        self.hostname = accessconf_dru.get('hostname', 'localhost')
+        self.user = accessconf_dru.get('user', None)
+        if self.hostname != 'localhost':
+            dru = plumbum.SshMachine(self.hostname, user=self.user)
         else:
             dru = plumbum.local
         self.accessible = True
@@ -33,10 +26,11 @@ class DRUinterface:
         self.ports = ports
 
     def _exec_dru_func(self):
-        def exec_ssh_inner(cmdline, remnode=self.hostname, stdoutdir=None,
+        nodeurl = '{}@{}'.format(self.user, self.hostname)
+        def exec_ssh_inner(cmdline, nodeurl=nodeurl, stdoutdir=None,
                            nodetype='DRU', background_job=False, dryrun=False,
                            accessible=self.accessible, quotes="'", verbose=self.verbose):
-            return _exec_ssh(remnode, cmdline, stdoutdir=stdoutdir,
+            return _exec_ssh(nodeurl, cmdline, stdoutdir=stdoutdir,
                              nodetype=nodetype, background_job=background_job,
                              dryrun=dryrun, accessible=accessible,
                              quotes=quotes, verbose=verbose)

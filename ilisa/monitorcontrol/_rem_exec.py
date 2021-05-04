@@ -9,7 +9,7 @@ def _exec_rem(remnode, cmdline, stdoutdir, nodetype='LCU',
                      accessible=accessible, quotes=quotes, verbose=verbose)
 
 
-def _exec_ssh(remnode, cmdline, stdoutdir, nodetype='LCU',
+def _exec_ssh(nodeurl, cmdline, stdoutdir, nodetype='LCU',
               background_job=False, dryrun=False, accessible=False, quotes="'",
               verbose=True):
     """Execute a command on the remnode, either as a background job or in the
@@ -17,11 +17,11 @@ def _exec_ssh(remnode, cmdline, stdoutdir, nodetype='LCU',
     (To speed things up use the ssh CommandMaster option.)
     """
     nodeprompt = "On " + nodetype + "> "
-    if remnode == 'localhost':
+    if nodeurl == 'localhost':
         shellinvoc = ''
         quotes = ''
     else:
-        shellinvoc = "ssh " + remnode
+        shellinvoc = "ssh " + nodeurl
     output = None
     if background_job is True:
         # Currently only run_beamctl & run_tbbctl run in background
@@ -45,7 +45,7 @@ def _exec_ssh(remnode, cmdline, stdoutdir, nodetype='LCU',
                                     shell=True, universal_newlines = True,
                                     stdout=subprocess.PIPE).stdout
     elif not accessible:
-        print("Warning: not running as " + remnode
+        print("Warning: not running as " + nodeurl
               + " since it is not accesible.")
     return output
 
