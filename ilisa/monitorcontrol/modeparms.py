@@ -817,7 +817,7 @@ def timestr2datetime(timestr):
     Returns
     -------
     dattim: datetime.datetime
-        Pytohon datetime object corresponding to input.
+        Python datetime object corresponding to input.
     """
     if timestr == 'NOW':
         # Set time to nearest rounded second from now:
@@ -830,6 +830,28 @@ def timestr2datetime(timestr):
         except:
             raise RuntimeError("Wrong datetime format.")
     return dattim
+
+
+def hmsstr2deltatime(hms):
+    """\
+    Convert hms (hours, minutes, seconds) string to python deltatime
+
+    Parameters
+    ----------
+    hms: str
+        Duration string in format '%Hh%Mm%Ss'.
+
+    Returns
+    -------
+    delta_t: datetime.deltatime
+        Python deltatime object corresponding to input.
+    """
+    dt = datetime.datetime.strptime(hms, "%Hh%Mm%Ss")
+    delta_t = datetime.timedelta(hours=dt.hour,
+                                     minutes=dt.minute,
+                                     seconds=dt.second)
+    return delta_t
+
 
 def modelogic(freqspec, pointing, duration_tot, integration, bsx_type, bfs, acc,
               allsky):
