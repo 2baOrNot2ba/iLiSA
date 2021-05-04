@@ -158,6 +158,7 @@ import datetime
 from ilisa.pipelines.rec_bf_streams_py import main as rec_bf_streams_py
 
 def bfsrec_main_cli():
+    # Entry point for pl_rec
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--starttime',
                         type=str, default='NOW',
@@ -172,8 +173,8 @@ def bfsrec_main_cli():
                         help="Template directory for BF data"
                         )
     parser.add_argument('-d', '--duration',
-                        type=int, default=None,
-                        help="Duration of recording in seconds"
+                        type=float, default=None,
+                        help="Duration of recording in float seconds"
                         )
     parser.add_argument('-w', '--which',
                         type=str, default='ow',
