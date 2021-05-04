@@ -517,10 +517,9 @@ class StationDriver(object):
         lanesalloc = modeparms.getlanes(freqsetup.subbands_spw,
                                         freqsetup.bits, freqsetup.nrlanes)
         self.lanes = tuple(lanesalloc.keys())
-        # datafiles, logfiles = \
-        #     self.dru_interface.rec_bf_proxy(starttime, duration_tot, self.lanes,
-        #                                     freqsetup.rcubands[0], scanpath_bfdat,
-        #                                     self.bf_port0, self.get_stnid())
+        if self._lcu_interface.stnid == 'UK902':
+            # FIXME
+            self.lanes = (0, 1)  # UK902 only has 2 lanes
         datafiles, logfiles = \
             self.dru_interface._rec_bf_proxy(self.get_laneports(), duration_tot,
                                              scanpath_bfdat, starttime=starttime,
