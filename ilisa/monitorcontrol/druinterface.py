@@ -16,6 +16,8 @@ class DRUinterface:
     def __init__(self, accessconf_dru, ports=None):
         self.hostname = accessconf_dru.get('hostname', 'localhost')
         self.user = accessconf_dru.get('user', None)
+        if not self.user and self.hostname == 'localhost':
+            self.user = os.getlogin()
         if self.hostname != 'localhost':
             dru = plumbum.SshMachine(self.hostname, user=self.user)
         else:
