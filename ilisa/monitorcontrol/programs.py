@@ -50,7 +50,7 @@ class ObsPrograms(object):
         rcu_setup_cmd = self.stationdriver._rcusetup(bits, attenuation)
         return rcu_setup_cmd, beamctl_cmds
 
-    def do_bfs_OW(self, freqbndobj, duration_tot, pointing, bfdsesdumpdir,
+    def do_bfs_OW(self, freqbndobj, duration, pointing, bfdsesdumpdir,
                   starttime):
         """Record BeamFormed Streams (BFS) with particular beamlet allocation.
         """
@@ -131,9 +131,10 @@ class ObsPrograms(object):
         if REC == True:
             port0 = self.stationdriver.bf_port0
             stnid = self.stationdriver.get_stnid()
+            compress = True
             datafiles, _logfiles = bfbackend.rec_bf_streams(
-                rectime, duration_tot, lanes, band, bfdsesdumpdir, port0,
-                stnid)
+                rectime, duration, lanes, band, bfdsesdumpdir, port0,
+                stnid, compress)
             bfsdatapaths = []
             for lane in lanes:
                 datafileguess = datafiles.pop()
@@ -145,7 +146,7 @@ class ObsPrograms(object):
                 bfsdatapaths.append(datafileguess)
         else:
             print("Not recording")
-            time.sleep(duration_tot)
+            time.sleep(duration)
         sys.stdout.flush()
         self.stationdriver.stop_beam()
         self.stationdriver.halt_observingstate_when_finished = shutdown
@@ -191,7 +192,7 @@ def record_obsprog(stationdriver, scan):
         scanrec = dataIO.ScanRecInfo()
         scanrec.set_stnid(stationdriver.get_stnid())
         scanrec.set_scanrecparms(datatype, freqbndobj.arg,
-                                 scan['duration_tot'], scan['beam']['pointing'])
+                                 scan['duration'], scan['beam']['pointing'])
         beamstarted = datetime.datetime.strptime(obsinfolist[0].filenametime,
                                                  "%Y%m%d_%H%M%S")
         scan_id = stationdriver.get_scanid(beamstarted)
