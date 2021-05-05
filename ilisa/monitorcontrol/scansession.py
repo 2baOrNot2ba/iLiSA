@@ -147,7 +147,8 @@ class ScanSession(object):
 
             # - Duration total
             duration_in = scan.get('duration')
-            duration_tot = modeparms.hmsstr2deltatime(duration_in).total_seconds()
+            duration_tot = modeparms.hmsstr2deltatime(str(duration_in)
+                                                      ).total_seconds()
             # duration_tot = eval(str(scan['duration']))
             # Next scan use current time as previous time and current time
             starttimeprev = starttime
@@ -372,9 +373,10 @@ def get_proj_stn_access_conf(projid, stnid):
     """Get access conf for stnid as per projid"""
     projectmeta, accessfiles = projid2meta(projid)
     if stnid is None:
-        # Try to get station from accessfiles in project config file
+        # Try to get station from accessfiles in project config file:
+        #    1st key in accessfiles dict taken as default stnid
         try:
-            stnid = list(accessfiles.keys()).pop()
+            stnid = list(accessfiles.keys()).pop(0)
         except:
             raise RuntimeError("No stations for project {}".format(projid))
     try:
