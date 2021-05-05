@@ -848,7 +848,7 @@ def hmsstr2deltatime(hms):
         Python deltatime object corresponding to input.
     """
     parse_format = ''
-    if 'h' in hms and 'm' in hms and 's' not in hms:
+    if 'h' in hms and 'm' in hms and 's' in hms:
         parse_format = '%Hh%Mm%Ss'
     elif 'h' in hms and 'm' not in hms and 's' not in hms:
         parse_format = '%Hh'
