@@ -839,17 +839,29 @@ def hmsstr2deltatime(hms):
     Parameters
     ----------
     hms: str
-        Duration string in format '%Hh%Mm%Ss'.
+        Duration string in format '%Hh%Mm%Ss', '%Hh', '%Mm', '%Ss',
+        or if none of these it will interpret hms as seconds.
 
     Returns
     -------
     delta_t: datetime.deltatime
         Python deltatime object corresponding to input.
     """
-    dt = datetime.datetime.strptime(hms, "%Hh%Mm%Ss")
-    delta_t = datetime.timedelta(hours=dt.hour,
-                                     minutes=dt.minute,
+    parse_format = ''
+    if 'h' in hms and 'm' in hms and 's' not in hms:
+        parse_format = '%Hh%Mm%Ss'
+    elif 'h' in hms and 'm' not in hms and 's' not in hms:
+        parse_format = '%Hh'
+    elif 'h' not in hms and 'm' in hms and 's' not in hms:
+        parse_format = '%Mm'
+    elif 'h' not in hms and 'm' not in hms and 's' in hms:
+        parse_format = '%Ss'
+    if parse_format != '':
+        dt = datetime.datetime.strptime(hms, parse_format)
+        delta_t = datetime.timedelta(hours=dt.hour, minutes=dt.minute,
                                      seconds=dt.second)
+    else:
+        delta_t = datetime.timedelta(seconds=float(eval(hms)))
     return delta_t
 
 
