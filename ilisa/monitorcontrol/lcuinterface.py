@@ -31,8 +31,6 @@ class LCUInterface(object):
     # User dirs & files:
     ## Directory containing user homes dirs
     homespath = "/data/home/"
-    ## Cache relative user home (used for XDG_CACHE_HOME)
-    cache_homerel = ".cache/ilisa/"
 
     def checkLCUenv(self):
         """Check the LCU environment, especially for data taking assumptions."""
@@ -86,8 +84,12 @@ class LCUInterface(object):
         # Init some OS paths:
         ## User's home dir
         self._home_dir = self.homespath + self.user + '/'
+        ## Cache in user home (equiv. to XDG_CACHE_HOME)
+        self.cache_dir = self._home_dir + '.cache/ilisa/'
         # This where the statistics data goes:
-        self.lcuDumpDir = lcuaccessconf['dumpdir']
+        self.lcuDumpDir = self.cache_dir + 'BSX_data/' # lcuaccessconf['dumpdir']
+        ## ACCsrcDir is set in CalServer.conf and used when CalServer is running
+        self.ACCsrcDir = self.cache_dir  + "ACC_data/"
         # Should lcu scripts be used?:
         self.usescriptonlcu = lcuaccessconf['usescriptonlcu']
         # TODO Implement condition: if self.usescriptonlcu:
