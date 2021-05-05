@@ -17,7 +17,7 @@ def _exec_ssh(nodeurl, cmdline, stdoutdir, nodetype='LCU',
     (To speed things up use the ssh CommandMaster option.)
     """
     nodeprompt = "On " + nodetype + "> "
-    if nodeurl == 'localhost':
+    if nodeurl.endswith('localhost'):
         shellinvoc = ''
         quotes = ''
     else:
