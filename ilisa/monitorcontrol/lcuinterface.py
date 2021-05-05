@@ -30,11 +30,9 @@ class LCUInterface(object):
 
     # User dirs & files:
     ## Directory containing user homes dirs
-    lcuhomespath = "/data/home/"
-    ## Cache
-    cache_dir = "~/.cache/ilisa/"
-    # ACCsrcDir is set in CalServer.conf and used when CalServer is running.
-    ACCsrcDir = cache_dir + "ACC_data/"
+    homespath = "/data/home/"
+    ## Cache relative user home (used for XDG_CACHE_HOME)
+    cache_homerel = ".cache/ilisa/"
 
     def checkLCUenv(self):
         """Check the LCU environment, especially for data taking assumptions."""
@@ -79,7 +77,15 @@ class LCUInterface(object):
         self.user = lcuaccessconf['user']
         self.hostname = lcuaccessconf['hostname']
         self.lcuURL = self.user + "@" + self.hostname
-        self._home_dir = self.lcuhomespath + self.user
+        self.DryRun = False  # DryRun means commands to LCU are not executed
+        self.verbose = True  # Write out LCU commands
+        self.accessible = self.checkaccess()
+        if self.accessible and self.verbose:
+            print("Established access to LCU on {}.".format(self.stnid))
+
+        # Init some OS paths:
+        ## User's home dir
+        self._home_dir = self.homespath + self.user + '/'
         # This where the statistics data goes:
         self.lcuDumpDir = lcuaccessconf['dumpdir']
         # Should lcu scripts be used?:
@@ -88,12 +94,11 @@ class LCUInterface(object):
         # This is where the scripts are:
         # TODO Remove dependency on scriptsDir:
         # (scripts should run on system-wide PATH)
-        self.scriptsDir = "/data/home/" + lcuaccessconf['user'] + "/scripts/"
-        self.DryRun = False  # DryRun means commands to LCU are not executed
-        self.verbose = True  # Write out LCU commands
-        self.accessible = self.checkaccess()
-        if self.accessible and self.verbose:
-            print("Established access to LCU.")
+        self.scriptsDir =self._home_dir + "/scripts/"
+        ## ACCsrcDir is set in CalServer.conf and used when CalServer is running
+        self.ACCsrcDir = self._home_dir + self.cache_homerel + "ACC_data/"
+
+        # Check LCU OS env:
         path_ok, datadirs_ok = self.checkLCUenv()
         assert path_ok, "Check $PATH on LCU. Needs to have {} and {}." \
             .format(self.lofarbin, self.lofaroperationsbin)
