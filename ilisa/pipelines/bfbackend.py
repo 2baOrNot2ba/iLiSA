@@ -188,7 +188,7 @@ def bfsrec_main_cli():
                         type=str, default='SE607',
                         help="rcumode or spectral window",
                         )
-    parser.add_argument('-c', '--compress', type=bool, action="store_true",
+    parser.add_argument('-c', '--compress', action="store_true",
                         help="Compress recorded data")
     args = parser.parse_args()
     if args.starttime == "NOW":
