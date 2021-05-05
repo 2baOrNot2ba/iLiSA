@@ -90,15 +90,6 @@ class LCUInterface(object):
         self.lcuDumpDir = self.cache_dir + 'BSX_data/' # lcuaccessconf['dumpdir']
         ## ACCsrcDir is set in CalServer.conf and used when CalServer is running
         self.ACCsrcDir = self.cache_dir  + "ACC_data/"
-        # Should lcu scripts be used?:
-        self.usescriptonlcu = lcuaccessconf['usescriptonlcu']
-        # TODO Implement condition: if self.usescriptonlcu:
-        # This is where the scripts are:
-        # TODO Remove dependency on scriptsDir:
-        # (scripts should run on system-wide PATH)
-        self.scriptsDir =self._home_dir + "/scripts/"
-        ## ACCsrcDir is set in CalServer.conf and used when CalServer is running
-        self.ACCsrcDir = self._home_dir + self.cache_homerel + "ACC_data/"
 
         # Check LCU OS env:
         path_ok, datadirs_ok = self.checkLCUenv()
@@ -590,51 +581,36 @@ class LCUInterface(object):
             # Band 30_90 not correctly implemented in "beamctl --calinfo".
             # It uses the 10_90 caltab anyways so:
             rcumode = 3
-        if self.usescriptonlcu:
-            calinfo = subprocess.check_output("ssh " + self.lcuURL + " "
-                                              + "infoCalTable.sh"+ " "
-                                              + str(rcumode), shell=True)
-        else:
-            calinfoout =self._stdoutLCU("beamctl --calinfo")
-            if self.DryRun:
-                return ""
-            # Convert output into a list of dict per antset
-            calinfolist = []
-            # Strip off first initial lines and split on blank lines
-            calinfooutlist = (''.join(calinfoout.splitlines(True)[2:])).split('\n\n')
-            if calinfooutlist[0] == '':
-                # No calinfo. Return blank
-                return ""
-            for calinfooutlistitem in calinfooutlist:
-                calinfolistitem = {}
-                for calinfolistitemline in calinfooutlistitem.split('\n'):
-                    calkey, calval = calinfolistitemline.split(':', 1)
-                    calkey = calkey.rstrip()
-                    calval = calval.lstrip()
-                    calinfolistitem[calkey] = calval
-                calinfolist.append(calinfolistitem)
-            band = rcumode2band(rcumode)
-            for calinfolistitem in calinfolist:
-                if calinfolistitem['Band'] == band:
-                    calinfo = calinfolistitem
-                    break
+        calinfoout =self._stdoutLCU("beamctl --calinfo")
+        if self.DryRun:
+            return ""
+        # Convert output into a list of dict per antset
+        calinfolist = []
+        # Strip off first initial lines and split on blank lines
+        calinfooutlist = (''.join(calinfoout.splitlines(True)[2:])).split('\n\n')
+        if calinfooutlist[0] == '':
+            # No calinfo. Return blank
+            return ""
+        for calinfooutlistitem in calinfooutlist:
+            calinfolistitem = {}
+            for calinfolistitemline in calinfooutlistitem.split('\n'):
+                calkey, calval = calinfolistitemline.split(':', 1)
+                calkey = calkey.rstrip()
+                calval = calval.lstrip()
+                calinfolistitem[calkey] = calval
+            calinfolist.append(calinfolistitem)
+        band = rcumode2band(rcumode)
+        for calinfolistitem in calinfolist:
+            if calinfolistitem['Band'] == band:
+                calinfo = calinfolistitem
+                break
         return calinfo
 
     def selectCalTable(self, which='default'):
         """This is specific to an lcu which has the script SelectCalTable.sh
-        with which a user can switch between different caltables. se607c has
-        this at /opt/lofar_local/bin/
+        with which a user can switch between different caltables.
         """
-        if self.usescriptonlcu:
-            if which == 'local':
-                selcaltabarg = "1"
-            else:
-                # default
-                selcaltabarg = "0"
-            self.exec_lcu("SelectCalTable.sh" + " " + selcaltabarg)
-        else:
-            # TODO Implement select CalTable without using script on lcu
-            pass
+        pass
 
     def turnoffLBA_LNAs(self, select="0:191"):
         """Turn-off the LNAs on LBA.
