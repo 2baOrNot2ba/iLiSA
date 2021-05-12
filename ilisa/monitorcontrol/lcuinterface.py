@@ -3,15 +3,10 @@ mode.
 """
 
 import time
-import subprocess
 import os
-try:
-    import paramiko
-    IMPORTED_PARAMIKO = True
-except ImportError:
-    IMPORTED_PARAMIKO = False
 
 import ilisa.monitorcontrol
+from ilisa.monitorcontrol._rem_exec import _exec_ssh
 from ilisa.monitorcontrol.modeparms import parse_lofar_conf_files
 # LOFAR constants
 from ilisa.monitorcontrol.modeparms import rcumode2band, beamctl_args2cmds,\
@@ -101,144 +96,17 @@ class LCUInterface(object):
     def __del__(self):
         pass
 
-    def exec_lcu(self, cmdline, backgroundJOB=False, quotes="'", method='ssh'):
-
-        if method == 'ssh':
-            self._exec_lcu_ssh(cmdline, backgroundJOB=backgroundJOB, quotes=quotes)
-        elif method == 'paramiko':
-            self._exec_lcu_paramiko(cmdline, backgroundJOB=backgroundJOB)
-
-    def _exec_lcu_paramiko(self, cmdline, backgroundJOB=False):
-        lcuprompt = "LCUp>"
-        if self.DryRun:
-            preprompt = "(dryrun)"
-        else:
-            preprompt = ""
-        if backgroundJOB is True:
-            cmdline = "(( " + cmdline + " ) > " + self._home_dir +\
-                      "lofarctl.log 2>&1) &"
-        if self.verbose:
-            print("{} {} {}".format(preprompt, lcuprompt, cmdline))
-
-        client = paramiko.SSHClient()
-        client.load_system_host_keys()
-        client.set_missing_host_key_policy(paramiko.WarningPolicy())
-
-        ssh_config = paramiko.SSHConfig()
-        user_config_file = os.path.expanduser("~/.ssh/config")
-        if os.path.exists(user_config_file):
-            with open(user_config_file) as f:
-                ssh_config.parse(f)
-        cfg = {'hostname': self.hostname, 'username': self.user}
-
-        user_config = ssh_config.lookup(cfg['hostname'])
-        for k in ('hostname', 'username', 'port'):
-            if k in user_config:
-                cfg[k] = user_config[k]
-
-        if 'proxycommand' in user_config:
-            cfg['sock'] = paramiko.ProxyCommand(user_config['proxycommand'])
-
-        client.connect(**cfg)
-
-        stdin, stdout, stderr = client.exec_command(cmdline)
-        print(stdout.read())
-        client.close()
-
-    def _exec_lcu_ssh(self, cmdline, backgroundJOB=False, quotes="'"):
-        """Execute a command on the LCU, either as a background job or in the
-        foreground (blocking). Typically access is remote via ssh.
-        (To speed things up use the ssh CommandMaster option.)
-        """
-        LCUprompt = "On LCU> "
-        shellinvoc = "ssh "+self.lcuURL
-        if backgroundJOB is True:
-            # Currently only run_beamctl & run_tbbctl run in background
-            # Put stdout & stderr in log in dumpdir
-            cmdline = ("(( " + cmdline + " ) > " + self.lcuDumpDir
-                       + "/lcu_shell_out.log 2>&1) &")
-        if self.DryRun:
-            prePrompt = "(dryrun) "
-        else:
-            prePrompt = ""
-        if self.verbose:
-            print(prePrompt+LCUprompt+cmdline)
-        if self.DryRun is False and self.accessible:
-            if backgroundJOB == 'locally':
-                # Runs in background locally rather than in background on LCU
-                lcuproc = subprocess.call(shellinvoc+" "+cmdline+" &",
-                                          shell=True)
-            else:
-                if quotes == "'":
-                    lcuproc = subprocess.call(shellinvoc+" "+"'"+cmdline+"'",
-                                              shell=True)
-                elif quotes == '"':
-                    lcuproc = subprocess.call(shellinvoc+" "+'"'+cmdline+'"',
-                                              shell=True)
-                else:
-                    lcuproc = subprocess.call(shellinvoc+" "+cmdline,
-                                              shell=True)
-        elif not self.accessible:
-            print("Warning: not running as "+self.lcuURL
-                  + " since it is not accesible.")
+    def exec_lcu(self, cmdline, backgroundJOB=False, quotes="'"):
+        return _exec_ssh(nodeurl=self.lcuURL, cmdline=cmdline,
+                         stdoutdir=self.lcuDumpDir, nodetype='LCU',
+                         background_job=backgroundJOB, dryrun=self.DryRun,
+                         accessible=True, quotes=quotes, verbose=True)
 
     def _stdoutLCU(self, cmdline):
-        """Execute a command on the LCU and check its output."""
-        LCUprompt = "On LCU> "
-        shellinvoc = "ssh "+self.lcuURL
-        if self.DryRun:
-            prePrompt = "(dryrun) "
-        else:
-            prePrompt = ""
-        if self.verbose:
-            print(prePrompt+LCUprompt+cmdline)
-        if self.DryRun is False:
-            try:
-                output = subprocess.check_output(shellinvoc+" '"+cmdline+"'",
-                                                 shell=True).rstrip()
-                output = str(output.decode('UTF8'))
-            except subprocess.CalledProcessError as e:
-                raise e
-        else:
-            output = "None"
-        return output
-
-    def outfromLCU(self, cmdline, integration, duration):
-        """Execute a command on the LCU and monitor progress."""
-        LCUprompt = "LCUo> "
-        shellinvoc = "ssh " + self.lcuURL
-        if self.DryRun:
-            prePrompt = "(dryrun) "
-        else:
-            prePrompt = ""
-        if self.verbose:
-            print(prePrompt+LCUprompt+cmdline)
-        if self.DryRun is False:
-            cmd = subprocess.Popen(shellinvoc+" '"+cmdline+"'",
-                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                   stderr=subprocess.PIPE, shell=True)
-        else:
-            return None
-        count = 0
-        outstrname = 'stderr'
-        while cmd.poll() is None:
-            if outstrname == 'stdout':
-                outstr = cmd.stdout
-            elif outstrname == 'stderr':
-                outstr = cmd.stderr
-            else:
-                raise ValueError("Unknown output name {}".format(outstrname))
-            try:
-                got = cmd.stderr.readline().decode('utf8')
-            except IOError:
-                raise IOError()
-            else:
-                # print got
-                if "shape(stats)=" in got:
-                    if count % 2 == 0:
-                        print(str(int(round(duration-count/2.0*integration, 0)
-                                      )) + "sec left out of " + str(duration))
-                    count += 1
+        return _exec_ssh(nodeurl=self.lcuURL, cmdline=cmdline,
+                         stdoutdir=self.lcuDumpDir, nodetype='LCU',
+                         background_job=False, dryrun=self.DryRun,
+                         accessible=True, quotes="'", verbose=True)
 
     def _list_dat_files(self, dumpdir):
         ddls = self._stdoutLCU("ls " + dumpdir).split('\n')
