@@ -157,5 +157,6 @@ def __outfromLCU(self, cmdline, integration, duration):
 
 
 if __name__ == '__main__':
-    hn = _exec_ssh('user6@se607c', 'hostname', accessible=True)
+    import sys
+    hn = _exec_ssh(sys.argv[1], sys.argv[2], accessible=True)
     print(hn)
