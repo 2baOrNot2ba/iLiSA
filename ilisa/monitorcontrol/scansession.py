@@ -177,6 +177,19 @@ class ScanSession(object):
             # - Record
             #     defaults
             rec = scan.get('rec', [])
+            _rec =  rec
+            acc = False
+            if 'acc' in _rec:
+                acc = True
+                _rec.remove('acc')
+            bfs = False
+            if 'bfs' in rec:
+                bfs = True
+                _rec.remove('bfs')
+            bsx_stat = None
+            if len(_rec) > 0:
+                bsx_stat = _rec.pop()  # Should only be bsx left
+            del _rec
             # - Integration for rec bsx
             integration = scan.get('integration', 1.0)
             if integration > duration_tot:
@@ -197,6 +210,9 @@ class ScanSession(object):
                                'source' : source,
                                'allsky': allsky},
                           'rec': rec,
+                          'acc': acc,
+                          'bfs': bfs,
+                          'bsx_stat': bsx_stat,
                           'integration': integration,
                           'duration': duration_tot,
                           'starttime': starttime,
@@ -243,32 +259,24 @@ class ScanSession(object):
                 # Only pointing used not source name but it's in scan metadata
                 pointing = scan['beam']['pointing']
                 starttime = scan['starttime']
-                rec = scan['rec']
+                #rec = scan['rec']
+                acc = scan['acc']
+                bfs = scan['bfs']
+                bsx_stat = scan['bsx_stat']
                 integration = scan['integration']
-                acc = False
-                if 'acc' in rec:
-                    acc = True
-                    rec.remove('acc')
-                bfs = False
-                if 'bfs' in rec:
-                    bfs = True
-                    rec.remove('bfs')
-                rec_type = None
-                if len(rec) > 0:
-                    rec_type = rec.pop()  # Should only be bsx left
                 freqspec = scan['beam']['freqspec']
                 freqsetup = modeparms.FreqSetup(freqspec)
                 starttime = waituntil(starttime, datetime.timedelta(seconds=2))
                 duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths,\
                 bfslogpaths =\
-                    rec_scan_start(self.stndrv, rec_type, freqsetup,
+                    rec_scan_start(self.stndrv, bsx_stat, freqsetup,
                                    duration_tot, pointing, integration,
                                    starttime, acc=acc, bfs=bfs,
                                    destpath=sesspath)
-                if not bfs and not _xtract_bsx(rec_type):
+                if not bfs and not _xtract_bsx(bsx_stat):
                     print('Recording for {}s'.format(duration_tot + 10))
                     time.sleep(duration_tot + 10)
-                rec_scan_stop(self.stndrv, rec_type, freqsetup, pointing,
+                rec_scan_stop(self.stndrv, bsx_stat, freqsetup, pointing,
                               starttime, acc, bfs, duration_tot, ldatinfos,
                               ldatinfo_bfs, bfsdatapaths, bfslogpaths)
                 scanresult = self.stndrv.scanresult
