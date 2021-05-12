@@ -520,9 +520,12 @@ class StationDriver(object):
         if self._lcu_interface.stnid == 'UK902':
             # FIXME
             self.lanes = (0, 1)  # UK902 only has 2 lanes
+        # Select only ports for lanes to be used
+        laneports = tuple(self.get_laneports()[i] for i in self.lanes)
         datafiles, logfiles = \
-            self.dru_interface._rec_bf_proxy(self.get_laneports(), duration_tot,
-                                             scanpath_bfdat, starttime=starttime,
+            self.dru_interface._rec_bf_proxy(laneports, duration_tot,
+                                             scanpath_bfdat,
+                                             starttime=starttime,
                                              compress=False,
                                              band=freqsetup.rcubands[0],
                                              stnid=self.get_stnid())
