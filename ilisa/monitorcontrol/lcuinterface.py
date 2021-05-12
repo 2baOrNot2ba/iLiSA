@@ -16,7 +16,7 @@ from ilisa.monitorcontrol.modeparms import rcumode2band, beamctl_args2cmds,\
 class LCUInterface(object):
     """This class provides an interface to the Local Control Unit (LCU) of an
        International LOFAR station."""
-    lofarroot = "/opt/lofar_local/"  # "/opt/lofar/"
+    lofarroot = "/opt/lofar_local/"
     lofarbin = "/opt/lofar/bin"
     lofaroperationsbin = "/opt/operations/bin"
     lofarstationtestdir = "/localhome/stationtest/"
@@ -24,14 +24,14 @@ class LCUInterface(object):
     RSPDriver_conf = lofarroot + "etc/RSPDriver.conf"
 
     # User dirs & files:
-    ## Directory containing user homes dirs
+    #     Directory containing user homes dirs
     homespath = "/data/home/"
 
     def checkLCUenv(self):
         """Check the LCU environment, especially for data taking assumptions."""
         if self.DryRun:
             return True, True
-        envpath = self._stdoutLCU("env | grep '^PATH'")
+        envpath = self._exec_lcu("env | grep '^PATH'")
         envpath = envpath.split("=")[1].split(":")
         if self.lofarbin in envpath and self.lofaroperationsbin in envpath:
             path_ok = True
@@ -96,20 +96,15 @@ class LCUInterface(object):
     def __del__(self):
         pass
 
-    def exec_lcu(self, cmdline, backgroundJOB=False, quotes="'"):
+    def _exec_lcu(self, cmdline, backgroundJOB=False, quotes="'"):
         return _exec_ssh(nodeurl=self.lcuURL, cmdline=cmdline,
                          stdoutdir=self.lcuDumpDir, nodetype='LCU',
                          background_job=backgroundJOB, dryrun=self.DryRun,
-                         accessible=True, quotes=quotes, verbose=True)
-
-    def _stdoutLCU(self, cmdline):
-        return _exec_ssh(nodeurl=self.lcuURL, cmdline=cmdline,
-                         stdoutdir=self.lcuDumpDir, nodetype='LCU',
-                         background_job=False, dryrun=self.DryRun,
-                         accessible=True, quotes="'", verbose=True)
+                         accessible=self.accessible, quotes=quotes,
+                         verbose=self.verbose)
 
     def _list_dat_files(self, dumpdir):
-        ddls = self._stdoutLCU("ls " + dumpdir).split('\n')
+        ddls = self._exec_lcu("ls " + dumpdir).split('\n')
         datfiles = []
         for ddfile in ddls:
             if ddfile.endswith('.dat'):
@@ -138,7 +133,7 @@ class LCUInterface(object):
             return None
         try:
             ps_out = \
-              self._stdoutLCU("/bin/ps -CServiceBroker --no-headers -ouser")
+              self._exec_lcu("/bin/ps -CServiceBroker --no-headers -ouser")
         except:
             # Can happen if no ServiceBroker process running. Pretend ps
             # returns blank
@@ -156,7 +151,7 @@ class LCUInterface(object):
         if self.DryRun:
             return 'local'
         try:
-            getstationmode_out = self._stdoutLCU("getstationmode")
+            getstationmode_out = self._exec_lcu("getstationmode")
         except:
             # Can happen if no ServiceBroker process running
             print("Warning: ServiceBroker not running")
@@ -168,7 +163,7 @@ class LCUInterface(object):
     def is_beam_on(self):
         """Check if there is a beamctl running"""
         try:
-            ps_beamctl_outs = self._stdoutLCU("/bin/ps -Cbeamctl").splitlines()
+            ps_beamctl_outs = self._exec_lcu("/bin/ps -Cbeamctl").splitlines()
         except:
             return False
         if len(ps_beamctl_outs) > 1:
@@ -177,7 +172,7 @@ class LCUInterface(object):
 
     def _get_filecontent(self, filename):
         """Get contents of certain file on LCU by name."""
-        filecontents = self._stdoutLCU("cat " + filename)
+        filecontents = self._exec_lcu("cat " + filename)
         return filecontents
 
     def _rm(self, source, override_mock=True):
@@ -185,7 +180,7 @@ class LCUInterface(object):
         dryrun = self.DryRun
         if override_mock:
             self.DryRun = False
-        self.exec_lcu("rm -f " + source)
+        self._exec_lcu("rm -f " + source)
         self.DryRun = dryrun
 
     def cleanup(self):
@@ -212,7 +207,7 @@ class LCUInterface(object):
 
     def get_mac_version(self):
         """Get MAC version of station."""
-        macversionstr = self._stdoutLCU("swlevel -V")
+        macversionstr = self._exec_lcu("swlevel -V")
         if self.DryRun:
             macversionstr = "Mock-version-2.0.0"
         return macversionstr
@@ -221,7 +216,7 @@ class LCUInterface(object):
         """Get current Software Level of station. Returns a string which
         under normal local mode operations is an integer between 0-3."""
         if not self.DryRun:
-            swlevel = int(self._stdoutLCU("swlevel -S"))
+            swlevel = int(self._exec_lcu("swlevel -S"))
         else:
             swlevel = 3
         return swlevel
@@ -234,11 +229,11 @@ class LCUInterface(object):
             if not fullreboot:
                 swlevel = self.get_swlevel()
                 if swlevel != swleveltarget:
-                    self.exec_lcu("swlevel {}".format(swleveltarget))
+                    self._exec_lcu("swlevel {}".format(swleveltarget))
                     swlevel_changed = True
             else:
                 # For completeness swlevel 0, but swlevel 1 is faster
-                self.exec_lcu("swlevel 0; swlevel {}".format(swleveltarget))
+                self._exec_lcu("swlevel 0; swlevel {}".format(swleveltarget))
                 swlevel_changed = True
         return swlevel_changed
 
@@ -246,7 +241,7 @@ class LCUInterface(object):
         """Stop any running beamctl processes."""
         # Stop any beamctl on lcu.
         if not self.DryRun:
-            self.exec_lcu("killall beamctl")
+            self._exec_lcu("killall beamctl")
             # Put caltables back to default
             self.selectCalTable('default')
         # print("Beam off at %s"%time.asctime(time.localtime(time.time())))
@@ -262,7 +257,7 @@ class LCUInterface(object):
             rspctl_cmd += " --mode={}".format(mode)
         if tbbmode is not None:
             rspctl_cmd += " --tbbmode={}".format(tbbmode)
-        self.exec_lcu(rspctl_cmd)
+        self._exec_lcu(rspctl_cmd)
         return rspctl_cmd
 
     def rcusetup(self, bits, attenuation, mode=None):
@@ -272,7 +267,7 @@ class LCUInterface(object):
         # NOTE Looks like bitmode and rcuattenuation have to be set in separate
         #      commands.
         for rcusetup_cmd in rcusetup_cmds:
-            self.exec_lcu(rcusetup_cmd)
+            self._exec_lcu(rcusetup_cmd)
         if self.DryRun:
             self.bits = bits
         waittime = 1
@@ -284,7 +279,7 @@ class LCUInterface(object):
         """Get rcu sample bit-depth."""
         bits = getattr(self, 'bits', None)
         if not bits:
-            outrspctl = self._stdoutLCU("rspctl --bitmode").splitlines()
+            outrspctl = self._exec_lcu("rspctl --bitmode").splitlines()
             ans = outrspctl[2:]
             rspbits = []
             for l in ans:
@@ -300,7 +295,7 @@ class LCUInterface(object):
         """Start a beam using beamctl command. Blocks until ready."""
         beamctl_cmd = beamctl_args2cmds(beamlets, subbands, band, anadigdir,
                                         rcus, beamdurstr)
-        self.exec_lcu(beamctl_cmd, backgroundJOB)
+        self._exec_lcu(beamctl_cmd, backgroundJOB)
         waittime = 11
         print("Waiting {}s for beam to settle...".format(waittime))
         time.sleep(waittime)  # Wait for beam to settle
@@ -317,7 +312,7 @@ class LCUInterface(object):
             directory = self.lcuDumpDir
         rspctl_cmds[-1] += " --directory={}".format(directory)
         for rspctl_cmd in rspctl_cmds:
-            self.exec_lcu(rspctl_cmd)
+            self._exec_lcu(rspctl_cmd)
         if self.DryRun:
             self.mockstatistics(bsxtype, integration, duration, directory)
         return rspctl_cmds
@@ -348,7 +343,7 @@ class LCUInterface(object):
                 bstfilename = "{}_bst_00{}.dat".format(dtstamp, pol)
                 fpath = os.path.join(directory, bstfilename)
                 dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
-                self.exec_lcu(dd_cmd)
+                self._exec_lcu(dd_cmd)
         elif statistics == 'sst':
             # Write mock sst files
             nrsbs = modeparms.TotNrOfsb
@@ -359,7 +354,7 @@ class LCUInterface(object):
                 sstfilename = "{}_sst_rcu{:03}.dat".format(dtstamp, rcunr)
                 fpath = os.path.join(directory, sstfilename)
                 dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
-                self.exec_lcu(dd_cmd)
+                self._exec_lcu(dd_cmd)
         elif statistics == 'xst':
             # Write mock sst files
             nrrcus = modeparms.nrofrcus
@@ -369,7 +364,7 @@ class LCUInterface(object):
             xstfilename = "{}_xst.dat".format(dtstamp)
             fpath = os.path.join(directory, xstfilename)
             dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
-            self.exec_lcu(dd_cmd)
+            self._exec_lcu(dd_cmd)
         elif statistics == 'acc':
             # Write mock acc files
             integration = 1
@@ -384,7 +379,7 @@ class LCUInterface(object):
                 accfilename = "{}_acc_512x196x196.dat".format(dtstamp)
                 fpath = os.path.join(directory, accfilename)
                 dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
-                self.exec_lcu(dd_cmd)
+                self._exec_lcu(dd_cmd)
                 filetime += datetime.timedelta(seconds=519)
         # Wait duration seconds (disregard time code above takes)
         time.sleep(duration)
@@ -417,7 +412,7 @@ class LCUInterface(object):
             tbbctl_args += " --select={}".format(select)
         if tbbctl_args != "":
             tbbctl_cmd = "tbbctl"+tbbctl_args
-            self.exec_lcu(tbbctl_cmd, backgroundJOB)
+            self._exec_lcu(tbbctl_cmd, backgroundJOB)
         else:
             tbbctl_cmd = None
         return tbbctl_cmd
@@ -428,13 +423,13 @@ class LCUInterface(object):
         (swlevel>=2). If enableacc=False, ACC files will not be written.
         """
         if enable:
-            self.exec_lcu(
+            self._exec_lcu(
             r"""sed -i.orig 's/^CalServer.DisableACMProxy=1/CalServer.DisableACMProxy=0/;\
             s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/;\
             s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}"""
                 .format(self.ACCsrcDir, self.CalServer_conf), quotes='"')
         else:
-            self.exec_lcu(
+            self._exec_lcu(
             r"""sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/;\
             s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/;\
             s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}"""
@@ -449,7 +444,7 @@ class LCUInterface(object):
             # Band 30_90 not correctly implemented in "beamctl --calinfo".
             # It uses the 10_90 caltab anyways so:
             rcumode = 3
-        calinfoout =self._stdoutLCU("beamctl --calinfo")
+        calinfoout =self._exec_lcu("beamctl --calinfo")
         if self.DryRun:
             return ""
         # Convert output into a list of dict per antset
@@ -484,7 +479,7 @@ class LCUInterface(object):
         """Turn-off the LNAs on LBA.
         (Used as an indication of system temperature)"""
         rspctl_cmd = "rspctl --rcu=0x00034880 --select=" + select
-        self.exec_lcu(rspctl_cmd)
+        self._exec_lcu(rspctl_cmd)
         if self.verbose:
             print("Turning OFF LBA LNAs...")
         time.sleep(30)
@@ -515,7 +510,7 @@ class LCUInterface(object):
             lcucmd = "rspctl --hbadelay="\
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(2*tileNr)+","+str(2*tileNr+1)
-            self.exec_lcu(lcucmd)
+            self._exec_lcu(lcucmd)
 
     def turnoffElinTile_byEl(self, elems_on):
         """"Turn off all elements per tile except the one specificied in list.
@@ -531,4 +526,4 @@ class LCUInterface(object):
             lcucmd = "rspctl --hbadelay="\
                      + str(tile_map).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
-            self.exec_lcu(lcucmd)
+            self._exec_lcu(lcucmd)
