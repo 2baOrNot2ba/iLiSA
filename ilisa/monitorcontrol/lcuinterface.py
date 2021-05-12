@@ -49,6 +49,8 @@ class LCUInterface(object):
         """Check that this object has access to LCU.
         Note: It does this by trying to get the MAC version number."""
         mac_version = ""
+        # Override accessible (Have to assume it is accessible to test access)
+        self.accessible = True
         try:
             mac_version = self.get_mac_version()
         except Exception:
@@ -58,6 +60,8 @@ class LCUInterface(object):
             accessible = True
         else:
             accessible = False
+        # Reset accessible (Assume __init__ will set this for real)
+        del self.accessible
         return accessible
 
     def __init__(self, lcuaccessconf=None):
@@ -72,9 +76,6 @@ class LCUInterface(object):
         self.lcuURL = self.user + "@" + self.hostname
         self.DryRun = False  # DryRun means commands to LCU are not executed
         self.verbose = True  # Write out LCU commands
-        self.accessible = self.checkaccess()
-        if self.accessible and self.verbose:
-            print("Established access to LCU on {}.".format(self.stnid))
 
         # Init some OS paths:
         ## User's home dir
@@ -85,6 +86,11 @@ class LCUInterface(object):
         self.lcuDumpDir = self.cache_dir + 'BSX_data/' # lcuaccessconf['dumpdir']
         ## ACCsrcDir is set in CalServer.conf and used when CalServer is running
         self.ACCsrcDir = self.cache_dir  + "ACC_data/"
+
+        # Now check accessibility
+        self.accessible = self.checkaccess()
+        if self.accessible and self.verbose:
+            print("Established access to LCU on {}.".format(self.stnid))
 
         # Check LCU OS env:
         path_ok, datadirs_ok = self.checkLCUenv()
