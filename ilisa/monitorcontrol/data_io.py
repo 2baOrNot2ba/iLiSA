@@ -1484,7 +1484,6 @@ def plotsst(sstff, freqreq):
     scanrecinfo.read_scanrec(sstff)
     starttime = obsfolderinfo['datetime']
     SSTdata = numpy.array(SSTdata)
-    print(SSTdata.shape)
     freqs = obsfolderinfo['frequencies']
     sbreq = None
     if freqreq:
@@ -1603,7 +1602,7 @@ def view_bsxst(args):
         viewbst(args.dataff, pol_stokes=not(args.linear),
                 printout=args.printout)
     elif lofar_datatype=='sst':
-        plotsst(args.dataff, args.freq, printout=args.printout)
+        plotsst(args.dataff, args.freq)
     elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
         plotxst(args.dataff)
     else:
