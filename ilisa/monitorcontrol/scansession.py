@@ -274,7 +274,7 @@ class ScanSession(object):
                                    starttime, acc=acc, bfs=bfs,
                                    destpath=sesspath)
                 if not bfs and not _xtract_bsx(bsx_stat):
-                    print('Recording for {}s'.format(duration_tot + 10))
+                    print('Not recording for {}s'.format(duration_tot + 10))
                     time.sleep(duration_tot + 10)
                 rec_scan_stop(self.stndrv, bsx_stat, freqsetup, pointing,
                               starttime, acc, bfs, duration_tot, ldatinfos,
