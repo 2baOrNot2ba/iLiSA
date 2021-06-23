@@ -86,7 +86,7 @@ def _startlanerec(lane, starttime, duration, rcumode, bf_data_dir, port0, stnid,
         os.mkdir(outdumpdir)
     dur_flagarg = ''
     if duration:
-        dur_flagarg = ' --duration ' + str(duration)
+        dur_flagarg = ' --duration ' + str(int(duration))
     cmdline_full_shell = (dumpercmd + ' --ports ' + str(port) + ' --check '
                           + ' --Start ' +
                           starttime.strftime("%Y-%m-%dT%H:%M:%S")
