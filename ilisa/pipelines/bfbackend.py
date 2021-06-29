@@ -10,7 +10,6 @@ import ilisa.pipelines.rec_bf_streams_py as rec_bf_streams_py
 
 dumpername = 'dump_udp_ow'  # Alias to local version
 pathtodumper = os.path.dirname(ilisa.pipelines.__file__)
-#dumpercmd = os.path.join(pathtodumper, dumpername)
 dumpercmd = dumpername  # Assume dumper is in user's PATH
 # dumpercmd = 'echo'  # For testing purposes
 pl_rec_wrapper = 'pl_rec'
@@ -166,15 +165,15 @@ def bfsrec_main_cli():
                         )
     parser.add_argument('-p', '--ports',
                         type=str, default='4346',
-                        help = "List of port number(s)"
+                        help="List of port number(s)"
                         )
     parser.add_argument('-b', '--bfdatadir',
-                        type=str, default='/mnt/lane?/BF/SE607/Scans/',
+                        type=str, default='/mnt/lane?/',
                         help="Template directory for BF data"
                         )
     parser.add_argument('-d', '--duration',
                         type=float, default=None,
-                        help="Duration of recording in float seconds"
+                        help="Duration of recording in seconds"
                         )
     parser.add_argument('-w', '--which',
                         type=str, default='ow',
@@ -186,7 +185,7 @@ def bfsrec_main_cli():
                         )
     parser.add_argument('-s', '--stnid',
                         type=str, default='SE607',
-                        help="rcumode or spectral window",
+                        help="station id",
                         )
     parser.add_argument('-c', '--compress', action="store_true",
                         help="Compress recorded data")
