@@ -163,7 +163,7 @@ def bfsrec_main_cli():
                         action='store_true')
     parser.add_argument('-t', '--starttime',
                         type=str, default='NOW',
-                        help = "Start-time,: (iso format) YYYY-mm-ddTHH:MM:SS"
+                        help = "Start-time: (iso format) YYYY-mm-ddTHH:MM:SS"
                         )
     parser.add_argument('-p', '--ports',
                         type=str, default='4346',
@@ -192,7 +192,7 @@ def bfsrec_main_cli():
     parser.add_argument('-c', '--compress', action="store_true",
                         help="Compress recorded data")
     args = parser.parse_args()
-    if args.starttime == "NOW":
+    if args.starttime == "NOW" or args.starttime == 'ASAP':
         args.starttime = datetime.datetime.utcnow()
     else:
         args.starttime = datetime.datetime.strptime(args.starttime,
