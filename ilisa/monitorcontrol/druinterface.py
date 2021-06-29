@@ -1,7 +1,8 @@
 import os
 import plumbum
 from ilisa.monitorcontrol._rem_exec import _exec_ssh
-from ilisa.monitorcontrol.modeparms import band2rcumode, timestr2datetime
+from ilisa.monitorcontrol.modeparms import band2rcumode, timestr2datetime,\
+    normalizetimestr
 from ilisa.pipelines.bfbackend import pl_rec_wrapper, dumpername
 
 # dumpername is name of binary executable on DRU which is run by
@@ -104,6 +105,7 @@ class DRUinterface:
         dumplogpath = os.path.join(outdumpdir, dumplogname)
         # local_hostname = self.dru['hostname']().rstrip()
         local_hostname = self.dru('hostname').rstrip()
+        starttime = normalizetimestr(starttime)
         starttime_arg = starttime + '.000'
         datapathguess = outarg + '_' + str(port) + '.' + local_hostname + '.'\
                         + starttime_arg
@@ -121,9 +123,8 @@ class DRUinterface:
         """
         dumpercmd = pl_rec_wrapper
         which_recorder = 'ow'
-        startarg = timestr2datetime(starttime)
         outdumpdirs, outargs, datafiles, logfiles = \
-            self.bfsfilepathslist(startarg, band, bf_data_dir, ports, stnid,
+            self.bfsfilepathslist(starttime, band, bf_data_dir, ports, stnid,
                                   compress)
         for outdumpdir in outdumpdirs:
             self.dru('mkdir -p '+outdumpdir)
@@ -133,8 +134,7 @@ class DRUinterface:
                        '--duration', str(duration),
                        '--bfdatadir', '"'+bf_data_dir+'"', '--rcumode', rcumode,
                        '--stnid', stnid]
-        if startarg != 'NOW':
-            cmdlineargs.extend(['--starttime', startarg])
+        cmdlineargs.extend(['--starttime', starttime])
         if compress:
             cmdlineargs.append('--compress')
         if mockrun:
