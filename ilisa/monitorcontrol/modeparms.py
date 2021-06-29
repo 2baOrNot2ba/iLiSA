@@ -19,6 +19,7 @@ BASE_NR_BEAMLETS = 244
 NRBEAMLETSBYBITS = {16:   BASE_NR_BEAMLETS,
                     8:  2*BASE_NR_BEAMLETS,
                     4:  4*BASE_NR_BEAMLETS}
+DATETIMESTRFMT = '%Y-%m-%dT%H:%M:%S'
 # SEPTON configurations:
 #        1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24
 
@@ -826,11 +827,14 @@ def timestr2datetime(timestr):
         dattim += datetime.timedelta(seconds=1)
     else:
         try:
-            dattim = datetime.datetime.strptime(timestr, '%Y-%m-%dT%H:%M:%S')
+            dattim = datetime.datetime.strptime(timestr, DATETIMESTRFMT)
         except:
             raise RuntimeError("Wrong datetime format.")
     return dattim
 
+def normalizetimestr(timestr):
+    dt = timestr2datetime(timestr)
+    return dt.strftime(DATETIMESTRFMT)
 
 def hmsstr2deltatime(hms):
     """\
