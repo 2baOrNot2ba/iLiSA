@@ -819,7 +819,7 @@ def timestr2datetime(timestr):
     dattim: datetime.datetime
         Python datetime object corresponding to input.
     """
-    if timestr == 'NOW':
+    if timestr == 'NOW' or timestr == 'ASAP':
         # Set time to nearest rounded second from now:
         dattim = datetime.datetime.utcnow()
         dattim = dattim.replace(microsecond=0)
