@@ -112,7 +112,8 @@ class DRUinterface:
         return outdumpdir, outarg, datapathguess, dumplogpath
 
     def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime='NOW',
-                      compress=False, band='110_190', stnid=None):
+                      compress=True, band='110_190', stnid=None,
+                      mockrun=False):
         """\
         Record beamformed streams using recording process on DRU
 
@@ -135,13 +136,14 @@ class DRUinterface:
         if startarg != 'NOW':
             cmdlineargs.extend(['--starttime', startarg])
         if compress:
-            pass
-            # cmdlineargs.append('--compress')
+            cmdlineargs.append('--compress')
+        if mockrun:
+            cmdlineargs.append('--mockrun')
         self.dru(' '.join([dumpercmd] + cmdlineargs))
         return datafiles, logfiles
 
     def rec_bf_proxy(self, starttime, duration, lanes, band, bf_data_dir,
-                     port0, stnid, compress=False):
+                     port0, stnid, compress=False, mockrun=False):
         """Start recording beamformed streams using an external dumper process.
         """
         recorders = ['ow', 'py']
@@ -181,8 +183,17 @@ class DRUinterface:
 
 if __name__ == "__main__":
     import sys
+    from ilisa.monitorcontrol.modeparms import timestr2datetime
     from ilisa.monitorcontrol.scansession import get_proj_stn_access_conf
     stnid = sys.argv.pop()
     projid = sys.argv.pop()
     accessconf = get_proj_stn_access_conf(projid, stnid)
     dru_interface = DRUinterface(accessconf['DRU'])
+    ports = [0,1,2,3]
+    duration_tot = 1.0
+    scanpath_bfdat = accessconf['DRU']['BeamFormDataDir']
+    rectime = timestr2datetime('ASAP')
+    band = '110_190'
+    _datafiles, _logfiles = dru_interface._rec_bf_proxy(ports,
+            duration_tot, scanpath_bfdat, starttime=rectime, band=band,
+            stnid=stnid, mockrun=True)
