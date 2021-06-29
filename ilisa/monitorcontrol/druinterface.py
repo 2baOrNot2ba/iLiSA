@@ -1,7 +1,7 @@
 import os
 import plumbum
 from ilisa.monitorcontrol._rem_exec import _exec_ssh
-from ilisa.monitorcontrol.modeparms import band2rcumode
+from ilisa.monitorcontrol.modeparms import band2rcumode, timestr2datetime
 from ilisa.pipelines.bfbackend import pl_rec_wrapper, dumpername
 
 # dumpername is name of binary executable on DRU which is run by
@@ -120,9 +120,8 @@ class DRUinterface:
         Note: Blocks until finished recording on DRU
         """
         dumpercmd = pl_rec_wrapper
-        startarg = starttime
-        if starttime != 'NOW':
-            startarg = starttime.strftime("%Y-%m-%dT%H:%M:%S")
+        which_recorder = 'ow'
+        startarg = timestr2datetime(starttime)
         outdumpdirs, outargs, datafiles, logfiles = \
             self.bfsfilepathslist(startarg, band, bf_data_dir, ports, stnid,
                                   compress)
@@ -130,7 +129,8 @@ class DRUinterface:
             self.dru('mkdir -p '+outdumpdir)
         portlststr = ','.join([str(p) for p in ports])
         rcumode = band2rcumode(band)
-        cmdlineargs = ['--ports', portlststr, '--duration', str(duration),
+        cmdlineargs = ['--which', which_recorder, '--ports', portlststr,
+                       '--duration', str(duration),
                        '--bfdatadir', '"'+bf_data_dir+'"', '--rcumode', rcumode,
                        '--stnid', stnid]
         if startarg != 'NOW':
@@ -142,48 +142,9 @@ class DRUinterface:
         self.dru(' '.join([dumpercmd] + cmdlineargs))
         return datafiles, logfiles
 
-    def rec_bf_proxy(self, starttime, duration, lanes, band, bf_data_dir,
-                     port0, stnid, compress=False, mockrun=False):
-        """Start recording beamformed streams using an external dumper process.
-        """
-        recorders = ['ow', 'py']
-        _which_recorder = recorders[0]
-        # dumpercmd = self.dru.path(self.pipeline_path) / dumpername
-        dumpercmd = pl_rec_wrapper
-        rec_cmd = self.dru[dumpercmd]
-        startarg = starttime
-        if starttime != 'NOW':
-            startarg = starttime.strftime("%Y-%m-%dT%H:%M:%S")
-        reclanes = []
-        datafiles = []
-        logfiles = []
-        for lane in lanes:
-            port = port0 + lane
-            outdumpdir, outarg, datafileguess, dumplogname = \
-                self.bfsfilepaths(lane, startarg, band, bf_data_dir, port0,
-                                  stnid, compress)
-            self.dru['mkdir']['-p'](outdumpdir)
-            cmdlineargs = ['--ports', port, '--check', '--duration', duration,
-                           '--timeout', '999', '--out',  outarg]
-            if startarg != 'NOW':
-                cmdlineargs.extend(['--Start', startarg])
-            if compress:
-                cmdlineargs.append('--compress')
-            if self.verbose:
-                cmdlineargstr = ' '.join(map(str, cmdlineargs))
-                print("{} {} {}".format(self.druprompt, dumpercmd,
-                                        cmdlineargstr))
-            reclanes.append((rec_cmd[cmdlineargs] > dumplogname) & plumbum.BG)
-            datafiles.append(datafileguess)
-            logfiles.append(dumplogname)
-        for reclane in reclanes:
-            reclane.wait()
-        return datafiles, logfiles
-
 
 if __name__ == "__main__":
     import sys
-    from ilisa.monitorcontrol.modeparms import timestr2datetime
     from ilisa.monitorcontrol.scansession import get_proj_stn_access_conf
     stnid = sys.argv.pop()
     projid = sys.argv.pop()

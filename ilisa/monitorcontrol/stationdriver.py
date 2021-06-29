@@ -917,9 +917,11 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
         band = freqsetup.rcubands[0]
         scanpath_bfdat = stndrv.bf_data_dir
         stnid = stndrv.get_stnid()
-        _datafiles, _logfiles = stndrv.dru_interface.rec_bf_proxy(
-            rectime, duration_tot, lanes, band, scanpath_bfdat, stndrv.bf_port0,
-            stnid)
+        ports = (stndrv.bf_port0, stndrv.bf_port0+1, stndrv.bf_port0+2,
+                 stndrv.bf_port0+3)
+        _datafiles, _logfiles = stndrv.dru_interface._rec_bf_proxy(ports,
+            duration_tot, scanpath_bfdat, starttime=rectime, band=band,
+            stnid=stnid)
     return duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths, bfslogpaths
 
 
