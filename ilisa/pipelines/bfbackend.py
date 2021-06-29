@@ -159,6 +159,8 @@ from ilisa.pipelines.rec_bf_streams_py import main as rec_bf_streams_py
 def bfsrec_main_cli():
     # Entry point for pl_rec
     parser = argparse.ArgumentParser()
+    parser.add_argument('-m', '--mockrun', help="Run mock rec",
+                        action='store_true')
     parser.add_argument('-t', '--starttime',
                         type=str, default='NOW',
                         help = "Start-time,: (iso format) YYYY-mm-ddTHH:MM:SS"
@@ -196,13 +198,15 @@ def bfsrec_main_cli():
         args.starttime = datetime.datetime.strptime(args.starttime,
                                                     '%Y-%m-%dT%H:%M:%S')
     args.ports = [int(portstr) for portstr in args.ports.split(',')]
-    if args.which == 'py':
-        rec_bf_streams_py(args.port0, args.bfdatadir, args.duration)
+    if not args.mockrun:
+        if args.which == 'py':
+            rec_bf_streams_py(args.ports[0], args.bfdatadir, args.duration)
+        else:
+            lanes = range(len(args.ports))
+            rec_bf_streams(args.starttime, args.duration, lanes, args.rcumode,
+                           args.bfdatadir, args.ports[0], args.stnid, args.compress)
     else:
-        port0 = args.ports[0]
-        lanes = range(len(args.ports))
-        rec_bf_streams(args.starttime, args.duration, lanes, args.rcumode,
-                       args.bfdatadir, port0, args.stnid, args.compress)
+        print(args)
 
 
 if __name__ == '__main__':
