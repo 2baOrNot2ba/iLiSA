@@ -206,6 +206,7 @@ def bfsrec_main_cli():
             rec_bf_streams(args.starttime, args.duration, lanes, args.rcumode,
                            args.bfdatadir, args.ports[0], args.stnid, args.compress)
     else:
+        print('MOCKRUN. Arguments:')
         print(args)
 
 
