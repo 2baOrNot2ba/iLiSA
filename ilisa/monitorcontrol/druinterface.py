@@ -153,7 +153,7 @@ if __name__ == "__main__":
     ports = [0,1,2,3]
     duration_tot = 1.0
     scanpath_bfdat = accessconf['DRU']['BeamFormDataDir']
-    rectime = timestr2datetime('ASAP')
+    rectime = 'ASAP'
     band = '110_190'
     _datafiles, _logfiles = dru_interface._rec_bf_proxy(ports,
             duration_tot, scanpath_bfdat, starttime=rectime, band=band,
