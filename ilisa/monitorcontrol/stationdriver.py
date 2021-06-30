@@ -232,7 +232,7 @@ class StationDriver(object):
         and port_ordinal is 0,1,2 or 3.
         """
         if self.mockrun:
-            return 1, 2, 3, 4
+            return 4346, 4347, 4348, 4349  # Return default ports
         rspdriver_conf = self._lcu_interface.get_RSPDriver_conf()
         port0 = int(rspdriver_conf['RSPDriver']['LANE_00_DSTPORT'])
         port1 = int(rspdriver_conf['RSPDriver']['LANE_01_DSTPORT'])
