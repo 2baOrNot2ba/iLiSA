@@ -1,6 +1,5 @@
 import os
 import datetime
-import plumbum
 from ilisa.monitorcontrol._rem_exec import _exec_ssh
 from ilisa.monitorcontrol.modeparms import band2rcumode, timestr2datetime,\
     normalizetimestr
@@ -21,10 +20,6 @@ class DRUinterface:
         if not self.user and self.hostname == 'localhost':
             self.user = os.getlogin()
         self.url = self.user + "@" + self.hostname
-        if self.hostname != 'localhost':
-            dru = plumbum.SshMachine(self.hostname, user=self.user)
-        else:
-            dru = plumbum.local
         self.accessible = True
         dru = self._exec_dru_func()
         self.dru = dru
