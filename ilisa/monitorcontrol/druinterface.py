@@ -20,6 +20,7 @@ class DRUinterface:
         if not self.user and self.hostname == 'localhost':
             self.user = os.getlogin()
         self.url = self.user + "@" + self.hostname
+        self.bf_logfile = accessconf_dru['BeamFormLogFile']
         self.accessible = True
         dru = self._exec_dru_func()
         self.dru = dru
