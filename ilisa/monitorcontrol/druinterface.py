@@ -20,6 +20,7 @@ class DRUinterface:
         self.user = accessconf_dru.get('user', None)
         if not self.user and self.hostname == 'localhost':
             self.user = os.getlogin()
+        self.url = self.user + "@" + self.hostname
         if self.hostname != 'localhost':
             dru = plumbum.SshMachine(self.hostname, user=self.user)
         else:

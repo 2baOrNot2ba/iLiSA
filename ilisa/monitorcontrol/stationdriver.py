@@ -170,7 +170,7 @@ class StationDriver(object):
                               .format(swlevel))
 
     def movefromlcu(self, source, dest, recursive=False):
-        """Move file(s) off LCU to DPU."""
+        """Move file(s) off LCU to DRU."""
         if not os.path.exists(dest):
             os.makedirs(dest)
         move_cmdline = ["scp"]
@@ -178,7 +178,7 @@ class StationDriver(object):
             move_cmdline.append("-r")
         src_arg = self._lcu_interface.lcuURL + ":" + source
         move_cmdline.append(src_arg)
-        dst_arg = dest
+        dst_arg = self._dru_interface.url + ":" + dest
         move_cmdline.append(dst_arg)
         cmdprompt = "spawn on DPU>"
         if self._lcu_interface.verbose:
