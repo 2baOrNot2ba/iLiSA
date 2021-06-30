@@ -4,7 +4,6 @@ via one LCUinterface instance and one DRUinterface instance.
 This package knows about the data archive and
 should not run anything directly on LCU."""
 import shutil
-import sys
 
 import time
 import datetime
@@ -173,7 +172,7 @@ class StationDriver(object):
         """Move file(s) off LCU to DRU."""
         if not os.path.exists(dest):
             os.makedirs(dest)
-        move_cmdline = ["scp"]
+        move_cmdline = ["scp", "-3"]
         if recursive:
             move_cmdline.append("-r")
         src_arg = self._lcu_interface.lcuURL + ":" + source
