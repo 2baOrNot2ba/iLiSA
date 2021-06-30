@@ -70,7 +70,7 @@ class StationDriver(object):
             raise a_err
         bf_ports = self.get_laneports()
         self.bf_port0 = bf_ports[0]
-        self.dru_interface = DRUinterface(accessconf_dru, bf_ports)
+        self._dru_interface = DRUinterface(accessconf_dru, bf_ports)
         if self.mockrun:
             self._lcu_interface.DryRun = self.mockrun
 
@@ -523,12 +523,12 @@ class StationDriver(object):
         # Select only ports for lanes to be used
         laneports = tuple(self.get_laneports()[i] for i in self.lanes)
         datafiles, logfiles = \
-            self.dru_interface._rec_bf_proxy(laneports, duration_tot,
-                                             scanpath_bfdat,
-                                             starttime=starttime,
-                                             compress=False,
-                                             band=freqsetup.rcubands[0],
-                                             stnid=self.get_stnid())
+            self._dru_interface._rec_bf_proxy(laneports, duration_tot,
+                                              scanpath_bfdat,
+                                              starttime=starttime,
+                                              compress=False,
+                                              band=freqsetup.rcubands[0],
+                                              stnid=self.get_stnid())
         bfsdatapaths = []
         bfslogpaths = []
         for lane in self.lanes:
@@ -568,7 +568,7 @@ class StationDriver(object):
         scanrecpath = self.scanresult['bfs'].get_scanrecpath()
         # Create BFS destination folder on DPU:
         os.makedirs(scanrecpath)
-        if self.dru_interface.hostname == 'localhost':
+        if self._dru_interface.hostname == 'localhost':
             # Make soft links to actual BFS files and move logs to scanrec
             # folder
             for lane in self.lanes:
@@ -919,9 +919,9 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
         stnid = stndrv.get_stnid()
         ports = (stndrv.bf_port0, stndrv.bf_port0+1, stndrv.bf_port0+2,
                  stndrv.bf_port0+3)
-        _datafiles, _logfiles = stndrv.dru_interface._rec_bf_proxy(ports,
-            duration_tot, scanpath_bfdat, starttime=rectime, band=band,
-            stnid=stnid)
+        _datafiles, _logfiles = stndrv._dru_interface._rec_bf_proxy(ports,
+                                                                    duration_tot, scanpath_bfdat, starttime=rectime, band=band,
+                                                                    stnid=stnid)
     return duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths, bfslogpaths
 
 
