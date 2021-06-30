@@ -1,4 +1,5 @@
 import os
+import datetime
 import plumbum
 from ilisa.monitorcontrol._rem_exec import _exec_ssh
 from ilisa.monitorcontrol.modeparms import band2rcumode, timestr2datetime,\
@@ -113,7 +114,7 @@ class DRUinterface:
             datapathguess += '.zst'
         return outdumpdir, outarg, datapathguess, dumplogpath
 
-    def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime='NOW',
+    def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime,
                       compress=True, band='110_190', stnid=None,
                       mockrun=False):
         """\
@@ -123,8 +124,9 @@ class DRUinterface:
         """
         dumpercmd = pl_rec_wrapper
         which_recorder = 'ow'
+        starttime_str = starttime.strftime('%Y-%m-%dT%H:%M:%S')
         outdumpdirs, outargs, datafiles, logfiles = \
-            self.bfsfilepathslist(starttime, band, bf_data_dir, ports, stnid,
+            self.bfsfilepathslist(starttime_str, band, bf_data_dir, ports, stnid,
                                   compress)
         for outdumpdir in outdumpdirs:
             self.dru('mkdir -p '+outdumpdir)
@@ -134,7 +136,7 @@ class DRUinterface:
                        '--duration', str(duration),
                        '--bfdatadir', '"'+bf_data_dir+'"', '--rcumode', rcumode,
                        '--stnid', stnid]
-        cmdlineargs.extend(['--starttime', starttime])
+        cmdlineargs.extend(['--starttime', starttime_str])
         if compress:
             cmdlineargs.append('--compress')
         if mockrun:
@@ -150,11 +152,11 @@ if __name__ == "__main__":
     projid = sys.argv.pop()
     accessconf = get_proj_stn_access_conf(projid, stnid)
     dru_interface = DRUinterface(accessconf['DRU'])
-    ports = [0,1,2,3]
+    ports = [4346, 4347, 4348, 4349]
     duration_tot = 1.0
     scanpath_bfdat = accessconf['DRU']['BeamFormDataDir']
-    rectime = 'ASAP'
+    starttime = datetime.datetime.utcnow()
     band = '110_190'
     _datafiles, _logfiles = dru_interface._rec_bf_proxy(ports,
-            duration_tot, scanpath_bfdat, starttime=rectime, band=band,
-            stnid=stnid, mockrun=True)
+            duration_tot, scanpath_bfdat, starttime, band=band,
+            stnid=stnid, mockrun=False)
