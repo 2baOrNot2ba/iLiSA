@@ -414,6 +414,20 @@ class FreqSetup(object):
         """
         Return an rcumode combo that supports  given freqlo-freqhi interval
         """
+        # Will assumes 100 MHz Nyquist freq here:
+        sb_lo, nq_lo = freq2sb(freqlo)
+        sb_hi, nq_hi = freq2sb(freqhi)
+        spw_lo = nqz2rcumode(nq_lo)
+        spw_hi = nqz2rcumode(nq_hi)
+        if spw_lo == spw_hi:
+            return [spw_lo]
+        else:
+            return self.passbandsupport_spws(freqlo, freqhi)
+
+    def passbandsupport_spws(self, freqlo, freqhi):
+        """
+        Return spw combo that passband-support given freqlo-freqhi interval
+        """
         for combo in self.combos:
             if self.rcumode_passbands[combo[0]][0] <= freqlo \
                and freqhi <= self.rcumode_passbands[combo[-1]][1]:
@@ -639,7 +653,7 @@ def freq2sb(freq):
     """
     abs_sb = int(round(freq / NQFREQ_NOM * TotNrOfsb))
     sb = abs_sb % TotNrOfsb
-    nqzone = abs_sb / TotNrOfsb
+    nqzone = abs_sb // TotNrOfsb
     return sb, nqzone
 
 
@@ -663,7 +677,7 @@ def sb2freq(sb, nqzone):
     return freq
 
 
-def nqz2rcumode(nqzone, nqfreq=100e6, filt_on=False):
+def nqz2rcumode(nqzone, nqfreq=NQFREQ_NOM, filt_on=False):
     """\
     Convert Nyquist zone number and Nyquist frequency to RCU mode.
 
@@ -686,7 +700,7 @@ def nqz2rcumode(nqzone, nqfreq=100e6, filt_on=False):
     ValueError
         If nqzone is out of range for nqfreq.
     """
-    if nqfreq == 100e6:
+    if nqfreq == NQFREQ_NOM:
         if nqzone == 0:
             if not filt_on:
                 rcumode = 3
