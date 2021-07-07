@@ -281,6 +281,7 @@ class ScanSession(object):
                               ldatinfo_bfs, bfsdatapaths, bfslogpaths)
                 scanresult = self.stndrv.scanresult
             scan['id'] = scanresult.pop('scan_id', None)
+            scanresult['source'] = scan['beam']['source']
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)
             self._writescanrecs(scanresult)
             print("Saved scan here: {}".format(scanpath_scdat))
