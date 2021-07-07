@@ -431,7 +431,7 @@ def main():
             priority_fld = 'M'
         else:
             priority_fld = '0'
-        _dattim_str = None
+        _datim_str = None
         if args.time:
             _datim_str = args.time.strftime(modeparms.DATETIMESTRFMT)
         lgf.write("{} {} {} {} {}\n".format(_datim_str, priority_fld,
