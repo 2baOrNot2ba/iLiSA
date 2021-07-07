@@ -430,8 +430,10 @@ def main():
             priority_fld = 'M'
         else:
             priority_fld = '0'
-        lgf.write("{} {} {} {} {}\n".format(args.time, priority_fld, args.project,
-                                            args.station, args.cmd))
+        _datim_str = args.time.strftime(modeparms.DATETIMESTRFMT)
+        lgf.write("{} {} {} {} {}\n".format(_datim_str, priority_fld,
+                                            args.project, args.station,
+                                            args.cmd))
 
 
 if __name__ == "__main__":
