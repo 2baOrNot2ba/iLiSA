@@ -320,6 +320,7 @@ class ScanRecInfo(object):
     def __init__(self):
         self.headerversion = 2
         self.obsinfos = {}
+        self.sourcename = ''
 
     def add_obs(self, obsinfo):
         """Add an LDatInfo object to this ScanRecInfo."""
@@ -347,6 +348,9 @@ class ScanRecInfo(object):
                     raise RuntimeError('Station id not found.')
         return stnid
 
+    def set_sourcename(self, sourcename):
+        self.sourcename = sourcename
+
     def set_scanrecparms(self, datatype, freqband, duration_tot,
                          pointing="None,None,None", integration=None):
         """Record parameters used as arguments to record_scan program."""
@@ -365,6 +369,7 @@ class ScanRecInfo(object):
             f.write("headerversion: {}\n".format(self.headerversion))
             f.write("stnid: {}\n".format(self.stnid))
             f.write("scanrec: {!r}\n".format(self.scanrecparms))
+            f.write("source: {}\n".format(self.sourcename))
             f.write("obs_ids: {!r}\n".format(list(self.obsinfos.keys())))
 
     def read_scanrec(self, datapath):
@@ -377,6 +382,7 @@ class ScanRecInfo(object):
         self.headerversion = scanrecfiledict['headerversion']
         self.stnid = scanrecfiledict['stnid']
         self.scanrecparms = scanrecfiledict['scanrec']
+        self.sourcename = scanrecfiledict.get('source')
         self.obs_ids = scanrecfiledict['obs_ids']
         try:
             scanrecfiledict['calibrationfile']
