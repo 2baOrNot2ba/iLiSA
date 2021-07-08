@@ -86,7 +86,7 @@ class ScanSession(object):
             if scanrecpath:
                 scanrecs[ldat].write(scanrecpath)
 
-    def process_scansess(self, sesscans_in, session_id=None):
+    def process_scansess(self, sesscans_in, stnid, session_id=None):
         """Method for parsing a station session schedule."""
 
         # Set the session_id to something
@@ -109,7 +109,6 @@ class ScanSession(object):
             note = None
 
         # Initialize processed station session schedule
-        stnid = self.stndrv.get_stnid()
         sesscans = {'session_id': session_id,
                          'projectid': projectid,
                          'station': stnid,
@@ -224,7 +223,8 @@ class ScanSession(object):
     def run_scansess(self, sesscans_in, session_id=None):
         """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding monitorcontrol."""
-        sesscans = self.process_scansess(sesscans_in, session_id)
+        _stnid = self.stndrv.get_stnid()
+        sesscans = self.process_scansess(sesscans_in, _stnid, session_id)
         self.projectmeta, _ = projid2meta(sesscans['projectid'])
         self.set_stn_session_id(sesscans['session_id'])
         # Set where ldata should be put after recording on LCU
@@ -417,6 +417,15 @@ def exec_cmdline(args):
 
 import sys
 
+
+def check_scansess():
+    filename = sys.argv[1]
+    with open(filename, 'r') as file:
+        scansess_in = yaml.safe_load(file)
+    sesscans = ScanSession().process_scansess(scansess_in)
+    print(sesscans)
+
+
 def main():
     """CLI to send hi-level commands to a LOFAR station.
     """
@@ -440,4 +449,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    check_scansess()
