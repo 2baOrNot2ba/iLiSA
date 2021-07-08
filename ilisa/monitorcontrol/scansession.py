@@ -27,6 +27,137 @@ def projid2meta(projectid):
         accessfiles = None
     return projectmeta, accessfiles
 
+def process_scansess(sesscans_in, stnid, session_id=None):
+    """Function for parsing a station session schedule."""
+
+    # Set the session_id to something
+    if not session_id:
+        session_id = sesscans_in.get('session_id')
+    try:
+        mockrun = sesscans_in['mockrun']
+    except KeyError:
+        mockrun = False
+    try:
+        projectid = sesscans_in['projectid']
+    except KeyError:
+        projectid = '0'
+    try:
+        note = sesscans_in['note']
+    except KeyError:
+        note = None
+
+    # Initialize processed station session schedule
+    sesscans = {'session_id': session_id,
+                     'projectid': projectid,
+                     'station': stnid,
+                     'note': note,
+                     'scans': []}
+    if mockrun:
+        sesscans['mockrun'] = True
+
+    if sesscans_in['cli_start']:
+        # Command Line Interface requested starttime takes priority
+        starttime0 = sesscans_in['cli_start']
+    else:
+        starttime0 = sesscans_in.get('start', 'ASAP')
+    if starttime0 == 'ASAP':
+        starttime0 = datetime.datetime.utcnow()
+
+    # Initialize "previous" values for scan loop
+    starttimeprev = starttime0
+    duration_totprev = 0
+    for scan in sesscans_in['scans']:
+        # Prepare observation arguments:
+
+        # - Starttime computed based on previous starttime
+        # - - and after time:
+        try:
+            after = scan['after']
+        except:
+            after = None
+        if after:
+            after_delta = modeparms.hmsstr2deltatime(after)
+            starttime = starttimeprev + after_delta
+        else:
+            dur_delta = datetime.timedelta(seconds=duration_totprev)
+            starttime = starttimeprev + dur_delta
+
+        # - Duration total
+        duration_in = scan.get('duration')
+        duration_tot = modeparms.hmsstr2deltatime(str(duration_in)
+                                                  ).total_seconds()
+        # duration_tot = eval(str(scan['duration']))
+        # Next scan use current time as previous time and current time
+        starttimeprev = starttime
+        duration_totprev = duration_tot
+
+        # - Beam
+        beam = scan.get('beam', {})
+        # -- Freq
+        freqspec = beam.get('freqspec')
+        # -- Pointing
+        pointing_in = beam.get('pointing')
+        # -- direction: alternative to pointing but can't be name
+        direction = beam.get('direction')
+
+        # -- Source name
+        source = beam.get('source')
+        # -- Allsky
+        allsky = beam.get('allsky', False)
+        # Postprocess beam to get pointing
+        if pointing_in:
+            pointing = directions.normalizebeamctldir(pointing_in)
+        elif direction:
+            pointing = directions.normalizebeamctldir(direction)
+        elif source:
+            pointing = directions.std_pointings(source)
+        # - Record
+        #     defaults
+        rec = scan.get('rec', [])
+        _rec =  rec
+        acc = False
+        if 'acc' in _rec:
+            acc = True
+            _rec.remove('acc')
+        bfs = False
+        if 'bfs' in rec:
+            bfs = True
+            _rec.remove('bfs')
+        bsx_stat = None
+        if len(_rec) > 0:
+            bsx_stat = _rec.pop()  # Should only be bsx left
+        del _rec
+        # - Integration for rec bsx
+        integration = scan.get('integration', 1.0)
+        if integration > duration_tot:
+            raise ValueError("integration {} is longer than duration_scan {}."
+                             .format(integration, duration_tot))
+
+        # If dedicated observation program chosen, set it up
+        # otherwise run main obs program
+        try:
+            obsprog = scan['obsprog']
+        except KeyError:
+            obsprog = None
+
+        # Collect observation parameters specified
+        obsargs_in = {'beam':
+                          {'freqspec': freqspec,
+                           'pointing': pointing,
+                           'source' : source,
+                           'allsky': allsky},
+                      'rec': rec,
+                      'acc': acc,
+                      'bfs': bfs,
+                      'bsx_stat': bsx_stat,
+                      'integration': integration,
+                      'duration': duration_tot,
+                      'starttime': starttime,
+                      }
+        obsargs_in.update({'obsprog': obsprog})
+        sesscans['scans'].append(obsargs_in)
+    return sesscans
+
 
 class ScanSession(object):
     """Class that runs a session on a station."""
@@ -86,145 +217,11 @@ class ScanSession(object):
             if scanrecpath:
                 scanrecs[ldat].write(scanrecpath)
 
-    def process_scansess(self, sesscans_in, stnid, session_id=None):
-        """Method for parsing a station session schedule."""
-
-        # Set the session_id to something
-        if not session_id:
-            try:
-                session_id = sesscans_in['session_id']
-            except KeyError:
-                session_id = self.session_id
-        try:
-            mockrun = sesscans_in['mockrun']
-        except KeyError:
-            mockrun = False
-        try:
-            projectid = sesscans_in['projectid']
-        except KeyError:
-            projectid = '0'
-        try:
-            note = sesscans_in['note']
-        except KeyError:
-            note = None
-
-        # Initialize processed station session schedule
-        sesscans = {'session_id': session_id,
-                         'projectid': projectid,
-                         'station': stnid,
-                         'note': note,
-                         'scans': []}
-        if mockrun:
-            sesscans['mockrun'] = True
-
-        if sesscans_in['cli_start']:
-            # Command Line Interface requested starttime takes priority
-            starttime0 = sesscans_in['cli_start']
-        else:
-            starttime0 = sesscans_in.get('start', 'ASAP')
-        if starttime0 == 'ASAP':
-            starttime0 = datetime.datetime.utcnow()
-
-        # Initialize "previous" values for scan loop
-        starttimeprev = starttime0
-        duration_totprev = 0
-        for scan in sesscans_in['scans']:
-            # Prepare observation arguments:
-
-            # - Starttime computed based on previous starttime
-            # - - and after time:
-            try:
-                after = scan['after']
-            except:
-                after = None
-            if after:
-                after_delta = modeparms.hmsstr2deltatime(after)
-                starttime = starttimeprev + after_delta
-            else:
-                dur_delta = datetime.timedelta(seconds=duration_totprev)
-                starttime = starttimeprev + dur_delta
-
-            # - Duration total
-            duration_in = scan.get('duration')
-            duration_tot = modeparms.hmsstr2deltatime(str(duration_in)
-                                                      ).total_seconds()
-            # duration_tot = eval(str(scan['duration']))
-            # Next scan use current time as previous time and current time
-            starttimeprev = starttime
-            duration_totprev = duration_tot
-
-            # - Beam
-            beam = scan.get('beam', {})
-            # -- Freq
-            freqspec = beam.get('freqspec')
-            # -- Pointing
-            pointing_in = beam.get('pointing')
-            # -- direction: alternative to pointing but can't be name
-            direction = beam.get('direction')
-
-            # -- Source name
-            source = beam.get('source')
-            # -- Allsky
-            allsky = beam.get('allsky', False)
-            # Postprocess beam to get pointing
-            if pointing_in:
-                pointing = directions.normalizebeamctldir(pointing_in)
-            elif direction:
-                pointing = directions.normalizebeamctldir(direction)
-            elif source:
-                pointing = directions.std_pointings(source)
-            # - Record
-            #     defaults
-            rec = scan.get('rec', [])
-            _rec =  rec
-            acc = False
-            if 'acc' in _rec:
-                acc = True
-                _rec.remove('acc')
-            bfs = False
-            if 'bfs' in rec:
-                bfs = True
-                _rec.remove('bfs')
-            bsx_stat = None
-            if len(_rec) > 0:
-                bsx_stat = _rec.pop()  # Should only be bsx left
-            del _rec
-            # - Integration for rec bsx
-            integration = scan.get('integration', 1.0)
-            if integration > duration_tot:
-                raise ValueError("integration {} is longer than duration_scan {}."
-                                 .format(integration, duration_tot))
-
-            # If dedicated observation program chosen, set it up
-            # otherwise run main obs program
-            try:
-                obsprog = scan['obsprog']
-            except KeyError:
-                obsprog = None
-
-            # Collect observation parameters specified
-            obsargs_in = {'beam':
-                              {'freqspec': freqspec,
-                               'pointing': pointing,
-                               'source' : source,
-                               'allsky': allsky},
-                          'rec': rec,
-                          'acc': acc,
-                          'bfs': bfs,
-                          'bsx_stat': bsx_stat,
-                          'integration': integration,
-                          'duration': duration_tot,
-                          'starttime': starttime,
-                          }
-            obsargs_in.update({'obsprog': obsprog})
-            sesscans['scans'].append(obsargs_in)
-        return sesscans
-
     def run_scansess(self, sesscans_in, session_id=None):
         """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding monitorcontrol."""
-        _stnid = self.stndrv.get_stnid()
-        sesscans = self.process_scansess(sesscans_in, _stnid, session_id)
+        sesscans = process_scansess(sesscans_in, self.stndrv.get_stnid(),
+                                    session_id)
         self.projectmeta, _ = projid2meta(sesscans['projectid'])
         self.set_stn_session_id(sesscans['session_id'])
         # Set where ldata should be put after recording on LCU
@@ -345,6 +342,11 @@ def obs(stndrv, args):
     scansess_in['projectid'] = args.project
 
     scnsess = ScanSession(stndrv)
+    if args.check:
+        sesscans = process_scansess(scansess_in, stndrv.get_stnid(),
+                                    scnsess.session_id)
+        print(yaml.dump(sesscans, default_flow_style=False))
+        sys.exit()
     scnsess.run_scansess(scansess_in)
     args.cmd = 'obs:' + args.file
 
@@ -358,9 +360,12 @@ def parse_cmdline(argv):
     cmdln_prsr.add_argument('-t', '--time', type=str, default=None,
                             help="Start Time (format: YYYY-mm-ddTHH:MM:SS)"
                             )
-    cmdln_prsr.add_argument('-p', '--project', type=str, default='0', help="Project ID")
-    cmdln_prsr.add_argument('-s', '--station', type=str, default=None, help="Station ID")
-    cmdln_prsr.add_argument('-m', '--mockrun', action='store_true', help="Mockrun")
+    cmdln_prsr.add_argument('-p', '--project', type=str, default='0',
+                            help="Project ID")
+    cmdln_prsr.add_argument('-s', '--station', type=str, default=None,
+                            help="Station ID")
+    cmdln_prsr.add_argument('-m', '--mockrun', action='store_true',
+                            help="Mockrun")
     cmdln_sbprsr = cmdln_prsr.add_subparsers(title='LOFAR stand alone commands',
                                              description='Select a command.',
                                              help='LOFAR commands:')
@@ -371,6 +376,8 @@ def parse_cmdline(argv):
 
     parser_obs = cmdln_sbprsr.add_parser('obs', help="Observe a scansession.")
     parser_obs.set_defaults(func=obs)
+    parser_obs.add_argument('-c', '--check', action='store_true',
+                            help="Check scansession sanity.")
     parser_obs.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(argv)
     if args.time:
@@ -418,14 +425,6 @@ def exec_cmdline(args):
 import sys
 
 
-def check_scansess():
-    filename = sys.argv[1]
-    with open(filename, 'r') as file:
-        scansess_in = yaml.safe_load(file)
-    sesscans = ScanSession().process_scansess(scansess_in)
-    print(sesscans)
-
-
 def main():
     """CLI to send hi-level commands to a LOFAR station.
     """
@@ -449,4 +448,4 @@ def main():
 
 
 if __name__ == "__main__":
-    check_scansess()
+    main()
