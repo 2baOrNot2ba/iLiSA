@@ -174,12 +174,12 @@ class ScanSession(object):
     def get_stn_session_id(self):
         return self.stn_sess_id
 
-    def make_session_id(self):
+    def make_session_id(self, ref_dattim=datetime.datetime.utcnow()):
         """Make a session ID based on time of creation.
         session_id has format 'sid<CT>' where <CT> is the datetime
-         in the format '%Y%m%dT%H%M%S' of the time of creation.
+        in the format '%Y%m%dT%H%M%S' of the time of creation.
         """
-        session_id = "sid{}".format(datetime.datetime.utcnow().strftime('%Y%m%dT%H%M%S'))
+        session_id = "sid{}".format(ref_dattim.strftime('%Y%m%dT%H%M%S'))
         return session_id
 
     def get_datastorepath(self):
@@ -220,20 +220,25 @@ class ScanSession(object):
     def run_scansess(self, sesscans_in, session_id=None):
         """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding monitorcontrol."""
+        if session_id:
+            self.session_id = session_id
         sesscans = process_scansess(sesscans_in, self.stndrv.get_stnid(),
-                                    session_id)
+                                    self.session_id)
+        # Starttime handling
+        startscantime = sesscans['scans'][0]['starttime']
+        if (startscantime == 'ASAP' or startscantime == 'NOW'
+                or not startscantime):
+            startscantime = datetime.datetime.utcnow()
+        if not session_id:
+            self.session_id = self.make_session_id(startscantime)
         self.projectmeta, _ = projid2meta(sesscans['projectid'])
-        self.set_stn_session_id(sesscans['session_id'])
+        self.set_stn_session_id(self.session_id)
         # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self.get_bfdsesdumpdir()
         self.stndrv.scanpath = sesspath
         self.stndrv.bf_data_dir = bfdsesdumpdir
         # Boot Time handling
-        nw = datetime.datetime.utcnow()
-        startscantime = sesscans['scans'][0]['starttime']
-        if startscantime == 'ASAP':
-            startscantime = nw
         beaminittime = 13
         bootupstart = startscantime - datetime.timedelta(seconds=beaminittime)
 
