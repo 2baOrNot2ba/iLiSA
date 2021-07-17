@@ -70,7 +70,7 @@ def sched2at(schedfile):
         cmdline = 'ilisa_cmd -t {} -p {} -s {} {} {} {}'.format(schedline['start'],
                     proj, station, mockflag, cmd, arg)
         # Send ilisa_cmd to pipe
-        cmdline_wlog = '{} > err.log\n'.format(cmdline)
+        cmdline_wlog = '{} >> err_{}.log\n'.format(cmdline, station)
         p.communicate(input=cmdline_wlog.encode())
 
 
