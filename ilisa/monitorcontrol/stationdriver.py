@@ -26,7 +26,7 @@ class StationDriver(object):
     """StationDriver is a client type class that allows one to observe with LCU
     and record data and metadata from these monitorcontrol on a DRU."""
 
-    def checkobservingallowed(self):
+    def is_observingallowed(self):
         """
         Check whether monitorcontrol are allowed.
 
@@ -98,11 +98,11 @@ class StationDriver(object):
         # Initialize beamstart time
         self.beamstart = None
 
-    def is_in_observingstate(self):
+    def is_inobservingstate(self):
         """Check if station is in main observing state for user.
         Returns True if it is, else False.
         """
-        if not self.checkobservingallowed():
+        if not self.is_observingallowed():
             return False
         swlevel = self._lcu_interface.get_swlevel()
         if swlevel == 3:
@@ -125,7 +125,7 @@ class StationDriver(object):
         warmup: bool, optional
                 Do a beam warmup after reaching swlevel 3.
         """
-        if not self.checkobservingallowed():
+        if not self.is_observingallowed():
             raise RuntimeError('Observations not allowed')
         self._lcu_interface.cleanup()  # Could be leftovers from previous runs
         swlevel_changed = self._lcu_interface.set_swlevel(3)
@@ -143,7 +143,7 @@ class StationDriver(object):
 
     def halt_observingstate(self):
         """Halt observing state on station."""
-        if self.checkobservingallowed():
+        if self.is_observingallowed():
             self._lcu_interface.set_swlevel(0)
             # Cleanup any data left on LCU.
             self._lcu_interface.cleanup()
@@ -161,7 +161,7 @@ class StationDriver(object):
             if self.halt_observingstate_when_finished:
                 self.halt_observingstate()
             elif self.exit_check:
-                if self.checkobservingallowed():
+                if self.is_observingallowed():
                     swlevel = self._lcu_interface.get_swlevel()
                     if swlevel != 0:
                         print("Warning: You are leaving station in swlevel {} != 0"

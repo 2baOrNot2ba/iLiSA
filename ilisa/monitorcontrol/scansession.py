@@ -313,11 +313,11 @@ def handback(stndrv):
 
 def checkobs(stndrv):
     """Check if user can observe on LCU."""
-    is_inobsstate = stndrv.is_in_observingstate()
+    is_inobsstate = stndrv.is_inobservingstate()
     print("User can observe on station {} now: {}".format(stndrv.get_stnid(),
           is_inobsstate))
     if not is_inobsstate:
-        obs_allowed = stndrv.checkobservingallowed()
+        obs_allowed = stndrv.is_observingallowed()
         if obs_allowed:
             reason = "swlevel not 3"
         else:
