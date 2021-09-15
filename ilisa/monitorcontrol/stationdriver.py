@@ -94,6 +94,8 @@ class StationDriver(object):
         # Initialize septonconf setting; implies tile-off (tof) mode
         self.septonconf = None
         # Initialize scanresult
+        ## Structure: {'rec': [], 'acc'|'bfs'|'bsx': ScanRecInfo,
+        ##             'scan_id': str, 'scanpath_scdat': str}
         self.scanresult = {'rec': []}
         # Initialize beamstart time
         self.beamstart = None
@@ -415,13 +417,13 @@ class StationDriver(object):
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
-    def start_bsx_scan(self, bsxtype, freqsetup, duration, integration=1.0):
+    def start_bsx_scan(self, bsxtype, freqsetup, duration_tot, integration=1.0,
+                       duration_file=None):
         """\
         Start BSX scanrec
         """
         rcusetup_cmds = self.rcusetup_cmds
         beamctl_cmds = self.beamctl_cmds
-        duration_tot = duration
 
         ldatinfos = []
         # Record statistic for duration_tot seconds
@@ -436,22 +438,21 @@ class StationDriver(object):
                                  septonconf=self.septonconf))
         elif bsxtype == 'xst':
             nrsubbands = freqsetup.nrsubbands()
-            duration_frq = None  # FIXME set to desired value
-            if duration_frq is None:
+            if duration_file is None:
                 if nrsubbands > 1:
-                    duration_frq = integration
+                    duration_file = integration
                 else:
-                    duration_frq = duration_tot
+                    duration_file = duration_tot
             # TODO Consider that specified duration is not the same as
             # actual duration. Each step in frequency sweep take about 6s
             # for 1s int.
-            (rep, _rst) = divmod(duration_tot, duration_frq * nrsubbands)
+            (rep, _rst) = divmod(duration_tot, duration_file * nrsubbands)
             rep = int(rep)
             if rep == 0:
                 warnings.warn(
                     "Total duration too short for 1 full repetition."
                     "Will increase total duration to get 1 full rep.")
-                duration_tot = duration_frq * nrsubbands
+                duration_tot = duration_file * nrsubbands
                 rep = 1
             # Repeat rep times (freq sweep)
             for _itr in range(rep):
@@ -466,7 +467,7 @@ class StationDriver(object):
                         # Record data
                         rspctl_cmds = \
                             self._lcu_interface.run_rspctl_statistics(
-                                bsxtype, integration, duration_frq, subband)
+                                bsxtype, integration, duration_file, subband)
                         ldatinfos.append(
                             data_io.LDatInfo('xst',
                                              self.get_stnid(),
@@ -477,13 +478,13 @@ class StationDriver(object):
         self.scanresult['rec'].append('bsx')
         self.scanresult['bsx'] = data_io.ScanRecInfo()
         self.scanresult['bsx'].set_stnid(self.get_stnid())
-        self.scanresult['bsx'].set_scanrecparms(ldatinfos[0].ldat_type,
+        self.scanresult['bsx'].set_scanrecparms(bsxtype,
                                                 freqsetup.arg,
-                                                ldatinfos[0].duration_scan,
+                                                duration_tot,
                                                 ldatinfos[0].pointing,
-                                                ldatinfos[0].integration)
+                                                integration)
         return ldatinfos
-    
+
     def stop_bsx_scan(self, ldatinfos):
         """\
         Stop BSX scanrec
@@ -542,7 +543,7 @@ class StationDriver(object):
             bfsdatapaths.append(datafileguess)
             bfslogpaths.append(dumplogname)
         # Duration of BFS not determinable via LCU commands so add this by hand
-        ldatinfo_bfs.duration_scan = duration_tot
+        ldatinfo_bfs.duration_subscan = duration_tot
         # Set scanrecinfo
         self.scanresult['rec'].append('bfs')
         self.scanresult['bfs'] = data_io.ScanRecInfo()
@@ -672,7 +673,7 @@ class StationDriver(object):
         self._lcu_interface.run_tbbctl(select='160:175', readall=nrpages,
                                        backgroundJOB='locally')
 
-        self._lcu_interface.run_tbbctl(select='32:47', readall=nrpages, 
+        self._lcu_interface.run_tbbctl(select='32:47', readall=nrpages,
                                        backgroundJOB='locally')
         self._lcu_interface.run_tbbctl(select='80:95', readall=nrpages,
                                        backgroundJOB='locally')
@@ -981,7 +982,7 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
     parser.add_argument('pointing', nargs='?', default=None,
                         help='Direction in az,el,ref (radians) or source name.')
     args = parser.parse_args()
-    
+
     accessconf = ilisa.monitorcontrol.default_access_lclstn_conf()
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=args.mockrun)

@@ -150,10 +150,31 @@ def seqlists2slicestr(seqlists):
 
 
 def obsfileinfo2filefolder(obsfileinfo):
-    """Convert obsfileinfo dict to filefolder name"""
+    """\
+    Convert obsfileinfo dict to filefolder name
+
+    obsfileinfo:
+        duration_tot:
+        filenametime:
+        integration:
+        rcumode:
+        ldat_type or datatype:
+        mode:
+        pointing:
+        sb:
+        station_id:
+
+    Name format is
+        <station_id>_<filenametime>_spw<rcumodes>_sb<sb>_int<integration>\
+        _dur<duration_tot>[_dir<pointing>]_<ldat_type>
+    """
+    if obsfileinfo.get('datatype', None):
+        ldat_type = obsfileinfo['datatype']
+    else:
+        ldat_type = obsfileinfo.get('ldat_type')
     filefoldername = '{}_{}'.format(obsfileinfo['station_id'],
                                     obsfileinfo['filenametime'])
-    if obsfileinfo['ldat_type'] == "bst-357":
+    if ldat_type == "bst-357":
         filefoldername += "_rcu357"
     else:
         if obsfileinfo['rcumode'] != []:
@@ -167,16 +188,16 @@ def obsfileinfo2filefolder(obsfileinfo):
         filefoldername += seqlists2slicestr(obsfileinfo['sb'])
     if 'integration' in obsfileinfo:
         filefoldername += "_int" + str(int(obsfileinfo['integration']))
-    if 'duration_scan' in obsfileinfo:
-        filefoldername += "_dur" + str(int(obsfileinfo['duration_scan']))
-    if obsfileinfo['ldat_type'] != 'sst':
+    if 'duration_tot' in obsfileinfo:
+        filefoldername += "_dur" + str(int(obsfileinfo['duration_tot']))
+    if ldat_type != 'sst':
         if str(obsfileinfo['pointing']) != "":
             filefoldername += "_dir" + str(obsfileinfo['pointing'])
         else:
             filefoldername += "_dir,,"
     # filefoldername += "_" + obsfileinfo['source']
     # ldat_type extension
-    filefoldername += "_" + obsfileinfo['ldat_type']
+    filefoldername += "_" + ldat_type
     return filefoldername
 
 
@@ -423,10 +444,26 @@ class ScanRecInfo(object):
         self.scanpath = scanpath
 
     def get_scanrecpath(self):
-        """Return path to this scanrec."""
+        """\
+        Return path to this scanrec.
+
+        Create name and destination path for folders (on the DPU) in
+        which to save the various LOFAR data products.
+        """
+
         start_key = min(self.obsinfos)
-        scanrecname = self.obsinfos[start_key].obsfoldername(
-            source_name=self.scanrecparms['pointing'])
+        ofi = self.scanrecparms
+        ofi.update({'station_id': self.get_stnid()})
+        ofi.update({'filenametime': start_key})
+        ofi.update({'rcumode': self.obsinfos[start_key].rcumode})
+        sb = modeparms.FreqSetup(self.scanrecparms['freqband']).subbands_spw
+        ofi.update({'sb': sb})
+        folder_name_beamctl_type = True
+        if not folder_name_beamctl_type:
+            scanrecname = ofi['filenametime']
+            scanrecname += "_" + ofi['datatype']
+        else:
+            scanrecname = obsfileinfo2filefolder(ofi)
         scanrecpath = os.path.join(self.scanpath, scanrecname)
         return scanrecpath
 
@@ -574,10 +611,10 @@ class LDatInfo(object):
         if self.ldat_type != 'bfs':
             if self.ldat_type != 'acc':
                 self.integration = float(rspctl_args['integration'])
-                self.duration_scan = float(rspctl_args['duration'])
+                self.duration_subscan = float(rspctl_args['duration'])
             else:
                 self.integration = 1.0
-                self.duration_scan = 512
+                self.duration_subscan = 512
         # attrs: sb
         if self.ldat_type == 'sst' or self.ldat_type == 'acc':
             self.sb = ""
@@ -592,18 +629,6 @@ class LDatInfo(object):
             # Only need caltab info if it's BST
             caltabinfos = []
         self.caltabinfos = caltabinfos
-
-    def obsfoldername(self, folder_name_beamctl_type=True, source_name=None):
-        """Create name and destination path for folders (on the DPU) in
-        which to save the various LOFAR data products.
-        """
-        if not folder_name_beamctl_type:
-            obsextname = self.filenametime
-            obsextname += "_" + self.ldat_type
-        else:
-            self.source_name = source_name
-            obsextname = obsfileinfo2filefolder(vars(self))
-        return obsextname
 
     def isLOFARdatatype(self, obsdatatype):
         """Test if a string 'obsdatatype' is one of iLiSA's recognized LOFAR
@@ -1556,7 +1581,7 @@ def plotxst(xstff):
     for sbstepidx in range(xstobj.getnrfiles()):
         obsinfo = xstobj.scanrecinfo.obsinfos[obs_ids[sbstepidx]]
         intg = obsinfo.integration
-        dur = obsinfo.duration_scan
+        dur = obsinfo.duration_subscan
 
         freq = obsinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
