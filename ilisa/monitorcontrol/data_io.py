@@ -186,7 +186,7 @@ def obsfileinfo2filefolder(obsfileinfo):
     if obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
         filefoldername += "_sb"
         filefoldername += seqlists2slicestr(obsfileinfo['sb'])
-    if 'integration' in obsfileinfo:
+    if 'integration' in obsfileinfo and obsfileinfo['integration']:
         filefoldername += "_int" + str(int(obsfileinfo['integration']))
     if 'duration_tot' in obsfileinfo:
         filefoldername += "_dur" + str(int(obsfileinfo['duration_tot']))
