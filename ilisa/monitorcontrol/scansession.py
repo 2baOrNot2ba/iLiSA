@@ -105,6 +105,7 @@ def process_scansess(sesscans_in, stnid, session_id=None):
         # -- Allsky
         allsky = beam.get('allsky', False)
         # Postprocess beam to get pointing
+        pointing = None
         if pointing_in:
             pointing = directions.normalizebeamctldir(pointing_in)
         elif direction:
