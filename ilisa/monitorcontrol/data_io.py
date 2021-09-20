@@ -581,7 +581,7 @@ class LDatInfo(object):
         self.rcumode = []
         self.sb = []
         self.bl = []
-        self.pointing = ""
+        self.pointing = None
         self.beamctl_cmds = beamctl_cmds
         if self.beamctl_cmds != []:
             digdir = None
@@ -606,6 +606,7 @@ class LDatInfo(object):
         self.septonconf = septonconf
         if self.septonconf is not None:
             self.rcumode = [5]
+            self.antset = 'HBA'
         
         # attrs: integration, duration_scan
         if self.ldat_type != 'bfs':
