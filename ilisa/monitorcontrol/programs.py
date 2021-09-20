@@ -122,9 +122,8 @@ class ObsPrograms(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
         bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
-        obsinfo = dataIO.LDatInfo('bfs', self.stationdriver.get_stnid(),
-                                  rcu_setup_cmds, beamctl_cmds,
-                                  rspctl_cmds)
+        obsinfo = dataIO.LDatInfo('bfs', rcu_setup_cmds, beamctl_cmds, rspctl_cmds,
+                                  self.stationdriver.get_stnid())
         obsinfo.filenametime = bfsnametime
 
         REC = True

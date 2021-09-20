@@ -551,9 +551,8 @@ class LDatInfo(object):
 
     """
 
-    def __init__(self, ldat_type, station_id, rcusetup_cmds, beamctl_cmds,
-                 rspctl_cmds, caltabinfos=[], septonconf=None,
-                 **kwargs):
+    def __init__(self, ldat_type, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
+                 station_id=None, caltabinfos=[], septonconf=None, **kwargs):
         """Create observation info from parameters."""
         self.headerversion = '4'
 

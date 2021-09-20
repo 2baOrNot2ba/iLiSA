@@ -285,10 +285,9 @@ class StationDriver(object):
         for acc_file in acc_files:
             obsid, _ = acc_file.split('_acc_')
             rspctl_cmds = []  # ACC doesn't have any rspctl cmds
-            ldatinfo_acc = data_io.LDatInfo('acc', self.get_stnid(),
-                                            self.last_rcusetup_cmds,
-                                            self.last_beamctl_cmds,
-                                            rspctl_cmds)
+            ldatinfo_acc = data_io.LDatInfo('acc', self.last_rcusetup_cmds,
+                                            self.last_beamctl_cmds, rspctl_cmds,
+                                            self.get_stnid())
             ldatinfo_acc.filenametime = obsid
             self.scanresult['acc'].add_obs(ldatinfo_acc)
 
@@ -432,9 +431,8 @@ class StationDriver(object):
             rspctl_cmds = self._lcu_interface.run_rspctl_statistics(
                 bsxtype, integration, duration_tot)
             ldatinfos.append(
-                data_io.LDatInfo(bsxtype, self.get_stnid(),
-                                 rcusetup_cmds, beamctl_cmds, rspctl_cmds,
-                                 caltabinfos=caltabinfos,
+                data_io.LDatInfo(bsxtype, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
+                                 self.get_stnid(), caltabinfos=caltabinfos,
                                  septonconf=self.septonconf))
         elif bsxtype == 'xst':
             nrsubbands = freqsetup.nrsubbands()
@@ -469,10 +467,8 @@ class StationDriver(object):
                             self._lcu_interface.run_rspctl_statistics(
                                 bsxtype, integration, duration_file, subband)
                         ldatinfos.append(
-                            data_io.LDatInfo('xst',
-                                             self.get_stnid(),
-                                             rcusetup_cmds, beamctl_cmds,
-                                             rspctl_cmds,
+                            data_io.LDatInfo('xst', rcusetup_cmds, beamctl_cmds,
+                                             rspctl_cmds, self.get_stnid(),
                                              septonconf=self.septonconf))
         # Set scanrecinfo
         self.scanresult['rec'].append('bsx')
@@ -509,9 +505,8 @@ class StationDriver(object):
         """Start recording BFS data"""
         caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
         rspctl_cmds = []  # BFS doesn't use rspctl cmds
-        ldatinfo_bfs = data_io.LDatInfo('bfs', self.get_stnid(),
-                                    self.rcusetup_cmds, self.beamctl_cmds,
-                                    rspctl_cmds, caltabinfos)
+        ldatinfo_bfs = data_io.LDatInfo('bfs', self.rcusetup_cmds, self.beamctl_cmds,
+                                        rspctl_cmds, self.get_stnid(), caltabinfos)
         scanpath_bfdat = os.path.join(self.bf_data_dir, self.scan_id)
         lanesalloc = modeparms.getlanes(freqsetup.subbands_spw,
                                         freqsetup.bits, freqsetup.nrlanes)
