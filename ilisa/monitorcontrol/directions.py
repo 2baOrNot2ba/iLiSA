@@ -126,8 +126,9 @@ def std_pointings(directionterm='?'):
         'Tau-A': '1.459672,0.384225,J2000',  # 3C-144
         'Vir-A': '3.276086,0.216265,J2000',  # 3C-274
         'Sun':  '0.,0.,SUN',
-        'Jupiter': '0.,0.,JUPITER',
         'Moon': '0.,0.,MOON',
+        'Jupiter': '0.,0.,JUPITER',
+        'Uranus': '0.,0.,URANUS',
         'NCP':  '0.,'+str(math.pi/2)+',ITRF'
     }
     if directionterm == '?':
