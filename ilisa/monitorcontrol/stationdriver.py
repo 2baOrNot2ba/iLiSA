@@ -335,10 +335,28 @@ class StationDriver(object):
                 caltabinfos.append(caltabinfo)
         return caltabinfos
 
-    def __load_user_rcu_disable_list(self, rcumode):
-        """Load list of rcus that the user wants to disable.
-        This is analogous to the rcu_disable_list() method of LCUinterface,
+    def _load_user_rcu_disable_list(self, rcumode):
+        """\
+        Load user specified list of rcus to disable
+
+        The disabled files are in the iLiSA config folder, under
+        <stnid>/DISABLED/disabled-mode[3|5|7].txt.
+        The text file is just a comma separated list of integers with no spaces.
+
+        This method is analogous to the rcu_disable_list() method of LCUinterface,
         but is defined by user on DRU.
+
+        Parameters
+        ----------
+        rcumode : int
+            The selected spw.
+
+        Returns
+        -------
+        disabledrcus : list
+            List of RCUs the user wishes to disable in special file.
+            If the disabled file does not exist, an list with a empty str is
+            returned.
         """
         path2disableddir = ilisa.monitorcontrol.user_conf_dir
         filename = os.path.join(path2disableddir, self._lcu_interface.stnid,
@@ -346,31 +364,68 @@ class StationDriver(object):
                                 "disabled-mode{}.txt".format(rcumode))
         fp = Path(filename)
         if fp.is_file():
-            filecontents = fp.read_text()
+            filecontents = fp.read_text().rstrip()
         else:
             filecontents = ""
         disabledrcus = filecontents.split(',')
         return disabledrcus
 
     def allowed_rcus(self, rcumode):
-        """Get allowed rcus as a flag argument."""
+        """\
+        Get allowed rcus as a flag argument for rcumode
+
+        Currently, the allowed RCUs are determined from the user defined
+        list of RCUs to disable.
+
+        Parameters
+        ----------
+        rcumode : int
+            Selected rcumode.
+
+        Returns
+        -------
+        enabledrcuflagstr : str
+            String in CLI flag format of RCUs to enable.
+        """
         nrofrcus = modeparms.nrofrcus
         # disabledrcu_lcu = self._lcu_interface.rcu_disable_list(rcumode)
-        disabledrcu_usr = self.__load_user_rcu_disable_list(rcumode)
+        disabledrcu_usr = self._load_user_rcu_disable_list(rcumode)
         disabledrcu_tot = disabledrcu_usr
         if disabledrcu_tot[0] != '':
             disabledrcus = [int(rcustr) for rcustr in disabledrcu_tot]
             allrcus = range(nrofrcus)
             enabledrcus = [rcu for rcu in allrcus if rcu not in disabledrcus]
-            enabledrcuflagstr = str(enabledrcus[0]) + ":"
-            for rcuidx in range(1, len(enabledrcus) - 1):
-                if enabledrcus[rcuidx] - enabledrcus[rcuidx - 1] != 1:
-                    enabledrcuflagstr += str(enabledrcus[rcuidx - 1]) + "," \
-                                         + str(enabledrcus[rcuidx]) + ":"
-            enabledrcuflagstr += str(enabledrcus[-1])
+            enabledrcuflagstr = modeparms.list2seqarg(enabledrcus)
         else:
             enabledrcuflagstr = "0:{}".format(nrofrcus - 1)
         return enabledrcuflagstr
+
+    def selected_rcus(self, desired_rcus, allowed_rcus):
+        """\
+        Selected RCUs based on desired and allowed
+
+        Parameters
+        ----------
+        desired_rcus : str
+            CLI flag formatted list of desired RCUs.
+        allowed_rcus : str
+            CLI flag formatted list of allowed RCUs.
+
+        Returns
+        -------
+        rcusel : str
+            CLI flag formatted str of selected RCUs.
+        """
+        print('allowed', allowed_rcus)
+        rcus_allowed_set = set(modeparms.seqarg2list(
+            allowed_rcus
+        ))
+        rcus_desired_set = set(modeparms.seqarg2list(
+            desired_rcus
+        ))
+        rcu_list = list(rcus_desired_set.intersection(rcus_allowed_set))
+        rcusel = ','.join(map(str, list(rcu_list)))
+        return rcusel
 
     def _rcusetup(self, bits, attenuation, mode=None):
         """Setup RCUs on LCU."""
@@ -388,9 +443,11 @@ class StationDriver(object):
 
     def streambeams(self, freqbndobj, pointing, attenuation=0,
                     dummywarmup=False):
-        """Form beams with station."""
+        """\
+        Form beams with station
+        """
         if dummywarmup:
-            print("Warning warnup not currently implemented")
+            print("Warning: warmup not currently implemented")
         bits = freqbndobj.bits
         rcuctl_cmds = self._rcusetup(bits, attenuation)
         beamctl_cmds = []
@@ -404,12 +461,8 @@ class StationDriver(object):
                 = modeparms.alloc_beamlets(subbands, bmlt_pntr)
             totnrbmlts += nrbmlts  # TODO Check total # beamlets allowed
             # Select RCUs
-            rcus_allowed_set = set(modeparms.seqarg2list(
-                self.allowed_rcus(rcumode)))
-            rcus_desired_set = set(modeparms.seqarg2list(
-                freqbndobj.rcusel[bandbeamidx]))
-            rcu_list = list(rcus_desired_set.intersection(rcus_allowed_set))
-            rcusel = ','.join(map(str, list(rcu_list)))
+            rcusel = self.selected_rcus(freqbndobj.rcusel[bandbeamidx],
+                                        self.allowed_rcus(rcumode))
             # Run beamctl
             beamctl_main = self._run_beamctl(beamlets, subbands, rcumode,
                                              pointing, rcusel)

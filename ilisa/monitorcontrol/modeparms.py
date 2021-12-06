@@ -507,6 +507,39 @@ def seqarg2list(seqarg):
     return arglist
 
 
+def list2seqarg(lst):
+    """\
+    Convert a list of integers into a sequence argument
+
+    Parameters
+    ----------
+    lst : list
+        List of arguments to be converted.
+
+    Returns
+    -------
+    seqarg : str
+        Sequence argument str.
+    """
+    nrseq0 = lst.pop(0)
+    arglst = [nrseq0]
+    lastnrseq = nrseq0
+    for arg in lst:
+        if arg - lastnrseq == 1:
+            if arglst[-1] != ':':
+                arglst.append(':')
+            if arg == lst[-1]:
+                arglst.append(arg)
+        else:
+            if arglst[-1] == ':':
+                arglst.append(lastnrseq)
+            arglst.append(',')
+            arglst.append(arg)
+        lastnrseq = arg
+    seqarg = ''.join([str(elem) for elem in arglst])
+    lst.insert(0, nrseq0)
+    return seqarg
+
 def band2rcumode(band):
     """Map band to rcumode string (Inverse of rcumode2band())"""
     if band == "10_90":
