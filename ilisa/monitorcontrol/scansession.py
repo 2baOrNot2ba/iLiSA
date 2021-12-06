@@ -91,27 +91,28 @@ def process_scansess(sesscans_in, stnid, session_id=None):
         starttimeprev = starttime
         duration_totprev = duration_tot
 
+        # - Source name
+        source = scan.get('source')
+
         # - Beam
         beam = scan.get('beam', {})
         # -- Freq
         freqspec = beam.get('freqspec')
         # -- Pointing
-        pointing_in = beam.get('pointing')
+        pointing = beam.get('pointing')
         # -- direction: alternative to pointing but can't be name
         direction = beam.get('direction')
 
-        # -- Source name
-        source = beam.get('source')
         # -- Allsky
         allsky = beam.get('allsky', False)
-        # Postprocess beam to get pointing
-        pointing = None
-        if pointing_in:
-            pointing = directions.normalizebeamctldir(pointing_in)
-        elif direction:
-            pointing = directions.normalizebeamctldir(direction)
-        elif source:
-            pointing = directions.std_pointings(source)
+
+        # Postprocess beam to get direction
+        if not direction:
+            if pointing:
+                direction = directions.normalizebeamctldir(pointing)
+            elif source:
+                direction = directions.std_pointings(source)
+
         # - Record
         #     defaults
         rec = scan.get('rec', [])
@@ -145,7 +146,7 @@ def process_scansess(sesscans_in, stnid, session_id=None):
         obsargs_in = {'beam':
                           {'freqspec': freqspec,
                            'pointing': pointing,
-                           'source' : source,
+                           'direction': direction,
                            'allsky': allsky},
                       'rec': rec,
                       'acc': acc,
@@ -154,6 +155,7 @@ def process_scansess(sesscans_in, stnid, session_id=None):
                       'integration': integration,
                       'duration': duration_tot,
                       'starttime': starttime,
+                      'source': source
                       }
         obsargs_in.update({'obsprog': obsprog})
         sesscans['scans'].append(obsargs_in)
@@ -250,7 +252,6 @@ class ScanSession(object):
 
         scans_done = []
         for scan in sesscans['scans']:
-            freqbndobj = modeparms.FreqSetup(scan['beam']['freqspec'])
             if scan['obsprog'] is not None:
                 _mockrun = False
                 if not _mockrun:
@@ -260,9 +261,8 @@ class ScanSession(object):
             else:
                 duration_tot = scan['duration']
                 # Only pointing used not source name but it's in scan metadata
-                pointing = scan['beam']['pointing']
+                direction = scan['beam']['direction']
                 starttime = scan['starttime']
-                #rec = scan['rec']
                 acc = scan['acc']
                 bfs = scan['bfs']
                 bsx_stat = scan['bsx_stat']
@@ -273,18 +273,27 @@ class ScanSession(object):
                 duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths,\
                 bfslogpaths =\
                     rec_scan_start(self.stndrv, bsx_stat, freqsetup,
-                                   duration_tot, pointing, integration,
+                                   duration_tot, direction, integration,
                                    starttime, acc=acc, bfs=bfs,
                                    destpath=sesspath)
                 if not bfs and not _xtract_bsx(bsx_stat):
                     print('Not recording for {}s'.format(duration_tot + 10))
                     time.sleep(duration_tot + 10)
-                rec_scan_stop(self.stndrv, bsx_stat, freqsetup, pointing,
+                # Add in source & pointing
+                if bsx_stat:
+                    self.stndrv.scanresult['bsx'].sourcename = scan['source']
+                    self.stndrv.scanresult['bsx']._pointing = scan['beam']['pointing']
+                if acc:
+                    self.stndrv.scanresult['acc'].sourcename = scan['source']
+                    self.stndrv.scanresult['acc']._pointing = scan['beam']['pointing']
+                if bfs:
+                    self.stndrv.scanresult['acc'].sourcename = scan['source']
+                    self.stndrv.scanresult['acc'].pointing = scan['beam']['pointing']
+                rec_scan_stop(self.stndrv, bsx_stat, freqsetup, direction,
                               starttime, acc, bfs, duration_tot, ldatinfos,
                               ldatinfo_bfs, bfsdatapaths, bfslogpaths)
                 scanresult = self.stndrv.scanresult
             scan['id'] = scanresult.pop('scan_id', None)
-            scanresult['source'] = scan['beam']['source']
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)
             self._writescanrecs(scanresult)
             print("Saved scan here: {}".format(scanpath_scdat))

@@ -200,8 +200,9 @@ def record_obsprog(stationdriver, scan):
         caltabinfos = stationdriver.get_caltableinfos(freqbndobj.rcumodes)
         # Add obsinfos to scanrecs
         for obsinfo in obsinfolist:
-            obsinfo.caltabinfos = caltabinfos
+            # obsinfo.caltabinfos = caltabinfos
             scanrec.add_obs(obsinfo)
+        scanrec.set_caltabinfos(caltabinfos)
         # Move data to archive
         stationdriver.movefromlcu(stationdriver.get_lcuDumpDir() + "/*.dat",
                                   scanpath_scdat)

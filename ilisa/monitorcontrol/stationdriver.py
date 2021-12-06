@@ -249,6 +249,7 @@ class StationDriver(object):
         self.scanresult['rec'].append('acc')
         self.scanresult['acc'] = data_io.ScanRecInfo()
         self.scanresult['acc'].set_stnid(self.get_stnid())
+        self.scanresult['acc'].set_caltabinfos([])
         # Also duration of ACC sweep since each sb is 1 second.
         dur1acc = modeparms.TotNrOfsb  # Duration of one ACC
         interv2accs = 7  # time between end of 1 ACC and start of next one
@@ -286,13 +287,12 @@ class StationDriver(object):
             obsid, _ = acc_file.split('_acc_')
             rspctl_cmds = []  # ACC doesn't have any rspctl cmds
             ldatinfo_acc = data_io.LDatInfo('acc', self.last_rcusetup_cmds,
-                                            self.last_beamctl_cmds, rspctl_cmds,
-                                            self.get_stnid())
+                                            self.last_beamctl_cmds, rspctl_cmds)
             ldatinfo_acc.filenametime = obsid
             self.scanresult['acc'].add_obs(ldatinfo_acc)
 
         # Set scanrecinfo
-        pointing = ldatinfo_acc.pointing
+        pointing = ldatinfo_acc.direction
         acc_integration = 1.0
         self.scanresult['acc'].set_scanrecparms('acc', freqsetup.arg,
                                                 duration_tot, pointing,
@@ -317,11 +317,21 @@ class StationDriver(object):
         self._lcu_interface.selectCalTable(which)
 
     def get_caltableinfos(self, rcumodes):
-        """Get Calibration Table Info."""
+        """\
+        Get Calibration Table Info.
+
+        Parameters
+        ----------
+        rcumodes : list of rcumodes
+
+        Returns
+        -------
+        caltabinfos : list of caltabinfos
+        """
         caltabinfos = []
         if not self.septonconf:  # calservice not running when septonconf
             for rcumode in rcumodes:
-                caltabinfo = self._lcu_interface.getCalTableInfo(rcumode)
+                caltabinfo = self._lcu_interface.get_calinfo(rcumode)
                 caltabinfos.append(caltabinfo)
         return caltabinfos
 
@@ -425,15 +435,15 @@ class StationDriver(object):
         beamctl_cmds = self.beamctl_cmds
 
         ldatinfos = []
+        caltabinfos = []
         # Record statistic for duration_tot seconds
         if bsxtype == 'bst' or bsxtype == 'sst':
             caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
             rspctl_cmds = self._lcu_interface.run_rspctl_statistics(
                 bsxtype, integration, duration_tot)
             ldatinfos.append(
-                data_io.LDatInfo(bsxtype, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
-                                 self.get_stnid(), caltabinfos=caltabinfos,
-                                 septonconf=self.septonconf))
+                data_io.LDatInfo(bsxtype, rcusetup_cmds, beamctl_cmds,
+                                 rspctl_cmds, septonconf=self.septonconf))
         elif bsxtype == 'xst':
             nrsubbands = freqsetup.nrsubbands()
             if duration_file is None:
@@ -468,7 +478,7 @@ class StationDriver(object):
                                 bsxtype, integration, duration_file, subband)
                         ldatinfos.append(
                             data_io.LDatInfo('xst', rcusetup_cmds, beamctl_cmds,
-                                             rspctl_cmds, self.get_stnid(),
+                                             rspctl_cmds,
                                              septonconf=self.septonconf))
         # Set scanrecinfo
         self.scanresult['rec'].append('bsx')
@@ -477,8 +487,9 @@ class StationDriver(object):
         self.scanresult['bsx'].set_scanrecparms(bsxtype,
                                                 freqsetup.arg,
                                                 duration_tot,
-                                                ldatinfos[0].pointing,
+                                                ldatinfos[0].direction,
                                                 integration)
+        self.scanresult['bsx'].set_caltabinfos(caltabinfos)
         return ldatinfos
 
     def stop_bsx_scan(self, ldatinfos):
@@ -505,8 +516,8 @@ class StationDriver(object):
         """Start recording BFS data"""
         caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
         rspctl_cmds = []  # BFS doesn't use rspctl cmds
-        ldatinfo_bfs = data_io.LDatInfo('bfs', self.rcusetup_cmds, self.beamctl_cmds,
-                                        rspctl_cmds, self.get_stnid(), caltabinfos)
+        ldatinfo_bfs = data_io.LDatInfo('bfs', self.rcusetup_cmds,
+                                        self.beamctl_cmds, rspctl_cmds)
         scanpath_bfdat = os.path.join(self.bf_data_dir, self.scan_id)
         lanesalloc = modeparms.getlanes(freqsetup.subbands_spw,
                                         freqsetup.bits, freqsetup.nrlanes)
@@ -546,8 +557,9 @@ class StationDriver(object):
         # No integration for BFS
         self.scanresult['bfs'].set_scanrecparms('bfs', freqsetup.arg,
                                                 duration_tot,
-                                                ldatinfo_bfs.pointing,
+                                                ldatinfo_bfs.direction,
                                                 integration=None)
+        self.scanresult['bfs'].set_caltabinfos(caltabinfos)
         return ldatinfo_bfs, bfsdatapaths, bfslogpaths
 
     def stop_bfs_scan(self, ldatinfo_bfs, rectime, bfsdatapaths, bfslogpaths):
@@ -845,7 +857,7 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
             'tbb': Transient Buffer Board data
             'dmp': Only record bfs, do not start a beam
             None: No recording of data.
-    freqspec: FreqSetup
+    freqsetup: FreqSetup
         FreqSetup() instance.
     duration_tot: float
         Total duration of scan in seconds.

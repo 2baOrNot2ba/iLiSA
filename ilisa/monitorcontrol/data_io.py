@@ -339,9 +339,11 @@ class ScanRecInfo(object):
     scanrecinfo_header = "SCANREC_INFO.yml"
 
     def __init__(self):
-        self.headerversion = 2
+        self.headerversion = 4
         self.obsinfos = {}
+        self._pointing = ''
         self.sourcename = ''
+        self.caltabinfos = []
 
     def add_obs(self, obsinfo):
         """Add an LDatInfo object to this ScanRecInfo."""
@@ -369,29 +371,30 @@ class ScanRecInfo(object):
                     raise RuntimeError('Station id not found.')
         return stnid
 
-    def set_sourcename(self, sourcename):
-        self.sourcename = sourcename
-
     def set_scanrecparms(self, datatype, freqband, duration_tot,
-                         pointing="None,None,None", integration=None):
+                         direction="None,None,None", integration=None):
         """Record parameters used as arguments to record_scan program."""
         self.scanrecparms = {}
         self.scanrecparms['datatype'] = datatype
         self.scanrecparms['freqband'] = freqband
         self.scanrecparms['duration_tot'] = duration_tot
-        self.scanrecparms['pointing'] = pointing
+        self.scanrecparms['direction'] = direction
         self.scanrecparms['integration'] = integration
+
+    def set_caltabinfos(self, caltabinfos):
+        self.caltabinfos = caltabinfos
 
     def write_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), "w") as f:
-            f.write("# LOFAR local station project\n")
+            f.write("# Scan_recording_info yaml file:")
             f.write("# Created by {} version {}\n".format("iLiSA",
                                                           ilisa.__version__))
             f.write("headerversion: {}\n".format(self.headerversion))
-            f.write("stnid: {}\n".format(self.stnid))
-            f.write("scanrec: {!r}\n".format(self.scanrecparms))
-            f.write("source: {}\n".format(self.sourcename))
-            f.write("obs_ids: {!r}\n".format(list(self.obsinfos.keys())))
+            f.write("station: {}\n".format(self.stnid))
+            f.write("scanrecparms: {!r}\n".format(self.scanrecparms))
+            f.write("ldat_ids: {!r}\n".format(list(self.obsinfos.keys())))
+            if self.caltabinfos != []:
+                f.write("caltabinfos: {}".format(self.caltabinfos))
 
     def read_scanrec(self, datapath):
         try:
@@ -401,10 +404,9 @@ class ScanRecInfo(object):
         except Exception:
             raise RuntimeError()
         self.headerversion = scanrecfiledict['headerversion']
-        self.stnid = scanrecfiledict['stnid']
-        self.scanrecparms = scanrecfiledict['scanrec']
-        self.sourcename = scanrecfiledict.get('source')
-        self.obs_ids = scanrecfiledict['obs_ids']
+        self.stnid = scanrecfiledict['station']
+        self.scanrecparms = scanrecfiledict['scanrecparms']
+        self.obs_ids = scanrecfiledict['ldat_ids']
         try:
             scanrecfiledict['calibrationfile']
         except KeyError:
@@ -458,6 +460,7 @@ class ScanRecInfo(object):
         ofi.update({'rcumode': self.obsinfos[start_key].rcumode})
         sb = modeparms.FreqSetup(self.scanrecparms['freqband']).subbands_spw
         ofi.update({'sb': sb})
+        ofi.update({'pointing': self._pointing})
         folder_name_beamctl_type = True
         if not folder_name_beamctl_type:
             scanrecname = ofi['filenametime']
@@ -495,7 +498,7 @@ class ScanRecInfo(object):
         return self.scanrecparms['integration']
 
     def get_pointingstr(self, filenr=0):
-        return self.scanrecparms['pointing']
+        return self.scanrecparms['direction']
 
     def is_septon(self, filenr=0):
         obs_ids = self.get_obs_ids()
@@ -552,7 +555,7 @@ class LDatInfo(object):
     """
 
     def __init__(self, ldat_type, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
-                 station_id=None, caltabinfos=[], septonconf=None, **kwargs):
+                 septonconf=None, **kwargs):
         """Create observation info from parameters."""
         self.headerversion = '4'
 
@@ -561,9 +564,6 @@ class LDatInfo(object):
 
         # filenametime attr (Is set later, since it's know only after obs)
         self.filenametime = None
-
-        # station_id attr
-        self.station_id = station_id
 
         # rcusetup_cmds attr
         if rcusetup_cmds == []:
@@ -580,7 +580,7 @@ class LDatInfo(object):
         self.rcumode = []
         self.sb = []
         self.bl = []
-        self.pointing = None
+        self.direction = None
         self.beamctl_cmds = beamctl_cmds
         if self.beamctl_cmds != []:
             digdir = None
@@ -593,7 +593,7 @@ class LDatInfo(object):
                 self.rcumode.append(int(rcumode))
                 self.sb.append(subbands)
                 self.bl.append(beamlets)
-            self.pointing = digdir
+            self.direction = digdir
 
         # rspctl_cmds attr
         if rspctl_cmds == []:
@@ -623,12 +623,6 @@ class LDatInfo(object):
             # self.rcumode = self.rcumode[0]
         elif self.ldat_type == 'bst':
             self.sb = self.sb
-        
-        # caltabinfos attr
-        if self.ldat_type != 'bst':
-            # Only need caltab info if it's BST
-            caltabinfos = []
-        self.caltabinfos = caltabinfos
 
     def isLOFARdatatype(self, obsdatatype):
         """Test if a string 'obsdatatype' is one of iLiSA's recognized LOFAR
@@ -649,12 +643,9 @@ class LDatInfo(object):
         contents = {}
         contents['ldat_type'] = self.ldat_type
         contents['filenametime'] = self.filenametime
-        contents['station_id'] = self.station_id
         contents['rcusetup_cmds'] = self.rcusetup_cmds
         contents['beamctl_cmds'] = self.beamctl_cmds
         contents['rspctl_cmds'] = self.rspctl_cmds
-        if self.caltabinfos != []:
-            contents['caltabinfos'] = self.caltabinfos
         if self.septonconf:
             contents['septonconf'] = self.septonconf
 
