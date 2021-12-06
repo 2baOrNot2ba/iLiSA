@@ -441,11 +441,23 @@ class LCUInterface(object):
             s,^CalServer.DataDirectory=.*,CalServer.DataDirectory=/localhome/data,' {}"""
                 .format(self.CalServer_conf), quotes='"')
 
-    def getCalTableInfo(self, rcumode):
-        """Fetch and return the caltable info from the LCU."""
+    def get_calinfo(self, rcumode):
+        """\
+        Fetch and return the caltable info from the LCU
+
+        Parameters
+        ----------
+        rcumode : int or str
+            The RCU mode.
+
+        Returns
+        -------
+        calinfo : str
+            Calibration table info.
+        """
         calinfo = None
         if self.DryRun:
-            return ""
+            return "DryRun_Calibration"
         if int(rcumode) == 4:
             # Band 30_90 not correctly implemented in "beamctl --calinfo".
             # It uses the 10_90 caltab anyways so:
