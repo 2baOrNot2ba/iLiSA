@@ -416,15 +416,10 @@ class StationDriver(object):
         rcusel : str
             CLI flag formatted str of selected RCUs.
         """
-        print('allowed', allowed_rcus)
-        rcus_allowed_set = set(modeparms.seqarg2list(
-            allowed_rcus
-        ))
-        rcus_desired_set = set(modeparms.seqarg2list(
-            desired_rcus
-        ))
+        rcus_allowed_set = set(modeparms.seqarg2list(allowed_rcus))
+        rcus_desired_set = set(modeparms.seqarg2list(desired_rcus))
         rcu_list = list(rcus_desired_set.intersection(rcus_allowed_set))
-        rcusel = ','.join(map(str, list(rcu_list)))
+        rcusel = modeparms.list2seqarg(rcu_list)
         return rcusel
 
     def _rcusetup(self, bits, attenuation, mode=None):
