@@ -560,8 +560,31 @@ class StationDriver(object):
         scanrecpath = self.scanresult['bsx'].get_scanrecpath()
         self.movefromlcu(self.get_lcuDumpDir() + "/*.dat", scanrecpath)
 
-    def start_bfs_scan(self, starttime, freqsetup, duration_tot):
-        """Start recording BFS data"""
+    def start_bfs_scan(self, starttime, freqsetup, duration_tot,
+                       compress=False):
+        """\
+        Start recording BFS data
+
+        Parameters
+        ----------
+        starttime : str
+            Start date-time of this recording
+        freqsetup : FreqSetup
+            Frequency setup
+        duration_tot : float
+            Total duration in seconds of recording
+        compress : bool
+            Is recording to be compressed?
+
+        Returns
+        -------
+        ldatinfo_bfs : LDatInfo
+            LDatInfo for this recording.
+        bfsdatapaths : list
+            List of paths to the recorded BFS data.
+        bfslogpaths : list
+            List of paths to logs of the recorded BFS data.
+        """
         caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
         rspctl_cmds = []  # BFS doesn't use rspctl cmds
         ldatinfo_bfs = data_io.LDatInfo('bfs', self.rcusetup_cmds,
@@ -579,7 +602,7 @@ class StationDriver(object):
             self._dru_interface._rec_bf_proxy(laneports, duration_tot,
                                               scanpath_bfdat,
                                               starttime=starttime,
-                                              compress=False,
+                                              compress=compress,
                                               band=freqsetup.rcubands[0],
                                               stnid=self.get_stnid())
         bfsdatapaths = []
@@ -956,7 +979,8 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
                 stndrv.setup_tof()
         if bfs:
             ldatinfo_bfs, bfsdatapaths, bfslogpaths = \
-                stndrv.start_bfs_scan(starttime, freqsetup, duration_tot)
+                stndrv.start_bfs_scan(starttime, freqsetup, duration_tot,
+                                      compress=True)
         if bsx_type:
             ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup, duration_tot,
                                               integration)
