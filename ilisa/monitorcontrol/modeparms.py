@@ -247,7 +247,7 @@ class FreqSetup(object):
 
     combos = [[4],[3],[5],[7],[6],[4,5],[3,5],[5,7],[4,5,7],[3,5,7]]
     nrffts = 1024
-    nrlanes = 4
+    _max_nrlanes = 4
 
     def __init__(self, arg=None):
         self.arg = arg
@@ -267,6 +267,7 @@ class FreqSetup(object):
             self.rcubands.append(self.rcumode_bandnames[rcumode])
             self.antsets.append(self.rcumode_antsets[rcumode])
         self.rcusel = self.subarr_rcusel[len(self.rcumodes)-1]
+        self.nrlanes = int(math.ceil(nrbeamlets/BASE_NR_BEAMLETS*2))
 
     def _band2freqbins(self, bandarg):
         """Convert band to frequency bins specification"""
@@ -322,7 +323,7 @@ class FreqSetup(object):
 
     def _subband_hint(self, freqlo, freqhi, freqstep=None):
         """
-        Calculate subbands that fulfill given freqrange
+        Calculate subbands in respective rcumodes that fulfill given freqrange
         """
         # Determine which rcumodes would support desired freqband:
         rcumodes = self.supportrcumodes(freqlo, freqhi)
@@ -454,27 +455,6 @@ class FreqSetup(object):
             nrsbs += len(seqarg2list(sbrange))
         return nrsbs
 
-def getlanes(subbands_spw, bits, nrlanes):
-    """Return a dict keyed on lanenr whose value is the beamlets allocated
-    """
-    bmlts_per_lane = NRBEAMLETSBYBITS[bits]/nrlanes
-    lanesplitblmt = iter([(lanenr, (lanenr+1)*bmlts_per_lane-1)
-                          for lanenr in range(nrlanes)])
-    bmlts = []
-    beamlets, _lstbmlt, _nrbmlts = alloc_beamlets(subbands_spw)
-    for bmltarg in beamlets:
-        bmlts.extend(seqarg2list(bmltarg))
-    lanealloc = {0:[]}
-    (lanenr, bmlt_hi) = next(lanesplitblmt)
-    for bmlt in bmlts:
-        if bmlt <= bmlt_hi:
-            lanealloc[lanenr].append(bmlt)
-        else:
-            lanealloc[lanenr+1] = []
-            lanealloc[lanenr+1].append(bmlt)
-            (lanenr, bmlt_hi) = next(lanesplitblmt)
-    return lanealloc
-
 
 def elementMap2str(elmap):
     elmapStr = ""
@@ -539,6 +519,7 @@ def list2seqarg(lst):
     seqarg = ''.join([str(elem) for elem in arglst])
     lst.insert(0, nrseq0)
     return seqarg
+
 
 def band2rcumode(band):
     """Map band to rcumode string (Inverse of rcumode2band())"""
@@ -779,7 +760,23 @@ def dt2mjd(dt):
 
 def alloc_beamlets(subbands, bmlt_start=0):
     """
-    Allocate subbands to beamlets sequentialy over all spws
+    Allocate subbands to beamlets sequentially over all spws
+
+    Parameters
+    ----------
+    subbands : list
+        List of subband sequence args.
+    bmlt_start : int
+        Beamlet number to start from.
+
+    Returns
+    -------
+    beamlets : list | int
+        List of beamlets.
+    bmlt_pntr : int
+        Beamlet number that would be allocated next.
+    nrbmlts : int
+        Number of beamlets allocated.
     """
     beamlets = []
     bmlt_pntr = bmlt_start
@@ -789,8 +786,6 @@ def alloc_beamlets(subbands, bmlt_start=0):
         subbands = [subbands]
     for spw_sb in subbands:
         nrsbs = len(seqarg2list(spw_sb))
-        # beamlets += \
-        #     [f"{bmlt_pntr}{':'+str(bmlt_pntr+nrsbs-1) if nrsbs>1 else ''}"]
         bmltslice = str(bmlt_pntr)
         if nrsbs > 1:
             bmltslice += ':'+str(bmlt_pntr+nrsbs-1)
@@ -800,6 +795,29 @@ def alloc_beamlets(subbands, bmlt_start=0):
     if singleton:
         beamlets = beamlets.pop()
     return beamlets, bmlt_pntr, nrbmlts
+
+
+def getlanes(subbands_spw, bits, nrlanes):
+    """\
+    Return a dict keyed on lanenr whose value is the beamlets allocated
+    """
+    bmlts_per_lane = NRBEAMLETSBYBITS[bits]/nrlanes
+    lanesplitblmt = iter([(lanenr, (lanenr+1)*bmlts_per_lane-1)
+                          for lanenr in range(nrlanes)])
+    bmlts = []
+    beamlets, _lstbmlt, _nrbmlts = alloc_beamlets(subbands_spw)
+    for bmltarg in beamlets:
+        bmlts.extend(seqarg2list(bmltarg))
+    lanealloc = {0:[]}
+    (lanenr, bmlt_hi) = next(lanesplitblmt)
+    for bmlt in bmlts:
+        if bmlt <= bmlt_hi:
+            lanealloc[lanenr].append(bmlt)
+        else:
+            lanealloc[lanenr+1] = []
+            lanealloc[lanenr+1].append(bmlt)
+            (lanenr, bmlt_hi) = next(lanesplitblmt)
+    return lanealloc
 
 
 def bits_support_beamlets(beamlets):
