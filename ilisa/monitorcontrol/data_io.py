@@ -339,7 +339,7 @@ class ScanRecInfo(object):
     scanrecinfo_header = "SCANREC_INFO.yml"
 
     def __init__(self):
-        self.headerversion = 4
+        self.headerversion = 5
         self.obsinfos = {}
         self._pointing = ''
         self.sourcename = ''
@@ -366,18 +366,18 @@ class ScanRecInfo(object):
                 stnid = self.obsinfos[0].stnid
             except:
                 try:
-                    stnid = self.scanrecparms['stnid']
+                    stnid = self.scanrecparms['station']
                 except:
                     raise RuntimeError('Station id not found.')
         return stnid
 
-    def set_scanrecparms(self, datatype, freqband, duration_tot,
+    def set_scanrecparms(self, datatype, freqspec, duration,
                          direction="None,None,None", integration=None):
         """Record parameters used as arguments to record_scan program."""
         self.scanrecparms = {}
         self.scanrecparms['datatype'] = datatype
-        self.scanrecparms['freqband'] = freqband
-        self.scanrecparms['duration_tot'] = duration_tot
+        self.scanrecparms['freqspec'] = freqspec
+        self.scanrecparms['duration'] = duration
         self.scanrecparms['direction'] = direction
         self.scanrecparms['integration'] = integration
 
@@ -454,19 +454,19 @@ class ScanRecInfo(object):
         """
 
         start_key = min(self.obsinfos)
-        ofi = self.scanrecparms
-        ofi.update({'station_id': self.get_stnid()})
-        ofi.update({'filenametime': start_key})
-        ofi.update({'rcumode': self.obsinfos[start_key].rcumode})
-        sb = modeparms.FreqSetup(self.scanrecparms['freqband']).subbands_spw
-        ofi.update({'sb': sb})
-        ofi.update({'pointing': self._pointing})
+        ofix = {}  # ObsFileInfo eXtra
+        ofix['station_id'] = self.get_stnid()
+        ofix['filenametime'] = start_key
+        ofix['rcumode'] = self.obsinfos[start_key].rcumode
+        sb = modeparms.FreqSetup(self.scanrecparms['freqspec']).subbands_spw
+        ofix['sb'] = sb
+        ofix['pointing'] = self._pointing
         folder_name_beamctl_type = True
         if not folder_name_beamctl_type:
-            scanrecname = ofi['filenametime']
-            scanrecname += "_" + ofi['datatype']
+            scanrecname = ofix['filenametime']
+            scanrecname += "_" + ofix['datatype']
         else:
-            scanrecname = obsfileinfo2filefolder(ofi)
+            scanrecname = obsfileinfo2filefolder({**self.scanrecparms, **ofix})
         scanrecpath = os.path.join(self.scanpath, scanrecname)
         return scanrecpath
 
@@ -475,7 +475,7 @@ class ScanRecInfo(object):
 
     def get_rcumode(self, filenr=0):
         try:
-            rcumode = modeparms.FreqSetup(self.scanrecparms['freqband']
+            rcumode = modeparms.FreqSetup(self.scanrecparms['freqspec']
                                           ).rcumodes[0]
         except:
             try:
