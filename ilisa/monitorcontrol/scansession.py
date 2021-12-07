@@ -48,10 +48,10 @@ def process_scansess(sesscans_in, stnid, session_id=None):
 
     # Initialize processed station session schedule
     sesscans = {'session_id': session_id,
-                     'projectid': projectid,
-                     'station': stnid,
-                     'note': note,
-                     'scans': []}
+                'projectid': projectid,
+                'station': stnid,
+                'note': note,
+                'scans': []}
     if mockrun:
         sesscans['mockrun'] = True
 
@@ -116,19 +116,19 @@ def process_scansess(sesscans_in, stnid, session_id=None):
         # - Record
         #     defaults
         rec = scan.get('rec', [])
-        _rec =  rec
         acc = False
-        if 'acc' in _rec:
+        if 'acc' in rec:
             acc = True
-            _rec.remove('acc')
         bfs = False
         if 'bfs' in rec:
             bfs = True
-            _rec.remove('bfs')
         bsx_stat = None
-        if len(_rec) > 0:
-            bsx_stat = _rec.pop()  # Should only be bsx left
-        del _rec
+        if 'bst' in rec:
+            bsx_stat = 'bst'
+        elif 'sst' in rec:
+            bsx_stat = 'sst'
+        elif 'xst' in rec:
+            bsx_stat = 'xst'
         # - Integration for rec bsx
         integration = scan.get('integration', 1.0)
         if integration > duration_tot:
@@ -282,13 +282,16 @@ class ScanSession(object):
                 # Add in source & pointing
                 if bsx_stat:
                     self.stndrv.scanresult['bsx'].sourcename = scan['source']
-                    self.stndrv.scanresult['bsx']._pointing = scan['beam']['pointing']
+                    self.stndrv.scanresult['bsx']._pointing \
+                        = scan['beam']['pointing']
                 if acc:
                     self.stndrv.scanresult['acc'].sourcename = scan['source']
-                    self.stndrv.scanresult['acc']._pointing = scan['beam']['pointing']
+                    self.stndrv.scanresult['acc']._pointing \
+                        = scan['beam']['pointing']
                 if bfs:
-                    self.stndrv.scanresult['acc'].sourcename = scan['source']
-                    self.stndrv.scanresult['acc'].pointing = scan['beam']['pointing']
+                    self.stndrv.scanresult['bfs'].sourcename = scan['source']
+                    self.stndrv.scanresult['bfs']._pointing \
+                        = scan['beam']['pointing']
                 rec_scan_stop(self.stndrv, bsx_stat, freqsetup, direction,
                               starttime, acc, bfs, duration_tot, ldatinfos,
                               ldatinfo_bfs, bfsdatapaths, bfslogpaths)
