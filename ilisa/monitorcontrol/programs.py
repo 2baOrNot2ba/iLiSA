@@ -7,7 +7,7 @@ import inspect
 import ilisa.monitorcontrol.directions
 import ilisa.monitorcontrol.modeparms as modeparms
 import ilisa.pipelines.bfbackend as bfbackend
-import ilisa.monitorcontrol.data_io as dataIO
+import ilisa.monitorcontrol.data_io as data_io
 from ilisa.monitorcontrol.stationdriver import waituntil
 
 
@@ -29,8 +29,7 @@ class ObsPrograms(object):
         programargs = fullargspec.args[1:defargstart]
         return programpointer, programargs
 
-    def _streambeams_mltfreq(self, freqbndobj, pointing,
-                             recDuration=float('inf'), attenuation=0,
+    def _streambeams_mltfreq(self, freqbndobj, pointing, attenuation=0,
                              DUMMYWARMUP=False):
         """Form beams with station."""
         bits = freqbndobj.bits
@@ -41,7 +40,7 @@ class ObsPrograms(object):
             _antset = freqbndobj.antsets[bandbeamidx]
             rcumode = freqbndobj.rcumodes[bandbeamidx]
             beamlets = freqbndobj.beamlets[bandbeamidx]
-            subbands =  freqbndobj.subbands_spw[bandbeamidx]
+            subbands = freqbndobj.subbands_spw[bandbeamidx]
             rcusel = freqbndobj.rcusel[bandbeamidx]
             beamctl_main = self.stationdriver._run_beamctl(beamlets, subbands,
                                                            rcumode, pointing,
@@ -85,7 +84,6 @@ class ObsPrograms(object):
         warmuptime = 14
         pause = 0  # Sufficient?
         beaminittime = 13
-        #self.stationdriver._waittoboot(rectime, pause)
         margin = datetime.timedelta(seconds=(warmuptime + pause + beaminittime))
         starttime = waituntil(starttime_req, margin)
         rectime = starttime
@@ -122,12 +120,12 @@ class ObsPrograms(object):
         print("(Beam started) Time left before recording: {}".format(
             timeleft.total_seconds()))
         bfsnametime = starttime.strftime("%Y%m%d_%H%M%S")
-        obsinfo = dataIO.LDatInfo('bfs', rcu_setup_cmds, beamctl_cmds, rspctl_cmds,
-                                  self.stationdriver.get_stnid())
+        obsinfo = data_io.LDatInfo('bfs', rcu_setup_cmds, beamctl_cmds, rspctl_cmds,
+                                   self.stationdriver.get_stnid())
         obsinfo.filenametime = bfsnametime
 
-        REC = True
-        if REC == True:
+        record = True
+        if record:
             port0 = self.stationdriver.bf_port0
             stnid = self.stationdriver.get_stnid()
             compress = True
@@ -153,7 +151,10 @@ class ObsPrograms(object):
 
 
 def record_obsprog(stationdriver, scan):
-    """At starttime execute the observation program specified by the obsfun
+    """\
+    Record the Observation Program
+
+    At starttime execute the observation program specified by the obsfun
     method pointer and run with arguments specified by obsargs dict.
     """
     scan_flat = dict(scan)
@@ -169,7 +170,7 @@ def record_obsprog(stationdriver, scan):
     obsargs = {k: scan_flat[k] for k in obsargs_sig}
     # Setup Calibration tables on LCU:
     CALTABLESRC = 'default'   # FIXME put this in args
-    ## (Only BST uses calibration tables)
+    # # (Only BST uses calibration tables)
     # Choose between 'default' or 'local'
     stationdriver.set_caltable(CALTABLESRC)
 
@@ -188,7 +189,7 @@ def record_obsprog(stationdriver, scan):
     scanresult = {}
     if obsinfolist is not None:
         datatype = 'sop:' + scan['obsprog']
-        scanrec = dataIO.ScanRecInfo()
+        scanrec = data_io.ScanRecInfo()
         scanrec.set_stnid(stationdriver.get_stnid())
         scanrec.set_scanrecparms(datatype, freqbndobj.arg,
                                  scan['duration'], scan['beam']['pointing'])
