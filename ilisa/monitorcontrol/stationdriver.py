@@ -434,6 +434,9 @@ class StationDriver(object):
         beamctl_cmd = self._lcu_interface.run_beamctl(beamlets, subbands,
                                                       band, anadigdir, rcusel)
         self.beamctl_cmds.append(beamctl_cmd)
+        waittime = 0  # 11
+        print("Waiting {}s for beam to settle...".format(waittime))
+        time.sleep(waittime)  # Wait for beam to settle
         return beamctl_cmd
 
     def streambeams(self, freqbndobj, pointing, attenuation=0,
