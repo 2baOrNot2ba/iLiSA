@@ -302,9 +302,6 @@ class LCUInterface(object):
         beamctl_cmd = beamctl_args2cmds(beamlets, subbands, band, anadigdir,
                                         rcus, beamdurstr)
         self._exec_lcu(beamctl_cmd, backgroundJOB)
-        waittime = 11
-        print("Waiting {}s for beam to settle...".format(waittime))
-        time.sleep(waittime)  # Wait for beam to settle
         return beamctl_cmd
 
     def run_rspctl_statistics(self, bsxtype, integration, duration, subband=0,
