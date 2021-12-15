@@ -246,9 +246,9 @@ class ScanSession(object):
         bootupstart = startscantime - datetime.timedelta(seconds=beaminittime)
 
         # Wait until it is time to bootup
-        print("In scansess: Will start scansession @ {}".format(bootupstart))
+        print("(scansession process starts @ {})".format(bootupstart))
         waituntil(bootupstart)
-        self.stndrv.goto_observingstate()
+        # self.stndrv.goto_observingstate()
 
         scans_done = []
         for scan in sesscans['scans']:
