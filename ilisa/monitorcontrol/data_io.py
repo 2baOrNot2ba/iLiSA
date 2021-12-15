@@ -159,7 +159,6 @@ def obsfileinfo2filefolder(obsfileinfo):
         integration:
         rcumode:
         ldat_type or datatype:
-        mode:
         pointing:
         sb:
         station_id:
@@ -174,22 +173,20 @@ def obsfileinfo2filefolder(obsfileinfo):
         ldat_type = obsfileinfo.get('ldat_type')
     filefoldername = '{}_{}'.format(obsfileinfo['station_id'],
                                     obsfileinfo['filenametime'])
-    if ldat_type == "bst-357":
-        filefoldername += "_rcu357"
-    else:
-        if obsfileinfo['rcumode'] != []:
-            rcumodestr = \
-                ''.join([str(rcumode) for rcumode in obsfileinfo['rcumode']])
-        else:
-            rcumodestr = str(obsfileinfo['mode'])
-        filefoldername += "_spw" + rcumodestr
-    if obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
+
+    rcumodestr = ''
+    if obsfileinfo['rcumode'] != []:
+        rcumodestr = \
+            ''.join([str(rcumode) for rcumode in obsfileinfo['rcumode']])
+    filefoldername += "_spw" + rcumodestr
+
+    if ldat_type != 'sst' and obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
         filefoldername += "_sb"
         filefoldername += seqlists2slicestr(obsfileinfo['sb'])
     if 'integration' in obsfileinfo and obsfileinfo['integration']:
         filefoldername += "_int" + str(int(obsfileinfo['integration']))
-    if 'duration_tot' in obsfileinfo:
-        filefoldername += "_dur" + str(int(obsfileinfo['duration_tot']))
+    if 'duration' in obsfileinfo:
+        filefoldername += "_dur" + str(int(obsfileinfo['duration']))
     if ldat_type != 'sst':
         if str(obsfileinfo['pointing']) != "":
             filefoldername += "_dir" + str(obsfileinfo['pointing'])
@@ -227,7 +224,7 @@ def filefolder2obsfileinfo(filefolderpath):
         else:
             dirstr = filefoldersplit.pop()
         sbstr = 'sb0:511'
-    if len(filefoldersplit) == 6:
+    if len(filefoldersplit[0]) == 5:
         stnid = filefoldersplit.pop(0)
     else:
         stnid = None
@@ -457,7 +454,10 @@ class ScanRecInfo(object):
         ofix = {}  # ObsFileInfo eXtra
         ofix['station_id'] = self.get_stnid()
         ofix['filenametime'] = start_key
-        ofix['rcumode'] = self.obsinfos[start_key].rcumode
+        if self.obsinfos[start_key].rcumode:
+            ofix['rcumode'] = self.obsinfos[start_key].rcumode
+        elif self.obsinfos[start_key].mode:
+            ofix['rcumode'] = self.obsinfos[start_key].mode
         sb = modeparms.FreqSetup(self.scanrecparms['freqspec']).subbands_spw
         ofix['sb'] = sb
         ofix['pointing'] = self._pointing
@@ -1499,7 +1499,7 @@ def viewbst(bstff, pol_stokes=True, printout=False):
                 print(del_t, freq/1e6, dataval_p, dataval_q, sep=', ')
 
 
-def plotsst(sstff, freqreq):
+def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     """Plot SST data."""
     SSTdata, obsfolderinfo = readsstfolder(sstff)
     scanrecinfo = ScanRecInfo()
@@ -1511,8 +1511,10 @@ def plotsst(sstff, freqreq):
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
         show = 'persb'
-    else:
+    elif sample_nr is None:
         show = 'mean'
+    else:
+        show = 'timsamp'
     intg = obsfolderinfo['integration']
     dur = obsfolderinfo['duration_scan']
     ts = [starttime + datetime.timedelta(seconds=td) for td in
@@ -1556,6 +1558,31 @@ def plotsst(sstff, freqreq):
         plt.xlabel('Time [UT]')
         plt.title('Y pol')
         plt.suptitle('Freq {} MHz'.format(freqs[sbreq]/1e6))
+    elif show == 'timsamp':
+        overlay = True
+        if overlay:
+            if rcu_sel is not None:
+                if ':' in rcu_sel:
+                    rcu_sel = rcu_sel.split(':')
+                    rcu_sel = slice(*[int(_a) for _a in rcu_sel])
+                else:
+                    rcu_sel = int(rcu_sel)
+            else:
+                rcu_sel = slice(None)
+            res = SSTdata[rcu_sel, sample_nr, :].squeeze()
+            plt.semilogy(freqs, numpy.transpose(res))
+        else:
+            axdim1 = 8
+            axdim0 = 192//axdim1//2
+            for rcu_nr in range(0, 192, 2):
+                sbplt_nr = rcu_nr//2+1
+                # Plot X
+                plt.subplot(axdim0, axdim1, sbplt_nr)
+                plt.semilogy(freqs, SSTdata[rcu_nr+0, sample_nr, :])
+                # & Y in same subplot
+                plt.subplot(axdim0, axdim1, sbplt_nr)
+                plt.semilogy(freqs, SSTdata[rcu_nr+1, sample_nr, :])
+                plt.title('{},{}'.format(rcu_nr, rcu_nr+1))
     plt.show()
 
 
@@ -1624,7 +1651,7 @@ def view_bsxst(args):
         viewbst(args.dataff, pol_stokes=not(args.linear),
                 printout=args.printout)
     elif lofar_datatype=='sst':
-        plotsst(args.dataff, args.freq)
+        plotsst(args.dataff, args.freq, args.sampnr, args.filenr)
     elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
         plotxst(args.dataff)
     else:
@@ -1637,7 +1664,7 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-n', '--filenr', type=int, default=0)
+    parser.add_argument('-n', '--filenr', type=str, default='0')
     parser.add_argument('-s', '--sampnr', type=int, default=0)
     parser.add_argument('-l', '--linear', action="store_true",
                         help='Use linear X,Y polarization rather than Stokes')
