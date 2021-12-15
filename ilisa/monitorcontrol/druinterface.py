@@ -138,6 +138,7 @@ class DRUinterface:
             cmdlineargs.append('--compress')
         if mockrun:
             cmdlineargs.append('--mockrun')
+        print("BFS rec process issued to DRU @", datetime.datetime.utcnow())
         self.dru(' '.join([dumpercmd] + cmdlineargs))
         return datafiles, logfiles
 
