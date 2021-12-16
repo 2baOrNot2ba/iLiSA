@@ -878,11 +878,23 @@ def capture_data_DAL1(tbbraw2h5cmd, TBBh5dumpDir, observer, antennaSet,
 
 def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     """
-    Wait until datetime. If datetime is 'now' then this is interpreted as
-    current time.
+    Wait until requested datetime starttime_req with a margin in seconds.
+
+    Parameters
+    ----------
+    starttime_req : datetime
+        Requested datetime to wait until. If datetime is 'NOW' or 'ASAP',
+        then this is interpreted as current time or as soon as possible.
+    margin : timedelta
+        Margin of timedelta before actually returning at starttime_req.
+
+    Returns
+    -------
+    starttime : datetime
+        datetime this function waited until (excludes margin).
     """
     now = datetime.datetime.utcnow()
-    if starttime_req == "NOW":
+    if starttime_req == "NOW" or starttime_req == "ASAP":
         starttime = now
     else:
         starttime = starttime_req
