@@ -242,13 +242,12 @@ class ScanSession(object):
         self.stndrv.scanpath = sesspath
         self.stndrv.bf_data_dir = bfdsesdumpdir
         # Boot Time handling
-        beaminittime = 13
-        bootupstart = startscantime - datetime.timedelta(seconds=beaminittime)
+        #beaminittime = 13
+        dt2beamctl = datetime.timedelta(seconds=36)
 
         # Wait until it is time to bootup
-        print("(scansession process starts @ {})".format(bootupstart))
-        waituntil(bootupstart)
-        # self.stndrv.goto_observingstate()
+        waituntil(startscantime, dt2beamctl)
+        print("(scansession started @ {})".format(datetime.datetime.utcnow()))
 
         scans_done = []
         for scan in sesscans['scans']:
@@ -269,7 +268,7 @@ class ScanSession(object):
                 integration = scan['integration']
                 freqspec = scan['beam']['freqspec']
                 freqsetup = modeparms.FreqSetup(freqspec)
-                starttime = waituntil(starttime, datetime.timedelta(seconds=2))
+                starttime = waituntil(starttime, dt2beamctl)
                 duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths,\
                 bfslogpaths =\
                     rec_scan_start(self.stndrv, bsx_stat, freqsetup,
