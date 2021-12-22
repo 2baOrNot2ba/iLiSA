@@ -1,0 +1,9 @@
+#Example crontab for istn status service.
+#It runs the service every five minutes.
+#Deploy by running:
+#
+# $ crontab stnStatMon_crontab
+#
+#where $ is the shell prompt and stnStatMon_crontab is
+#the name of this file.
+*/5 * * * *	$HOME/iStnMonitor/server/stnStatMon.py

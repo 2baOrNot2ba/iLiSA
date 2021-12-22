@@ -1,0 +1,10 @@
+# Please edit following lines according to your LCU network setup & needs.
+# Then rename this file by removing the ".template" suffix.
+# (Note: Gateway PC is a computer that connects to LCU from the observatory network)
+GW_PC_UDP_IP = "123.45.67.89" #IP address to LCU gateway PC from LCU
+
+# Settings to activate different features
+CHECK_BC_USER = True      # Report which user is running beam on station
+CHECK_NUM_LOGINS = True   # Report how many users (local and remote/ASTRON) are logged in
+CHECK_RSP_STATS = True    # Collect and report RSP board stats (including RCU-modes)
+CHECK_TBB_STATS = True    # Collect and report TBB board stats

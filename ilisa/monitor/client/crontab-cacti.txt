@@ -1,0 +1,5 @@
+# minute  hour  day  month weekday  command
+#start the LCUcli after reboot
+                         @reboot    /usr/bin/python /home/software/iStnMonitor-data/LCUcli.py > /dev/null 2>&1
+#re-tart the LCUcli each hour
+   57      *     *    *       *     /usr/bin/python /home/software/iStnMonitor-data/LCUcli.py > /dev/null 2>&1
