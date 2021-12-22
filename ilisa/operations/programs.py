@@ -4,11 +4,11 @@ import time
 import datetime
 import inspect
 
-import ilisa.monitorcontrol.directions
-import ilisa.monitorcontrol.modeparms as modeparms
+import ilisa.operations.directions
+import ilisa.operations.modeparms as modeparms
 import ilisa.pipelines.bfbackend as bfbackend
-import ilisa.monitorcontrol.data_io as data_io
-from ilisa.monitorcontrol.stationdriver import waituntil
+import ilisa.operations.data_io as data_io
+from ilisa.operations.stationdriver import waituntil
 
 
 class ObsPrograms(object):

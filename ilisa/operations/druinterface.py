@@ -1,7 +1,7 @@
 import os
 import datetime
-from ilisa.monitorcontrol._rem_exec import _exec_ssh
-from ilisa.monitorcontrol.modeparms import band2rcumode, timestr2datetime,\
+from ilisa.operations._rem_exec import _exec_ssh
+from ilisa.operations.modeparms import band2rcumode, timestr2datetime,\
     normalizetimestr
 from ilisa.pipelines.bfbackend import pl_rec_wrapper, dumpername
 
@@ -145,7 +145,7 @@ class DRUinterface:
 
 if __name__ == "__main__":
     import sys
-    from ilisa.monitorcontrol.scansession import get_proj_stn_access_conf
+    from ilisa.operations.scansession import get_proj_stn_access_conf
     stnid = sys.argv.pop()
     projid = sys.argv.pop()
     accessconf = get_proj_stn_access_conf(projid, stnid)

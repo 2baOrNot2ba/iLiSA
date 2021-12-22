@@ -16,8 +16,8 @@ import casacore.measures
 import casacore.quanta.quantity
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 from ilisa.antennameta.export import ITRF2lonlat
-from ilisa.monitorcontrol import data_io as dataIO
-from ilisa.monitorcontrol.directions import _req_calsrc_proc, pointing_tuple2str,\
+from ilisa.operations import data_io as dataIO
+from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
 from ilisa.calim.skymodels import globaldiffuseskymodel
 

@@ -184,7 +184,7 @@ class FreqSetup(object):
 
     Examples:
         Set using RCU band name:
-    >>> from ilisa.monitorcontrol.modeparms import FreqSetup
+    >>> from ilisa.operations.modeparms import FreqSetup
     >>> fbb=FreqSetup('10_90')
     >>> fbb.__dict__
     {'arg': '10_90', 'rcumodes': [3], 'sb_range': ['51:461'], 'bits': 8, 'rcubands': ['10_90'], 'antsets': ['LBA_INNER'], 'rcusel': ['0:191']}

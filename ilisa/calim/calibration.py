@@ -5,7 +5,7 @@ from scipy.constants import speed_of_light as c
 from casacore.measures import measures
 import ilisa.calim
 from ilisa.antennameta import calibrationtables as calibrationtables
-from ilisa.monitorcontrol import data_io as dataIO, modeparms as modeparms
+from ilisa.operations import data_io as dataIO, modeparms as modeparms
 
 
 def applycaltab_cvc(cvcunc, caltab, sb=None):

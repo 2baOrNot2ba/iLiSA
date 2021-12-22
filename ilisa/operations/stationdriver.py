@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""Package that provides functions for setting up and running monitorcontrol
+"""Package that provides functions for setting up and running operations
 via one LCUinterface instance and one DRUinterface instance.
 This package knows about the data archive and
 should not run anything directly on LCU."""
@@ -13,22 +13,22 @@ import warnings
 from pathlib import Path
 import multiprocessing
 
-import ilisa.monitorcontrol
-import ilisa.monitorcontrol.directions as directions
-from ilisa.monitorcontrol.lcuinterface import LCUInterface
-from ilisa.monitorcontrol.druinterface import DRUinterface
-import ilisa.monitorcontrol.modeparms as modeparms
-import ilisa.monitorcontrol.data_io as data_io
+import ilisa.operations
+import ilisa.operations.directions as directions
+from ilisa.operations.lcuinterface import LCUInterface
+from ilisa.operations.druinterface import DRUinterface
+import ilisa.operations.modeparms as modeparms
+import ilisa.operations.data_io as data_io
 from ilisa.pipelines import bfbackend
 
 
 class StationDriver(object):
     """StationDriver is a client type class that allows one to observe with LCU
-    and record data and metadata from these monitorcontrol on a DRU."""
+    and record data and metadata from these operations on a DRU."""
 
     def is_observingallowed(self):
         """
-        Check whether monitorcontrol are allowed.
+        Check whether operations are allowed.
 
         Observing is not allowed if someone else is using the station,
         or if station is not in local mode, or if a beamctl is running.
@@ -358,7 +358,7 @@ class StationDriver(object):
             If the disabled file does not exist, an list with a empty str is
             returned.
         """
-        path2disableddir = ilisa.monitorcontrol.user_conf_dir
+        path2disableddir = ilisa.operations.user_conf_dir
         filename = os.path.join(path2disableddir, self._lcu_interface.stnid,
                                 "DISABLED",
                                 "disabled-mode{}.txt".format(rcumode))
@@ -966,7 +966,7 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
         Destination path for this recording.
     """
     bsx_type = _xtract_bsx(rec_type)
-    dir_bmctl = ilisa.monitorcontrol.directions.normalizebeamctldir(pointing)
+    dir_bmctl = ilisa.operations.directions.normalizebeamctldir(pointing)
     if pointing and not dir_bmctl:
         raise ValueError("Invalid pointing syntax: {}".format(pointing))
     beam_needed = bfs or rec_type == 'bst'
@@ -1077,7 +1077,7 @@ Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
                         help='Direction in az,el,ref (radians) or source name.')
     args = parser.parse_args()
 
-    accessconf = ilisa.monitorcontrol.default_access_lclstn_conf()
+    accessconf = ilisa.operations.default_access_lclstn_conf()
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=args.mockrun)
     sesspath = accessconf['DRU']['LOFARdataArchive']

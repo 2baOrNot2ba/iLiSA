@@ -4,7 +4,7 @@ import numpy
 import re
 import yaml
 
-import ilisa.monitorcontrol
+import ilisa.operations
 
 
 def pointingGrid(NrAzDirs=8, NrElDirs=7):
@@ -76,7 +76,7 @@ def pointing_tuple2str(dirtuple):
     
     Examples
     --------
-    >>> from ilisa.monitorcontrol.directions import pointing_tuple2str,
+    >>> from ilisa.operations.directions import pointing_tuple2str,
     ...                                           pointing_str2tuple
     >>> pointing_tuple2str((1.0,2.0,'AZELGEO'))
     '1.0,2.0,AZELGEO'

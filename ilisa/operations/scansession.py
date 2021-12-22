@@ -4,11 +4,11 @@ import datetime
 
 import yaml
 import ilisa
-import ilisa.monitorcontrol
-import ilisa.monitorcontrol.directions as directions
-import ilisa.monitorcontrol.modeparms as modeparms
-import ilisa.monitorcontrol.programs as programs
-from ilisa.monitorcontrol.stationdriver import StationDriver, waituntil,\
+import ilisa.operations
+import ilisa.operations.directions as directions
+import ilisa.operations.modeparms as modeparms
+import ilisa.operations.programs as programs
+from ilisa.operations.stationdriver import StationDriver, waituntil,\
     _xtract_bsx, rec_scan_start, rec_scan_stop
 
 
@@ -17,7 +17,7 @@ def projid2meta(projectid):
     # Setup projectmeta:
     if projectid is not None:
         projectfile =  "project_"+projectid+".yml"
-        projectfile = os.path.join(ilisa.monitorcontrol.user_conf_dir, projectfile)
+        projectfile = os.path.join(ilisa.operations.user_conf_dir, projectfile)
         with open(projectfile) as projectfilep:
             projectprofile = yaml.safe_load(projectfilep)
         projectmeta = projectprofile['project']
@@ -222,7 +222,7 @@ class ScanSession(object):
 
     def run_scansess(self, sesscans_in, session_id=None):
         """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
-        stationdrivers to setup corresponding monitorcontrol."""
+        stationdrivers to setup corresponding operations."""
         if session_id:
             self.session_id = session_id
         sesscans = process_scansess(sesscans_in, self.stndrv.get_stnid(),
@@ -418,7 +418,7 @@ def get_proj_stn_access_conf(projid, stnid):
     except:
         raise RuntimeError("Station {} not found for project {}".format(stnid,
                                                                         projid))
-    userilisadir = ilisa.monitorcontrol.user_conf_dir
+    userilisadir = ilisa.operations.user_conf_dir
     acf_path = os.path.join(userilisadir, acf_name)
     with open(acf_path) as acffp:
         ac = yaml.safe_load(acffp)

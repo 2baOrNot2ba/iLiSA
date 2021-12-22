@@ -19,7 +19,7 @@ import argparse
 import warnings
 import matplotlib.pyplot as plt
 
-import ilisa.monitorcontrol.modeparms
+import ilisa.operations.modeparms
 
 __version__ = '0.2'
 CALTABDIRROOT = os.path.join(os.path.dirname(__file__), 'share/CalTables/')
@@ -156,8 +156,8 @@ def readcaltab(caltabfile):
                 observation[key] = val
             elif cat == 'Calibration':
                 calibration[key] = val
-    # Assume that max nr of subbands (ilisa.monitorcontrol.modeparms.TotNrOfsb)
-    # is always 512, while nr of RCUs (ilisa.monitorcontrol.modeparms.nrofrcus)
+    # Assume that max nr of subbands (ilisa.operations.modeparms.TotNrOfsb)
+    # is always 512, while nr of RCUs (ilisa.operations.modeparms.nrofrcus)
     # may differ:
     caltab = numpy.fromfile(fin, dtype='c16').reshape(
         (ilisa.monitorcontrol.modeparms.TotNrOfsb, -1))

@@ -5,11 +5,11 @@ mode.
 import time
 import os
 
-import ilisa.monitorcontrol
-from ilisa.monitorcontrol._rem_exec import _exec_ssh
-from ilisa.monitorcontrol.modeparms import parse_lofar_conf_files
+import ilisa.operations
+from ilisa.operations._rem_exec import _exec_ssh
+from ilisa.operations.modeparms import parse_lofar_conf_files
 # LOFAR constants
-from ilisa.monitorcontrol.modeparms import rcumode2band, beamctl_args2cmds,\
+from ilisa.operations.modeparms import rcumode2band, beamctl_args2cmds,\
     rcusetup_args2cmds, rspctl_stats_args2cmds
 
 
@@ -229,7 +229,7 @@ class LCUInterface(object):
 
     def set_swlevel(self, swleveltarget=3, fullreboot=False):
         """Set station's software level. swleveltarget=3 is the swlevel for which
-        most monitorcontrol take place."""
+        most operations take place."""
         swlevel_changed = False
         if not self.DryRun:
             if not fullreboot:
@@ -330,7 +330,7 @@ class LCUInterface(object):
         dryrun = self.DryRun
         self.DryRun = False
         nrtimsamps = int(duration/integration)
-        import ilisa.monitorcontrol.modeparms as modeparms
+        import ilisa.operations.modeparms as modeparms
         import datetime
         dd_cmdbase = 'dd if=/dev/zero'
         now = datetime.datetime.utcnow()

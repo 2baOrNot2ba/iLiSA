@@ -22,7 +22,7 @@ import h5py
 import yaml
 import warnings
 import ilisa
-import ilisa.monitorcontrol.directions
+import ilisa.operations.directions
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 try:
     import dreambeam
@@ -107,7 +107,7 @@ def seqlists2slicestr(seqlists):
     Examples
     --------
     Simple string with comma separated numbers:
-    >>> from ilisa.monitorcontrol.data_io import seqlists2slicestr
+    >>> from ilisa.operations.data_io import seqlists2slicestr
     >>> seqlists2slicestr('2,3,4,5,6')
     '2:6'
 
@@ -1425,7 +1425,7 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.dates as mdates
-import ilisa.monitorcontrol.modeparms as modeparms
+import ilisa.operations.modeparms as modeparms
 
 
 def viewbst(bstff, pol_stokes=True, printout=False):
