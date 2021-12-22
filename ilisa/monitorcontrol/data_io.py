@@ -561,7 +561,6 @@ class LDatInfo(object):
 
         # ldat_type attr
         self.ldat_type = ldat_type
-
         # filenametime attr (Is set later, since it's know only after obs)
         self.filenametime = None
 
@@ -737,7 +736,7 @@ class LDatInfo(object):
                 contents = yaml.safe_load(hf)
                 datatype = contents['ldat_type']
                 filenametime = contents['filenametime']
-                stnid = contents['station_id']
+                # stnid = contents['station_id']
                 rcusetup_cmds = contents['rcusetup_cmds']
                 beamctl_cmds = contents['beamctl_cmds']
                 rspctl_cmds = contents['rspctl_cmds']
@@ -749,7 +748,7 @@ class LDatInfo(object):
                     septonconf = contents['septonconf']
                 else:
                     septonconf = None
-        obsinfo = cls(datatype, stnid, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
+        obsinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
                       caltabinfos=caltabinfos, septonconf=septonconf)
         obsinfo.filenametime = filenametime
         return obsinfo
@@ -1482,7 +1481,8 @@ def viewbst(bstff, pol_stokes=True, printout=False):
         ax_q.set_ylabel('Frequency [MHz]')
 
         supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur)
-                      + ' pointing: {},{},{}'.format(*pointing))
+                     # + ' pointing: {},{},{}'.format(*pointing))
+                      + ' pointing: {}'.format(pointing))
         plt.suptitle(supertitle)
         plt.show()
     else:
@@ -1519,6 +1519,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     dur = obsfolderinfo['duration_scan']
     ts = [starttime + datetime.timedelta(seconds=td) for td in
           numpy.arange(0., dur, intg)]
+    print(show)
     if show == 'mean':
         meandynspec = numpy.mean(SSTdata, axis=0)
         res = meandynspec
