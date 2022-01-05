@@ -87,6 +87,7 @@ def process_scansess(sesscans_in, stnid, session_id=None):
         duration_tot = modeparms.hmsstr2deltatime(str(duration_in)
                                                   ).total_seconds()
         # duration_tot = eval(str(scan['duration']))
+        file_dur = scan.get('file_dur')
         # Next scan use current time as previous time and current time
         starttimeprev = starttime
         duration_totprev = duration_tot
@@ -154,6 +155,7 @@ def process_scansess(sesscans_in, stnid, session_id=None):
                       'bsx_stat': bsx_stat,
                       'integration': integration,
                       'duration': duration_tot,
+                      'file_dur': file_dur,
                       'starttime': starttime,
                       'source': source
                       }
@@ -274,7 +276,7 @@ class ScanSession(object):
                     rec_scan_start(self.stndrv, bsx_stat, freqsetup,
                                    duration_tot, direction, integration,
                                    starttime, acc=acc, bfs=bfs,
-                                   destpath=sesspath)
+                                   destpath=sesspath, file_dur=scan['file_dur'])
                 if not bfs and not _xtract_bsx(bsx_stat):
                     print('Not recording for {}s'.format(duration_tot + 10))
                     time.sleep(duration_tot + 10)
