@@ -180,7 +180,7 @@ class StationDriver(object):
         move_cmdline.append(src_arg)
         dst_arg = self._dru_interface.url + ":" + dest
         move_cmdline.append(dst_arg)
-        cmdprompt = "spawn on DPU>"
+        cmdprompt = "spawn on driver>"
         if self._lcu_interface.verbose:
             print("{} {}".format(cmdprompt, " ".join(move_cmdline)))
         proc = subprocess.Popen(move_cmdline)
@@ -481,66 +481,81 @@ class StationDriver(object):
                        duration_file=None):
         """\
         Start BSX scanrec
+
+        Parameters
+        ----------
+        bsxtype : str
+            One of either 'bst', 'sst' or 'xst'.
+        freqsetup : FreqSetup
+            The frequency setup to use.
+        duration_tot : float
+            Total duration of scan in seconds.
+        integration : float
+            Integration time in seconds.
+        duration_file : float
+            Duration of the bsx recorded file. If None and xst is not freq.
+            swept, then it will be set to the total duration, duration_tot.
         """
         rcusetup_cmds = self.rcusetup_cmds
         beamctl_cmds = self.beamctl_cmds
 
         ldatinfos = []
         caltabinfos = []
+        sweep_sbs = []  # list of subbands to be swept through
+        if not duration_file:
+            duration_file = duration_tot
+        else:
+            duration_file = int(duration_file)
+
         # Record statistic for duration_tot seconds
-        if bsxtype == 'bst' or bsxtype == 'sst':
+        if bsxtype == 'bst':
             caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
-            rspctl_cmds = self._lcu_interface.run_rspctl_statistics(
-                bsxtype, integration, duration_tot)
-            ldatinfos.append(
-                data_io.LDatInfo(bsxtype, rcusetup_cmds, beamctl_cmds,
-                                 rspctl_cmds, septonconf=self.septonconf))
+            sweep_sbs = [None]
+        elif bsxtype == 'sst':
+            sweep_sbs = [None]
         elif bsxtype == 'xst':
-            nrsubbands = freqsetup.nrsubbands()
-            if duration_file is None:
-                if nrsubbands > 1:
-                    duration_file = integration
-                else:
-                    duration_file = duration_tot
-            # TODO Consider that specified duration is not the same as
-            # actual duration. Each step in frequency sweep take about 6s
-            # for 1s int.
-            (rep, _rst) = divmod(duration_tot, duration_file * nrsubbands)
-            rep = int(rep)
-            if rep == 0:
-                warnings.warn(
-                    "Total duration too short for 1 full repetition."
-                    "Will increase total duration to get 1 full rep.")
-                duration_tot = duration_file * nrsubbands
-                rep = 1
-            # Repeat rep times (freq sweep)
-            for _itr in range(rep):
-                # Start freq sweep
-                for sb_rcumode in freqsetup.subbands_spw:
-                    if ':' in sb_rcumode:
-                        sblo, sbhi = sb_rcumode.split(':')
-                        subbands = range(int(sblo), int(sbhi) + 1)
-                    else:
-                        subbands = [int(sb) for sb in sb_rcumode.split(',')]
-                    for subband in subbands:
-                        # Record data
-                        rspctl_cmds = \
-                            self._lcu_interface.run_rspctl_statistics(
-                                bsxtype, integration, duration_file, subband)
-                        ldatinfos.append(
-                            data_io.LDatInfo('xst', rcusetup_cmds, beamctl_cmds,
-                                             rspctl_cmds,
-                                             septonconf=self.septonconf))
+            for sb_rcumode in freqsetup.subbands_spw:
+                sweep_sbs += modeparms.seqarg2list(sb_rcumode)
+        nrsbs2sweep = len(sweep_sbs)
+        if nrsbs2sweep > 1:
+            duration_file = integration
+        # TODO Consider that the desired duration is not the
+        #  same as actual duration, if multiple calls to rspctl stats.
+        #  xst step takes about 1s extra
+        #  bst step takes about 7s extra
+        (rep, _rst) = divmod(duration_tot, duration_file * nrsbs2sweep)
+        rep = int(rep)
+        if rep == 0:
+            duration_tot = duration_file * nrsbs2sweep
+            warnings.warn(
+                "Total duration too short for 1 full repetition."
+                "Increasing total duration to {}s.".format(duration_tot))
+            rep = 1
         # Set scanrecinfo
         self.scanresult['rec'].append('bsx')
         self.scanresult['bsx'] = data_io.ScanRecInfo()
         self.scanresult['bsx'].set_stnid(self.get_stnid())
+        self.scanresult['bsx'].set_caltabinfos(caltabinfos)
+
+        # Repeat rep times (freq sweep)
+        for _itr in range(rep):
+            # Sweep through subbands the sweep_sbs list
+            for xst_subband in sweep_sbs:
+                    # Record data
+                    rspctl_cmds = \
+                        self._lcu_interface.run_rspctl_statistics(
+                            bsxtype, integration, duration_file, xst_subband)
+                    ft_last = self.get_datafiletimes()[-1]
+                    print(ft_last)
+                    ldatinfos.append(
+                        data_io.LDatInfo(bsxtype, rcusetup_cmds, beamctl_cmds,
+                                         rspctl_cmds,
+                                         septonconf=self.septonconf))
         self.scanresult['bsx'].set_scanrecparms(bsxtype,
                                                 freqsetup.arg,
                                                 duration_tot,
                                                 ldatinfos[0].direction,
                                                 integration)
-        self.scanresult['bsx'].set_caltabinfos(caltabinfos)
         return ldatinfos
 
     def stop_bsx_scan(self, ldatinfos):
@@ -924,7 +939,8 @@ def _xtract_bsx(rec_type):
 
 
 def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
-                   integration, starttime, acc=False, bfs=False, destpath=None):
+                   integration, starttime, acc=False, bfs=False, destpath=None,
+                   file_dur=None):
     """\
     Record a scan of LOFAR station data
 
@@ -964,6 +980,8 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
         If true, record 'bfs': Record BeamFormed Stream data.
     destpath: str
         Destination path for this recording.
+    file_dur: float
+        Duration of file of recorded (subscan) data.
     """
     bsx_type = _xtract_bsx(rec_type)
     dir_bmctl = ilisa.operations.directions.normalizebeamctldir(pointing)
@@ -998,7 +1016,8 @@ def rec_scan_start(stndrv, rec_type, freqsetup, duration_tot, pointing,
                                       compress=True)
         if bsx_type:
             ldatinfos = stndrv.start_bsx_scan(bsx_type, freqsetup, duration_tot,
-                                              integration)
+                                              integration,
+                                              duration_file=file_dur)
     elif rec_type == 'tbb':
         stndrv.do_tbb(duration_tot, freqsetup.rcubands[0])
     elif rec_type == 'dmp':
