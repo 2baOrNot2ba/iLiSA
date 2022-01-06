@@ -239,7 +239,7 @@ def filefolder2obsfileinfo(filefolderpath):
     obsfileinfo['subbands'] = sbstr[2:]
     obsfileinfo['integration'] = int(intstr[3:])
     obsfileinfo['duration_scan'] = int(durstr[3:])
-    obsfileinfo['pointing'] = dirstr[3:].split(',')
+    obsfileinfo['pointing'] = dirstr[3:]
     obsfileinfo['ldat_type'] = ldat_type
 
     if len(obsfileinfo['rcumode']) > 1:
@@ -755,21 +755,38 @@ class LDatInfo(object):
 
 
 # BEGIN BST related code
-def readbstfolder(BSTfilefolder):
+def readbstfolder(bst_filefolder):
     """Read a BST filefolder"""
-    obsfileinfo = filefolder2obsfileinfo(BSTfilefolder)
+    obsfileinfo = filefolder2obsfileinfo(bst_filefolder)
     maxnrsbs = obsfileinfo['max_nr_bls']
-    BSTdirls = os.listdir(BSTfilefolder)
-    BSTfiles = [f for f in BSTdirls if f.endswith('.dat')]
+    intg = obsfileinfo['integration']
+    freqs = obsfileinfo['frequencies']
+    bst_dirls = os.listdir(bst_filefolder)
+    bst_files = sorted([f for f in bst_dirls if f.endswith('.dat')])
 
     # Now read the BST pol data
-    BST_dtype = numpy.dtype(('f8', (maxnrsbs,)))
-    BSTdata = {}
-    for BSTpolfile in BSTfiles:
-        pol = BSTpolfile[-5]
-        with open(os.path.join(BSTfilefolder, BSTpolfile), "rb") as fin:
-            BSTdata[pol] = numpy.fromfile(fin, dtype=BST_dtype)
-    return BSTdata, obsfileinfo
+    bst_dtype = numpy.dtype(('f8', (maxnrsbs,)))
+    bst_data_x, bst_data_y = [], []
+    ts = []
+
+    for bst_polfile in bst_files:
+        pol = bst_polfile[-5]
+        with open(os.path.join(bst_filefolder, bst_polfile), 'rb') as fin:
+            filedata = numpy.fromfile(fin, dtype=bst_dtype)
+        if pol == 'X':
+            bst_data_x.append(filedata)
+            Ymd, HMS, _ = bst_polfile.split('_', 2)
+            file_start_dt = datetime.datetime.strptime(Ymd + '_' + HMS,
+                                                       '%Y%m%d_%H%M%S')
+            file_dur = filedata.shape[0]
+            ts_rel = numpy.arange(0., file_dur, intg)
+            file_ts = [file_start_dt + datetime.timedelta(seconds=t) for t in ts_rel]
+            ts.append(file_ts)
+        elif pol == 'Y':
+            bst_data_y.append(filedata)
+            # Assumes 'Y' identical to 'X'
+
+    return bst_data_x, bst_data_y, ts, freqs, obsfileinfo
 
 
 def parse_sstfolder(SSTfolderpath):
@@ -1430,28 +1447,31 @@ import ilisa.operations.modeparms as modeparms
 
 def viewbst(bstff, pol_stokes=True, printout=False):
     """Plot BST data."""
-    BSTdata, obsfileinfo = readbstfolder(bstff)
+    bst_datas_x,bst_datas_y, ts_list, freqs, obsfileinfo = readbstfolder(bstff)
     stnid = obsfileinfo['station_id']
     starttime = obsfileinfo['datetime']
     intg = obsfileinfo['integration']
-    dur = obsfileinfo['duration_scan']
-    freqs = obsfileinfo['frequencies']
+    dur_tot = obsfileinfo['duration_scan']
     pointing = obsfileinfo['pointing']
+    max_nr_bls = obsfileinfo['max_nr_bls']
 
-    ts = numpy.arange(0., dur, intg)
-    ts = [starttime+datetime.timedelta(seconds=t) for t in ts]
-    fig, (ax_p, ax_q) = plt.subplots(2, 1, sharex=True, sharey=True)
-    data2plot_p_name, data2plot_p = 'X-pol', BSTdata['X']
-    data2plot_q_name, data2plot_q = 'Y-pol', BSTdata['Y']
+    # Squash list of data arrays (no padding between files)
+    ts = numpy.ravel(ts_list)
+    bst_data_x = numpy.stack(bst_datas_x).reshape(-1, max_nr_bls).T
+    bst_data_y = numpy.stack(bst_datas_y).reshape(-1, max_nr_bls).T
+
+    data2plot_p_name, data2plot_p = 'X-pol', bst_data_x
+    data2plot_q_name, data2plot_q = 'Y-pol', bst_data_x
     data2plot_q_unit = 'Flux [arb. units]'
     norm_p, norm_q = None, None
     cmap_q = None
+    fig, (ax_p, ax_q) = plt.subplots(2, 1, sharex=True, sharey=True)
     if pol_stokes:
         data2plot_p_name = 'Stokes I'
-        data2plot_p = BSTdata['X'] + BSTdata['Y']
+        data2plot_p = bst_data_x + bst_data_y
         norm_p = colors.LogNorm()
         data2plot_q_name = '(antenna) Stokes Q'
-        data2plot_q = BSTdata['X'] - BSTdata['Y']
+        data2plot_q = bst_data_x - bst_data_y
         data2plot_q_unit = 'Signed flux [arb. units]'
         cmap_q = 'RdBu_r'
         norm_q = colors.SymLogNorm(linthresh=1e2)
@@ -1463,14 +1483,16 @@ def viewbst(bstff, pol_stokes=True, printout=False):
             norm_q = colors.SymLogNorm(linthresh=1e-3)
     if not printout:
         # Plot quantity p:
-        bstplt_p = ax_p.pcolormesh(ts, freqs/1e6, data2plot_p.T, norm=norm_p)
+        fr_grd, ts_grd = numpy.meshgrid(freqs/1e6, ts)
+        bstplt_p = ax_p.pcolormesh(ts_grd, fr_grd, data2plot_p.T, norm=norm_p,
+                                   shading='nearest')
         cbar_p = fig.colorbar(bstplt_p, ax=ax_p)
         cbar_p.set_label('Flux [arb. units]')
         ax_p.set_ylabel('Frequency [MHz]')
         ax_p.set_title('{}'.format(data2plot_p_name))
         # Plot quantity q:
-        bstplt_q = ax_q.pcolormesh(ts, freqs / 1e6, data2plot_q.T, cmap=cmap_q,
-                                   norm=norm_q)
+        bstplt_q = ax_q.pcolormesh(ts_grd, fr_grd, data2plot_q.T, cmap=cmap_q,
+                                   norm=norm_q, shading='nearest')
         cbar_q = fig.colorbar(bstplt_q, ax=ax_q)
         cbar_q.set_label(data2plot_q_unit)
         ax_q.set_title('{}'.format(data2plot_q_name))
@@ -1480,8 +1502,7 @@ def viewbst(bstff, pol_stokes=True, printout=False):
         ax_q.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
         ax_q.set_ylabel('Frequency [MHz]')
 
-        supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur)
-                     # + ' pointing: {},{},{}'.format(*pointing))
+        supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur_tot)
                       + ' pointing: {}'.format(pointing))
         plt.suptitle(supertitle)
         plt.show()
@@ -1494,7 +1515,8 @@ def viewbst(bstff, pol_stokes=True, printout=False):
         #   Data
         for ti, t in enumerate(ts):
             for freqi, freq in enumerate(freqs):
-                dataval_p, dataval_q= data2plot_p[ti, freqi], data2plot_q[ti, freqi]
+                dataval_p, dataval_q = (data2plot_p[freqi, ti],
+                                        data2plot_q[freqi, ti])
                 del_t = t - t_prev
                 print(del_t, freq/1e6, dataval_p, dataval_q, sep=', ')
 
