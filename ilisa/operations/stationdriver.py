@@ -77,6 +77,9 @@ class StationDriver(object):
         self.bf_data_dir =      accessconf_dru['BeamFormDataDir']
         self.tbbraw2h5cmd =     accessconf_dru['TBBraw2h5Cmd']
         self.tbbh5dumpdir =     accessconf_dru['TBBh5dumpDir']
+        # Path where bsx data from LCU can be staged on driver node
+        # (aka Central Control Unit, ccu) before further processing
+        self.ccu_dumpdir = os.path.join(self.LOFARdataArchive, 'Incoming')
         # ID of current scan
         self.scan_id = None
         # Path to folder that will contain scans:
@@ -541,16 +544,18 @@ class StationDriver(object):
         for _itr in range(rep):
             # Sweep through subbands the sweep_sbs list
             for xst_subband in sweep_sbs:
-                    # Record data
-                    rspctl_cmds = \
-                        self._lcu_interface.run_rspctl_statistics(
-                            bsxtype, integration, duration_file, xst_subband)
-                    ft_last = self.get_datafiletimes()[-1]
-                    print(ft_last)
-                    ldatinfos.append(
-                        data_io.LDatInfo(bsxtype, rcusetup_cmds, beamctl_cmds,
-                                         rspctl_cmds,
-                                         septonconf=self.septonconf))
+                # Record data
+                rspctl_cmds = \
+                    self._lcu_interface.run_rspctl_statistics(
+                        bsxtype, integration, duration_file, xst_subband)
+                ldatinfo = data_io.LDatInfo(bsxtype, rcusetup_cmds,
+                                            beamctl_cmds, rspctl_cmds,
+                                            septonconf=self.septonconf)
+                ft_last = self.get_datafiletimes()[-1]
+                ldatinfo.filenametime = ft_last
+                self.movefromlcu(self.get_lcuDumpDir() + ldatinfo.filenametime
+                                 + '*.dat', self.ccu_dumpdir)
+                ldatinfos.append(ldatinfo)
         self.scanresult['bsx'].set_scanrecparms(bsxtype,
                                                 freqsetup.arg,
                                                 duration_tot,
@@ -560,23 +565,18 @@ class StationDriver(object):
 
     def stop_bsx_scan(self, ldatinfos):
         """\
-        Stop BSX scanrec
+        Stop BSX scan recording
         """
-        # Get filenametime for the recently taken data
-        # and map it to items in ldatinfos
-        datafiletimes = self.get_datafiletimes()
-        _ldatinfos = ldatinfos
-        ldatinfos = []
-        for ldatinfo, datafiletime in zip(_ldatinfos, datafiletimes):
-            ldatinfo.filenametime = datafiletime
-            ldatinfos.append(ldatinfo)
         for ldatinfo in ldatinfos:
             self.scanresult['bsx'].add_obs(ldatinfo)
-
         # Move data to archive
         self.scanresult['bsx'].set_scanpath(self.scanpath_scdat)
         scanrecpath = self.scanresult['bsx'].get_scanrecpath()
-        self.movefromlcu(self.get_lcuDumpDir() + "/*.dat", scanrecpath)
+        if not os.path.exists(scanrecpath):
+            os.makedirs(scanrecpath)
+        for _file in os.listdir(self.ccu_dumpdir):
+            _src = os.path.join(self.ccu_dumpdir, _file)
+            shutil.move(_src, scanrecpath)
 
     def start_bfs_scan(self, starttime, freqsetup, duration_tot,
                        compress=False):
