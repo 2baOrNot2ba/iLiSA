@@ -242,7 +242,7 @@ def _req_calsrc_proc(req_calsrc, allsky, pointingstr):
         pntstr = std_pointings('Z')
     else:
         pntstr = pointingstr
-    phaseref = pntstr.split(',')
+    phaseref = tuple(pntstr.split(','))
     return phaseref
 
 
