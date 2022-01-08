@@ -263,6 +263,7 @@ class ScanSession(object):
                 duration_tot = scan['duration']
                 # Only pointing used not source name but it's in scan metadata
                 direction = scan['beam']['direction']
+                pointing = scan['beam']['pointing']
                 starttime = scan['starttime']
                 acc = scan['acc']
                 bfs = scan['bfs']
@@ -274,7 +275,7 @@ class ScanSession(object):
                 duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths,\
                 bfslogpaths =\
                     rec_scan_start(self.stndrv, bsx_stat, freqsetup,
-                                   duration_tot, direction, integration,
+                                   duration_tot, pointing, integration,
                                    starttime, acc=acc, bfs=bfs,
                                    destpath=sesspath, file_dur=scan['file_dur'])
                 if not bfs and not _xtract_bsx(bsx_stat):
@@ -293,7 +294,7 @@ class ScanSession(object):
                     self.stndrv.scanresult['bfs'].sourcename = scan['source']
                     self.stndrv.scanresult['bfs']._pointing \
                         = scan['beam']['pointing']
-                rec_scan_stop(self.stndrv, bsx_stat, freqsetup, direction,
+                rec_scan_stop(self.stndrv, bsx_stat, freqsetup, pointing,
                               starttime, acc, bfs, duration_tot, ldatinfos,
                               ldatinfo_bfs, bfsdatapaths, bfslogpaths)
                 scanresult = self.stndrv.scanresult
