@@ -818,50 +818,67 @@ def parse_sstfilename(SSTfilepath):
     return obsfileinfo
 
 
-def readsst(SSTfile):
+def readsst(sstfile):
     """Read-in SST datafile.
 
     Parameters
     ----------
-    SSTfile : str
+    sstfile : str
         Name of SST datafile.
 
     Returns
     -------
-    SSTdata : (512, N)
-        The SST data, where N is the number of time samples.
+    sstdata : (S, 512)
+        The SST data, where S is the number of time samples.
+    obsfileinfo : dict
+        Metadata for this sst file, such as RCU nr.
     """
-    obsfileinfo = parse_sstfilename(SSTfile)
+    obsfileinfo = parse_sstfilename(sstfile)
     # Now read the SST data
-    SST_dtype = numpy.dtype(('f8', (512,)))
-    with open(SSTfile, "rb") as fin:
-        SSTdata = numpy.fromfile(fin, dtype=SST_dtype)
-    return SSTdata, obsfileinfo
+    sst_dtype = numpy.dtype(('f8', (512,)))
+    with open(sstfile, "rb") as fin:
+        sstdata = numpy.fromfile(fin, dtype=sst_dtype)
+    return sstdata, obsfileinfo
 
 
-def readsstfolder(SSTfolder):
+def readsstfolder(sstfolder):
     """Read-in SST datafile.
 
     Parameters
     ----------
-    SSTfolder : str
+    sstfolder : str
         The name of the folder which contains an SST datafile for each RCU.
 
     Returns
     -------
-    SSTdatarcu : (192, 512, N)
-        The SST data, where N is the number of time samples.
+    sstdata_rcu : (192, N, S, 512)
+        The SST data, where N is number of files per RCU
+        and S is the number of time samples with a file.
     """
-    obsfolderinfo = filefolder2obsfileinfo(SSTfolder)
-    #obsfolderinfo = parse_sstfolder(SSTfolder)
-    files = os.listdir(SSTfolder)
-    SSTfiles = [f for f in files if f.endswith('.dat')]
-    SSTfiles.sort()
-    SSTdatarcu = [None] * len(SSTfiles)
-    for sstfile in SSTfiles:
-        SSTrcudata, obsfileinfo = readsst(os.path.join(SSTfolder, sstfile))
-        SSTdatarcu[obsfileinfo['rcu']] = SSTrcudata
-    return SSTdatarcu, obsfolderinfo
+    obsfolderinfo = filefolder2obsfileinfo(sstfolder)
+    intg = obsfolderinfo['integration']
+    freqs = obsfolderinfo['frequencies']
+    files = os.listdir(sstfolder)
+    sstfiles = [f for f in files if f.endswith('.dat')]
+    sstfiles.sort()
+    ts = []
+    sstdata_rcu = [[] for _ in range(192)]
+    for sstfile in sstfiles:
+        sstfiledata, obsfileinfo = readsst(os.path.join(sstfolder, sstfile))
+        sstdata_rcu[obsfileinfo['rcu']].append(sstfiledata)
+        # Assume time of samples is same for all RCU files;
+        # deal only with 1st one
+        if obsfileinfo['rcu'] == 0:
+            Ymd, HMS, _ = sstfile.split('_', 2)
+            file_start_dt = datetime.datetime.strptime(Ymd + '_' + HMS,
+                                                       '%Y%m%d_%H%M%S')
+            file_nrsmps = sstfiledata.shape[0]
+            file_dur = intg * file_nrsmps
+            ts_rel = numpy.arange(0., file_dur, intg)
+            file_ts = [file_start_dt + datetime.timedelta(seconds=t)
+                       for t in ts_rel]
+            ts.append(file_ts)
+    return sstdata_rcu, ts, freqs, obsfolderinfo
 
 
 class CVCfiles(object):
@@ -1447,7 +1464,7 @@ import ilisa.operations.modeparms as modeparms
 
 def viewbst(bstff, pol_stokes=True, printout=False):
     """Plot BST data."""
-    bst_datas_x,bst_datas_y, ts_list, freqs, obsfileinfo = readbstfolder(bstff)
+    bst_datas_x, bst_datas_y, ts_list, freqs, obsfileinfo = readbstfolder(bstff)
     stnid = obsfileinfo['station_id']
     starttime = obsfileinfo['datetime']
     intg = obsfileinfo['integration']
@@ -1523,27 +1540,28 @@ def viewbst(bstff, pol_stokes=True, printout=False):
 
 def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     """Plot SST data."""
-    SSTdata, obsfolderinfo = readsstfolder(sstff)
+    sstdata_rcu, ts_list, freqs, obsfolderinfo = readsstfolder(sstff)
     scanrecinfo = ScanRecInfo()
     scanrecinfo.read_scanrec(sstff)
     starttime = obsfolderinfo['datetime']
-    SSTdata = numpy.array(SSTdata)
-    freqs = obsfolderinfo['frequencies']
     sbreq = None
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
         show = 'persb'
     elif sample_nr is None:
         show = 'mean'
+    elif rcu_sel:
+        show = 'overlay'
     else:
         show = 'timsamp'
-    intg = obsfolderinfo['integration']
-    dur = obsfolderinfo['duration_scan']
-    ts = [starttime + datetime.timedelta(seconds=td) for td in
-          numpy.arange(0., dur, intg)]
-    print(show)
+
+    # Squash file_nr and in file intg index to just samples
+    sstdata = numpy.array(sstdata_rcu).reshape((192, -1, 512))
+    ts = numpy.ravel(ts_list)
+
     if show == 'mean':
-        meandynspec = numpy.mean(SSTdata, axis=0)
+        # Show mean over RCUs
+        meandynspec = numpy.mean(sstdata, axis=0)
         res = meandynspec
         if res.shape[0] > 1:
             plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm())
@@ -1561,13 +1579,12 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
             plt.ylabel('Power [arb. unit]')
     elif show == 'persb':
         ampVStime = True
-        res = SSTdata[:, :, sbreq]
+        res = sstdata[:, :, sbreq]
         resX = res[0::2, :]
         resY = res[1::2, :]
         plt.subplot(211)
         if ampVStime:
             plt.plot(ts, numpy.transpose(resX))
-            # plt.gcf().autofmt_xdate()
         else:
             plt.pcolormesh(ts, numpy.arange(96), resX, norm=colors.LogNorm())
         plt.title('X pol')
@@ -1582,30 +1599,30 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
         plt.title('Y pol')
         plt.suptitle('Freq {} MHz'.format(freqs[sbreq]/1e6))
     elif show == 'timsamp':
-        overlay = True
-        if overlay:
-            if rcu_sel is not None:
-                if ':' in rcu_sel:
-                    rcu_sel = rcu_sel.split(':')
-                    rcu_sel = slice(*[int(_a) for _a in rcu_sel])
-                else:
-                    rcu_sel = int(rcu_sel)
+        axdim1 = 8
+        axdim0 = 192 // axdim1 // 2
+        for rcu_nr in range(0, 192, 2):
+            sbplt_nr = rcu_nr // 2 + 1
+            # Plot X
+            plt.subplot(axdim0, axdim1, sbplt_nr)
+            plt.semilogy(freqs, sstdata[rcu_nr + 0, sample_nr, :])
+            # & Y in same subplot
+            plt.subplot(axdim0, axdim1, sbplt_nr)
+            plt.semilogy(freqs, sstdata[rcu_nr + 1, sample_nr, :])
+            plt.title('{},{}'.format(rcu_nr, rcu_nr + 1))
+    elif show == 'overlay':
+        if rcu_sel is not None:
+            if ':' in rcu_sel:
+                rcu_sel = rcu_sel.split(':')
+                rcu_sel = slice(*[int(_a) for _a in rcu_sel])
             else:
-                rcu_sel = slice(None)
-            res = SSTdata[rcu_sel, sample_nr, :].squeeze()
-            plt.semilogy(freqs, numpy.transpose(res))
+                rcu_sel = int(rcu_sel)
         else:
-            axdim1 = 8
-            axdim0 = 192//axdim1//2
-            for rcu_nr in range(0, 192, 2):
-                sbplt_nr = rcu_nr//2+1
-                # Plot X
-                plt.subplot(axdim0, axdim1, sbplt_nr)
-                plt.semilogy(freqs, SSTdata[rcu_nr+0, sample_nr, :])
-                # & Y in same subplot
-                plt.subplot(axdim0, axdim1, sbplt_nr)
-                plt.semilogy(freqs, SSTdata[rcu_nr+1, sample_nr, :])
-                plt.title('{},{}'.format(rcu_nr, rcu_nr+1))
+            rcu_sel = slice(None)
+        res = sstdata[rcu_sel, sample_nr, :].squeeze()
+        plt.semilogy(freqs, numpy.transpose(res))
+        rcus = range(rcu_sel.start, rcu_sel.stop)
+        plt.legend(rcus)
     plt.show()
 
 
@@ -1687,8 +1704,8 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-n', '--filenr', type=str, default='0')
-    parser.add_argument('-s', '--sampnr', type=int, default=0)
+    parser.add_argument('-n', '--filenr', type=str, default=None)
+    parser.add_argument('-s', '--sampnr', type=int, default=None)
     parser.add_argument('-l', '--linear', action="store_true",
                         help='Use linear X,Y polarization rather than Stokes')
     parser.add_argument('-p', '--printout', action="store_true",
