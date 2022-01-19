@@ -9,7 +9,7 @@ import ilisa.operations.directions as directions
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.programs as programs
 from ilisa.operations.stationdriver import StationDriver, waituntil,\
-    _xtract_bsx, rec_scan_start, rec_scan_stop
+    _xtract_bsx, subscanned_scan
 
 
 def projid2meta(projectid):
@@ -164,6 +164,33 @@ def process_scansess(sesscans_in, stnid, session_id=None):
     return sesscans
 
 
+def still_time_fun(stoptime):
+    """\
+    Construct a function that says if there is still time before 'stoptime'
+
+    Parameters
+    ----------
+    stoptime : datetime
+        The UT datetime after which this function will be False.
+
+    Returns
+    -------
+    passed_time : function
+        A function that is True if current UT time is before the stoptime,
+        otherwise False.
+    """
+    def still_time():
+        now = datetime.datetime.utcnow()
+        timeleft = stoptime - now
+        secondsleft = int(timeleft.total_seconds())
+        if secondsleft > 0:
+            return True
+        else:
+            print("Time's UP")
+            return False
+    return still_time
+
+
 class ScanSession(object):
     """Class that runs a session on a station."""
     def __init__(self, stndrv, session_id=None):
@@ -241,10 +268,10 @@ class ScanSession(object):
         # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self.get_bfdsesdumpdir()
-        self.stndrv.scanpath = sesspath
+        # self.stndrv.scanpath = sesspath
         self.stndrv.bf_data_dir = bfdsesdumpdir
         # Boot Time handling
-        #beaminittime = 13
+        # beaminittime = 13
         dt2beamctl = datetime.timedelta(seconds=36)
 
         # Wait until it is time to bootup
@@ -260,11 +287,16 @@ class ScanSession(object):
                 else:
                     scanresult = {}
             else:
-                duration_tot = scan['duration']
-                # Only pointing used not source name but it's in scan metadata
-                direction = scan['beam']['direction']
-                pointing = scan['beam']['pointing']
                 starttime = scan['starttime']
+                duration_tot = scan['duration']
+                stoptime = starttime + datetime.timedelta(
+                    seconds=int(duration_tot))
+                stop_cond = still_time_fun(stoptime-datetime.timedelta(
+                    seconds=10))
+                # Only pointing used not source name but it's in scan metadata
+                pointing_spec = {'pointing': scan['beam']['pointing'],
+                                 'direction': scan['beam']['direction'],
+                                 'source': scan['source']}
                 acc = scan['acc']
                 bfs = scan['bfs']
                 bsx_stat = scan['bsx_stat']
@@ -272,35 +304,27 @@ class ScanSession(object):
                 freqspec = scan['beam']['freqspec']
                 freqsetup = modeparms.FreqSetup(freqspec)
                 starttime = waituntil(starttime, dt2beamctl)
-                duration_tot, ldatinfos, ldatinfo_bfs, bfsdatapaths,\
-                bfslogpaths =\
-                    rec_scan_start(self.stndrv, bsx_stat, freqsetup,
-                                   duration_tot, pointing, integration,
-                                   starttime, acc=acc, bfs=bfs,
-                                   destpath=sesspath, file_dur=scan['file_dur'])
-                if not bfs and not _xtract_bsx(bsx_stat):
+                sss = subscanned_scan(self.stndrv, bsx_stat, freqsetup,
+                                      duration_tot, pointing_spec, integration,
+                                      starttime, acc=acc, bfs=bfs,
+                                      destpath=sesspath,
+                                      file_dur=scan['file_dur'])
+                while stop_cond():
+                    try:
+                        next(sss)
+                    except StopIteration:
+                        break
+                sss.close()
+                if not bfs and not _xtract_bsx(bsx_stat) and not acc:
                     print('Not recording for {}s'.format(duration_tot + 10))
                     time.sleep(duration_tot + 10)
-                # Add in source & pointing
-                if bsx_stat:
-                    self.stndrv.scanresult['bsx'].sourcename = scan['source']
-                    self.stndrv.scanresult['bsx']._pointing \
-                        = scan['beam']['pointing']
-                if acc:
-                    self.stndrv.scanresult['acc'].sourcename = scan['source']
-                    self.stndrv.scanresult['acc']._pointing \
-                        = scan['beam']['pointing']
-                if bfs:
-                    self.stndrv.scanresult['bfs'].sourcename = scan['source']
-                    self.stndrv.scanresult['bfs']._pointing \
-                        = scan['beam']['pointing']
-                rec_scan_stop(self.stndrv, bsx_stat, freqsetup, pointing,
-                              starttime, acc, bfs, duration_tot, ldatinfos,
-                              ldatinfo_bfs, bfsdatapaths, bfslogpaths)
                 scanresult = self.stndrv.scanresult
             scan['id'] = scanresult.pop('scan_id', None)
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)
             self._writescanrecs(scanresult)
+            # Make symbolic link to latest scan
+            os.remove(self.stndrv.link2latest)
+            os.symlink(scanpath_scdat, self.stndrv.link2latest)
             print("Saved scan here: {}".format(scanpath_scdat))
             print("Finished scan @ {}".format(datetime.datetime.utcnow()))
             scans_done.append(scan)
