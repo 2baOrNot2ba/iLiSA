@@ -940,3 +940,19 @@ def modelogic(freqspec, pointing, duration_tot, integration, bsx_type, bfs, acc,
     if acc and not pointing:
         warnings.warn('ACC requires beamctl')
     # TODO add more conditions
+
+
+def _xtract_bsx(rec_type):
+    """Parse rec_type to bsx_type"""
+    bsx_type = None
+    if not rec_type or rec_type == 'None':
+        # rec_type None means running a beam with no recording
+        bsx_type = None
+    elif rec_type == 'bst' or rec_type == 'sst' or rec_type == 'xst':
+        bsx_type = rec_type
+    elif rec_type == 'bfs' or rec_type == 'tbb' or rec_type == 'dmp':
+        # 'dmp' is for just recording without setting up a beam.
+        pass
+    else:
+        raise RuntimeError('Unknown rec_type {}'.format(rec_type))
+    return bsx_type

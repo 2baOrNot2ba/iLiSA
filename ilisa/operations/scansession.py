@@ -8,8 +8,8 @@ import ilisa.operations
 import ilisa.operations.directions as directions
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.programs as programs
-from ilisa.operations.stationdriver import StationDriver, waituntil,\
-    _xtract_bsx, subscanned_scan
+from ilisa.operations.stationdriver import StationDriver, waituntil
+from ilisa.operations.scan import subscanned_scan
 
 
 def projid2meta(projectid):
@@ -315,7 +315,7 @@ class ScanSession(object):
                     except StopIteration:
                         break
                 sss.close()
-                if not bfs and not _xtract_bsx(bsx_stat) and not acc:
+                if not bfs and not modeparms._xtract_bsx(bsx_stat) and not acc:
                     print('Not recording for {}s'.format(duration_tot + 10))
                     time.sleep(duration_tot + 10)
                 scanresult = self.stndrv.scanresult
