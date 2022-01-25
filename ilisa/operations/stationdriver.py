@@ -891,7 +891,8 @@ class StationDriver(object):
         os.makedirs(self.scanpath_scdat)
         # Make symbolic link from 'Latest' folder to latest scan folder
         if bsx_stat:
-            os.remove(self.link2latest)
+            if os.path.exists(self.link2latest):
+                os.remove(self.link2latest)
             os.symlink(self.ccu_cache_bsx, self.link2latest)
 
     def get_scanid(self, beamstarted=None):
