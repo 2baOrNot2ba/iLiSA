@@ -154,7 +154,7 @@ def obsfileinfo2filefolder(obsfileinfo):
     Convert obsfileinfo dict to filefolder name
 
     obsfileinfo:
-        duration_tot:
+        duration:
         filenametime:
         integration:
         rcumode:
