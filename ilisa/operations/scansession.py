@@ -9,7 +9,7 @@ import ilisa.operations.directions as directions
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.programs as programs
 from ilisa.operations.stationdriver import StationDriver, waituntil
-from ilisa.operations.scan import subscanned_scan
+from ilisa.operations.scan import subscanned_scan, still_time_fun
 
 
 def projid2meta(projectid):
@@ -164,33 +164,6 @@ def process_scansess(sesscans_in, stnid, session_id=None):
     return sesscans
 
 
-def still_time_fun(stoptime):
-    """\
-    Construct a function that says if there is still time before 'stoptime'
-
-    Parameters
-    ----------
-    stoptime : datetime
-        The UT datetime after which this function will be False.
-
-    Returns
-    -------
-    passed_time : function
-        A function that is True if current UT time is before the stoptime,
-        otherwise False.
-    """
-    def still_time():
-        now = datetime.datetime.utcnow()
-        timeleft = stoptime - now
-        secondsleft = int(timeleft.total_seconds())
-        if secondsleft > 0:
-            return True
-        else:
-            print("Time's UP")
-            return False
-    return still_time
-
-
 class ScanSession(object):
     """Class that runs a session on a station."""
     def __init__(self, stndrv, session_id=None):
@@ -218,7 +191,7 @@ class ScanSession(object):
         return self.stndrv.LOFARdataArchive
 
     def get_projpath(self):
-        projpath = os.path.join(self.get_datastorepath(),
+        projpath = os.path.join(self.get_datastorepath(), 'Projects',
                                 'proj{}'.format(self.projectmeta['id']))
         return projpath
 
@@ -291,7 +264,7 @@ class ScanSession(object):
                 duration_tot = scan['duration']
                 stoptime = starttime + datetime.timedelta(
                     seconds=int(duration_tot))
-                stop_cond = still_time_fun(stoptime-datetime.timedelta(
+                stop_cond = still_time_fun(stoptime - datetime.timedelta(
                     seconds=10))
                 # Only pointing used not source name but it's in scan metadata
                 pointing_spec = {'pointing': scan['beam']['pointing'],
@@ -321,7 +294,7 @@ class ScanSession(object):
                 scanresult = self.stndrv.scanresult
             scan['id'] = scanresult.pop('scan_id', None)
             scanpath_scdat = scanresult.pop('scanpath_scdat', None)
-            self._writescanrecs(scanresult)
+            # self._writescanrecs(scanresult)
             # Make symbolic link to latest scan
             os.remove(self.stndrv.link2latest)
             os.symlink(scanpath_scdat, self.stndrv.link2latest)
