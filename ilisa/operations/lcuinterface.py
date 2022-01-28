@@ -320,7 +320,8 @@ class LCUInterface(object):
             self.mockstatistics(bsxtype, integration, duration, directory)
         return rspctl_cmds
 
-    def mockstatistics(self, statistics, integration, duration, directory=None):
+    def mockstatistics(self, statistics, integration, duration, directory=None,
+                       wait_dur=None):
         """Make mock statistics data file(s)."""
         if directory is None:
             if statistics != 'acc':
@@ -384,8 +385,11 @@ class LCUInterface(object):
                 dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
                 self._exec_lcu(dd_cmd)
                 filetime += datetime.timedelta(seconds=519)
+            wait_dur = 0  # Don't wait since ACC mode does not block
         # Wait duration seconds (disregard time code above takes)
-        time.sleep(duration)
+        if not wait_dur:
+            wait_dur = duration
+        time.sleep(wait_dur)
         self.DryRun = dryrun
 
     def run_tbbctl(self, select=None, alloc=False, free=False, record=False,
