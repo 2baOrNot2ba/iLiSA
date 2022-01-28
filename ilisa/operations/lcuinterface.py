@@ -387,7 +387,7 @@ class LCUInterface(object):
                 filetime += datetime.timedelta(seconds=519)
             wait_dur = 0  # Don't wait since ACC mode does not block
         # Wait duration seconds (disregard time code above takes)
-        if not wait_dur:
+        if wait_dur is None:
             wait_dur = duration
         time.sleep(wait_dur)
         self.DryRun = dryrun
