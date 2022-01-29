@@ -20,6 +20,8 @@ NRBEAMLETSBYBITS = {16:   BASE_NR_BEAMLETS,
                     8:  2*BASE_NR_BEAMLETS,
                     4:  4*BASE_NR_BEAMLETS}
 DATETIMESTRFMT = '%Y-%m-%dT%H:%M:%S'
+ACC_DUR = TotNrOfsb*MIN_STATS_INTG  # Duration of one ACC in s
+INTERV2ACCS = 7.0  # Interval between 2 ACCs in s
 # SEPTON configurations:
 #        1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24
 
