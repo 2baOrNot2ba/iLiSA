@@ -3,14 +3,15 @@ mode.
 """
 
 import time
+import datetime
 import os
+import threading
 
 import ilisa.operations
 from ilisa.operations._rem_exec import _exec_ssh
-from ilisa.operations.modeparms import parse_lofar_conf_files
-# LOFAR constants
-from ilisa.operations.modeparms import rcumode2band, beamctl_args2cmds,\
-    rcusetup_args2cmds, rspctl_stats_args2cmds
+import ilisa.operations.modeparms as modeparms
+from ilisa.operations.modeparms import parse_lofar_conf_files, rcumode2band,\
+    beamctl_args2cmds, rcusetup_args2cmds, rspctl_stats_args2cmds
 
 
 class LCUInterface(object):
@@ -103,9 +104,22 @@ class LCUInterface(object):
         pass
 
     def _exec_lcu(self, cmdline, backgroundJOB=False, quotes="'"):
+        """\
+        Execute shell commands on LCU
+        """
         return _exec_ssh(nodeurl=self.lcuURL, cmdline=cmdline,
                          stdoutdir=self.lcuDumpDir, nodetype='LCU',
                          background_job=backgroundJOB, dryrun=self.DryRun,
+                         accessible=self.accessible, quotes=quotes,
+                         verbose=self.verbose)
+
+    def __exec_lcu_nomock(self, cmdline, backgroundJOB=False, quotes="'"):
+        """\
+        Only to be used by threads that must execute commands on LCU
+        """
+        return _exec_ssh(nodeurl=self.lcuURL, cmdline=cmdline,
+                         stdoutdir=self.lcuDumpDir, nodetype='LCU',
+                         background_job=backgroundJOB, dryrun=False,
                          accessible=self.accessible, quotes=quotes,
                          verbose=self.verbose)
 
@@ -317,80 +331,9 @@ class LCUInterface(object):
         for rspctl_cmd in rspctl_cmds:
             self._exec_lcu(rspctl_cmd)
         if self.DryRun:
-            self.mockstatistics(bsxtype, integration, duration, directory)
+            self.mockstatistics(bsxtype, integration, duration)
         return rspctl_cmds
 
-    def mockstatistics(self, statistics, integration, duration, directory=None,
-                       wait_dur=None):
-        """Make mock statistics data file(s)."""
-        if directory is None:
-            if statistics != 'acc':
-                directory = self.lcuDumpDir
-            else:
-                directory = self.ACCsrcDir
-        dryrun = self.DryRun
-        self.DryRun = False
-        nrtimsamps = int(duration/integration)
-        import ilisa.operations.modeparms as modeparms
-        import datetime
-        dd_cmdbase = 'dd if=/dev/zero'
-        now = datetime.datetime.utcnow()
-        dtstamp = now.strftime('%Y%m%d_%H%M%S')
-        if statistics == 'bst':
-            bits = self.get_bits()
-            # Write mock bst files. (mock files contain just zeros)
-            nrbls = modeparms.NRBEAMLETSBYBITS[bits]
-            dd_bs = 8
-            dd_count = nrbls * nrtimsamps
-            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
-            for pol in ['X', 'Y']:
-                bstfilename = "{}_bst_00{}.dat".format(dtstamp, pol)
-                fpath = os.path.join(directory, bstfilename)
-                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
-                self._exec_lcu(dd_cmd)
-        elif statistics == 'sst':
-            # Write mock sst files
-            nrsbs = modeparms.TotNrOfsb
-            dd_bs = 8
-            dd_count = nrsbs * nrtimsamps
-            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
-            for rcunr in range(modeparms.nrofrcus):
-                sstfilename = "{}_sst_rcu{:03}.dat".format(dtstamp, rcunr)
-                fpath = os.path.join(directory, sstfilename)
-                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
-                self._exec_lcu(dd_cmd)
-        elif statistics == 'xst':
-            # Write mock sst files
-            nrrcus = modeparms.nrofrcus
-            dd_bs = 2*8
-            dd_count = nrrcus*nrrcus * nrtimsamps
-            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
-            xstfilename = "{}_xst.dat".format(dtstamp)
-            fpath = os.path.join(directory, xstfilename)
-            dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
-            self._exec_lcu(dd_cmd)
-        elif statistics == 'acc':
-            # Write mock acc files
-            integration = 1
-            nrrcus = modeparms.nrofrcus
-            dd_bs = 2*8
-            dd_count = nrrcus*nrrcus * 512
-            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
-            nraccfiles, restsamp = divmod(duration+7, 519)
-            filetime = now
-            for accnr in range(nraccfiles):
-                dtstamp = filetime.strftime('%Y%m%d_%H%M%S')
-                accfilename = "{}_acc_512x196x196.dat".format(dtstamp)
-                fpath = os.path.join(directory, accfilename)
-                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
-                self._exec_lcu(dd_cmd)
-                filetime += datetime.timedelta(seconds=519)
-            wait_dur = 0  # Don't wait since ACC mode does not block
-        # Wait duration seconds (disregard time code above takes)
-        if wait_dur is None:
-            wait_dur = duration
-        time.sleep(wait_dur)
-        self.DryRun = dryrun
 
     def run_tbbctl(self, select=None, alloc=False, free=False, record=False,
                    stop=False, mode=None, storage=None, readall=None,
@@ -424,6 +367,112 @@ class LCUInterface(object):
             tbbctl_cmd = None
         return tbbctl_cmd
 
+    def mockstatistics(self, statistics, integration, duration, wait_dur=None,
+                       srctype='zero'):
+        """Make mock statistics data file(s)."""
+
+        def exec_lcu_no_dryrun(sh_cmd):
+            dryrun = self.DryRun
+            self.DryRun = False
+            self._exec_lcu(sh_cmd)
+            self.DryRun = dryrun
+
+        dd_cmdbase = 'dd if=/dev/zero'
+        if srctype == 'random':
+            dd_cmdbase = 'dd if=/dev/random'
+        nrrcus = modeparms.nrofrcus
+        nrsbs = modeparms.TotNrOfsb
+        started = datetime.datetime.utcnow()
+
+        if statistics != 'acc':
+            directory = self.lcuDumpDir
+            nrtimsamps = int(duration / integration)
+            dtstamp = started.strftime('%Y%m%d_%H%M%S')
+        else:
+            directory = self.ACCsrcDir
+            integration = 1.0
+            acc_cadence = modeparms.ACC_DUR + modeparms.INTERV2ACCS
+            nraccfiles, rem_time = divmod(duration + modeparms.INTERV2ACCS,
+                                          acc_cadence)
+            nraccfiles = int(nraccfiles)
+
+        if statistics == 'bst':
+            bits = self.get_bits()
+            # Write mock bst files. (mock files contain just zeros)
+            nrbls = modeparms.NRBEAMLETSBYBITS[bits]
+            dd_bs = 8   # Each bst sample is one (noncomplex) 8 byte float
+            dd_count = nrbls * nrtimsamps
+            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
+            for pol in ['X', 'Y']:
+                bstfilename = "{}_bst_00{}.dat".format(dtstamp, pol)
+                fpath = os.path.join(directory, bstfilename)
+                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
+                exec_lcu_no_dryrun(dd_cmd)
+        elif statistics == 'sst':
+            # Write mock sst files
+            dd_bs = 8  # Each sst sample is one (noncomplex) 8 byte float
+            dd_count = nrsbs * nrtimsamps
+            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
+            for rcunr in range(modeparms.nrofrcus):
+                sstfilename = "{}_sst_rcu{:03}.dat".format(dtstamp, rcunr)
+                fpath = os.path.join(directory, sstfilename)
+                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
+                exec_lcu_no_dryrun(dd_cmd)
+        elif statistics == 'xst':
+            # Write mock sst files
+            dd_bs = 2 * 8  # xst sample is complex, i.e. two 8 byte floats
+            dd_count = nrrcus * nrrcus * nrtimsamps
+            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
+            xstfilename = "{}_xst.dat".format(dtstamp)
+            fpath = os.path.join(directory, xstfilename)
+            dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
+            exec_lcu_no_dryrun(dd_cmd)
+        elif statistics == 'acc':
+            # Write mock acc files
+            dd_bs = 2 * 8  # xst sample is complex, i.e. two 8 byte floats
+            dd_count = nrrcus * nrrcus * nrsbs
+            dd_cmdbase += ' bs={} count={}'.format(dd_bs, dd_count)
+            filetime = started + datetime.timedelta(seconds=modeparms.ACC_DUR)
+            for accnr in range(nraccfiles):
+                dtstamp = filetime.strftime('%Y%m%d_%H%M%S')
+                accfilename = "{}_acc_{}x{}x{}".format(
+                    dtstamp, nrsbs, nrrcus, nrrcus)
+                fpath = os.path.join(directory, accfilename)
+                dd_cmd = dd_cmdbase + ' of={}'.format(fpath)
+                _sleepfor0 = modeparms.ACC_DUR - 67 - 3  # last terms for dd process
+                for _i in range(int(_sleepfor0)):
+                    if self.acc_off.is_set():
+                        break
+                    else:
+                        time.sleep(1.0)
+                if self.acc_off.is_set():
+                    break
+                _t0 = time.time()
+                # Run dd_cmd for real on LCU
+                self.__exec_lcu_nomock(dd_cmd + ' ; mv {f} {f}.dat'.format(
+                    f=fpath))  # Delay '.dat' suffix until dd finished
+                _dd_cmd_time = time.time() - _t0
+                _sleep_rem = modeparms.ACC_DUR - (_dd_cmd_time+_sleepfor0)
+                # Block for time remaining for nominal ACC
+                print('sleep_rest', _sleep_rem)
+                if _sleep_rem >= 0.0:
+                    time.sleep(_sleep_rem)
+                filetime += datetime.timedelta(seconds=acc_cadence)
+            wait_dur = 0
+        # Post dump wait duration seconds (disregard time code takes)
+        if wait_dur is None:
+            wait_dur = duration
+        time.sleep(wait_dur)
+
+    def _simulate_acc_dumps(self):
+        """Simulate ACC dumps"""
+        dur1acc = 512
+        while not self.acc_off.is_set():
+            self.mockstatistics('acc', 1.0, dur1acc)
+            if self.acc_off.is_set():
+                break
+            time.sleep(modeparms.INTERV2ACCS)
+
     def acc_mode(self, enable=True):
         """Enable or disable ACC mode.
         If enableacc=True, ACC files will be written to file when CalServer is running
@@ -435,7 +484,17 @@ class LCUInterface(object):
             s/^CalServer.WriteACCToFile=0/CalServer.WriteACCToFile=1/;\
             s,^CalServer.DataDirectory=.*,CalServer.DataDirectory={}, ' {}"""
                 .format(self.ACCsrcDir, self.CalServer_conf), quotes='"')
+            if self.DryRun:
+                # Simulate ACC by running a thread which dumps ACC data
+                self.acc_off = threading.Event()
+                self._sim_acc = threading.Thread(
+                    target=self._simulate_acc_dumps)
+                self._sim_acc.start()
         else:
+            if self.DryRun:
+                # Shutdown ACC dump simulation
+                self.acc_off.set()
+                self._sim_acc.join()
             self._exec_lcu(
             r"""sed -i 's/^CalServer.DisableACMProxy=0/CalServer.DisableACMProxy=1/;\
             s/^CalServer.WriteACCToFile=1/CalServer.WriteACCToFile=0/;\
