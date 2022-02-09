@@ -157,7 +157,7 @@ def obsfileinfo2filefolder(obsfileinfo):
         duration:
         filenametime:
         integration:
-        rcumode:
+        spw:
         ldat_type or datatype:
         pointing:
         sb:
@@ -174,11 +174,11 @@ def obsfileinfo2filefolder(obsfileinfo):
     filefoldername = '{}_{}'.format(obsfileinfo['station_id'],
                                     obsfileinfo['filenametime'])
 
-    rcumodestr = ''
-    if obsfileinfo['rcumode'] != []:
-        rcumodestr = \
-            ''.join([str(rcumode) for rcumode in obsfileinfo['rcumode']])
-    filefoldername += "_spw" + rcumodestr
+    spwstr = ''
+    if obsfileinfo['spw']:
+        spwstr = \
+            ''.join([str(spw) for spw in obsfileinfo['spw']])
+    filefoldername += "_spw" + spwstr
 
     if ldat_type != 'sst' and obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
         filefoldername += "_sb"
@@ -228,39 +228,39 @@ def filefolder2obsfileinfo(filefolderpath):
         stnid = filefoldersplit.pop(0)
     else:
         stnid = None
-    (Ymd, HMS, rcustr, intstr, durstr) = filefoldersplit[:]
+    (Ymd, HMS, spwstr, intstr, durstr) = filefoldersplit[:]
 
     obsfileinfo = {}
     obsfileinfo['station_id'] = stnid
     obsfileinfo['filenametime'] = Ymd + '_' + HMS
     obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                          '%Y%m%dT%H%M%S')
-    obsfileinfo['rcumode'] = rcustr[3:]
+    obsfileinfo['spw'] = spwstr[3:]
     obsfileinfo['subbands'] = sbstr[2:]
     obsfileinfo['integration'] = int(intstr[3:])
     obsfileinfo['duration_scan'] = int(durstr[3:])
     obsfileinfo['pointing'] = dirstr[3:]
     obsfileinfo['ldat_type'] = ldat_type
 
-    if len(obsfileinfo['rcumode']) > 1:
-        obsfileinfo['rcumode'] = list(obsfileinfo['rcumode'])
+    if len(obsfileinfo['spw']) > 1:
+        obsfileinfo['spw'] = list(obsfileinfo['spw'])
     if _RCU_SB_SEP in obsfileinfo['subbands']:
         obsfileinfo['subbands'] = obsfileinfo['subbands'].split(
             _RCU_SB_SEP)
 
-    if type(obsfileinfo['rcumode']) is not list:
-        obsfileinfo['rcumode'] = [obsfileinfo['rcumode']]
+    if type(obsfileinfo['spw']) is not list:
+        obsfileinfo['spw'] = [obsfileinfo['spw']]
     if type(obsfileinfo['subbands']) is not list:
         obsfileinfo['subbands'] = [obsfileinfo['subbands']]
     obsfileinfo['frequencies'] = numpy.empty(0)
     beamlets = []
     totnrsbs = 0
-    for spw, rcumode in enumerate(obsfileinfo['rcumode']):
-        sblist = modeparms.seqarg2list(obsfileinfo['subbands'][spw])
+    for spw_nr, spw in enumerate(obsfileinfo['spw']):
+        sblist = modeparms.seqarg2list(obsfileinfo['subbands'][spw_nr])
         nrsbs = len(sblist)
         sblo = sblist[0]
         sbhi = sblist[-1]
-        nz = modeparms.rcumode2nyquistzone(rcumode)
+        nz = modeparms.rcumode2nyquistzone(spw)
         freqlo = modeparms.sb2freq(sblo, nz)
         freqhi = modeparms.sb2freq(sbhi, nz)
         obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
@@ -306,8 +306,8 @@ def filefolder2obsfileinfo(filefolderpath):
     obsfileinfo['rcusetup_cmds'] = rcusetup_cmds
     #    beamctl_cmds
     beamctl_cmds = []
-    for spw, rcumode in enumerate(obsfileinfo['rcumode']):
-        band = modeparms.rcumode2band(rcumode)
+    for spw_nr, spw in enumerate(obsfileinfo['spw']):
+        band = modeparms.rcumode2band(spw)
         anadigdir = ','.join(obsfileinfo['pointing'])
         beamctl_cmd = modeparms.beamctl_args2cmds(beamlets[spw],
                                                   obsfileinfo['subbands'][spw],
@@ -680,6 +680,19 @@ class LDatInfo(object):
         else:
             starttime = filetime - datetime.timedelta(seconds=512)
         return starttime
+
+    def get_spw(self):
+        """\
+        Get Spectral Window
+
+        Could either be rcumode (as set with beamctl) or mode (set with rspctl).
+        """
+        if self.rcumode != []:
+            return self.rcumode
+        elif self.mode:
+            return self.mode
+        else:
+            return None
 
     @classmethod
     def read_ldat_header(cls, headerpath):
