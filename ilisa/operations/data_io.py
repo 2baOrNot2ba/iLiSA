@@ -454,10 +454,7 @@ class ScanRecInfo(object):
         ofix = {}  # ObsFileInfo eXtra
         ofix['station_id'] = self.get_stnid()
         ofix['filenametime'] = start_key
-        if self.obsinfos[start_key].rcumode:
-            ofix['rcumode'] = self.obsinfos[start_key].rcumode
-        elif self.obsinfos[start_key].mode:
-            ofix['rcumode'] = self.obsinfos[start_key].mode
+        ofix['spw'] = self.obsinfos[start_key].get_spw()
         sb = modeparms.FreqSetup(self.scanrecparms['freqspec']).subbands_spw
         ofix['sb'] = sb
         ofix['pointing'] = self._pointing
