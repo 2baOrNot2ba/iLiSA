@@ -309,8 +309,8 @@ def filefolder2obsfileinfo(filefolderpath):
     for spw_nr, spw in enumerate(obsfileinfo['spw']):
         band = modeparms.rcumode2band(spw)
         anadigdir = ','.join(obsfileinfo['pointing'])
-        beamctl_cmd = modeparms.beamctl_args2cmds(beamlets[spw],
-                                                  obsfileinfo['subbands'][spw],
+        beamctl_cmd = modeparms.beamctl_args2cmds(beamlets[spw_nr],
+                                                  obsfileinfo['subbands'][spw_nr],
                                                   band, anadigdir)
         beamctl_cmds.append(beamctl_cmd)
     obsfileinfo['beamctl_cmds'] = beamctl_cmds
