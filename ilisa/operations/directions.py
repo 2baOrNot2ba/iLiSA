@@ -209,7 +209,7 @@ def lookupsource(src_name):
 
     """
     src_database = {}
-    user_srcs_dir = os.path.join(ilisa.monitorcontrol.user_data_dir,
+    user_srcs_dir = os.path.join(ilisa.monitorcontrol.USER_DATA_DIR,
                                  'source_catalogs')
     user_srcs_files = os.listdir(user_srcs_dir)
 
