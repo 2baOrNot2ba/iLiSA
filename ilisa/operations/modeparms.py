@@ -880,7 +880,8 @@ def timestr2datetime(timestr):
     Parameters
     ----------
     timestr: str
-        Date-Time string in ISO-like format '%Y-%m-%dT%H:%M:%S'.
+        Date-Time string in ISO-like format '%Y-%m-%dT%H:%M:%S'
+        OR 'NOW' or 'ASAP', which imply the current UT datetime.
 
     Returns
     -------
