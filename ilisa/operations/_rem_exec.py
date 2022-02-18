@@ -6,17 +6,16 @@ try:
 except ImportError:
     IMPORTED_PARAMIKO = False
 
-def _exec_rem(remnode, cmdline, stdoutdir, nodetype='LCU',
-              background_job=False, dryrun=False, accessible=False, quotes="'",
-              verbose=True):
-    return _exec_ssh(remnode, cmdline, stdoutdir, nodetype=nodetype,
-                     background_job=background_job, dryrun=dryrun,
-                     accessible=accessible, quotes=quotes, verbose=verbose)
+def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False, dryrun=False,
+              accessible=False, quotes="'", stdoutdir='~', verbose=True):
+    return _exec_ssh(remnode, cmdline, nodetype=nodetype, background_job=background_job,
+                     dryrun=dryrun, accessible=accessible, quotes=quotes,
+                     stdoutdir=stdoutdir, verbose=verbose)
 
 
-def _exec_ssh(nodeurl, cmdline, stdoutdir='~', nodetype='LCU',
+def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
               background_job=False, dryrun=False, accessible=False, quotes="'",
-              verbose=True):
+              stdoutdir='~', verbose=True):
     """Execute a command on the remnode, either as a background job or in the
     foreground (blocking). Typically access is remote via ssh.
     (To speed things up use the ssh CommandMaster option.)
