@@ -30,7 +30,7 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
     if background_job:
         # Currently only run_beamctl & run_tbbctl run in background
         # Put stdout & stderr in log in dumpdir
-        cmdline = ("(( " + cmdline + " ) > " + stdoutdir
+        cmdline = ("(( " + cmdline + " ) > " + stdoutdir + "/"
                    + "lcu_shell_out.log 2>&1) &")
     if dryrun:
         pre_prompt = "(dryrun) "
