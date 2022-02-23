@@ -4,15 +4,19 @@ import os
 import subprocess
 import multiprocessing
 import platform
+import argparse
 
-import ilisa.pipelines
+from ilisa.operations.modeparms import timestr2datetime
 import ilisa.pipelines.rec_bf_streams_py as rec_bf_streams_py
 
-dumpername = 'dump_udp_ow'  # Alias to local version
-pathtodumper = os.path.dirname(ilisa.pipelines.__file__)
-dumpercmd = dumpername  # Assume dumper is in user's PATH
-# dumpercmd = 'echo'  # For testing purposes
-pl_rec_wrapper = 'pl_rec'
+# DUMPERNAME is name of binary executable on DRU which is run by
+# PL_REC_WRAPPER when capturing UDP packets with LOFAR beamformed voltages data.
+# (Currently requires manually install putting it in DRU user's PATH env var)
+DUMPERNAME = 'dump_udp_ow'  # Alias to local version
+#pathtodumper = os.path.dirname(ilisa.pipelines.__file__)
+DUMPERCMD = DUMPERNAME  # Assume dumper is in user's PATH
+# DUMPERCMD = 'echo'  # For testing purposes
+PL_REC_WRAPPER = 'pl_rec'
 
 
 def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
@@ -59,7 +63,7 @@ def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
     outfilepre = "udp_" + stnid
     outarg = os.path.join(outdumpdir, outfilepre)
     dumplogname = os.path.join(outdumpdir,
-                               '{}_lane{}_rcu{}.log'.format(dumpername, lane,
+                               '{}_lane{}_rcu{}.log'.format(DUMPERNAME, lane,
                                                             rcumode))
     datafileguess = outarg + '_' + str(port) + platform.node()\
         + starttime.strftime("%Y-%m-%dT%H:%M:%S") + '.000'
@@ -68,8 +72,8 @@ def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
     return outdumpdir, outarg, datafileguess, dumplogname
 
 
-def _startlanerec(lane, starttime, duration, rcumode, bf_data_dir, port0, stnid,
-                  compress=True, threadqueue=None):
+def _startlanerec(lane, starttime, duration, file_dur, rcumode, bf_data_dir,
+                  port0, stnid, compress=True, threadqueue=None):
     """Start recording a lane using an external dumper process.
     """
     if compress:
@@ -86,16 +90,22 @@ def _startlanerec(lane, starttime, duration, rcumode, bf_data_dir, port0, stnid,
     dur_flagarg = ''
     if duration:
         dur_flagarg = ' --duration ' + str(int(duration))
-    cmdline_full_shell = (dumpercmd + ' --ports ' + str(port) + ' --check '
+    maxfilesz_arg = ''
+    if file_dur:
+        datarate_perlane = 95.5E6  # Bytes per second per lane approx
+        maxfilesz = int(file_dur * datarate_perlane)
+        maxfilesz_arg = ' --Maxfilesize ' + str(maxfilesz)
+    cmdline_full_shell = (DUMPERCMD + ' --ports ' + str(port) + ' --check '
                           + ' --Start ' +
                           starttime.strftime("%Y-%m-%dT%H:%M:%S")
                           + dur_flagarg
+                          + maxfilesz_arg
                           + ' --timeout 9999'
                           + compress_flag
                           + ' --out ' + outarg
                           + ' > ' + dumplogname)
     print("Running: {}".format(cmdline_full_shell))
-    subprocess.call(cmdline_full_shell, shell=True)
+    subprocess.run(cmdline_full_shell, shell=True)
     print("{}".format(datafileguess))
     print("{}".format(dumplogname))
     if threadqueue:
@@ -103,11 +113,35 @@ def _startlanerec(lane, starttime, duration, rcumode, bf_data_dir, port0, stnid,
     # return datafileguess, dumplogname
 
 
-def rec_bf_streams(starttime, duration, lanes, rcumode, bf_data_dir, port0,
-                   stnid, compress):
+def rec_bfs_lanes(starttime, duration, file_duration, lanes, rcumode,
+                  bf_data_dir, port0, stnid, compress):
+    retvalq = multiprocessing.Queue()
+    laneprocs = []
+    for lane in lanes:
+        laneproc = multiprocessing.Process(target=_startlanerec,
+                                           args=(lane, starttime, duration,
+                                                 file_duration, rcumode,
+                                                 bf_data_dir, port0, stnid,
+                                                 compress, retvalq))
+        laneproc.start()
+        laneprocs.append(laneproc)
+    datafiles = []
+    logfiles = []
+    for laneproc in laneprocs:
+        laneproc.join()
+        datafileguess, dumplogname = retvalq.get()
+        datafiles.append(datafileguess)
+        logfiles.append(dumplogname)
+    return datafiles, logfiles
+
+
+def rec_bf_streams(starttime, duration, file_duration, lanes, rcumode,
+                   bf_data_dir, port0, stnid, compress):
     """
-    Wrapper that runs dump_udp processes to capture beamformed data streams.
-    It sets up multiple processes that record one lane each.
+    Wrapper that runs a beamformed data stream capture command for each lane
+
+    Uses either fork or a multiprocess Process.
+    Invokes either udp_dump_ow or iLiSA python recorder.
     """
     usefork = False
     use_python_recorder = False
@@ -135,7 +169,9 @@ def rec_bf_streams(starttime, duration, lanes, rcumode, bf_data_dir, port0,
             for lane in lanes:
                 laneproc = multiprocessing.Process(target=_startlanerec,
                                                    args=(lane, starttime,
-                                                         duration, rcumode,
+                                                         duration,
+                                                         file_duration,
+                                                         rcumode,
                                                          bf_data_dir, port0,
                                                          stnid, compress,
                                                          retvalq))
@@ -151,10 +187,6 @@ def rec_bf_streams(starttime, duration, lanes, rcumode, bf_data_dir, port0,
                                                          duration=duration)
     return datafiles, logfiles
 
-
-import argparse
-import datetime
-from ilisa.pipelines.rec_bf_streams_py import main as rec_bf_streams_py
 
 def bfsrec_main_cli():
     # Entry point for pl_rec
@@ -177,6 +209,10 @@ def bfsrec_main_cli():
                         type=float, default=None,
                         help="Duration of recording in seconds"
                         )
+    parser.add_argument('-f', '--file_duration',
+                        type=float, default=None,
+                        help="Duration of dumped files in seconds"
+                        )
     parser.add_argument('-w', '--which',
                         type=str, default='ow',
                         help="Which backend recorder: ow or py",
@@ -192,19 +228,16 @@ def bfsrec_main_cli():
     parser.add_argument('-c', '--compress', action="store_true",
                         help="Compress recorded data")
     args = parser.parse_args()
-    if args.starttime == "NOW" or args.starttime == 'ASAP':
-        args.starttime = datetime.datetime.utcnow()
-    else:
-        args.starttime = datetime.datetime.strptime(args.starttime,
-                                                    '%Y-%m-%dT%H:%M:%S')
+    starttime = timestr2datetime(args.starttime)
     args.ports = [int(portstr) for portstr in args.ports.split(',')]
     if not args.mockrun:
         if args.which == 'py':
-            rec_bf_streams_py(args.ports[0], args.bfdatadir, args.duration)
+            rec_bf_streams_py.main(args.ports[0], args.bfdatadir, args.duration)
         else:
             lanes = range(len(args.ports))
-            rec_bf_streams(args.starttime, args.duration, lanes, args.rcumode,
-                           args.bfdatadir, args.ports[0], args.stnid, args.compress)
+            rec_bfs_lanes(starttime, args.duration, args.file_duration, lanes,
+                          args.rcumode, args.bfdatadir, args.ports[0],
+                          args.stnid, args.compress)
     else:
         print('MOCKRUN. Arguments:')
         print(args)
