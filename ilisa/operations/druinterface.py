@@ -1,13 +1,9 @@
 import os
 import datetime
-from ilisa.operations._rem_exec import _exec_ssh
-from ilisa.operations.modeparms import band2rcumode, timestr2datetime,\
-    normalizetimestr
-from ilisa.pipelines.bfbackend import pl_rec_wrapper, dumpername
 
-# dumpername is name of binary executable on DRU which is run by
-# pl_rec_wrapper when capturing UDP packets with LOFAR beamformed voltages data.
-# (Currently requires manually install putting it in DRU user's PATH env var)
+from ilisa.operations._rem_exec import _exec_ssh
+from ilisa.operations.modeparms import band2rcumode, normalizetimestr
+from ilisa.pipelines.bfbackend import PL_REC_WRAPPER, DUMPERNAME
 
 
 class DRUinterface:
@@ -20,48 +16,42 @@ class DRUinterface:
         if not self.user and self.hostname == 'localhost':
             self.user = os.getlogin()
         self.url = self.user + "@" + self.hostname
-        self.bf_logfile = accessconf_dru['BeamFormLogFile']
+        self.bf_logfile = accessconf_dru.get('BeamFormLogFile')
+        self.bf_data_dir = accessconf_dru.get('BeamFormDataDir')
         self.accessible = True
         dru = self._exec_dru_func()
         self.dru = dru
         self.ports = ports
 
-    def _exec_dru_func(self):
+    def _exec_dru_func(self, background_job=False, stdoutdir='~'):
         nodeurl = '{}@{}'.format(self.user, self.hostname)
-        def exec_ssh_inner(cmdline, nodeurl=nodeurl, stdoutdir=None,
-                           nodetype='DRU', background_job=False, dryrun=False,
-                           accessible=self.accessible, quotes="'", verbose=self.verbose):
-            return _exec_ssh(nodeurl, cmdline, stdoutdir=stdoutdir,
-                             nodetype=nodetype, background_job=background_job,
+
+        def exec_ssh_inner(cmdline, nodeurl=nodeurl, nodetype='DRU',
+                           background_job=background_job,  stdoutdir=stdoutdir,
+                           dryrun=False, accessible=self.accessible, quotes="'",
+                           verbose=self.verbose):
+            return _exec_ssh(nodeurl, cmdline, nodetype=nodetype,
+                             background_job=background_job, stdoutdir=stdoutdir,
                              dryrun=dryrun, accessible=accessible,
                              quotes=quotes, verbose=verbose)
         return exec_ssh_inner
 
+    def ls(self, path):
+        """List files in path on DRU"""
+        ls_out = self.dru('ls ' + path)
+        if ls_out:
+            ls_outs = ls_out.split('\n')
+        else:
+            ls_outs = []
+        return ls_outs
+
     def bfsfilepathslist(self, starttime, band, bf_data_dir, ports, stnid,
                          compress=True):
-        port0 = ports[0]
-        outdumpdirs = []
-        outargs = []
-        datafileguesses = []
-        dumplognames = []
-        for lane in range(len(ports)):
-            outdumpdir, outarg, datafileguess, dumplogname = \
-                self.bfsfilepaths(lane, starttime, band, bf_data_dir, port0,
-                                  stnid, compress=compress)
-            outdumpdirs.append(outdumpdir)
-            outargs.append(outarg)
-            datafileguesses.append(datafileguess)
-            dumplognames.append(dumplogname)
-        return outdumpdirs, outargs, datafileguesses, dumplognames
-
-    def bfsfilepaths(self, lane, starttime, band, bf_data_dir, port0, stnid,
-                     compress=True):
-        """Generate paths and name for BFS recording.
+        """\
+        Generate paths and name for BFS recording
 
         Parameters
         ----------
-        lane : int
-            Lane number 0,1,2, or 3.
         starttime : str
             The datetime string when the BF stream started.
         band :
@@ -92,39 +82,106 @@ class DRUinterface:
         dumplogname :
             Name of dumper's logfile.
         """
-        port = port0 + lane
-        pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
-        outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
-        outfilepre = "udp_" + stnid
-        rcumode = band2rcumode(band)
-        outarg = os.path.join(outdumpdir, outfilepre)
-        dumplogname = '{}_lane{}_rcu{}.log'.format(dumpername, lane,
-                                                   rcumode)
-        dumplogpath = os.path.join(outdumpdir, dumplogname)
-        # local_hostname = self.dru['hostname']().rstrip()
-        local_hostname = self.dru('hostname').rstrip()
-        starttime = normalizetimestr(starttime)
-        starttime_arg = starttime + '.000'
-        datapathguess = outarg + '_' + str(port) + '.' + local_hostname + '.'\
-                        + starttime_arg
-        if compress:
-            datapathguess += '.zst'
-        return outdumpdir, outarg, datapathguess, dumplogpath
+        def _bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid,
+                          compress=True):
+            """\
+            Generate paths and name for a BFS recording lane
+            """
+            port = port0 + lane
+            pre_bf_dir, pst_bf_dir = bf_data_dir.split('?')
+            outdumpdir = pre_bf_dir + str(lane) + pst_bf_dir
+            outfilepre = "udp_" + stnid
+            rcumode = band2rcumode(band)
+            outarg = os.path.join(outdumpdir, outfilepre)
+            dumplogname = '{}_lane{}_rcu{}.log'.format(DUMPERNAME, lane,
+                                                       rcumode)
+            dumplogpath = os.path.join(outdumpdir, dumplogname)
+            # local_hostname = self.dru['hostname']().rstrip()
+            local_hostname = self.dru('hostname').rstrip()
+            starttime = normalizetimestr(starttime)
+            starttime_arg = starttime + '.000'
+            datapathguess = outarg + '_' + str(port) + '.' + local_hostname + '.' \
+                            + starttime_arg
+            if compress:
+                datapathguess += '.zst'
+            return outdumpdir, outarg, datapathguess, dumplogpath
 
-    def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime,
-                      compress=True, band='110_190', stnid=None,
-                      mockrun=False):
+        port0 = ports[0]
+        outdumpdirs = []
+        outargs = []
+        datafileguesses = []
+        dumplognames = []
+        for lane in range(len(ports)):
+            outdumpdir, outarg, datafileguess, dumplogname = \
+                _bfsfilepaths(lane, starttime, band, bf_data_dir, port0, stnid,
+                              compress=compress)
+            outdumpdirs.append(outdumpdir)
+            outargs.append(outarg)
+            datafileguesses.append(datafileguess)
+            dumplognames.append(dumplogname)
+        return outdumpdirs, outargs, datafileguesses, dumplognames
+
+    def parse_bfs_filename(self, bfs_filename):
+        udp, stnid, prt_host_start_ms_compress = bfs_filename.split('_', 2)
+        port, hostname, startstr, ms, cmprss_suf =\
+            prt_host_start_ms_compress.split('.', 4)
+        return port, hostname, startstr, ms, cmprss_suf
+
+    def get_bfs_filenames(self):
         """\
-        Record beamformed streams using recording process on DRU
+        Get BFS data and log file names on DRU
 
-        Note: Blocks until finished recording on DRU
+        Returns
+        -------
+        paths_data : list
+            Paths to the BFS data files.
+        paths_logs : list
+            Paths to the BFS log files.
         """
-        dumpercmd = pl_rec_wrapper
+        nrlanes = 4
+        bf_dir_list = [self.bf_data_dir]
+        # Convert /paths/?/like/this to real paths
+        if '?' in self.bf_data_dir:
+            _bf_data_dir = self.bf_data_dir
+            bf_dir_list = [_bf_data_dir.replace('?', str(lanenr))
+                           for lanenr in range(nrlanes)]
+        paths_data = []
+        paths_logs = []
+        for _bf_data_dir in bf_dir_list:
+            ls = self.ls(_bf_data_dir)
+            if ls:
+                # Find all non .log files
+                data_files = sorted(filter(lambda f: not f.endswith('.log'), ls))
+                _paths_data = [os.path.join(_bf_data_dir, f) for f in
+                               data_files]
+                paths_data.extend(_paths_data)
+                # Find all .log files
+                log_files = sorted(filter(lambda f: f.endswith('.log'), ls))
+                _paths_logs = [os.path.join(_bf_data_dir, f) for f in
+                               log_files]
+                paths_logs.extend(_paths_logs)
+        return paths_data, paths_logs
+
+    def start_bf_rec(self, ports, duration, bf_data_dir, starttime,
+                     file_dur=None, compress=True, band='110_190', stnid=None,
+                     mockrun=False):
+        """\
+        Start Record beamformed streams using recording process on DRU
+
+        Returns
+        -------
+        datafiles : list
+            The paths to the BFS data files.
+        logfiles : list
+            The paths to the BFS log files.
+        """
+        self.bf_data_dir = bf_data_dir
+        dumpercmd = PL_REC_WRAPPER
         which_recorder = 'ow'
         starttime_str = starttime.strftime('%Y-%m-%dT%H:%M:%S')
         outdumpdirs, outargs, datafiles, logfiles = \
-            self.bfsfilepathslist(starttime_str, band, bf_data_dir, ports, stnid,
-                                  compress)
+            self.bfsfilepathslist(starttime_str, band, bf_data_dir, ports,
+                                  stnid, compress)
         for outdumpdir in outdumpdirs:
             self.dru('mkdir -p '+outdumpdir)
         portlststr = ','.join([str(p) for p in ports])
@@ -133,6 +190,45 @@ class DRUinterface:
                        '--duration', str(duration),
                        '--bfdatadir', '"'+bf_data_dir+'"', '--rcumode', rcumode,
                        '--stnid', stnid]
+        if file_dur and file_dur != duration:
+            print('BLA',file_dur, duration)
+            cmdlineargs += ['--file_duration', str(file_dur)]
+        cmdlineargs.extend(['--starttime', starttime_str])
+        if compress:
+            cmdlineargs.append('--compress')
+        if mockrun:
+            cmdlineargs.append('--mockrun')
+        print("BFS rec process issued to DRU @", datetime.datetime.utcnow())
+        self.dru(' '.join([dumpercmd] + cmdlineargs), background_job=True)
+        print("BFS_end")
+        return datafiles, logfiles
+
+    def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime,
+                      file_dur=None, compress=True, band='110_190', stnid=None,
+                      mockrun=False):
+        """\
+        Record beamformed streams using recording process on DRU
+
+        Note: Blocks until finished recording on DRU
+        """
+        self.bf_data_dir = bf_data_dir
+
+        dumpercmd = PL_REC_WRAPPER
+        which_recorder = 'ow'
+        starttime_str = starttime.strftime('%Y-%m-%dT%H:%M:%S')
+        outdumpdirs, outargs, datafiles, logfiles = \
+            self.bfsfilepathslist(starttime_str, band, bf_data_dir, ports,
+                                  stnid, compress)
+        for outdumpdir in outdumpdirs:
+            self.dru('mkdir -p '+outdumpdir)
+        portlststr = ','.join([str(p) for p in ports])
+        rcumode = band2rcumode(band)
+        cmdlineargs = ['--which', which_recorder, '--ports', portlststr,
+                       '--duration', str(duration),
+                       '--bfdatadir', '"'+bf_data_dir+'"', '--rcumode', rcumode,
+                       '--stnid', stnid]
+        if file_dur:
+            cmdlineargs += ['--file_duration', str(file_dur)]
         cmdlineargs.extend(['--starttime', starttime_str])
         if compress:
             cmdlineargs.append('--compress')
@@ -140,6 +236,7 @@ class DRUinterface:
             cmdlineargs.append('--mockrun')
         print("BFS rec process issued to DRU @", datetime.datetime.utcnow())
         self.dru(' '.join([dumpercmd] + cmdlineargs))
+        print("BFS_end")
         return datafiles, logfiles
 
 
