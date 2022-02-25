@@ -95,9 +95,6 @@ class StationDriver(object):
                                 self._dru_root])
         # Set the root path to where the lofar data should be stored
         self.dru_data_root = os.path.join(self._dru_root, _lofardatadir)
-
-        # Path of symbolic link to latest scan
-        self.link2latest = os.path.join(self.dru_data_root, 'Latest')
         # ID of current scan
         self.scan_id = None
         # Path to folder that will contain scans:
@@ -955,12 +952,6 @@ class StationDriver(object):
         # and create the directory: (may not have ldat if no rec but will have
         # info files)
         os.makedirs(self.scanpath_scdat)
-        # Make symbolic link from 'Latest' folder to latest scan folder
-        if bsx_stat:
-            if os.path.exists(self.link2latest):
-                os.remove(self.link2latest)
-            os.symlink(self.scanpath_scdat, self.link2latest)
-
         # Also setup for BFS data:
         bfs_scan_root = self._dru_interface.bf_data_dir
         if destpath_bfs:

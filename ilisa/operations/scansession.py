@@ -13,6 +13,10 @@ import ilisa.operations.programs as programs
 from ilisa.operations.stationdriver import StationDriver, waituntil
 from ilisa.operations.scan import still_time_fun, LScan
 
+LOGFILE = "ilisa_cmds.log"
+LATEST_SESS_DATAFILE = os.path.join(ilisa.operations.USER_CACHE_DIR,
+                                    "latest_session_datafiles.txt")
+
 
 def projid2meta(projectid):
     """Get the project metadata for project with projectid."""
@@ -203,6 +207,8 @@ class ScanSession(object):
         if session_id is None:
             session_id = self.make_session_id()
         self.session_id = session_id
+        if os.path.exists(LATEST_SESS_DATAFILE):
+            os.remove(LATEST_SESS_DATAFILE)
 
     def set_stn_session_id(self, parent_session_id):
         self.stn_sess_id = '{}_{}'.format(parent_session_id, self.stndrv.get_stnid())
@@ -326,14 +332,11 @@ class ScanSession(object):
             scan['id'] = scanresult.get('scan_id', None)
             scanpath_scdat = scanresult.get('scanpath_scdat', None)
             print("Saved scan here: {}".format(scanpath_scdat))
-            # Make symbolic link to latest scan
-            try:
-                os.unlink(self.stndrv.link2latest)
-            except:
-                pass
+            # Append latest scanrec paths file
             if 'bsx' in lscan.scanresult['rec']:
-                os.symlink(lscan.scanresult['bsx'].scanrecpath,
-                           self.stndrv.link2latest)
+                with open(LATEST_SESS_DATAFILE, 'a') as f:
+                    f.write(lscan.scanresult['bsx'].scanrecpath)
+                    f.write('\n')
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
             print("Finished scan @", scan_ended_at,
@@ -392,9 +395,6 @@ def obs(stndrv, args):
         sys.exit()
     scnsess.run_scansess(scansess_in)
     args.cmd = 'obs:' + args.file
-
-
-LOGFILE = "ilisa_cmds.log"
 
 
 def main_cli():
