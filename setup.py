@@ -34,8 +34,9 @@ setup(name='iLiSA',
       ],
       entry_points={
           'console_scripts': [
-              'ilisa_cmd = ilisa.operations.scansession:main',
-              'ilisa_rec = ilisa.operations.stationdriver:main',
+              'ilisa_adm = ilisa.operations.stationdriver:main_cli',
+              'ilisa_rec = ilisa.operations.scan:main_cli',
+              'ilisa_obs = ilisa.operations.scansession:main_cli',
               'ilisa_view = ilisa.operations.data_io:main',
               'ilisa_applycal = ilisa.calim.calibration:main_cli',
               'ilisa_image = ilisa.calim.imaging:main_cli',
