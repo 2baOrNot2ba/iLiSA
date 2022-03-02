@@ -107,14 +107,8 @@ class StationDriver(object):
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
         # and likewise the last executed commands
-        self.last_rcusetup_cmds = []
-        self.last_beamctl_cmds = []
         # Initialize septonconf setting; implies tile-off (tof) mode
         self.septonconf = None
-        # Initialize scanresult
-        ## Structure: {'rec': [], 'acc'|'bfs'|'bsx': ScanRecInfo,
-        ##             'scan_id': str, 'scanpath_scdat': str}
-        self.scanresult = {'rec': []}
         # Initialize beamstart time
         self.beamstart = None
         # Initialize field, name of field station pointing at
@@ -438,15 +432,21 @@ class StationDriver(object):
     def stop_beam(self):
         """Turn off beam."""
         self._lcu_interface.stop_beam()
-        # Save last commands for e.g. ACC
-        self.last_rcusetup_cmds = self.rcusetup_cmds
-        self.last_beamctl_cmds = self.beamctl_cmds
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
     def start_acc_scan(self):
         """\
         Start recording ACC
+
+        See also
+        --------
+        stop_acc_scan : Stops ACC scan.
+
+        Notes
+        -----
+            ACC stands for Autocorrelation cubes. They are produced by the
+            `CalServer` in swlevel 3 as soon as `beamctl` command is running.
 
         Yields
         ------
@@ -502,7 +502,13 @@ class StationDriver(object):
             continue_acc = yield ldatinfo_acc
 
     def stop_acc_scan(self):
-        """Stop ACC scan"""
+        """\
+        Stop ACC scan
+
+        See also
+        --------
+        start_acc_scan : Starts ACC scan.
+        """
         self._lcu_interface.set_swlevel(2)
         self._lcu_interface.acc_mode(enable=False)
         self._lcu_interface.set_swlevel(3)
@@ -534,7 +540,6 @@ class StationDriver(object):
         rcusetup_cmds = self.rcusetup_cmds
         beamctl_cmds = self.beamctl_cmds
 
-        caltabinfos = []
         sweep_sbs = []  # list of subbands to be swept through
         if not duration_file:
             duration_file = duration_tot
@@ -543,7 +548,6 @@ class StationDriver(object):
 
         # Record statistic for duration_tot seconds
         if bsxtype == 'bst':
-            caltabinfos = self.get_caltableinfos(freqsetup.rcumodes)
             sweep_sbs = [None]
         elif bsxtype == 'sst':
             sweep_sbs = [None]
