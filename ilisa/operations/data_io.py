@@ -344,6 +344,7 @@ class ScanRecInfo(object):
         self._pointing = ''
         self.sourcename = ''
         self.caltabinfos = []
+        self.scanrecpath = None
 
     def add_obs(self, obsinfo):
         """Add an LDatInfo object to this ScanRecInfo."""
@@ -414,14 +415,6 @@ class ScanRecInfo(object):
         else:
             self.calibrationfile = scanrecfiledict['calibrationfile']
 
-    def write(self, scanrecpath=None):
-        """Write scanrecinfo file and all obsinfo headers."""
-        if not scanrecpath:
-            scanrecpath = self.get_scanrecpath()
-        self.write_scanrec(scanrecpath)
-        for obs_id in self.obsinfos:
-            self.obsinfos[obs_id].write_ldat_header(scanrecpath)
-
     def set_postcalibration(self, caltabpath, scanrecpath):
         """Add the caltab file that was applied to this scanrec (typically CVC
         data) after station recording.
@@ -438,37 +431,6 @@ class ScanRecInfo(object):
                                                self.scanrecinfo_header)
         with open(scanrecinfo_header_path, 'a') as h:
             h.write("calibrationfile: " + os.path.basename(caltabpath))
-
-    def set_scanpath(self, scanpath):
-        """Set path where this scanrec is stored. scanpath is the path to
-        parent folder.
-        """
-        self.scanpath = scanpath
-
-    def get_scanrecpath(self):
-        """\
-        Return path to this scanrec.
-
-        Create name and destination path for folders (on the DPU) in
-        which to save the various LOFAR data products.
-        """
-
-        start_key = min(self.obsinfos)
-        ofix = {}  # ObsFileInfo eXtra
-        ofix['station_id'] = self.get_stnid()
-        ofix['filenametime'] = start_key
-        ofix['spw'] = self.obsinfos[start_key].get_spw()
-        sb = modeparms.FreqSetup(self.scanrecparms['freqspec']).subbands_spw
-        ofix['sb'] = sb
-        ofix['pointing'] = self._pointing
-        folder_name_beamctl_type = True
-        if not folder_name_beamctl_type:
-            scanrecname = ofix['filenametime']
-            scanrecname += "_" + ofix['datatype']
-        else:
-            scanrecname = obsfileinfo2filefolder({**self.scanrecparms, **ofix})
-        scanrecpath = os.path.join(self.scanpath, scanrecname)
-        return scanrecpath
 
     def get_datatype(self):
         return self.scanrecparms['datatype']
