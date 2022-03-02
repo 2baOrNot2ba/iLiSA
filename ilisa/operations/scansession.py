@@ -249,19 +249,21 @@ class ScanSession(object):
         with open(ses_sched_file, 'w') as f:
             yaml.dump(sched, f, explicit_start=True)
 
-    def _writescanrecs(self, scanrecs):
-        """Write the  scanrec for each recorded ldat."""
-        for ldat in scanrecs.keys():
-            try:
-                scanrecpath = scanrecs[ldat].get_scanrecpath()
-            except (AttributeError, KeyError):
-                scanrecpath = None
-            if scanrecpath:
-                scanrecs[ldat].write(scanrecpath)
-
     def run_scansess(self, sesscans_in, session_id=None):
         """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding operations."""
+
+        def _update_latestdatafile(rec_state, rec_name, scanrecpath):
+            """Update the latestdata file for the given recording if needed"""
+            if rec_state and not scanrecpath[rec_name]:
+                scanrecpath = getattr(lscan.scanresult[rec_name],
+                                      'scanrecpath', None)
+                if scanrecpath[rec_name]:
+                    with open(LATESTDATAFILE, 'a') as f:
+                        f.write(scanrecpath)
+                        f.write('\n')
+            return scanrecpath
+
         if session_id:
             self.session_id = session_id
         sessmeta, scans_iter = process_scansess(sesscans_in,
@@ -323,13 +325,19 @@ class ScanSession(object):
                               file_dur=scan['file_dur'])
                 subscan = iter(lscan)
                 # Start the subscan
+                scanrecpath = {'acc': None, 'bfs': None, 'bsx': None}
                 next(subscan)
                 while stop_cond():
                     try:
                         print('IN TOP SUBSCAN LOOP', datetime.datetime.utcnow())
                         _ = subscan.send(stop_cond())
+
                     except StopIteration:
                         break
+                    scanrecpath['acc'] = _update_latestdatafile(acc, 'acc')
+                    scanrecpath['bfs'] = _update_latestdatafile(bfs, 'bfs')
+                    scanrecpath['bsx'] = _update_latestdatafile(bsx_stat, 'bsx')
+
                 lscan.close()
 
                 if not bfs and not modeparms._xtract_bsx(bsx_stat) and not acc:
@@ -341,11 +349,6 @@ class ScanSession(object):
             scan['id'] = scanresult.get('scan_id', None)
             scanpath_scdat = scanresult.get('scanpath_scdat', None)
             print("Saved scan here: {}".format(scanpath_scdat))
-            # Append latest scanrec paths file
-            with open(LATESTDATAFILE, 'a') as f:
-                for rec in lscan.scanresult['rec']:
-                    f.write(lscan.scanresult[rec].scanrecpath)
-                    f.write('\n')
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
             print("Finished scan @", scan_ended_at,
