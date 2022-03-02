@@ -253,16 +253,14 @@ class ScanSession(object):
         """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
         stationdrivers to setup corresponding operations."""
 
-        def _update_latestdatafile(rec_state, rec_name, scanrecpath):
+        def _update_latestdatafile(rec_name, rec_state):
             """Update the latestdata file for the given recording if needed"""
             if rec_state and not scanrecpath[rec_name]:
-                scanrecpath = getattr(lscan.scanresult[rec_name],
-                                      'scanrecpath', None)
+                scanrecpath[rec_name] = lscan.scanresult[rec_name].scanrecpath
                 if scanrecpath[rec_name]:
                     with open(LATESTDATAFILE, 'a') as f:
-                        f.write(scanrecpath)
+                        f.write(scanrecpath[rec_name])
                         f.write('\n')
-            return scanrecpath
 
         if session_id:
             self.session_id = session_id
@@ -331,13 +329,11 @@ class ScanSession(object):
                     try:
                         print('IN TOP SUBSCAN LOOP', datetime.datetime.utcnow())
                         _ = subscan.send(stop_cond())
-
                     except StopIteration:
                         break
-                    scanrecpath['acc'] = _update_latestdatafile(acc, 'acc')
-                    scanrecpath['bfs'] = _update_latestdatafile(bfs, 'bfs')
-                    scanrecpath['bsx'] = _update_latestdatafile(bsx_stat, 'bsx')
-
+                    list(map(_update_latestdatafile,
+                             *zip(('acc', acc), ('bfs', bfs), ('bsx',bsx_stat)))
+                         )
                 lscan.close()
 
                 if not bfs and not modeparms._xtract_bsx(bsx_stat) and not acc:
