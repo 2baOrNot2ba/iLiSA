@@ -614,7 +614,9 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         Station {}, int={}s, UT={}, PbCor={}, {}
         """.format(pointing_tuple2str(phaseref), freq/1e6, stnid, integration,
                    t, pbcor, caltag), fontsize=8)
-    plt.show()
+    plt.draw()
+    plt.pause(0.001)
+    plt.clf()
 
 
 def pntsrc_hmsph(*pntsrcs, imsize=101):
