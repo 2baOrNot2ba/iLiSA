@@ -7,6 +7,7 @@ import argparse
 
 import ilisa
 import ilisa.operations
+from ilisa.operations import LATESTDATAFILE
 import ilisa.operations.directions as directions
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.programs as programs
@@ -14,8 +15,6 @@ from ilisa.operations.stationdriver import StationDriver, waituntil
 from ilisa.operations.scan import still_time_fun, LScan
 
 LOGFILE = "ilisa_cmds.log"
-LATEST_SESS_DATAFILE = os.path.join(ilisa.operations.USER_CACHE_DIR,
-                                    "latest_session_datafiles.txt")
 
 
 def projid2meta(projectid):
@@ -32,6 +31,7 @@ def projid2meta(projectid):
         projectmeta = {'observer': None, 'name': None}
         accessfiles = None
     return projectmeta, accessfiles
+
 
 def process_scansess(sesscans_in, stnid, session_id=None):
     """Function for parsing a station session schedule."""
@@ -97,21 +97,23 @@ def process_scansess(sesscans_in, stnid, session_id=None):
 
             # - Starttime computed based on previous starttime
             # - - and after time:
-            dur_dprev = datetime.timedelta(seconds=duration_totprev)
-            after = scan.get('after')
-            if after:
-                after_delta = modeparms.hmsstr2deltatime(after)
-                if after_delta < (dur_dprev + margintime):
-                    raise ValueError(
-                        'No time for next scan: after {} - dur {} < marg {}.'
-                        .format(dur_dprev, after_delta, margintime))
-                starttime = starttimeprev + after_delta
-            elif scan == sesscans_in['scans'][0]:
-                # First scan should not include margintime between scans
-                starttime = starttimeprev + dur_dprev
-            else:
-                # All other scans should include margintime between scans
-                starttime = starttimeprev + dur_dprev + margintime
+            starttime_in = scan.get('starttime')
+            if not starttime_in:
+                after = scan.get('after')
+                dur_dprev = datetime.timedelta(seconds=duration_totprev)
+                if after:
+                    after_delta = modeparms.hmsstr2deltatime(after)
+                    if after_delta < (dur_dprev + margintime):
+                        raise ValueError(
+                            'No time for next scan: after {} - dur {} < marg {}.'
+                                .format(dur_dprev, after_delta, margintime))
+                    starttime_in = starttimeprev + after_delta
+                elif scan == sesscans_in['scans'][0]:
+                    # First scan should not include margintime between scans
+                    starttime_guess = starttimeprev + dur_dprev
+                else:
+                    # All other scans should include margintime between scans
+                    starttime_guess = starttimeprev + dur_dprev + margintime
 
             # - Duration total
             duration_in = scan.get('duration')
@@ -119,9 +121,7 @@ def process_scansess(sesscans_in, stnid, session_id=None):
                                                       ).total_seconds()
             # duration_tot = eval(str(scan['duration']))
             file_dur = scan.get('file_dur')
-            # Next scan use current time as previous time and current time
-            starttimeprev = starttime
-            duration_totprev = duration_tot
+
 
             # - Source name
             source = scan.get('source')
@@ -190,12 +190,15 @@ def process_scansess(sesscans_in, stnid, session_id=None):
                           'integration': integration,
                           'duration': duration_tot,
                           'file_dur': file_dur,
-                          'starttime': starttime,
+                          'starttime_in': starttime_in,
+                          'starttime_guess': starttime_guess,
                           'source': source
                           }
             obsargs_in.update({'obsprog': obsprog})
-            #sessmeta['scans'].append(obsargs_in)
             yield obsargs_in
+            # Next scan use current time as previous time and current time
+            starttimeprev = starttime_in if starttime_in else starttime_guess
+            duration_totprev = duration_tot
     return sessmeta, generate_scans()
 
 
@@ -207,8 +210,11 @@ class ScanSession(object):
         if session_id is None:
             session_id = self.make_session_id()
         self.session_id = session_id
-        if os.path.exists(LATEST_SESS_DATAFILE):
-            os.remove(LATEST_SESS_DATAFILE)
+        if os.path.exists(LATESTDATAFILE):
+            # Create the file with 1st line noting ongoing session
+            # This should be removed when session is finished.
+            with open(LATESTDATAFILE, 'w') as f:
+                f.writelines(['ONGOING\n'])
 
     def set_stn_session_id(self, parent_session_id):
         self.stn_sess_id = '{}_{}'.format(parent_session_id, self.stndrv.get_stnid())
@@ -298,7 +304,10 @@ class ScanSession(object):
                 freqspec = scan['beam']['freqspec']
                 freqsetup = modeparms.FreqSetup(freqspec)
 
-                starttime = scan['starttime']
+                # Calculate scan schedule fundamental timings
+                starttime = scan.get('starttime_in')
+                if not starttime:
+                    starttime = modeparms.timestr2datetime('ASAP')
                 duration_tot = scan['duration']
                 stoptime = starttime + datetime.timedelta(
                     seconds=int(duration_tot))
@@ -333,9 +342,9 @@ class ScanSession(object):
             scanpath_scdat = scanresult.get('scanpath_scdat', None)
             print("Saved scan here: {}".format(scanpath_scdat))
             # Append latest scanrec paths file
-            if 'bsx' in lscan.scanresult['rec']:
-                with open(LATEST_SESS_DATAFILE, 'a') as f:
-                    f.write(lscan.scanresult['bsx'].scanrecpath)
+            with open(LATESTDATAFILE, 'a') as f:
+                for rec in lscan.scanresult['rec']:
+                    f.write(lscan.scanresult[rec].scanrecpath)
                     f.write('\n')
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
@@ -343,8 +352,17 @@ class ScanSession(object):
                   "Request dur=", duration_tot,
                   "Actual dur=", duration_actual)
             scans_done.append(scan)
+        # Collate session metadata with scan meta data as scansession metadata
         sessmeta['scans'] = scans_done
+        # and save it:
         self.save_scansess(sessmeta)
+        # Update LATESTDATAFILE that session is no longer on-going:
+        with open(LATESTDATAFILE, 'r') as f:
+            filecontents = f.readlines()
+            # 1st line containing ongoing status. Remove it.
+            _ongoing = filecontents.pop(0)
+        with open(LATESTDATAFILE, 'w') as f:
+            f.writelines(filecontents)
 
 
 def get_proj_stn_access_conf(projid, stnid):

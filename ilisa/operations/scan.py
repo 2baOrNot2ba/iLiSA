@@ -54,7 +54,7 @@ class LScan:
             FreqSetup() instance.
         duration_tot: float
             Requested total duration of scan in seconds.
-        pointing_spec: str
+        pointing_spec: dict
             Pointing source direction of scan. Can be a source name or a
             beamctl direction str. If None, then allsky image is implied.
         integration: float
@@ -96,7 +96,9 @@ class LScan:
             raise ValueError("No pointing, but beam needed")
 
         self.stndrv.goto_observingstate()
-
+        # Initialize scanresult
+        ## Structure: {'rec': [], 'acc'|'bfs'|'bsx': ScanRecInfo,
+        ##             'scan_id': str, 'scanpath_scdat': str}
         self.scanresult = {}
         bsx_stat = modeparms._xtract_bsx(rec_type)
         caltabinfos = []
@@ -119,7 +121,7 @@ class LScan:
                 self.scanresult['acc'].set_caltabinfos([])
                 self.scanresult['acc'].set_scanrecparms(
                     'acc', freqsetup.arg, duration_tot,
-                    self.pointing_spec['direction'], '1.0')
+                    self.pointing_spec['direction'], 1.0)
             if bsx_stat:
                 self.scanresult['rec'].append('bsx')
                 self.scanresult['bsx'] = data_io.ScanRecInfo()
@@ -315,8 +317,7 @@ class LScan:
         for ldatinfo in ldatinfos:
             self.scanresult['bsx'].add_obs(ldatinfo)
         # Move data to archive
-        #self.scanresult['bsx'].set_scanpath(self.scanresult['scanpath_scdat'])
-        self.scanresult['bsx'].scanrecpath = self.scanresult['scanpath_scdat']
+        #self.scanresult['bsx'].scanrecpath = self.scanresult['scanpath_scdat']
 
     def _stop_bfs_scan(self, ldatinfos_bfs):
         """\
@@ -327,10 +328,8 @@ class LScan:
             self.scanresult['bfs'].add_obs(ldatinfo)
 
         # Make a project folder for BFS data
-        #self.scanresult['bfs'].set_scanpath(self.stndrv.scanpath_scdat)
         scanrecpath = self.scanresult['bfs'].scanrecpath
         # Create BFS destination folder on DPU:
-        #os.makedirs(scanrecpath)
         if self.stndrv._dru_interface.hostname == 'localhost':
             # Make soft links to actual BFS files and move logs to scanrec
             # folder
@@ -347,15 +346,15 @@ class LScan:
         return scan_id
 
     def _write_scanrecs(self):
-        """Write the  scanrec for each recorded ldat."""
-        scanrecs = self.scanresult
-        for ldat in scanrecs.keys():
-            try:
-                scanrecpath = scanrecs[ldat].scanrecpath
-            except (AttributeError, KeyError):
-                scanrecpath = None
+        """\
+        Write the scanrec for each recorded ldat
+        """
+        for ldat in self.scanresult['rec']:
+            scanrecinfo = self.scanresult.get(ldat)
+            scanrecpath = scanrecinfo.scanrecpath
+            print('scanrecpath', scanrecpath)
             if scanrecpath:
-                scanrecs[ldat].write_scanrec(scanrecpath)
+                scanrecinfo.write_scanrec(scanrecpath)
 
 
 def still_time_fun(stoptime):

@@ -17,13 +17,17 @@ import os
 import shutil
 import numpy
 import re
+import time
 import datetime
 import h5py
 import yaml
 import warnings
 import ilisa
+import ilisa.operations
 import ilisa.operations.directions
 import ilisa.antennameta.antennafieldlib as antennafieldlib
+from ilisa.operations import LATESTDATAFILE
+
 try:
     import dreambeam
     canuse_dreambeam = True
@@ -32,7 +36,6 @@ except ImportError:
 if canuse_dreambeam:
     from dreambeam.polarimetry import convertxy2stokes
     from dreambeam.polarimetry import cov_lin2cir
-
 
 _RCU_SB_SEP = "+"
 
@@ -1694,19 +1697,82 @@ def plotacc(accff, freqreq=None):
             sb += 1
 
 
-def view_bsxst(args):
-    lofar_datatype = datafolder_type(args.dataff)
-    if lofar_datatype =='acc':
-        plotacc(args.dataff, args.freq)
-    if lofar_datatype=='bst' or lofar_datatype=='bst-357':
-        viewbst(args.dataff, pol_stokes=not(args.linear),
-                printout=args.printout)
-    elif lofar_datatype=='sst':
-        plotsst(args.dataff, args.freq, args.sampnr, args.filenr)
-    elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
-        plotxst(args.dataff)
+def latest_scanrec_path():
+    """\
+    Yield latest scanrec path
+
+    Yields
+    ------
+    latest_scanrecpath : str
+        Path on DRU of latest ScanRec data.
+    """
+    with open(LATESTDATAFILE, 'r') as f:
+        lines_in = f.readlines()
+    _contents = [l.rstrip() for l in lines_in]
+    if _contents[0] != 'ONGOING':
+        contents = _contents
+        yield from contents
     else:
-        raise RuntimeError("Not a bst, sst, or xst filefolder")
+        scanrec_nr = None
+        while True:
+            with open(LATESTDATAFILE, 'r') as f:
+                lines_in = f.readlines()
+            _contents = [l.rstrip() for l in lines_in]
+            if _contents[0] == 'ONGOING':
+                contents = _contents[1:]
+            else:
+                contents = _contents
+            if scanrec_nr is None and len(contents) == 0:
+                scanrecpath = None
+            elif scanrec_nr is None and len(contents) > 0:
+                # Start with 1st scanrec
+                scanrec_nr = 0
+                scanrecpath = contents[scanrec_nr]
+            elif scanrec_nr+1 < len(contents):
+                # Goto next scanrec
+                scanrec_nr += 1
+                scanrecpath = contents[scanrec_nr]
+            elif scanrec_nr+1 == len(contents):
+                # No new datafiles yet
+                scanrecpath = None
+            if scanrecpath is None and _contents[0] != 'ONGOING':
+                break
+            yield scanrecpath
+
+
+def view_bsxst(args):
+    """\
+    View BST, SST, XST statistics data files
+    """
+    dataff = args.dataff
+    if args.dataff:
+        dataffs = [dataff]
+    else:
+        dataffs = latest_scanrec_path()
+    for dataff in dataffs:
+        if not dataff:
+            print('Waiting 1s for data...')
+            time.sleep(1.0)
+            continue
+        dataff = os.path.normpath(dataff)
+        lofar_datatype = datafolder_type(dataff)
+        print('Viewing datafile:', dataff)
+        if not args.freq:
+            if lofar_datatype == 'acc' or lofar_datatype == 'sst':
+                freq = 0.0
+        else:
+            freq = float(args.freq)
+        if lofar_datatype =='acc':
+            plotacc(dataff, freq)
+        if lofar_datatype=='bst' or lofar_datatype=='bst-357':
+            viewbst(dataff, pol_stokes=not(args.linear),
+                    printout=args.printout)
+        elif lofar_datatype=='sst':
+            plotsst(dataff, freq, args.sampnr, args.filenr)
+        elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
+            plotxst(dataff)
+        else:
+            raise RuntimeError("Not a bst, sst, or xst filefolder")
 
 
 import argparse
@@ -1717,15 +1783,14 @@ def main():
 
     parser.add_argument('-n', '--filenr', type=str, default=None)
     parser.add_argument('-s', '--sampnr', type=int, default=None)
+    parser.add_argument('-f', '--freq', type=float, default=None)
     parser.add_argument('-l', '--linear', action="store_true",
                         help='Use linear X,Y polarization rather than Stokes')
     parser.add_argument('-p', '--printout', action="store_true",
                         help='Print out data to stdout, else plot')
-    parser.add_argument('dataff', help="acc, bst, sst or xst filefolder")
-    parser.add_argument('freq', type=float, nargs='?', default=None)
-
+    parser.add_argument('dataff', nargs='?', default=None,
+                        help="acc, bst, sst or xst filefolder")
     args = parser.parse_args()
-    args.dataff = os.path.normpath(args.dataff)
     view_bsxst(args)
 
 
