@@ -303,12 +303,9 @@ class LScan:
         Stop ACC scan recording
         """
         self.stndrv.stop_acc_scan()
-
         # Create obsinfo each ACC file
         for ldatinfo in self.ldatinfos_acc:
             self.scanresult['acc'].add_obs(ldatinfo)
-        # Set scanrecinfo
-        self.scanresult['acc'].set_scanpath(self.scanresult['scanpath_scdat'])
 
     def _stop_bsx_scan(self, ldatinfos):
         """\
@@ -316,8 +313,6 @@ class LScan:
         """
         for ldatinfo in ldatinfos:
             self.scanresult['bsx'].add_obs(ldatinfo)
-        # Move data to archive
-        #self.scanresult['bsx'].scanrecpath = self.scanresult['scanpath_scdat']
 
     def _stop_bfs_scan(self, ldatinfos_bfs):
         """\
