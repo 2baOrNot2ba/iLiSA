@@ -35,7 +35,31 @@ def projid2meta(projectid):
 
 
 def process_scansess(sesscans_in, stnid, session_id=None):
-    """Function for parsing a station session schedule."""
+    """\
+    Function for parsing a station session schedule
+
+    Parameters
+    ----------
+    sesscans_in : dict
+        Input session scans.
+    stnid : str
+        Station ID.
+    session_id : str
+        Assign this ID to session.
+
+    Returns
+    -------
+    sessmeta : dict
+        Processed metadata for sesscan_in.
+    generate_scans() : generator
+        scans settings.
+
+    Raises
+    ------
+    ValueError
+        If CLI starttime already passed
+        or if session's starttine already passed.
+    """
 
     # Set the session_id to something
     if not session_id:
@@ -369,7 +393,27 @@ class ScanSession(object):
 
 
 def get_proj_stn_access_conf(projid, stnid):
-    """Get access conf for stnid as per projid"""
+    """\
+    Get access conf for stnid as per projid
+
+    Parameters
+    ----------
+    projid : str
+        Project ID.
+    stnid : str
+        Station ID.
+
+    Returns
+    -------
+    ac : dict
+        Access info for given projid and stnid.
+
+    Raises
+    ------
+    RuntimeError
+        In projid's project file: if there is no accessfile defined for stnid
+        or if stnid is not given and there are no stnid's.
+    """
     projectmeta, accessfiles = projid2meta(projid)
     if stnid is None:
         # Try to get station from accessfiles in project config file:

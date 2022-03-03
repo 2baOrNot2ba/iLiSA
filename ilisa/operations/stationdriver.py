@@ -60,6 +60,20 @@ class StationDriver(object):
         """\
         Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
+
+        Parameters
+        ----------
+        accessconf_lcu : dict
+            LCU's access configuration metadata.
+        accessconf_dru : dict
+            DRU's access configuration metadata.
+        mockrun : bool
+            Whether this is mock run. Default False.
+
+        Raises
+        ------
+        AssertionError
+            If LCU could not be initalized.
         """
 
         self.mockrun = mockrun
