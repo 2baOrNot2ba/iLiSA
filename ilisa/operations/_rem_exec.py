@@ -1,10 +1,13 @@
 import subprocess
 import os
+import time
 try:
     import paramiko
     IMPORTED_PARAMIKO = True
 except ImportError:
     IMPORTED_PARAMIKO = False
+import logging
+
 
 def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False, dryrun=False,
               accessible=False, quotes="'", stdoutdir='~', verbose=True):
@@ -37,7 +40,7 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
     else:
         pre_prompt = ""
     if verbose:
-        print(pre_prompt + nodeprompt + cmdline)
+        logging.info(pre_prompt + nodeprompt + cmdline)
     if (not dryrun) and accessible:
         if background_job == 'locally':
             # Runs in background locally rather than in background on LCU

@@ -6,6 +6,8 @@ import numpy
 import datetime
 import warnings
 
+from ilisa.operations import DATETIMESTRFMT
+
 ANTENNA_SETS = ['LBA_INNER', 'LBA_OUTER',
                 'LBA_SPARSE_EVEN', 'LBA_SPARSE_ODD',
                 'LBA_X', 'LBA_Y',
@@ -19,7 +21,6 @@ BASE_NR_BEAMLETS = 244
 NRBEAMLETSBYBITS = {16:   BASE_NR_BEAMLETS,
                     8:  2*BASE_NR_BEAMLETS,
                     4:  4*BASE_NR_BEAMLETS}
-DATETIMESTRFMT = '%Y-%m-%dT%H:%M:%S'
 ACC_DUR = TotNrOfsb*MIN_STATS_INTG  # Duration of one ACC in s
 INTERV2ACCS = 7.0  # Interval between 2 ACCs in s
 # SEPTON configurations:
