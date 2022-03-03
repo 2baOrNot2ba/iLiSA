@@ -4,6 +4,7 @@ import time
 import datetime
 import yaml
 import argparse
+import logging
 
 import ilisa
 import ilisa.operations
@@ -282,7 +283,7 @@ class ScanSession(object):
 
         # Wait until it is time to bootup
         waituntil(session_start, dt2beamctl)
-        print("(scansession started @ {})".format(datetime.datetime.utcnow()))
+        logging.info("scansession started")
 
         scans_done = []
         for scan in scans_iter:
@@ -311,7 +312,7 @@ class ScanSession(object):
                 duration_tot = scan['duration']
                 stoptime = starttime + datetime.timedelta(
                     seconds=int(duration_tot))
-                print('Will stop @', stoptime)
+                logging.info('Will stop @ {}'.format(stoptime))
                 stop_cond = still_time_fun(stoptime)
                 margin_scan_start = datetime.timedelta(seconds=2)
                 startedtime = waituntil(starttime, margin_scan_start)
@@ -325,31 +326,34 @@ class ScanSession(object):
                 # Start the subscan
                 scanrecpath = {'acc': None, 'bfs': None, 'bsx': None}
                 next(subscan)
-                while stop_cond():
+                _stop_cond = stop_cond()
+                while _stop_cond:
                     try:
-                        print('IN TOP SUBSCAN LOOP', datetime.datetime.utcnow())
-                        _ = subscan.send(stop_cond())
+                        logging.debug('scansession: IN TOP SUBSCAN LOOP')
+                        _ = subscan.send(_stop_cond)
                     except StopIteration:
                         break
                     list(map(_update_latestdatafile,
                              *zip(('acc', acc), ('bfs', bfs), ('bsx',bsx_stat)))
                          )
+                    _stop_cond = stop_cond()
+                logging.debug('scansession: END SUBSCAN LOOP')
                 lscan.close()
 
                 if not bfs and not modeparms._xtract_bsx(bsx_stat) and not acc:
                     _sleepfor = (datetime.timedelta(seconds=duration_tot)
                                  + margin_scan_start)
-                    print('Not recording for {}s'.format(_sleepfor))
+                    logging.info('Not recording for {}s'.format(_sleepfor))
                     time.sleep(_sleepfor)
                 scanresult = lscan.scanresult
             scan['id'] = scanresult.get('scan_id', None)
             scanpath_scdat = scanresult.get('scanpath_scdat', None)
-            print("Saved scan here: {}".format(scanpath_scdat))
+            logging.info("Saved scan here: {}".format(scanpath_scdat))
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
-            print("Finished scan @", scan_ended_at,
-                  "Request dur=", duration_tot,
-                  "Actual dur=", duration_actual)
+            logging.info(f"Finished scan @ {scan_ended_at}, "
+                  f"Request dur={duration_tot}, "
+                  f"Actual dur={duration_actual}")
             scans_done.append(scan)
         # Collate session metadata with scan meta data as scansession metadata
         sessmeta['scans'] = scans_done
@@ -443,13 +447,13 @@ def main_cli():
         try:
             stndrv = StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
         except AssertionError as ass_err:
-            print("Error: Cannot setup {}'s LCU correctly"
-                  .format(ac['LCU']['stnid']))
-            print(ass_err)
+            logging.error ("Cannot setup {}'s LCU correctly"
+                           .format(ac['LCU']['stnid']))
+            logging.error(ass_err)
             sys.exit(1)
         obs(stndrv, args)
     except RuntimeError as e:
-        print('Exiting due to RuntimeError:', e)
+        logging.error('Exiting due to RuntimeError: ' + e)
         sys.exit(1)
     with open(LOGFILE, 'a') as lgf:
         if args.mockrun:

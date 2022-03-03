@@ -3,29 +3,13 @@ import datetime
 import os
 import shutil
 import time
+import logging
 
 import ilisa.operations
 import ilisa.operations.directions as directions
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
 from ilisa.operations.stationdriver import StationDriver, waituntil
-
-
-def calc_acc_cadence(duration_tot_req):
-    """\
-    Calculate cadence of ACC
-    """
-    # Also duration of ACC sweep since each sb is 1 second.
-    acc_cadence = modeparms.ACC_DUR + modeparms.INTERV2ACCS  # =519s between
-                                                             # start of 2 ACC
-    (nraccs, timrest) = divmod(duration_tot_req, acc_cadence)
-    if timrest > modeparms.ACC_DUR:
-        nraccs += 1
-    duration_tot = nraccs * acc_cadence - modeparms.INTERV2ACCS
-    if duration_tot != duration_tot_req:
-        print("""Note: will use total duration {}s to fit with ACC
-                                          cadence.""".format(duration_tot))
-    return duration_tot
 
 
 class LScan:
@@ -207,7 +191,7 @@ class LScan:
                         if not bfs_yield:
                             # BFS does not need to block and
                             # so with no BSX have to throttle it...
-                            print(f'waiting {file_dur}s for BFS')
+                            logging.info(f'waiting {file_dur}s for BFS')
                             time.sleep(file_dur)
                     if self.acc:
                         if not acc_yield:
@@ -216,7 +200,7 @@ class LScan:
                                 wait_acc = modeparms.ACC_DUR
                             else:
                                 wait_acc = 10
-                            print(f'waiting {wait_acc}s for ACC')
+                            logging.info(f'waiting {wait_acc}s for ACC')
                             time.sleep(wait_acc)
                             normal_acc_wait = False
                         else:
@@ -232,7 +216,6 @@ class LScan:
                         self.ldatinfos_bfs.append(bfs_yield)
                 if self.acc:
                     acc_yield = acc_subscan.send(continue_scan)
-                    print('acc_yield', acc_yield)
                     if acc_yield:
                         if self.ldatinfos_acc == []:
                             # 1st yield is scanrecpath
@@ -347,7 +330,6 @@ class LScan:
         for ldat in self.scanresult['rec']:
             scanrecinfo = self.scanresult.get(ldat)
             scanrecpath = scanrecinfo.scanrecpath
-            print('scanrecpath', scanrecpath)
             if scanrecpath:
                 scanrecinfo.write_scanrec(scanrecpath)
 
@@ -371,11 +353,11 @@ def still_time_fun(stoptime):
         now = datetime.datetime.utcnow()
         timeleft = stoptime - now
         secondsleft = int(timeleft.total_seconds())
-        print('TIME LEFT', secondsleft)
+        logging.info('Stop condition: TIME LEFT {}'.format(secondsleft))
         if secondsleft > 0:
             return True
         else:
-            print("Time's UP")
+            logging.info("Stop condition: TIME'S UP")
             return False
     return still_time
 
@@ -409,13 +391,18 @@ def do_nominal_scan(args):
     source = 'None'
     if not directions.pointing_str2tuple(pointing):
         source = pointing
-    duration_tot = float(eval(str(args.duration_tot)))
+    try:
+        duration_tot = float(eval(str(args.duration_tot)))
+    except NameError:
+        logging.error(f"Cannot understand duration='{args.duration_tot}'.")
+        raise
     # Start criteria: Time
     args.starttime = modeparms.timestr2datetime(args.starttime)
     starttime = waituntil(args.starttime, datetime.timedelta(seconds=2))
-    stoptime = starttime + datetime.timedelta(seconds=int(duration_tot))
-    print('stop @',stoptime + datetime.timedelta(seconds=0))
-    stop_cond = still_time_fun(stoptime + datetime.timedelta(seconds=0))
+    stoptime = (starttime + datetime.timedelta(seconds=int(duration_tot))
+                + datetime.timedelta(seconds=0))
+    logging.info('Will stop @{}'.format(stoptime))
+    stop_cond = still_time_fun(stoptime)
     # Initialize LScan
     lscan = LScan(stndrv, rec_type, freqsetup, duration_tot,
                   {'pointing': pointing, 'direction': direction,
@@ -426,17 +413,17 @@ def do_nominal_scan(args):
     next(subscan)
     while stop_cond():
         try:
-            print('IN SCAN LOOP', datetime.datetime.utcnow())
+            logging.debug('do_nominal_scan: IN SUBSCAN LOOP')
             _ = subscan.send(stop_cond())
         except StopIteration:
             break
-    print('END SCAN LOOP', datetime.datetime.utcnow())
+    logging.debug('do_nominal_scan: END SUBSCAN LOOP')
     lscan.close()
     for res in lscan.scanresult['rec']:
-        print("Saved {} scanrec here: {}".format(
-              res, lscan.scanresult[res].scanrecpath))
+        logging.info("Saved {} scanrec here: {}"
+            .format(res, lscan.scanresult[res].scanrecpath))
     if not lscan.scanresult['rec']:
-        print("No data recorded ('None' selected)")
+        logging.info("No data recorded ('None' selected)")
 
 
 def main_cli():
@@ -459,9 +446,9 @@ def main_cli():
     parser.add_argument('-b', '--bfs', help="Record also BST",
                         action='store_true')
     parser.add_argument('ldat_type',
-                        help="""\
-    lofar data type to record.
-    Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp' or 'None'.""")
+                        help="lofar data type to record."
+                             " Choose from 'bst', 'sst', 'tbb', 'xst', 'dmp'"
+                             " or 'None'.")
     parser.add_argument('freqspec',
                         help='Frequency spec in Hz.')
     parser.add_argument('duration_tot',

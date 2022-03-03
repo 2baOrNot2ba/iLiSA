@@ -6,6 +6,7 @@ import time
 import datetime
 import os
 import threading
+import logging
 
 import ilisa.operations
 from ilisa.operations._rem_exec import _exec_ssh
@@ -55,7 +56,7 @@ class LCUInterface(object):
         try:
             mac_version = self.get_mac_version()
         except Exception:
-            print("Error: Station object cannot access station with URL: "
+            logging.error("Station object cannot access station with URL: "
                   + self.lcuURL)
         if mac_version is not "":
             accessible = True
@@ -91,7 +92,7 @@ class LCUInterface(object):
         # Now check accessibility
         self.accessible = self.checkaccess()
         if self.accessible and self.verbose:
-            print("Established access to LCU on {}.".format(self.stnid))
+            logging.info("Established access to LCU on {}.".format(self.stnid))
 
         # Check LCU OS env:
         path_ok, datadirs_ok = self.checkLCUenv()
@@ -174,7 +175,7 @@ class LCUInterface(object):
             getstationmode_out = self._exec_lcu("getstationmode")
         except:
             # Can happen if no ServiceBroker process running
-            print("Warning: ServiceBroker not running")
+            logging.warning("ServiceBroker not running")
             stationmode = None
         else:
             stationmode = getstationmode_out.split()[-1]
@@ -264,7 +265,6 @@ class LCUInterface(object):
             self._exec_lcu("killall beamctl")
             # Put caltables back to default
             self.selectCalTable('default')
-        # print("Beam off at %s"%time.asctime(time.localtime(time.time())))
 
     def run_rspctl(self, select=None, mode=None, tbbmode=None):
         """Run rspctl command to setup RCUs: rcumode, select.
@@ -291,7 +291,7 @@ class LCUInterface(object):
         if self.DryRun:
             self.bits = bits
         waittime = 1
-        print("Waiting {}s for rspctl to settle...".format(waittime))
+        logging.info("Waiting {}s for rspctl to settle...".format(waittime))
         time.sleep(waittime)  # Wait for rspctl to settle
         return rcusetup_cmds
 
@@ -454,7 +454,7 @@ class LCUInterface(object):
                 _dd_cmd_time = time.time() - _t0
                 _sleep_rem = modeparms.ACC_DUR - (_dd_cmd_time+_sleepfor0)
                 # Block for time remaining for nominal ACC
-                print('sleep_rest', _sleep_rem)
+                logging.debug('sleep_rest ' + _sleep_rem)
                 if _sleep_rem >= 0.0:
                     time.sleep(_sleep_rem)
                 filetime += datetime.timedelta(seconds=acc_cadence)
@@ -559,7 +559,7 @@ class LCUInterface(object):
         rspctl_cmd = "rspctl --rcu=0x00034880 --select=" + select
         self._exec_lcu(rspctl_cmd)
         if self.verbose:
-            print("Turning OFF LBA LNAs...")
+            logging.info("Turning OFF LBA LNAs...")
         time.sleep(30)
         return rspctl_cmd
 
