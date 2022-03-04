@@ -73,7 +73,9 @@ class StationDriver(object):
         Raises
         ------
         AssertionError
-            If LCU could not be initalized.
+            If LCU is not set up correctly.
+        ConnectionError
+            If LCU could not be accessed.
         """
 
         self.mockrun = mockrun
