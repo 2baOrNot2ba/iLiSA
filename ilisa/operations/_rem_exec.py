@@ -1,6 +1,5 @@
 import subprocess
 import os
-import time
 try:
     import paramiko
     IMPORTED_PARAMIKO = True
@@ -54,8 +53,7 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
         if output:
             output = output.rstrip()
     elif not accessible:
-        print("Warning: not running as " + nodeurl
-              + " since it is not accesible.")
+        logging.warning("Not running as "+nodeurl+" since it is not accesible.")
     return output
 
 
