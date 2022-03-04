@@ -56,8 +56,7 @@ class LCUInterface(object):
         try:
             mac_version = self.get_mac_version()
         except Exception:
-            logging.error("Station object cannot access station with URL: "
-                  + self.lcuURL)
+            logging.error("Cannot access LCU with URL: " + self.lcuURL)
         if mac_version is not "":
             accessible = True
         else:
@@ -91,7 +90,9 @@ class LCUInterface(object):
 
         # Now check accessibility
         self.accessible = self.checkaccess()
-        if self.accessible and self.verbose:
+        if not self.accessible:
+            raise ConnectionError(f"Cannot access LCU using {self.lcuURL}.")
+        elif self.verbose:
             logging.info("Established access to LCU on {}.".format(self.stnid))
 
         # Check LCU OS env:
