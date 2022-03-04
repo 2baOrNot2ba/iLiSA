@@ -19,7 +19,23 @@ LOGFILE = "ilisa_cmds.log"
 
 
 def projid2meta(projectid):
-    """Get the project metadata for project with projectid."""
+    """\
+    Get the project metadata for project with projectid
+
+    Parameters
+    ----------
+    projectid : str
+        The ID for project.
+
+    Returns
+    -------
+    projectmeta : dict
+        The projects metadata.
+    accessfiles : dict
+        The access files keyed on station ID.
+    projectfile : str
+        Path to the file for which the above information was take.
+    """
     # Setup projectmeta:
     if projectid is not None:
         projectfile =  "project_"+projectid+".yml"
@@ -31,7 +47,8 @@ def projid2meta(projectid):
     else:
         projectmeta = {'observer': None, 'name': None}
         accessfiles = None
-    return projectmeta, accessfiles
+        projectfile = None
+    return projectmeta, accessfiles, projectfile
 
 
 def process_scansess(sesscans_in, stnid, session_id=None):
@@ -279,7 +296,9 @@ class ScanSession(object):
         stationdrivers to setup corresponding operations."""
 
         def _update_latestdatafile(rec_name, rec_state):
-            """Update the latestdata file for the given recording if needed"""
+            """\
+            Update the latestdata file for the given recording if needed
+            """
             if rec_state and not scanrecpath[rec_name]:
                 scanrecpath[rec_name] = lscan.scanresult[rec_name].scanrecpath
                 if scanrecpath[rec_name]:
@@ -296,7 +315,7 @@ class ScanSession(object):
         session_start = modeparms.timestr2datetime(sessmeta['start'])
         if not session_id:
             self.session_id = self.make_session_id(session_start)
-        self.projectmeta, _ = projid2meta(sessmeta['projectid'])
+        self.projectmeta, _, _ = projid2meta(sessmeta['projectid'])
         self.set_stn_session_id(self.session_id)
         # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
@@ -307,7 +326,7 @@ class ScanSession(object):
 
         # Wait until it is time to bootup
         waituntil(session_start, dt2beamctl)
-        logging.info("scansession started")
+        logging.debug("scansession started")
 
         scans_done = []
         for scan in scans_iter:
@@ -350,20 +369,21 @@ class ScanSession(object):
                 # Start the subscan
                 scanrecpath = {'acc': None, 'bfs': None, 'bsx': None}
                 next(subscan)
-                _stop_cond = stop_cond()
-                while _stop_cond:
+                stop_scan_cond = stop_cond()
+                while stop_scan_cond:
                     try:
                         logging.debug('scansession: IN TOP SUBSCAN LOOP')
-                        _ = subscan.send(_stop_cond)
+                        _ = subscan.send(stop_scan_cond)
                     except StopIteration:
-                        break
+                        stop_scan_cond = False
+                    else:
+                        stop_scan_cond = stop_cond()
                     list(map(_update_latestdatafile,
                              *zip(('acc', acc), ('bfs', bfs), ('bsx',bsx_stat)))
                          )
-                    _stop_cond = stop_cond()
                 logging.debug('scansession: END SUBSCAN LOOP')
                 lscan.close()
-
+                # If no recording then simply wait for duration_tot
                 if not bfs and not modeparms._xtract_bsx(bsx_stat) and not acc:
                     _sleepfor = (datetime.timedelta(seconds=duration_tot)
                                  + margin_scan_start)
@@ -414,7 +434,7 @@ def get_proj_stn_access_conf(projid, stnid):
         In projid's project file: if there is no accessfile defined for stnid
         or if stnid is not given and there are no stnid's.
     """
-    projectmeta, accessfiles = projid2meta(projid)
+    projectmeta, accessfiles, projectfile = projid2meta(projid)
     if stnid is None:
         # Try to get station from accessfiles in project config file:
         #    1st key in accessfiles dict taken as default stnid
@@ -427,7 +447,8 @@ def get_proj_stn_access_conf(projid, stnid):
         acf_name = accessfiles[stnid]
     except:
         raise RuntimeError("Station {} not found for project {}"
-                           .format(stnid, projid))
+                           " (Check project file {})"
+                           .format(stnid, projid, projectfile))
     userilisadir = ilisa.operations.USER_CONF_DIR
     acf_path = os.path.join(userilisadir, acf_name)
     with open(acf_path) as acffp:
@@ -449,7 +470,7 @@ def obs(stndrv, args):
                                                    stndrv.get_stnid(),
                                                    scnsess.session_id)
         print(yaml.dump(sessmeta, default_flow_style=False))
-        sessscans={'scans': []}
+        sessscans = {'scans': []}
         try:
             for scan_obsargs in scans_obsargs:
                 sessscans['scans'].append(scan_obsargs)
@@ -457,9 +478,9 @@ def obs(stndrv, args):
             print("ValueError:", ve)
         else:
             print(yaml.dump(sessscans, default_flow_style=False))
-        sys.exit()
-    scnsess.run_scansess(scansess_in)
-    args.cmd = 'obs:' + args.file
+    else:
+        scnsess.run_scansess(scansess_in)
+        args.cmd = 'obs:' + args.file
 
 
 def main_cli():
@@ -487,18 +508,19 @@ def main_cli():
     try:
         # Run an observation based on ScanSes spec file
         ac = get_proj_stn_access_conf(args.project, args.station)
-        # Initialize stationdriver :
-        try:
-            stndrv = StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
-        except AssertionError as ass_err:
-            logging.error ("Cannot setup {}'s LCU correctly"
-                           .format(ac['LCU']['stnid']))
-            logging.error(ass_err)
-            sys.exit(1)
-        obs(stndrv, args)
     except RuntimeError as e:
-        logging.error('Exiting due to RuntimeError: ' + e)
+        logging.error(e)
         sys.exit(1)
+    # Initialize stationdriver :
+    try:
+        stndrv = StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
+    except (ConnectionError, AssertionError) as err:
+        logging.error ("Cannot setup {}'s LCU correctly"
+                       .format(ac['LCU']['stnid']))
+        logging.error(err)
+        sys.exit(1)
+    obs(stndrv, args)
+    if args.check: return
     with open(LOGFILE, 'a') as lgf:
         if args.mockrun:
             priority_fld = 'M'
