@@ -22,7 +22,7 @@ from subprocess import Popen, PIPE
 
 VERSION = '2.3'  # version of this script
 
-status = {}
+STATUS = {}  # Status of LCU
 
 
 def pathtoISSTATUS():
@@ -50,11 +50,13 @@ def pathtoISSTATUS():
 def get_isStatus():
     ISSTATUSscript = pathtoISSTATUS()
     # Environmental control status:
-    ECstatOut = Popen(ISSTATUSscript, stdout=PIPE).communicate()[0]
+    ECstatOut = Popen(ISSTATUSscript,
+                      stdout=PIPE).communicate()[0].decode('UTF8')
     ECstatOutLns = ECstatOut.splitlines()
-    status['station'] = ECstatOutLns[1].split()[0]
-    status['version'] = ECstatOutLns[1].split()[2][1:-1]
-    status['time']=time.mktime(time.strptime(ECstatOutLns[2].lstrip().rstrip()))
+    STATUS['station'] = ECstatOutLns[1].split()[0]
+    STATUS['version'] = ECstatOutLns[1].split()[2][1:-1]
+    STATUS['time'] = time.mktime(time.strptime(
+        ECstatOutLns[2].lstrip().rstrip()))
     key=''
     for lineNr in range(4,10):
         (desc,val)=ECstatOutLns[lineNr].split('=')
@@ -65,26 +67,25 @@ def get_isStatus():
         # matching condition to the output, but not the subsequent
         # naming so as to not have to change anything downstream from here.
         if description == 'temperature':
-            key='cab3temp'
-            value=float(value)
+            key = 'cab3temp'
+            value = float(value)
         elif description == 'humidity':
-            key='cab3hum'
-            value=float(value)
+            key = 'cab3hum'
+            value = float(value)
         elif description == 'heater state':
-            key='heater'
+            key = 'heater'
         elif description == 'power 48V state':
-            key='48V'
+            key = '48V'
         elif description == 'power LCU state':
-            key='LCU'
+            key = 'LCU'
         elif description == 'lightning state':
-            key='lightning'
-        status[key]=value
+            key = 'lightning'
+        STATUS[key] = value
 
 
 def get_lofar_sw_ver():
-    ps_out=Popen(
-           [LOFARBINPATH+'swlevel','-V'],
-           stdout=PIPE).communicate()[0]
+    ps_out=Popen([LOFARBINPATH+'swlevel','-V'],
+                 stdout=PIPE).communicate()[0].decode('UTF8')
     verstr=ps_out.split('-')[-1]
     ver_maj, ver_min, ver_pat = [int(ver.strip()) for ver in verstr.split('_')]
     return ver_maj, ver_min, ver_pat
@@ -98,28 +99,27 @@ def aggregateInfo():
     
     if True:
         # Station switch status:
-        StnSwtchstatOut=Popen(
+        StnSwtchstatOut = Popen(
            #['sudo', OPERATIONSPATH+'stationswitch','-s'],
            [OPERATIONSPATH+'getstationmode'],
-           stdout=PIPE).communicate()[0]
-        StnSwtchstatOutLns= StnSwtchstatOut.splitlines()
-        status['switch']=StnSwtchstatOutLns[0].split()[-1]
+           stdout=PIPE).communicate()[0].decode('UTF8')
+        StnSwtchstatOutLns = StnSwtchstatOut.splitlines()
+        STATUS['switch'] = StnSwtchstatOutLns[0].split()[-1]
     if True:
         # Software level:
-        swlstatOut=Popen(
-           [LOFARBINPATH+'swlevel','-S'],
-           stdout=PIPE).communicate()[0]
-        swlstatOutLns= swlstatOut.splitlines()
-        status['softwareLevel']=int(swlstatOutLns[0].split()[0])
+        swlstatOut = Popen([LOFARBINPATH+'swlevel','-S'],
+                           stdout=PIPE).communicate()[0].decode('UTF8')
+        swlstatOutLns = swlstatOut.splitlines()
+        STATUS['softwareLevel'] = int(swlstatOutLns[0].split()[0])
     if CHECK_BC_USER:
         # beamctl user:
         bc_user = who_beamctl()
-        status['beamctl']=bc_user
+        STATUS['beamctl']=bc_user
 
 
 def who_beamctl():
     ps_out = Popen(['/bin/ps', '-Cbeamctl', '--no-headers', '-ouser'],
-                   stdout=PIPE).communicate()[0]
+                   stdout=PIPE).communicate()[0].decode('UTF8')
     ps_out_lns = ps_out.splitlines()
     if len(ps_out_lns) == 0:
         bc_user = 'None'
@@ -129,60 +129,60 @@ def who_beamctl():
 
 
 def printInfo():
-    print(status['station'])
-    print(status['version'])
-    print(status['time'])
-    print(status['cab3temp'])
-    print(status['cab3hum'])
-    print(status['heater'])
-    print(status['48V'])
-    print(status['LCU'])
-    print(status['lightning'])
+    print(STATUS['station'])
+    print(STATUS['version'])
+    print(STATUS['time'])
+    print(STATUS['cab3temp'])
+    print(STATUS['cab3hum'])
+    print(STATUS['heater'])
+    print(STATUS['48V'])
+    print(STATUS['LCU'])
+    print(STATUS['lightning'])
     if CHECK_BC_USER:
-        print(status['beamctl'])
+        print(STATUS['beamctl'])
 
 
-def sendstatus(isUDP=True,isSendTest=False,isLogged=True):
-    date = time.localtime(status['time'])
+def sendstatus(isUDP=True, isSendTest=False, isLogged=True):
+    date = time.localtime(STATUS['time'])
     outstring = "LOFAR_STN_STATUS (version): %s" % VERSION
     outstring += "\n"
     outstring += "%4d-%02d-%02d-%02d:%02d:%02d, "%(
         date.tm_year, date.tm_mon, date.tm_mday,
         date.tm_hour,  date.tm_min, date.tm_sec)
     #Environmental control status:
-    outstring += "Station: %s, "%status['station']
-    outstring += "ECvers: %s, "%status['version']
-    outstring += "Cab3 Temp: %.2fC, "%status['cab3temp']
-    outstring += "Cab3 Hum: %.2f%%, "%status['cab3hum']
-    outstring += "Heater: %s, "%status['heater']
-    outstring += "48V: %s, "%status['48V']
-    outstring += "LCU: %s, "%status['LCU']
-    outstring += "Lightning: %s"%status['lightning']
+    outstring += "Station: %s, " % STATUS['station']
+    outstring += "ECvers: %s, " % STATUS['version']
+    outstring += "Cab3 Temp: %.2fC, " % STATUS['cab3temp']
+    outstring += "Cab3 Hum: %.2f%%, " % STATUS['cab3hum']
+    outstring += "Heater: %s, " % STATUS['heater']
+    outstring += "48V: %s, " % STATUS['48V']
+    outstring += "LCU: %s, " % STATUS['LCU']
+    outstring += "Lightning: %s" % STATUS['lightning']
     # The switch status:
     outstring += "\n"
-    outstring += "Switch: %s" % status['switch']
+    outstring += "Switch: %s" % STATUS['switch']
     # The switch status:
     outstring += "\n"
-    outstring += "Software Level: %s" % status['softwareLevel']
+    outstring += "Software Level: %s" % STATUS['softwareLevel']
     if CHECK_BC_USER:
         # Who is using beamctl:
         outstring += "\n"
-        outstring += "beamctl User: %s" % status['beamctl']
+        outstring += "beamctl User: %s" % STATUS['beamctl']
 
     if isSendTest:
-        outstring="TEST "+outstring
+        outstring = "TEST "+outstring
 
     if isUDP:
-        UDP_IP=GW_PC_UDP_IP
-        UDP_PORT=GW_PC_UDP_PORT
+        UDP_IP = GW_PC_UDP_IP
+        UDP_PORT = GW_PC_UDP_PORT
 
         sock = socket.socket(socket.AF_INET, # Internet
                              socket.SOCK_DGRAM ) # UDP
-        sock.sendto( outstring, (UDP_IP, UDP_PORT) )
+        sock.sendto(outstring, (UDP_IP, UDP_PORT) )
         if isLogged:
-          print(outstring)
-        else:
-          print(outstring)
+            print(outstring)
+    else:
+        print(outstring)
 
 
 from optparse import OptionParser
