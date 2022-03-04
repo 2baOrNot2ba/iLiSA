@@ -62,9 +62,9 @@ sockin.bind( ("",UDP_PORT) )
 
 while True:
     message, addr = sockin.recvfrom( 1024 ) # buffer size is 1024 bytes
-    print "received message:", message
+    print("received message:", message)
     sys.stdout.flush()
-    f=open(LOG_FILE,'a')
+    f = open(LOG_FILE,'a')
     f.write(message+"\n")
     f.close()
     message +='\n'
@@ -138,73 +138,73 @@ while True:
                TBBVoltMinMatch = False
                TBBVoltMaxMatch = False
  
-            print L_Temp + ':' + L_Hum + ':' + L_Heater + ':' + L_48V + ':' + L_LCU + ':' + L_Lightning + ':' + L_Switch + ':' + L_SwL
+            print(L_Temp + ':' + L_Hum + ':' + L_Heater + ':' + L_48V + ':' + L_LCU + ':' + L_Lightning + ':' + L_Switch + ':' + L_SwL)
             
             sys.stdout.flush()
             try:
                 rrdtool.update(RRD_FILE_env, '-t', ENV_order, 'N:' + L_Temp + ':' + L_Hum)
             except:
-                print "Error updaing " + RRD_FILE_env
+                print("Error updaing " + RRD_FILE_env)
             try:
                 rrdtool.update(RRD_FILE_status, '-t', STATUS_order, 'N:' + L_Heater + ':' + L_48V + ':' + L_LCU + ':' + L_Lightning + ':' + L_SwL + ':' + L_Switch)
             except:
-                print "Error updating " + RRD_FILE_status
+                print("Error updating " + RRD_FILE_status)
 
             try:
                 rrdtool.update(RRD_FILE_users, '-t', USERS_order, 'N:' + User_LCUall + ':' + User_LCUlocal)
             except:
-                print "Error updaing " + RRD_FILE_users
+                print("Error updaing " + RRD_FILE_users)
  
             if (RCUmatch):
                 try:
                     rrdtool.update(RRD_FILE_RCUModes, '-t', RCU_order, 'N' + ':' +  RCUmatch.group(1) + ':' +  RCUmatch.group(2) + ':' +  RCUmatch.group(3) + ':' +  RCUmatch.group(4) + ':' +  RCUmatch.group(5) + ':' +  RCUmatch.group(6) + ':' +  RCUmatch.group(7) + ':' +  RCUmatch.group(8) + ':' +  RCUmatch.group(9) )
                 except:
-                    print "Error updaing " + RRD_FILE_RCUModes
+                    print("Error updaing " + RRD_FILE_RCUModes)
             if (RSPVoltMeanMatch and RSPVoltMinMatch and RSPVoltMaxMatch):
                 try:
                     rrdtool.update(RRD_FILE_MinVolt, '-t', RSPVolt_order, 'N' + ':' + RSPVoltMinMatch.group(1) + ':' + RSPVoltMinMatch.group(2) + ':' + RSPVoltMinMatch.group(3) ) 
                 except:
-                    print "Error updaing " + RRD_FILE_MinVolt
+                    print("Error updaing " + RRD_FILE_MinVolt)
                 try:
                     rrdtool.update(RRD_FILE_MeanVolt, '-t', RSPVolt_order, 'N' + ':' + RSPVoltMeanMatch.group(1) + ':' + RSPVoltMeanMatch.group(2) + ':' + RSPVoltMeanMatch.group(3) ) 
                 except:
-                    print "Error updaing " + RRD_FILE_MeanVolt
+                    print("Error updaing " + RRD_FILE_MeanVolt)
                 try:
                     rrdtool.update(RRD_FILE_MaxVolt, '-t', RSPVolt_order, 'N' + ':' + RSPVoltMaxMatch.group(1) + ':' + RSPVoltMaxMatch.group(2) + ':' + RSPVoltMaxMatch.group(3) ) 
                 except:
-                    print "Error updaing " + RRD_FILE_MaxVolt
+                    print("Error updaing " + RRD_FILE_MaxVolt)
             if (RSPTempMaxMatch and RSPTempMeanMatch and RSPTempMinMatch):
                 try:
                     rrdtool.update(RRD_FILE_MaxTemp, '-t', RSPTemp_order, 'N' + ':' + RSPTempMaxMatch.group(1) + ':' + RSPTempMaxMatch.group(2) + ':'+ RSPTempMaxMatch.group(3) )
                 except:
-                    print "Error updaing " + RRD_FILE_MaxTemp
+                    print("Error updaing " + RRD_FILE_MaxTemp)
                 try:
                     rrdtool.update(RRD_FILE_MeanTemp, '-t', RSPTemp_order, 'N' + ':' + RSPTempMeanMatch.group(1) + ':' + RSPTempMeanMatch.group(2) + ':'+ RSPTempMeanMatch.group(3) )
                 except:
-                    print "Error updaing " + RRD_FILE_MeanTemp
+                    print("Error updaing " + RRD_FILE_MeanTemp)
                 try:
                     rrdtool.update(RRD_FILE_MinTemp, '-t', RSPTemp_order, 'N' + ':' + RSPTempMinMatch.group(1) + ':' + RSPTempMinMatch.group(2) + ':'+ RSPTempMinMatch.group(3) )
                 except:
-                    print "Error updaing " + RRD_FILE_MinTemp
+                    print("Error updaing " + RRD_FILE_MinTemp)
             if (TBBgoodmatch and TBBTempMeanMatch and RSPTempMinMatch and TBBTempMaxMatch):
                 try:
                     rrdtool.update(RRD_FILE_TBBs, '-t', TBB_order, 'N' + ':' + TBBgoodmatch.group(1) + ':' + TBBgoodmatch.group(2))
                 except:
-                    print "Error updaing " + RRD_FILE_TBBs
+                    print("Error updaing " + RRD_FILE_TBBs)
                 try:
                     rrdtool.update(RRD_FILE_TBBMeanTemp, '-t', TBBTemp_order, 'N' + ':' + TBBTempMeanMatch.group(1) + ':' + TBBTempMeanMatch.group(2) + ':' + TBBTempMeanMatch.group(3))
                 except:
-                    print "Error updaing " + RRD_FILE_TBBMeanTemp
+                    print("Error updaing " + RRD_FILE_TBBMeanTemp)
                 try:
                     rrdtool.update(RRD_FILE_TBBMinTemp, '-t', TBBTemp_order, 'N' + ':' + TBBTempMinMatch.group(1) + ':' + TBBTempMinMatch.group(2) + ':' + TBBTempMinMatch.group(3))
                 except:
-                    print "Error updaing " + RRD_FILE_TBBMinTemp
+                    print("Error updaing " + RRD_FILE_TBBMinTemp)
                 try:
                     rrdtool.update(RRD_FILE_TBBMaxTemp, '-t', TBBTemp_order, 'N' + ':' + TBBTempMaxMatch.group(1) + ':' + TBBTempMaxMatch.group(2) + ':' + TBBTempMaxMatch.group(3))
                 except:
-                    print "Error updaing " + RRD_FILE_TBBMaxTemp
+                    print("Error updaing " + RRD_FILE_TBBMaxTemp)
 
-            print "Finished update"
+            print("Finished update")
             sys.stdout.flush()
     except:
-        print "Error performing update"
+        print("Error performing update")

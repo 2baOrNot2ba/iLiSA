@@ -74,7 +74,7 @@ parser.add_option("--update-TBB", dest="UpTBB",action="store_true",
 (options, args) = parser.parse_args()
 
 if not options.File:
-    print "Please specify a file to read from"
+    print("Please specify a file to read from")
     exit(1)
 
 updateEnv = False
@@ -110,7 +110,7 @@ if options.UpTBB:
 infile = open(options.File,'r')
 
 if not infile:
-    print "Failed to open file:",options.File
+    print("Failed to open file:",options.File)
     exit(1)
 
 while True:
@@ -203,7 +203,7 @@ while True:
             try:
                 rrdtool.update(RRD_FILE_env, '-t', ENV_order, datestamp + ':' + L_Temp + ':' + L_Hum)
             except:
-                print "Error updaing " + RRD_FILE_env
+                print("Error updaing " + RRD_FILE_env)
             outstring += "Updated Env, "
         else:
             outstring += "Would update Env: " + ENV_order + " --- " + datestamp + ':' + L_Temp + ':' + L_Hum + "\n"
@@ -212,7 +212,7 @@ while True:
             try:
                 rrdtool.update(RRD_FILE_status, '-t', STATUS_order, datestamp + ':' + L_Heater + ':' + L_48V + ':' + L_LCU + ':' + L_Lightning + ':' + L_SwL + ':' + L_Switch)
             except:
-                print "Error updating " + RRD_FILE_status
+                print("Error updating " + RRD_FILE_status)
             outstring += "Updated Stat, "
         else:
             outstring += "Would update Stat: " + STATUS_order + " --- " + datestamp + ':' + L_Heater + ':' + L_48V + ':' + L_LCU + ':' + L_Lightning + ':' + L_SwL + ':' + L_Switch + "\n"
@@ -221,7 +221,7 @@ while True:
             try:
                 rrdtool.update(RRD_FILE_users, '-t', USERS_order, datestamp + ':' + User_LCUall + ':' + User_LCUlocal)
             except:
-                print "Error updaing " + RRD_FILE_users
+                print("Error updaing " + RRD_FILE_users)
             outstring += "Updated Users "
         else:
             outstring += "Would update Users: " + USERS_order + " --- " + datestamp + ':' + User_LCUall + ':' + User_LCUlocal + '\n' 
@@ -231,7 +231,7 @@ while True:
                 try:
                     rrdtool.update(RRD_FILE_RCUModes, '-t', RCU_order, datestamp + ':' +  RCUmatch.group(1) + ':' +  RCUmatch.group(2) + ':' +  RCUmatch.group(3) + ':' +  RCUmatch.group(4) + ':' +  RCUmatch.group(5) + ':' +  RCUmatch.group(6) + ':' +  RCUmatch.group(7) + ':' +  RCUmatch.group(8) + ':' +  RCUmatch.group(9) )
                 except:
-                    print "Error updaing " + RRD_FILE_RCUModes
+                    print("Error updaing " + RRD_FILE_RCUModes)
                 outstring += "Updated RCUs "
             else:
                 outstring +="Would update RCUMode: " + RCU_order + " --- " + datestamp + ':' +  RCUmatch.group(1) + ':' +  RCUmatch.group(2) + ':' +  RCUmatch.group(3) + ':' +  RCUmatch.group(4) + ':' +  RCUmatch.group(5) + ':' +  RCUmatch.group(6) + ':' +  RCUmatch.group(7) + ':' +  RCUmatch.group(8) + ':' +  RCUmatch.group(9) + '\n' 
@@ -241,15 +241,15 @@ while True:
                 try:
                     rrdtool.update(RRD_FILE_MinVolt, '-t', RSPVolt_order, datestamp + ':' + RSPVoltMinMatch.group(1) + ':' + RSPVoltMinMatch.group(2) + ':' + RSPVoltMinMatch.group(3) ) 
                 except:
-                    print "Error updaing " + RRD_FILE_MinVolt
+                    print("Error updaing " + RRD_FILE_MinVolt)
                 try:
                     rrdtool.update(RRD_FILE_MeanVolt, '-t', RSPVolt_order, datestamp + ':' + RSPVoltMeanMatch.group(1) + ':' + RSPVoltMeanMatch.group(2) + ':' + RSPVoltMeanMatch.group(3) ) 
                 except:
-                    print "Error updaing " + RRD_FILE_MeanVolt
+                    print("Error updaing " + RRD_FILE_MeanVolt)
                 try:
                     rrdtool.update(RRD_FILE_MaxVolt, '-t', RSPVolt_order, datestamp + ':' + RSPVoltMaxMatch.group(1) + ':' + RSPVoltMaxMatch.group(2) + ':' + RSPVoltMaxMatch.group(3) ) 
                 except:
-                    print "Error updaing " + RRD_FILE_MaxVolt
+                    print("Error updaing " + RRD_FILE_MaxVolt)
                 outstring += "Updated RSPVolt "
             else:
                 outstring +="Would update RSPVoltMean: " + RSPVolt_order + " --- " + datestamp + ':' + RSPVoltMeanMatch.group(1) + ':' + RSPVoltMeanMatch.group(2) + ':' + RSPVoltMeanMatch.group(3) + '\n' 
@@ -261,15 +261,15 @@ while True:
                 try:
                     rrdtool.update(RRD_FILE_MaxTemp, '-t', RSPTemp_order, datestamp + ':' + RSPTempMaxMatch.group(1) + ':' + RSPTempMaxMatch.group(2) + ':'+ RSPTempMaxMatch.group(3) )
                 except:
-                    print "Error updaing " + RRD_FILE_MaxTemp
+                    print("Error updaing " + RRD_FILE_MaxTemp)
                 try:
                     rrdtool.update(RRD_FILE_MeanTemp, '-t', RSPTemp_order, datestamp + ':' + RSPTempMeanMatch.group(1) + ':' + RSPTempMeanMatch.group(2) + ':'+ RSPTempMeanMatch.group(3) )
                 except:
-                    print "Error updaing " + RRD_FILE_MeanTemp
+                    print("Error updaing " + RRD_FILE_MeanTemp)
                 try:
                     rrdtool.update(RRD_FILE_MinTemp, '-t', RSPTemp_order, datestamp + ':' + RSPTempMinMatch.group(1) + ':' + RSPTempMinMatch.group(2) + ':'+ RSPTempMinMatch.group(3) )
                 except:
-                    print "Error updaing " + RRD_FILE_MinTemp
+                    print("Error updaing " + RRD_FILE_MinTemp)
                 outstring += "Updated RSPTemp "
             else:
                 outstring +="Would update RSPTempMean: " + RSPTemp_order + " --- " + datestamp + ':' + RSPTempMeanMatch.group(1) + ':' + RSPTempMeanMatch.group(2) + ':'+ RSPTempMeanMatch.group(3) + '\n' 
@@ -281,19 +281,19 @@ while True:
                 try:
                     rrdtool.update(RRD_FILE_TBBs, '-t', TBB_order, datestamp + ':' + TBBgoodmatch.group(1) + ':' + TBBgoodmatch.group(2))
                 except:
-                    print "Error updaing " + RRD_FILE_TBBs
+                    print("Error updaing " + RRD_FILE_TBBs)
                 try:
                     rrdtool.update(RRD_FILE_TBBMeanTemp, '-t', TBBTemp_order, datestamp + ':' + TBBTempMeanMatch.group(1) + ':' + TBBTempMeanMatch.group(2) + ':' + TBBTempMeanMatch.group(3))
                 except:
-                    print "Error updaing " + RRD_FILE_TBBMeanTemp
+                    print("Error updaing " + RRD_FILE_TBBMeanTemp)
                 try:
                     rrdtool.update(RRD_FILE_TBBMinTemp, '-t', TBBTemp_order,  datestamp+ ':' + TBBTempMinMatch.group(1) + ':' + TBBTempMinMatch.group(2) + ':' + TBBTempMinMatch.group(3))
                 except:
-                    print "Error updaing " + RRD_FILE_TBBMinTemp
+                    print("Error updaing " + RRD_FILE_TBBMinTemp)
                 try:
                     rrdtool.update(RRD_FILE_TBBMaxTemp, '-t', TBBTemp_order, datestamp + ':' + TBBTempMaxMatch.group(1) + ':' + TBBTempMaxMatch.group(2) + ':' + TBBTempMaxMatch.group(3))
                 except:
-                    print "Error updaing " + RRD_FILE_TBBMaxTemp
+                    print("Error updaing " + RRD_FILE_TBBMaxTemp)
                 outstring += "Updated TBB "
             else:
                 outstring +="Would update TBBgood: " + TBBTempMeanMatch.group(1) + ':' + TBBTempMeanMatch.group(2) + ':' + TBBTempMeanMatch.group(3)+"\n"
@@ -301,8 +301,8 @@ while True:
                 outstring +="Would update TBBMinTemp: " + TBBTempMinMatch.group(1) + ':' + TBBTempMinMatch.group(2) + ':' + TBBTempMinMatch.group(3)+"\n"
                 outstring +="Would update TBBMaxTemp: " + TBBTempMaxMatch.group(1) + ':' + TBBTempMaxMatch.group(2) + ':' + TBBTempMaxMatch.group(3)+"\n"
         outstring += '\n'
-        print outstring
+        print(outstring)
             
         sys.stdout.flush()
     else:
-        print "Error parsing message:",message
+        print("Error parsing message:", message)
