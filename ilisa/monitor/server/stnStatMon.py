@@ -275,7 +275,7 @@ def sendstatus(isUDP=True, isSendTest=False, isLogged=True):
 
         sock = socket.socket(socket.AF_INET, # Internet
                              socket.SOCK_DGRAM ) # UDP
-        sock.sendto(outstring, (UDP_IP, UDP_PORT) )
+        sock.sendto(outstring.encode().encode('UTF8'), (UDP_IP, UDP_PORT))
         if isLogged:
             print(outstring)
     else:
