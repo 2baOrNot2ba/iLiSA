@@ -79,9 +79,9 @@ class StationDriver(object):
         self.mockrun = mockrun
         try:
             self._lcu_interface = LCUInterface(accessconf_lcu)
-        except AssertionError as a_err:
+        except (ConnectionError, AssertionError) as err:
             self._lcu_interface = None
-            raise a_err
+            raise err
         bf_ports = self.get_laneports()
         self.bf_port0 = bf_ports[0]
         self._dru_interface = DRUinterface(accessconf_dru, bf_ports)
