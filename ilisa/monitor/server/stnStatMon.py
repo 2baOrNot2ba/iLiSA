@@ -4,24 +4,21 @@
 # Inspired by (and partially borrowed from) A. Horneffers "isEcStatus.py" code.
 # T. Carozzi 30 Sep 2013 (25 Jan 2012) (TobiaC)
 # Modified by A. Horneffer 2013--2017
-
-from stnStatMon_config import *
-
-GW_PC_UDP_PORT = 6070  # Port for istn service
-                       # (If you edit this you will need to update port on
-                       # clients)
-
-# Paths to various lofar commands:
-OPERATIONSPATH = "/opt/operations/bin/"
-# OPERATIONSPATH="/usr/local/bin/"
-LOFARBINPATH = "/opt/lofar/bin/"
-
 import sys
 import socket
 import time
 from subprocess import Popen, PIPE
 from parse_rspctl import parse_rspctl_status, parse_rspctl_rcu
 from parse_tbbctl import parse_tbbctl_status
+from stnStatMon_config import *
+
+GW_PC_UDP_PORT = 6070   # Port for istn service
+                        # (If you edit this you will need to update port on clients)
+
+# Paths to various lofar commands:
+OPERATIONSPATH = "/opt/operations/bin/"
+# OPERATIONSPATH="/usr/local/bin/"
+LOFARBINPATH = "/opt/lofar/bin/"
 
 VERSION = '2.4'  # version of this script
 
@@ -30,41 +27,41 @@ STATUS = {}  # Status of LCU
 
 def pathtoISSTATUS():
     """Determine path to ISSTATUS script."""
-    lcuSWver = get_lofar_sw_ver()
+    lcu_sw_ver = get_lofar_sw_ver()
     change1 = (1, 16, 0)
     change2 = (2, 17, 6)
     changelatest = change2
-    if lcuSWver >= changelatest:
-        STATIONTESTPATH = '/opt/lofar/sbin/'
-        ISSTATUSPY = 'status.py'
-    elif lcuSWver >= change1 and lcuSWver < change2:
-        STATIONTESTPATH = '/opt/lofar/sbin/'
-        ISSTATUSPY='isStatus.py'
-    elif lcuSWver < change1:
-        STATIONTESTPATH = '/opt/stationtest/test/envcontroltest/'
-        ISSTATUSPY = 'isStatus.py'
+    if lcu_sw_ver >= changelatest:
+        stationtestpath = '/opt/lofar/sbin/'
+        isstatuspy = 'status.py'
+    elif lcu_sw_ver >= change1 and lcu_sw_ver < change2:
+        stationtestpath = '/opt/lofar/sbin/'
+        isstatuspy = 'isStatus.py'
+    elif lcu_sw_ver < change1:
+        stationtestpath = '/opt/stationtest/test/envcontroltest/'
+        isstatuspy = 'isStatus.py'
     else:
         print("Cannot determine version of path")
         sys.exit(1)
         
-    return STATIONTESTPATH+ISSTATUSPY
+    return stationtestpath+isstatuspy
 
 
 def get_isStatus():
-    ISSTATUSscript = pathtoISSTATUS()
+    isstatus_script = pathtoISSTATUS()
     # Environmental control status:
-    ECstatOut = Popen(ISSTATUSscript,
-                      stdout=PIPE).communicate()[0].decode('UTF8')
-    ECstatOutLns = ECstatOut.splitlines()
-    STATUS['station'] = ECstatOutLns[1].split()[0]
-    STATUS['version'] = ECstatOutLns[1].split()[2][1:-1]
+    ec_stat_out = Popen(isstatus_script,
+                        stdout=PIPE).communicate()[0].decode('UTF8')
+    ec_stat_outlns = ec_stat_out.splitlines()
+    STATUS['station'] = ec_stat_outlns[1].split()[0]
+    STATUS['version'] = ec_stat_outlns[1].split()[2][1:-1]
     STATUS['time'] = time.mktime(time.strptime(
-        ECstatOutLns[2].lstrip().rstrip()))
-    key=''
-    for lineNr in range(4,10):
-        (desc,val)=ECstatOutLns[lineNr].split('=')
-        description=desc.rstrip()
-        value=val.lstrip()
+        ec_stat_outlns[2].lstrip().rstrip()))
+    key = ''
+    for lineNr in range(4, 10):
+        (desc, val) = ec_stat_outlns[lineNr].split('=')
+        description = desc.rstrip()
+        value = val.lstrip()
         # The output labels from isStatus.py were changed 21 June 2013.
         # Effectively the string "cab3" was removed. I changed the
         # matching condition to the output, but not the subsequent
@@ -87,9 +84,9 @@ def get_isStatus():
 
 
 def get_lofar_sw_ver():
-    ps_out=Popen([LOFARBINPATH+'swlevel','-V'],
-                 stdout=PIPE).communicate()[0].decode('UTF8')
-    verstr=ps_out.split('-')[-1]
+    ps_out = Popen([LOFARBINPATH+'swlevel', '-V'],
+                   stdout=PIPE).communicate()[0].decode('UTF8')
+    verstr = ps_out.split('-')[-1]
     ver_maj, ver_min, ver_pat = [int(ver.strip()) for ver in verstr.split('_')]
     return ver_maj, ver_min, ver_pat
 
@@ -102,45 +99,44 @@ def aggregateInfo():
     
     if True:
         # Station switch status:
-        StnSwtchstatOut = Popen(
-           #['sudo', OPERATIONSPATH+'stationswitch','-s'],
+        stn_swtchstat_out = Popen(
+           # ['sudo', OPERATIONSPATH+'stationswitch','-s'],
            [OPERATIONSPATH+'getstationmode'],
            stdout=PIPE).communicate()[0].decode('UTF8')
-        StnSwtchstatOutLns = StnSwtchstatOut.splitlines()
-        STATUS['switch'] = StnSwtchstatOutLns[0].split()[-1]
+        stn_swtchstat_out_lns = stn_swtchstat_out.splitlines()
+        STATUS['switch'] = stn_swtchstat_out_lns[0].split()[-1]
     if True:
         # Software level:
-        swlstatOut = Popen([LOFARBINPATH+'swlevel','-S'],
-                           stdout=PIPE).communicate()[0].decode('UTF8')
-        swlstatOutLns = swlstatOut.splitlines()
-        STATUS['softwareLevel'] = int(swlstatOutLns[0].split()[0])
+        swlstat_out = Popen([LOFARBINPATH+'swlevel', '-S'],
+                            stdout=PIPE).communicate()[0].decode('UTF8')
+        swlstat_out_lns = swlstat_out.splitlines()
+        STATUS['softwareLevel'] = int(swlstat_out_lns[0].split()[0])
     if CHECK_BC_USER:
         # beamctl user:
         bc_user = who_beamctl()
-        STATUS['beamctl']=bc_user
+        STATUS['beamctl'] = bc_user
     if CHECK_NUM_LOGINS:
         # number of logged-in users
         woutput = Popen('w | wc', shell=True,
                         stdout=PIPE).communicate()[0].split()[0].decode('UTF8')
         STATUS['allUsers'] = int(woutput)-2
-        woutputuser = Popen('w | grep user[0-9] | wc', shell=True,
-                          stdout=PIPE
-                          ).communicate()[0].split()[0].decode('UTF8')
+        woutputuser = Popen('w | grep user[0-9] | wc', shell=True, stdout=PIPE
+                            ).communicate()[0].split()[0].decode('UTF8')
         STATUS['localUsers'] = int(woutputuser)
     if CHECK_RSP_STATS and (STATUS['softwareLevel'] >= 2):
         # status of the RSP boards
         statoutput = Popen(LOFARBINPATH+'rspctl --status', shell=True,
-                           stdout=PIPE,stderr=PIPE
+                           stdout=PIPE, stderr=PIPE
                            ).communicate()[0].decode('UTF8')
         STATUS['rspstat'] = parse_rspctl_status(statoutput)
         rcuoutput = Popen(LOFARBINPATH+'rspctl --rcu', shell=True,
-                          stdout=PIPE,stderr=PIPE
+                          stdout=PIPE, stderr=PIPE
                           ).communicate()[0].decode('UTF8')
         STATUS['rcumodes'] = parse_rspctl_rcu(rcuoutput)
     if CHECK_TBB_STATS and (STATUS['softwareLevel'] >= 2):
         # status of the TBBs
         tbbstatoutput = Popen('/opt/lofar/bin/tbbctl --status', shell=True,
-                              stdout=PIPE,stderr=PIPE
+                              stdout=PIPE, stderr=PIPE
                               ).communicate()[0].decode('UTF8')
         STATUS['tbbstat'] = parse_tbbctl_status(tbbstatoutput)
 
@@ -174,7 +170,7 @@ def sendstatus(isUDP=True, isSendTest=False, isLogged=True):
     date = time.localtime(STATUS['time'])
     outstring = "LOFAR_STN_STATUS (version): %s" % VERSION
     outstring += "\n"
-    outstring += "%4d-%02d-%02d-%02d:%02d:%02d, "%(
+    outstring += "%4d-%02d-%02d-%02d:%02d:%02d, " % (
         date.tm_year, date.tm_mon, date.tm_mday,
         date.tm_hour,  date.tm_min, date.tm_sec)
     # Environmental control status:
@@ -273,8 +269,8 @@ def sendstatus(isUDP=True, isSendTest=False, isLogged=True):
         UDP_IP = GW_PC_UDP_IP
         UDP_PORT = GW_PC_UDP_PORT
 
-        sock = socket.socket(socket.AF_INET, # Internet
-                             socket.SOCK_DGRAM ) # UDP
+        sock = socket.socket(socket.AF_INET,  # Internet
+                             socket.SOCK_DGRAM)  # UDP
         sock.sendto(outstring.encode('UTF8'), (UDP_IP, UDP_PORT))
         if isLogged:
             print(outstring)
@@ -286,13 +282,13 @@ from optparse import OptionParser
 
 
 if __name__ == "__main__":
-   parser = OptionParser()
-   parser.add_option("-p", "--print", dest="prntout",
-                  action="store_true", default=False,
-                  help="just print status messages to stdout (no UDP)")
-   (options, args) = parser.parse_args()
+    parser = OptionParser()
+    parser.add_option("-p", "--print", dest="prntout", action="store_true",
+                      default=False,
+                      help="just print status messages to stdout (no UDP)")
+    (options, args) = parser.parse_args()
 
-   aggregateInfo()
-   # printInfo()
-   sendstatus(isUDP=not(options.prntout))
-   bc_user=who_beamctl()
+    aggregateInfo()
+    # printInfo()
+    sendstatus(isUDP=not options.prntout)
+    bc_user=who_beamctl()
