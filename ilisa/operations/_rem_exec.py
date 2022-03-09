@@ -6,6 +6,7 @@ try:
 except ImportError:
     IMPORTED_PARAMIKO = False
 import logging
+import __init__  # To set default logging
 
 
 def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False, dryrun=False,
@@ -22,6 +23,8 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
     foreground (blocking). Typically access is remote via ssh.
     (To speed things up use the ssh CommandMaster option.)
     """
+    if nodetype == 'TEST':
+        nodetype = nodeurl
     nodeprompt = "On " + nodetype + "> "
     if nodeurl.endswith('localhost'):
         shellinvoc = ''
@@ -48,7 +51,7 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
         else:
             output = subprocess.run(shellinvoc + " "
                                     + quotes + cmdline + quotes,
-                                    shell=True, universal_newlines = True,
+                                    shell=True, universal_newlines=True,
                                     stdout=subprocess.PIPE).stdout
         if output:
             output = output.rstrip()
@@ -57,13 +60,13 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
     return output
 
 
-def __exec_lcu_paramiko(self, cmdline, backgroundJOB=False):
+def __exec_lcu_paramiko(self, cmdline, background_job=False):
     lcuprompt = "LCUp>"
     if self.DryRun:
         preprompt = "(dryrun)"
     else:
         preprompt = ""
-    if backgroundJOB is True:
+    if background_job is True:
         cmdline = "(( " + cmdline + " ) > " + self._home_dir +\
                   "lofarctl.log 2>&1) &"
     if self.verbose:
@@ -96,17 +99,17 @@ def __exec_lcu_paramiko(self, cmdline, backgroundJOB=False):
 
 
 def __stdout_ssh(nodeurl, cmdline, nodetype='LCU', dryrun=False,
-                verbose=True):
+                 verbose=True):
     """Execute a command on the remnode and return its output."""
     nodeprompt = "On " + nodetype + "> "
     shellinvoc = "ssh " + nodeurl
     if dryrun:
-        prePrompt = "(dryrun) "
+        pre_prompt = "(dryrun) "
     else:
-        prePrompt = ""
+        pre_prompt = ""
     if verbose:
-        print(prePrompt + nodeprompt + cmdline)
-    if not(dryrun):
+        print(pre_prompt + nodeprompt + cmdline)
+    if not dryrun:
         try:
             output = subprocess.check_output(shellinvoc + " '" + cmdline + "'",
                                              shell=True).rstrip()
@@ -158,5 +161,11 @@ def __outfromLCU(self, cmdline, integration, duration):
 
 if __name__ == '__main__':
     import sys
-    hn = _exec_ssh(sys.argv[1], sys.argv[2], accessible=True)
-    print(hn)
+    url = sys.argv[1]
+    cmdline = ' '.join(sys.argv[2:])
+    print(f"Executing {cmdline} on {url}")
+    try:
+        hn = _exec_ssh(url, cmdline, nodetype='TEST', accessible=True, verbose=True)
+        print(hn)
+    except KeyboardInterrupt:
+        print('INTERRUPTED')
