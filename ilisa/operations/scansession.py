@@ -51,7 +51,8 @@ def projid2meta(projectid):
     return projectmeta, accessfiles, projectfile
 
 
-def process_scansess(sesscans_in, stnid, session_id=None):
+def process_scansess(sesscans_in, stnid, session_id=None,
+                     ignore_current_time=False):
     """\
     Function for parsing a station session schedule
 
@@ -63,6 +64,9 @@ def process_scansess(sesscans_in, stnid, session_id=None):
         Station ID.
     session_id : str
         Assign this ID to session.
+    ignore_current_time : bool
+        Ignore current time, i.e., ignore whether requested times have already
+        passed.
 
     Returns
     -------
@@ -74,49 +78,39 @@ def process_scansess(sesscans_in, stnid, session_id=None):
     Raises
     ------
     ValueError
-        If CLI starttime already passed
+        Assumoing ignore_current_time is not set,
+        this is raised if CLI starttime already passed
         or if session's starttine already passed.
     """
-
     # Set the session_id to something
     if not session_id:
         session_id = sesscans_in.get('session_id')
-    try:
-        mockrun = sesscans_in['mockrun']
-    except KeyError:
-        mockrun = False
-    try:
-        projectid = sesscans_in['projectid']
-    except KeyError:
-        projectid = '0'
-    try:
-        note = sesscans_in['note']
-    except KeyError:
-        note = None
+    mockrun = sesscans_in.get('mockrun', False)
+    projectid = sesscans_in.get('projectid', '0')
+    note = sesscans_in.get('note')
 
     # Initialize processed station session schedule
     sessmeta = {'session_id': session_id,
                 'projectid': projectid,
                 'station': stnid,
                 'note': note,
-                'mockrun': False,
+                'mockrun': mockrun,
                 'cli_start': sesscans_in['cli_start'],
                 'start': sesscans_in.get('start', None)
                 #,'scans': []
                 }
-    if mockrun:
-        sessmeta['mockrun'] = True
     utcnow = datetime.datetime.utcnow()
     if sessmeta['cli_start'] and sessmeta['cli_start'] != 'ASAP':
         cli_start = modeparms.timestr2datetime(sessmeta['cli_start'])
         if cli_start < utcnow:
-            raise ValueError('CLI starttime already passed {} ago.'.format(
-                utcnow - cli_start
-            ))
+            if not ignore_current_time:
+                raise ValueError('CLI starttime already passed {} ago.'
+                    .format(utcnow - cli_start))
     if sessmeta['start'] and sessmeta['start'] != 'ASAP':
         _start_dattim = modeparms.timestr2datetime(sessmeta['start'])
         if _start_dattim < utcnow:
-            raise ValueError('Session starttime already passed')
+            if not ignore_current_time:
+                raise ValueError('Session starttime already passed')
     # Process the start time for the session
     # # cli_start overrides scan session start (if not None)
     if sessmeta['cli_start']:
@@ -470,7 +464,8 @@ def obs(stndrv, args):
     if args.check:
         sessmeta, scans_obsargs = process_scansess(scansess_in,
                                                    stndrv.get_stnid(),
-                                                   scnsess.session_id)
+                                                   scnsess.session_id,
+                                                   ignore_current_time=True)
         print(yaml.dump(sessmeta, default_flow_style=False))
         sessscans = {'scans': []}
         try:
