@@ -6,7 +6,7 @@ try:
 except ImportError:
     IMPORTED_PARAMIKO = False
 import logging
-import __init__  # To set default logging
+import ilisa.operations.__init__  # To set default logging
 
 
 def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False, dryrun=False,
