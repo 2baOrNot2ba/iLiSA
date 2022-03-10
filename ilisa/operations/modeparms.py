@@ -270,7 +270,9 @@ class FreqSetup(object):
             self.rcubands.append(self.rcumode_bandnames[rcumode])
             self.antsets.append(self.rcumode_antsets[rcumode])
         self.rcusel = self.subarr_rcusel[len(self.rcumodes)-1]
-        self.nrlanes = math.ceil(nrbeamlets/NRBEAMLETSBYBITS[self.bits]*self._max_nrlanes)
+        self.nrlanes = math.ceil(
+            nrbeamlets/NRBEAMLETSBYBITS[self.bits]*self._max_nrlanes
+        )
 
     def _band2freqbins(self, bandarg):
         """Convert band to frequency bins specification"""
