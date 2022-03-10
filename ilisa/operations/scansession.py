@@ -326,7 +326,7 @@ class ScanSession(object):
 
         # Wait until it is time to bootup
         waituntil(session_start, dt2beamctl)
-        logging.debug("scansession started")
+        logging.info(f"Scansession {self.session_id} started")
 
         scans_done = []
         for scan in scans_iter:
@@ -365,6 +365,7 @@ class ScanSession(object):
                               starttime, acc=acc, bfs=bfs,
                               destpath=sesspath, destpath_bfs=bfdsesdumpdir,
                               file_dur=scan['file_dur'])
+                logging.info(f"Start LScan:: {lscan.describe_scan()}")
                 subscan = iter(lscan)
                 # Start the subscan
                 scanrecpath = {'acc': None, 'bfs': None, 'bsx': None}
@@ -395,9 +396,10 @@ class ScanSession(object):
             logging.info("Saved scan here: {}".format(scanpath_scdat))
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
-            logging.info(f"Finished scan @ {scan_ended_at}, "
-                  f"Request dur={duration_tot}, "
-                  f"Actual dur={duration_actual}")
+            duration_req = datetime.timedelta(seconds=duration_tot)
+            logging.info(f"End LScan:: id: {scan['id']}")
+            logging.debug(f"Request dur={duration_req}, "
+                          f"Actual dur={duration_actual}")
             scans_done.append(scan)
         # Collate session metadata with scan meta data as scansession metadata
         sessmeta['scans'] = scans_done

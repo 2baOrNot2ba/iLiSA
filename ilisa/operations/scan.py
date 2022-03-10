@@ -333,6 +333,19 @@ class LScan:
             if scanrecpath:
                 scanrecinfo.write_scanrec(scanrecpath)
 
+    def describe_scan(self):
+        """\
+        User friendly description of the scan
+        """
+        rec = self.rec_type
+        id = self.scanresult['scan_id']
+        pnting = self.pointing_spec.get('source')
+        if not pnting:
+            pnting = self.pointing_spec.get('pointing')
+        freqarg = self.freqsetup.arg
+        descriptor = f"id: {id}, rec: {rec}, pnting: {pnting}, freq: {freqarg}"
+        return descriptor
+
 
 def still_time_fun(stoptime):
     """\
