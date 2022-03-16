@@ -903,9 +903,18 @@ def timestr2datetime(timestr):
             raise RuntimeError("Wrong datetime format.")
     return dattim
 
+
+def astimestr(datim):
+    """\
+    Convert a datetime to iLiSA compatible string
+    """
+    return datim.strftime(DATETIMESTRFMT)
+
+
 def normalizetimestr(timestr):
-    dt = timestr2datetime(timestr)
-    return dt.strftime(DATETIMESTRFMT)
+    datim = timestr2datetime(timestr)
+    return astimestr(datim)
+
 
 def hmsstr2deltatime(hms):
     """\
