@@ -1,9 +1,13 @@
 #!/usr/bin/python
+import logging
 import subprocess
 import time
 import datetime
 import argparse
 import yaml
+
+import ilisa.operations  # Sets up logging
+import ilisa.operations.modeparms as modeparms
 
 __now_timestamp = time.time()
 ut2lt_offset = datetime.datetime.fromtimestamp(__now_timestamp) \
@@ -25,15 +29,25 @@ def sched2at(schedfile):
     proj = schedtab.get('project', DEFAULT_PROJ)
 
     schedlines = schedtab['schedule']
+    # Check start times
     for schedline in schedlines:
-        # Setup start time
         if type(schedline['start']) == datetime.datetime:
             start_ut = schedline['start']
         elif type(schedline['start']) == str:
-            start_ut = datetime.datetime.strptime(schedline['start'],
-                                                  '%Y-%m-%dT%H:%M:%S')
+            try:
+                start_ut = modeparms.timestr2datetime(schedline['start'])
+            except ValueError as verr:
+                raise verr
         else:
             raise RuntimeError(type(schedline['start']))
+        if start_ut < datetime.datetime.utcnow():
+            raise RuntimeError(f'Starttime {start_ut} is in the past.')
+        else:
+            schedline['start'] = start_ut
+    # Now do it for real
+    for schedline in schedlines:
+        start_ut = schedline['start']
+        # Setup start time
         startat_lt = (start_ut + ut2lt_offset - BEFORE_AT_MARGIN)
         sleep_before_at_secs = 0
         if startat_lt.second > 0:
@@ -54,7 +68,8 @@ def sched2at(schedfile):
                 raise RuntimeError('No station specified')
         # Setup commands for ilisa_cmd
         cli_name = 'ilisa_cmd'  # Deprecated original monolithic ilisa command
-        cli_argv = ['-t', schedline['start'], '-s', station, mockflag]
+        cli_argv = ['-t',  modeparms.astimestr(schedline['start']),
+                    '-s', station, mockflag]
         if schedline['cmd'] == 'obs':
             cli_name = 'ilisa_obs'
             cli_argv += ['-p', proj, schedline.get('session')]
@@ -70,10 +85,10 @@ def sched2at(schedfile):
         sleepcmd = ''
         if sleep_before_at_secs:
             sleepcmd = f"sleep {sleep_before_at_secs}\n"
-            #p.communicate(input=sleepcmd.encode())
         # Send ilisa_cmd to pipe
         cmdline_wlog = '{} {} >> err_{}.log\n'.format(sleepcmd, cmdline,
                                                       station)
+        #print(cmdline_wlog)
         p.communicate(input=cmdline_wlog.encode())
 
 
@@ -81,7 +96,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('schedfile', help="Schedule file")
     args = parser.parse_args()
-    sched2at(args.schedfile)
+    try:
+        sched2at(args.schedfile)
+    except (RuntimeError, ValueError) as err:
+        logging.error(err)
 
 
 if __name__ == "__main__":
