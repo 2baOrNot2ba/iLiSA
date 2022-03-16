@@ -51,8 +51,7 @@ def projid2meta(projectid):
     return projectmeta, accessfiles, projectfile
 
 
-def process_scansess(sesscans_in, stnid, session_id=None,
-                     ignore_current_time=False):
+def process_scansess(sesscans_in, stnid, session_id=None):
     """\
     Function for parsing a station session schedule
 
@@ -64,9 +63,6 @@ def process_scansess(sesscans_in, stnid, session_id=None,
         Station ID.
     session_id : str
         Assign this ID to session.
-    ignore_current_time : bool
-        Ignore current time, i.e., ignore whether requested times have already
-        passed.
 
     Returns
     -------
@@ -74,13 +70,8 @@ def process_scansess(sesscans_in, stnid, session_id=None,
         Processed metadata for sesscan_in.
     generate_scans() : generator
         scans settings.
-
-    Raises
-    ------
-    ValueError
-        Assumoing ignore_current_time is not set,
-        this is raised if CLI starttime already passed
-        or if session's starttine already passed.
+    paststart : bool
+        True if starttime is in the past.
     """
     # Set the session_id to something
     if not session_id:
@@ -99,18 +90,7 @@ def process_scansess(sesscans_in, stnid, session_id=None,
                 'start': sesscans_in.get('start', None)
                 #,'scans': []
                 }
-    utcnow = datetime.datetime.utcnow()
-    if sessmeta['cli_start'] and sessmeta['cli_start'] != 'ASAP':
-        cli_start = modeparms.timestr2datetime(sessmeta['cli_start'])
-        if cli_start < utcnow:
-            if not ignore_current_time:
-                raise ValueError('CLI starttime already passed {} ago.'
-                    .format(utcnow - cli_start))
-    if sessmeta['start'] and sessmeta['start'] != 'ASAP':
-        _start_dattim = modeparms.timestr2datetime(sessmeta['start'])
-        if _start_dattim < utcnow:
-            if not ignore_current_time:
-                raise ValueError('Session starttime already passed')
+
     # Process the start time for the session
     # # cli_start overrides scan session start (if not None)
     if sessmeta['cli_start']:
@@ -134,15 +114,17 @@ def process_scansess(sesscans_in, stnid, session_id=None,
             # - Starttime computed based on previous starttime
             # - - and after time:
             starttime_in = scan.get('starttime')
+            starttime_guess = starttime_in
             if not starttime_in:
                 after = scan.get('after')
                 dur_dprev = datetime.timedelta(seconds=duration_totprev)
                 if after:
                     after_delta = modeparms.hmsstr2deltatime(after)
                     if after_delta < (dur_dprev + margintime):
-                        raise ValueError(
-                            'No time for next scan: after {} - dur {} < marg {}.'
-                                .format(dur_dprev, after_delta, margintime))
+                        time2nxtscan = (dur_dprev, after_delta, margintime)
+                        logging.warning(
+                            'No time for scan: after {} - dur {} < marg {}'
+                            .format(*time2nxtscan))
                     starttime_in = starttimeprev + after_delta
                 elif scan == sesscans_in['scans'][0]:
                     # First scan should not include margintime between scans
@@ -235,7 +217,21 @@ def process_scansess(sesscans_in, stnid, session_id=None,
             # Next scan use current time as previous time and current time
             starttimeprev = starttime_in if starttime_in else starttime_guess
             duration_totprev = duration_tot
+
     return sessmeta, generate_scans()
+
+
+def check_sess_start_passed(sessmeta):
+    """\
+    Check if Session can be started in future or if starttime is now in the past
+    """
+    paststart = False
+    if sessmeta['start'] != 'ASAP':
+        utcnow = datetime.datetime.utcnow()
+        _start_dattim = modeparms.timestr2datetime(sessmeta['start'])
+        if _start_dattim < utcnow:
+             paststart = True
+    return paststart
 
 
 class ScanSession(object):
@@ -286,8 +282,11 @@ class ScanSession(object):
             yaml.dump(sched, f, explicit_start=True)
 
     def run_scansess(self, sesscans_in, session_id=None):
-        """Run a local session given a stn_ses_schedule dict. That is, dispatch to the
-        stationdrivers to setup corresponding operations."""
+        """\
+        Run local session given a stn_ses_schedule dict.
+
+        Dispatches to the stationdriver to execute session operations
+        """
 
         def _update_latestdatafile(rec_name, rec_state):
             """\
@@ -305,6 +304,8 @@ class ScanSession(object):
         sessmeta, scans_iter = process_scansess(sesscans_in,
                                                 self.stndrv.get_stnid(),
                                                 self.session_id)
+        if check_sess_start_passed(sessmeta):
+            raise ValueError('Starttime in the past')
         # Starttime handling
         session_start = modeparms.timestr2datetime(sessmeta['start'])
         if not session_id:
@@ -464,8 +465,10 @@ def obs(stndrv, args):
     if args.check:
         sessmeta, scans_obsargs = process_scansess(scansess_in,
                                                    stndrv.get_stnid(),
-                                                   scnsess.session_id,
-                                                   ignore_current_time=True)
+                                                   scnsess.session_id)
+        if check_sess_start_passed(sessmeta):
+            print("Warning: Session starttime {} is in the past."
+                  .format(sessmeta['start']))
         print(yaml.dump(sessmeta, default_flow_style=False))
         sessscans = {'scans': []}
         try:
