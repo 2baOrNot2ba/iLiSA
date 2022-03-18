@@ -103,6 +103,9 @@ def process_scansess(sesscans_in):
         starttimeprev = sessmeta['start']
         duration_totprev = 0
         for scan in sesscans_in['scans']:
+            # Get a title for this scan
+            scan_id = scan.get('scan_id')
+
             # Prepare observation arguments:
 
             # - Starttime computed based on previous starttime
@@ -199,7 +202,8 @@ def process_scansess(sesscans_in):
                           'duration': duration_tot,
                           'file_dur': file_dur,
                           'starttime_in': starttime_in,
-                          'source': source
+                          'source': source,
+                          'scan_id': scan_id
                           }
             obsargs_in.update({'obsprog': obsprog})
             yield obsargs_in
@@ -346,7 +350,8 @@ class ScanSession(object):
                               duration_tot, pointing_spec, integration,
                               starttime, acc=acc, bfs=bfs,
                               destpath=sesspath, destpath_bfs=bfdsesdumpdir,
-                              file_dur=scan['file_dur'])
+                              file_dur=scan['file_dur'],
+                              scan_id=scan['scan_id'])
                 logging.info(f"Start LScan:: {lscan.describe_scan()}")
                 subscan = iter(lscan)
                 # Start the subscan

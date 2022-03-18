@@ -15,7 +15,7 @@ from ilisa.operations.stationdriver import StationDriver, waituntil
 class LScan:
     def __init__(self, stndrv, rec_type, freqsetup, duration_tot,
                  pointing_spec, integration, starttime, acc=False, bfs=False,
-                 destpath=None, destpath_bfs=None, file_dur=None):
+                 destpath=None, destpath_bfs=None, file_dur=None, scan_id=None):
         """\
         Record a scan of LOFAR station data
 
@@ -57,6 +57,8 @@ class LScan:
             Destination path for this recording.
         file_dur: float
             Duration of file of recorded (subscan) data.
+        scanid: str
+            ID for this scan.
         """
         self.stndrv = stndrv
         self.rec_type = rec_type
@@ -89,7 +91,7 @@ class LScan:
         if bsx_stat == 'bst' or bfs:
             caltabinfos = self.stndrv.get_caltableinfos(freqsetup.rcumodes)
         self.scanpath = self.destpath
-        self.scan_id = self._gen_scan_id(self.starttime)
+        self.scan_id = scan_id if scan_id else self._gen_scan_id(self.starttime)
         self.scanresult['scan_id'] = self.scan_id
 
         if rec_type != 'tbb' and rec_type != 'dmp':
