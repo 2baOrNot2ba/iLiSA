@@ -912,6 +912,9 @@ def astimestr(datim):
 
 
 def normalizetimestr(timestr):
+    """\
+    Normalize iLiSA time str
+    """
     datim = timestr2datetime(timestr)
     return astimestr(datim)
 
