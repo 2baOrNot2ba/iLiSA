@@ -51,7 +51,7 @@ def projid2meta(projectid):
     return projectmeta, accessfiles, projectfile
 
 
-def process_scansess(sesscans_in, stnid, session_id=None):
+def process_scansess(sesscans_in):
     """\
     Function for parsing a station session schedule
 
@@ -59,10 +59,6 @@ def process_scansess(sesscans_in, stnid, session_id=None):
     ----------
     sesscans_in : dict
         Input session scans.
-    stnid : str
-        Station ID.
-    session_id : str
-        Assign this ID to session.
 
     Returns
     -------
@@ -74,11 +70,11 @@ def process_scansess(sesscans_in, stnid, session_id=None):
         True if starttime is in the past.
     """
     # Set the session_id to something
-    if not session_id:
-        session_id = sesscans_in.get('session_id')
+    session_id = sesscans_in.get('session_id')
     mockrun = sesscans_in.get('mockrun', False)
     projectid = sesscans_in.get('projectid', '0')
     note = sesscans_in.get('note')
+    stnid = sesscans_in.get('station')
 
     # Initialize processed station session schedule
     sessmeta = {'session_id': session_id,
@@ -87,26 +83,24 @@ def process_scansess(sesscans_in, stnid, session_id=None):
                 'note': note,
                 'mockrun': mockrun,
                 'cli_start': sesscans_in['cli_start'],
-                'start': sesscans_in.get('start', None)
-                #,'scans': []
+                'start': sesscans_in.get('start')
+                # ,'scans': []
                 }
 
     # Process the start time for the session
     # # cli_start overrides scan session start (if not None)
     if sessmeta['cli_start']:
         # Command Line Interface requested starttime takes priority
-        sessmeta['start'] = sessmeta['cli_start']
+        sessmeta['start'] = modeparms.timestr2datetime(sessmeta['cli_start'])
     if not sessmeta['start']:
-         sessmeta['start'] = 'ASAP'
-    starttime_session = modeparms.timestr2datetime(
-        modeparms.normalizetimestr(sessmeta['start']))
+        sessmeta['start'] = modeparms.timestr2datetime('ASAP')
 
     def generate_scans():
         # Margin of time between two scans in seconds (fastest safe switching)
         margintime = datetime.timedelta(seconds=13.0)
 
         # Initialize "previous" values for scan loop
-        starttimeprev = starttime_session
+        starttimeprev = sessmeta['start']
         duration_totprev = 0
         for scan in sesscans_in['scans']:
             # Prepare observation arguments:
@@ -114,7 +108,6 @@ def process_scansess(sesscans_in, stnid, session_id=None):
             # - Starttime computed based on previous starttime
             # - - and after time:
             starttime_in = scan.get('starttime')
-            starttime_guess = starttime_in
             if not starttime_in:
                 after = scan.get('after')
                 dur_dprev = datetime.timedelta(seconds=duration_totprev)
@@ -128,10 +121,10 @@ def process_scansess(sesscans_in, stnid, session_id=None):
                     starttime_in = starttimeprev + after_delta
                 elif scan == sesscans_in['scans'][0]:
                     # First scan should not include margintime between scans
-                    starttime_guess = starttimeprev + dur_dprev
+                    starttime_in = starttimeprev + dur_dprev
                 else:
                     # All other scans should include margintime between scans
-                    starttime_guess = starttimeprev + dur_dprev + margintime
+                    starttime_in = starttimeprev + dur_dprev + margintime
 
             # - Duration total
             duration_in = scan.get('duration')
@@ -190,10 +183,7 @@ def process_scansess(sesscans_in, stnid, session_id=None):
 
             # If dedicated observation program chosen, set it up
             # otherwise run main obs program
-            try:
-                obsprog = scan['obsprog']
-            except KeyError:
-                obsprog = None
+            obsprog = scan.get('obsprog')
 
             # Collect observation parameters specified
             obsargs_in = {'beam':
@@ -209,13 +199,12 @@ def process_scansess(sesscans_in, stnid, session_id=None):
                           'duration': duration_tot,
                           'file_dur': file_dur,
                           'starttime_in': starttime_in,
-                          'starttime_guess': starttime_guess,
                           'source': source
                           }
             obsargs_in.update({'obsprog': obsprog})
             yield obsargs_in
             # Next scan use current time as previous time and current time
-            starttimeprev = starttime_in if starttime_in else starttime_guess
+            starttimeprev = starttime_in
             duration_totprev = duration_tot
 
     return sessmeta, generate_scans()
@@ -224,12 +213,16 @@ def process_scansess(sesscans_in, stnid, session_id=None):
 def check_sess_start_passed(sessmeta):
     """\
     Check if Session can be started in future or if starttime is now in the past
+
+    Parameters
+    ----------
+    sessmeta : dict
+        The ScanSession metadata.
     """
     paststart = False
     if sessmeta['start'] != 'ASAP':
         utcnow = datetime.datetime.utcnow()
-        _start_dattim = modeparms.timestr2datetime(sessmeta['start'])
-        if _start_dattim < utcnow:
+        if sessmeta['start'] < utcnow:
              paststart = True
     return paststart
 
@@ -299,17 +292,13 @@ class ScanSession(object):
                         f.write(scanrecpath[rec_name])
                         f.write('\n')
 
-        if session_id:
-            self.session_id = session_id
-        sessmeta, scans_iter = process_scansess(sesscans_in,
-                                                self.stndrv.get_stnid(),
-                                                self.session_id)
+        sessmeta, scans_iter = process_scansess(sesscans_in)
         if check_sess_start_passed(sessmeta):
             raise ValueError('Starttime in the past')
         # Starttime handling
-        session_start = modeparms.timestr2datetime(sessmeta['start'])
-        if not session_id:
-            self.session_id = self.make_session_id(session_start)
+        self.session_id = session_id
+        if not self.session_id:
+            self.session_id = self.make_session_id(sessmeta['start'])
         self.projectmeta, _, _ = projid2meta(sessmeta['projectid'])
         self.set_stn_session_id(self.session_id)
         # Set where ldata should be put after recording on LCU
@@ -320,7 +309,7 @@ class ScanSession(object):
             seconds=self.stndrv._beam_time2startup_hint())
 
         # Wait until it is time to bootup
-        waituntil(session_start, dt2beamctl)
+        waituntil(sessmeta['start'], dt2beamctl)
         logging.info(f"Scansession {self.session_id} started")
 
         scans_done = []
@@ -344,9 +333,7 @@ class ScanSession(object):
                 freqsetup = modeparms.FreqSetup(freqspec)
 
                 # Calculate scan schedule fundamental timings
-                starttime = scan.get('starttime_in')
-                if not starttime:
-                    starttime = modeparms.timestr2datetime('ASAP')
+                starttime = scan['starttime_in']
                 duration_tot = scan['duration']
                 stoptime = starttime + datetime.timedelta(
                     seconds=int(duration_tot))
@@ -409,16 +396,16 @@ class ScanSession(object):
             f.writelines(filecontents)
 
 
-def get_proj_stn_access_conf(projid, stnid):
+def get_proj_stn_access_conf(projid, stnid=None):
     """\
-    Get access conf for stnid as per projid
+    Get access conf for project projid on stnid
 
     Parameters
     ----------
     projid : str
         Project ID.
     stnid : str
-        Station ID.
+        Station ID. If set to None, we try to get default station for projid.
 
     Returns
     -------
@@ -453,34 +440,69 @@ def get_proj_stn_access_conf(projid, stnid):
     return ac
 
 
-def obs(stndrv, args):
-    """Observe a scansession from ScanSes file."""
-    with open(args.file, 'r') as f:
-        scansess_in = yaml.safe_load(f)
-    scansess_in['cli_start'] = args.time
-    scansess_in['mockrun'] = args.mockrun
-    scansess_in['projectid'] = args.project
+def check_scan_sess(scansess_in):
+    """\
+    Check scan session syntax
 
-    scnsess = ScanSession(stndrv)
-    if args.check:
-        sessmeta, scans_obsargs = process_scansess(scansess_in,
-                                                   stndrv.get_stnid(),
-                                                   scnsess.session_id)
-        if check_sess_start_passed(sessmeta):
-            print("Warning: Session starttime {} is in the past."
-                  .format(sessmeta['start']))
-        print(yaml.dump(sessmeta, default_flow_style=False))
-        sessscans = {'scans': []}
-        try:
-            for scan_obsargs in scans_obsargs:
-                sessscans['scans'].append(scan_obsargs)
-        except ValueError as ve:
-            print("ValueError:", ve)
-        else:
-            print(yaml.dump(sessscans, default_flow_style=False))
+    Parameters
+    ----------
+    sessmeta : dict
+        The ScanSession metadata.
+    """
+    sessmeta, scans_obsargs = process_scansess(scansess_in)
+    print(yaml.dump(sessmeta, default_flow_style=False))
+    sessscans = {'scans': []}
+    try:
+        for scan_obsargs in scans_obsargs:
+            sessscans['scans'].append(scan_obsargs)
+    except ValueError as ve:
+        print("ValueError:", ve)
     else:
-        scnsess.run_scansess(scansess_in)
-        args.cmd = 'obs:' + args.file
+        print(yaml.dump(sessscans, default_flow_style=False))
+    lastscan = sessscans['scans'][-1]
+    endtime = lastscan['starttime_in']\
+              + datetime.timedelta(seconds=lastscan['duration'])
+    print('end:', endtime)
+    starttime = sessmeta['start']
+    print('duration_total:', endtime - starttime)
+    if check_sess_start_passed(sessmeta):
+        logging.warning("Session starttime {} is in the past."
+              .format(sessmeta['start']))
+
+
+def obs(scansess_in, sac):
+    """\
+    Observe a Scansession
+
+    Parameters
+    ----------
+    scansess_in : dict
+        The ScanSession specification.
+    """
+    cli_start = scansess_in['cli_start']
+    mockrun = scansess_in['mockrun']
+    projectid = scansess_in['projectid']
+    file = scansess_in['file']
+    issued_at = datetime.datetime.utcnow().isoformat(timespec='seconds')
+    # Initialize stationdriver
+    try:
+        stndrv = StationDriver(sac['LCU'], sac['DRU'], mockrun=mockrun)
+    except (ConnectionError, AssertionError) as err:
+        logging.error ("Cannot setup {}'s LCU correctly"
+                       .format(sac['LCU']['stnid']))
+        logging.error(err)
+        sys.exit(1)
+    scansess_in['station'] = stndrv.get_stnid()
+    scnsess = ScanSession(stndrv)
+    scnsess.run_scansess(scansess_in)
+    cmd = 'obs:' + file
+    with open(LOGFILE, 'a') as lgf:
+        if mockrun:
+            priority_fld = 'M'
+        else:
+            priority_fld = '0'
+        lgf.write(f"{issued_at} {cli_start} {priority_fld} {projectid}"
+                  f" {stndrv.get_stnid()} {cmd}\n")
 
 
 def main_cli():
@@ -498,36 +520,32 @@ def main_cli():
                             help="Station ID")
     cmdln_prsr.add_argument('-m', '--mockrun', action='store_true',
                             help="Mockrun")
-
     cmdln_prsr.add_argument('-c', '--check', action='store_true',
                             help="Check scansession sanity.")
     cmdln_prsr.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(sys.argv[1:])
 
-    issued_at = datetime.datetime.utcnow().isoformat(timespec='seconds')
+    with open(args.file, 'r') as f:
+        scansess_in = yaml.safe_load(f)
+    scansess_in['cli_start'] = args.time
+    scansess_in['mockrun'] = args.mockrun
+    scansess_in['projectid'] = args.project
+    scansess_in['file'] = args.file
+    scansess_in['station'] = args.station
     try:
-        # Run an observation based on ScanSes spec file
-        ac = get_proj_stn_access_conf(args.project, args.station)
+        sac = get_proj_stn_access_conf(scansess_in['projectid'],
+                                       scansess_in['station'])
     except RuntimeError as e:
         logging.error(e)
         sys.exit(1)
-    # Initialize stationdriver :
+    scansess_in['station'] = sac['LCU']['stnid']
+    if args.check:
+        check_scan_sess(scansess_in)
+        return
     try:
-        stndrv = StationDriver(ac['LCU'], ac['DRU'], mockrun=args.mockrun)
-    except (ConnectionError, AssertionError) as err:
-        logging.error ("Cannot setup {}'s LCU correctly"
-                       .format(ac['LCU']['stnid']))
+        obs(scansess_in, sac)
+    except ValueError as err:
         logging.error(err)
-        sys.exit(1)
-    obs(stndrv, args)
-    if args.check: return
-    with open(LOGFILE, 'a') as lgf:
-        if args.mockrun:
-            priority_fld = 'M'
-        else:
-            priority_fld = '0'
-        lgf.write(f"{issued_at} {args.time} {priority_fld} {args.project}"
-                  f" {stndrv.get_stnid()} {args.cmd}\n")
 
 
 if __name__ == "__main__":
