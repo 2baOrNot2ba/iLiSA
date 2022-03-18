@@ -149,9 +149,6 @@ def process_scansess(sesscans_in):
             # -- direction: alternative to pointing but can't be name
             direction = beam.get('direction')
 
-            # -- Allsky
-            allsky = beam.get('allsky', False)
-
             # Postprocess beam to get direction
             if not direction:
                 if pointing:
@@ -192,8 +189,7 @@ def process_scansess(sesscans_in):
             obsargs_in = {'beam':
                               {'freqspec': freqspec,
                                'pointing': pointing,
-                               'direction': direction,
-                               'allsky': allsky},
+                               'direction': direction},
                           'rec': rec,
                           'acc': acc,
                           'bfs': bfs,
