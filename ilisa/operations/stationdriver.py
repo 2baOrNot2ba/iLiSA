@@ -214,7 +214,7 @@ class StationDriver(object):
         move_cmdline = ["scp", "-3"]
         if recursive:
             move_cmdline.append("-r")
-        src_arg = self._lcu_interface.lcuURL + ":" + source
+        src_arg = self._lcu_interface.url + ":" + source
         move_cmdline.append(src_arg)
         dst_arg = self._dru_interface.url + ":" + dest
         move_cmdline.append(dst_arg)

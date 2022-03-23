@@ -56,7 +56,7 @@ class LCUInterface(object):
         try:
             mac_version = self.get_mac_version()
         except Exception:
-            logging.error("Cannot access LCU with URL: " + self.lcuURL)
+            logging.error("Cannot access LCU with URL: " + self.url)
         if mac_version is not "":
             accessible = True
         else:
@@ -74,7 +74,7 @@ class LCUInterface(object):
         self.stnid = lcuaccessconf['stnid']
         self.user = lcuaccessconf['user']
         self.hostname = lcuaccessconf['hostname']
-        self.lcuURL = self.user + "@" + self.hostname
+        self.url = self.user + "@" + self.hostname
         self.DryRun = False  # DryRun means commands to LCU are not executed
         self.verbose = True  # Write out LCU commands
 
@@ -91,7 +91,7 @@ class LCUInterface(object):
         # Now check accessibility
         self.accessible = self.checkaccess()
         if not self.accessible:
-            raise ConnectionError(f"Cannot access LCU using {self.lcuURL}.")
+            raise ConnectionError(f"Cannot access LCU using {self.url}.")
         elif self.verbose:
             logging.info("Established access to LCU on {}.".format(self.stnid))
 
@@ -109,7 +109,7 @@ class LCUInterface(object):
         """\
         Execute shell commands on LCU
         """
-        return _exec_ssh(nodeurl=self.lcuURL, cmdline=cmdline,
+        return _exec_ssh(nodeurl=self.url, cmdline=cmdline,
                          stdoutdir=self.lcuDumpDir, nodetype='LCU',
                          background_job=backgroundJOB, dryrun=self.DryRun,
                          accessible=self.accessible, quotes=quotes,
@@ -119,7 +119,7 @@ class LCUInterface(object):
         """\
         Only to be used by threads that must execute commands on LCU
         """
-        return _exec_ssh(nodeurl=self.lcuURL, cmdline=cmdline,
+        return _exec_ssh(nodeurl=self.url, cmdline=cmdline,
                          stdoutdir=self.lcuDumpDir, nodetype='LCU',
                          background_job=backgroundJOB, dryrun=False,
                          accessible=self.accessible, quotes=quotes,
