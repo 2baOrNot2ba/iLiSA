@@ -148,24 +148,6 @@ class LCUInterface(object):
         self.DryRun = dryrun
         return ls_lcuDumpDir, ls_ACCsrcDir
 
-    def ostimenow(self):
-        """\
-        Return now time of LCU operating system
-        """
-        if self.DryRun:
-           return datetime.datetime.utcnow()
-        isofmt = ilisa.operations.DATETIMESTRFMT
-        lcunow_str = self._exec_lcu(f"date -u '+{isofmt}'")
-        lcunow = datetime.datetime.strptime(lcunow_str, isofmt)
-        # Since linux date returns nanosecond time but python datetime doesn't,
-        # handle it separately
-        ns_str = self._exec_lcu("date -u '+%N'")
-        # take ns str, convert it to decimal seconds, round to 6 sig dec
-        # and convert back to int microseconds
-        us = int(round(float('.'+ns_str), 6)*10**6)
-        lcunow = lcunow.replace(microsecond=us)
-        return lcunow
-
     def who_servicebroker(self):
         """Check who is running the Service Broker on the LCU. This is an
         indication of who is currently using the station."""
