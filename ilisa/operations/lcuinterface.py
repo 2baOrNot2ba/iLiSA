@@ -67,7 +67,7 @@ class LCUInterface(object):
 
     def __init__(self, lcuaccessconf=None):
         if lcuaccessconf is None:
-            accessconf = ilisa.monitorcontrol.default_access_lclstn_conf()
+            accessconf = ilisa.operations.default_access_lclstn_conf()
             lcuaccessconf = accessconf['LCU']
 
         # Initialize with user-station configuration:
