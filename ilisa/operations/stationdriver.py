@@ -1028,7 +1028,7 @@ class StationDriver(object):
         sshcmd_delay = 20  # This is a maximum time
         # Seen to IE613 from dvalin
         beam_time2startup = beamctl_inittime + sshcmd_delay
-        if self.DryRun:
+        if self.mockrun:
             beam_time2startup = 1
         return beam_time2startup
 
