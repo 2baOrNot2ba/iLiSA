@@ -1006,12 +1006,11 @@ class StationDriver(object):
         """\
         Give a guess as to how much time it will take for beam to start
         """
-        if not self.mockrun:
-            beamctl_inittime = 13
-            sshcmd_delay = 20  # This is a maximum time
-                               # Seen to IE613 from dvalin
-            beam_time2startup = beamctl_inittime + sshcmd_delay
-        else:
+        beamctl_inittime = 13
+        sshcmd_delay = 20  # This is a maximum time
+        # Seen to IE613 from dvalin
+        beam_time2startup = beamctl_inittime + sshcmd_delay
+        if self.DryRun:
             beam_time2startup = 1
         return beam_time2startup
 
