@@ -18,6 +18,7 @@ import ilisa.operations
 import ilisa.operations.directions as directions
 from ilisa.operations.lcuinterface import LCUInterface
 from ilisa.operations.druinterface import DRUinterface
+from ilisa.operations._rem_exec import ostimenow
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
 from ilisa.pipelines import bfbackend
@@ -1001,6 +1002,23 @@ class StationDriver(object):
         scan_mjd_id = modeparms.dt2mjd(scan_dt)
         scan_id = "scan_{}".format(scan_mjd_id)
         return scan_id
+
+    def _now_diff(self, remunit='LCU'):
+        """\
+        Measure difference between now time on LCU and stationdriver
+        """
+        if remunit=='LCU':
+            url = self._lcu_interface.url
+        elif remunit=='DRU':
+            url = self._dru_interface.url
+        stndrv_before = datetime.datetime.utcnow()
+        remunit_dattim = ostimenow(url, remunit)
+        stndrv_after = datetime.datetime.utcnow()
+        # Compute time diff as difference between remote units time
+        # and mean of local before and after time
+        stndrv_mean = (stndrv_after - stndrv_before)/2+stndrv_before
+        timdif = remunit_dattim - stndrv_mean
+        return timdif
 
     def _beam_time2startup_hint(self):
         """\
