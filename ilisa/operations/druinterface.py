@@ -191,7 +191,6 @@ class DRUinterface:
                        '--bfdatadir', '"'+bf_data_dir+'"', '--rcumode', rcumode,
                        '--stnid', stnid]
         if file_dur and file_dur != duration:
-            print('BLA',file_dur, duration)
             cmdlineargs += ['--file_duration', str(file_dur)]
         cmdlineargs.extend(['--starttime', starttime_str])
         if compress:
