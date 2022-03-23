@@ -56,7 +56,7 @@ class StationDriver(object):
                 .format(serviceuser, self._lcu_interface.user))
             return False
 
-    def __init__(self, accessconf_lcu, accessconf_dru, mockrun=False):
+    def __init__(self, accessconf_lcu=None, accessconf_dru=None, mockrun=False):
         """\
         Initialize a StationDriver object, which has access to a station via
         a LCUInterface object configured with setting given by accessconf dict.
@@ -79,6 +79,12 @@ class StationDriver(object):
         """
 
         self.mockrun = mockrun
+        if not accessconf_lcu or not accessconf_dru:
+            accessconf = ilisa.operations.default_access_lclstn_conf()
+            if not accessconf_lcu:
+                accessconf_lcu = accessconf['LCU']
+            if not accessconf_dru:
+                accessconf_dru = accessconf['DRU']
         try:
             self._lcu_interface = LCUInterface(accessconf_lcu)
         except (ConnectionError, AssertionError) as err:
