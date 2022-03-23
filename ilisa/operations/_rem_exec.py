@@ -1,12 +1,13 @@
 import subprocess
 import os
+import datetime
 try:
     import paramiko
     IMPORTED_PARAMIKO = True
 except ImportError:
     IMPORTED_PARAMIKO = False
 import logging
-import ilisa.operations.__init__  # To set default logging
+import ilisa.operations  #.__init__  # To set default logging
 
 
 def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False, dryrun=False,
@@ -124,7 +125,7 @@ def __stdout_ssh(nodeurl, cmdline, nodetype='LCU', dryrun=False,
 def __outfromLCU(self, cmdline, integration, duration):
     """Execute a command on the LCU and monitor progress."""
     LCUprompt = "LCUo> "
-    shellinvoc = "ssh " + self.lcuURL
+    shellinvoc = "ssh " + self.lcu
     if self.DryRun:
         prePrompt = "(dryrun) "
     else:
@@ -157,6 +158,29 @@ def __outfromLCU(self, cmdline, integration, duration):
                     print(str(int(round(duration-count/2.0*integration, 0)
                                   )) + "sec left out of " + str(duration))
                 count += 1
+
+
+def ostimenow(url, remunit):
+    """\
+    Return now time of remunit's operating system
+    """
+    def _rem_exec(cmdline):
+        return _exec_ssh(nodeurl=url, cmdline=cmdline, nodetype=remunit,
+                         accessible=True)
+    isofmt = ilisa.operations.DATETIMESTRFMT
+    datecmdline = f"date -u '+{isofmt}'"
+    lcunow_str = _rem_exec(cmdline=datecmdline)
+    print(lcunow_str)
+    lcunow = datetime.datetime.strptime(lcunow_str, isofmt)
+    # Since linux date returns nanosecond time but python datetime doesn't,
+    # handle it separately
+    datecmdline = "date -u '+%N'"
+    ns_str = _rem_exec(cmdline=datecmdline)
+    # take ns str, convert it to decimal seconds, round to 6 sig dec
+    # and convert back to int microseconds
+    us = int(round(float('.'+ns_str), 6)*10**6)
+    lcunow = lcunow.replace(microsecond=us)
+    return lcunow
 
 
 if __name__ == '__main__':
