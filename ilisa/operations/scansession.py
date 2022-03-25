@@ -258,14 +258,18 @@ class ScanSession(object):
     def get_datastorepath(self):
         return self.stndrv.dru_data_root
 
-    def get_projpath(self):
-        projpath = os.path.join(self.get_datastorepath(), 'Projects',
-                                'proj{}'.format(self.projectmeta['id']))
-        return projpath
+    def _projsubpath(self):
+        projsubpath = os.path.join('Projects',
+                                   'proj{}'.format(self.projectmeta['id']))
+        return projsubpath
+
+    def _sesssubpath(self):
+        sesssubpath = os.path.join(self._projsubpath(),
+                                   'sess_{}'.format(self.get_stn_session_id()))
+        return sesssubpath
 
     def get_sesspath(self):
-        sesspath = os.path.join(self.get_projpath(),
-                                'sess_{}'.format(self.get_stn_session_id()))
+        sesspath = os.path.join(self.get_datastorepath(), self._sesssubpath())
         return sesspath
 
     def save_scansess(self, sched):
@@ -303,7 +307,7 @@ class ScanSession(object):
         self.set_stn_session_id(self.session_id)
         # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
-        bfdsesdumpdir = 'proj{}'.format(self.projectmeta['id'])
+        bfdsesdumpdir = self._sesssubpath()  # 'proj{}'.format(self.projectmeta['id'])
         # Boot Time handling
         dt2beamctl = datetime.timedelta(
             seconds=self.stndrv._beam_time2startup_hint())
