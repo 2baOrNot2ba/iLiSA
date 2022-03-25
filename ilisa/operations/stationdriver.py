@@ -249,7 +249,8 @@ class StationDriver(object):
         """\
         Get BFS data and log file paths
         """
-        bfs_data_names, bfs_log_names = self._dru_interface.get_bfs_filenames()
+        bfs_data_names, bfs_log_names = self._dru_interface.get_bfs_filenames(
+            self.scanpath_bfdat)
         dru_bf_data_dir = self._dru_interface.bf_data_dir
         bfsdatapaths = []
         bfslogpaths = []
@@ -629,7 +630,7 @@ class StationDriver(object):
                 continue_sub = yield ldatinfo
 
     def start_bfs_scan(self, starttime, freqsetup, duration_tot,
-                     duration_file=None, compress=False):
+                       duration_file=None, compress=False):
         """\
         Start recording BFS data
 
@@ -676,25 +677,13 @@ class StationDriver(object):
                                              compress=compress,
                                              band=freqsetup.rcubands[0],
                                              stnid=self.get_stnid())
-        # bfsdatapaths = []
-        # bfslogpaths = []
-        # for lane in self.lanes:
-        #     datafileguess = datafiles.pop()
-        #     dumplogname = logfiles.pop()
-        #     if not datafileguess:
-        #         _outdumpdir, _outarg, datafileguess, dumplogname = \
-        #             bfbackend.bfsfilepaths(lane, starttime,
-        #                                    modeparms.band2rcumode(freqsetup.rcubands[0]),
-        #                                    self.scanpath_bfdat,
-        #                                    self.bf_port0,
-        #                                    self.get_stnid())
-        #     bfsdatapaths.append(datafileguess)
-        #     bfslogpaths.append(dumplogname)
         firstbfs = True
         continue_bfs = True
         filetime_prev = None
         while continue_bfs:
-            bfs_datfiles, bfs_logfiles = self._dru_interface.get_bfs_filenames()
+            bfs_datfiles, bfs_logfiles = self._dru_interface.get_bfs_filenames(
+                self.scanpath_bfdat
+            )
             filetime_new = None
             if bfs_datfiles:
                 port, hostname, startstr, ms, cmprss_suf = \
@@ -888,7 +877,7 @@ class StationDriver(object):
         self._startTBBdataStream(float(duration_scan))
         dalcap.join()
 
-    def init_scan(self, scan_id, scanroot=None, destpath_bfs=None,
+    def init_scan(self, scan_id, scanroot=None, destsubpath_bfs=None,
                   bsx_stat=False):
         # Work out where station-correlated data should be stored:
         if scanroot:
@@ -899,8 +888,8 @@ class StationDriver(object):
         os.makedirs(self.scanpath_scdat)
         # Also setup for BFS data:
         bfs_scan_root = self._dru_interface.bf_data_dir
-        if destpath_bfs:
-            bfs_scan_root = os.path.join(bfs_scan_root, destpath_bfs)
+        if destsubpath_bfs:
+            bfs_scan_root = os.path.join(bfs_scan_root, destsubpath_bfs)
         self.scanpath_bfdat = os.path.join(bfs_scan_root, scan_id)
 
     def get_scanid(self, beamstarted=None):

@@ -97,7 +97,7 @@ class LScan:
         if rec_type != 'tbb' and rec_type != 'dmp':
             # Initialize scan on station driver
             stndrv.init_scan(self.scan_id, scanroot=self.destpath,
-                             destpath_bfs=self.destpath_bfs)
+                             destsubpath_bfs=self.destpath_bfs)
             self.scanresult['scanpath_scdat'] = self.stndrv.scanpath_scdat
             self.scanresult['rec'] = []
             if acc:
@@ -128,8 +128,6 @@ class LScan:
         self.ldatinfos = []
         self.ldatinfos_acc = []
         self.ldatinfos_bfs = []
-        self.bfsdatapaths =  None
-        self.bfslogpaths  = None
 
     def __iter__(self):
         stndrv = self.stndrv

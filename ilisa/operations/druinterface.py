@@ -127,9 +127,14 @@ class DRUinterface:
             prt_host_start_ms_compress.split('.', 4)
         return port, hostname, startstr, ms, cmprss_suf
 
-    def get_bfs_filenames(self):
+    def get_bfs_filenames(self, bf_dat_dir_tmplt):
         """\
         Get BFS data and log file names on DRU
+
+        Parameters
+        ----------
+        bf_data_dir : str
+            Data dir where bfs files were recorded
 
         Returns
         -------
@@ -139,11 +144,10 @@ class DRUinterface:
             Paths to the BFS log files.
         """
         nrlanes = 4
-        bf_dir_list = [self.bf_data_dir]
+        bf_dir_list = [bf_dat_dir_tmplt]
         # Convert /paths/?/like/this to real paths
-        if '?' in self.bf_data_dir:
-            _bf_data_dir = self.bf_data_dir
-            bf_dir_list = [_bf_data_dir.replace('?', str(lanenr))
+        if '?' in bf_dat_dir_tmplt:
+            bf_dir_list = [bf_dat_dir_tmplt.replace('?', str(lanenr))
                            for lanenr in range(nrlanes)]
         paths_data = []
         paths_logs = []
@@ -175,7 +179,6 @@ class DRUinterface:
         logfiles : list
             The paths to the BFS log files.
         """
-        self.bf_data_dir = bf_data_dir
         dumpercmd = PL_REC_WRAPPER
         which_recorder = 'ow'
         starttime_str = starttime.strftime('%Y-%m-%dT%H:%M:%S')
@@ -210,8 +213,6 @@ class DRUinterface:
 
         Note: Blocks until finished recording on DRU
         """
-        self.bf_data_dir = bf_data_dir
-
         dumpercmd = PL_REC_WRAPPER
         which_recorder = 'ow'
         starttime_str = starttime.strftime('%Y-%m-%dT%H:%M:%S')
