@@ -104,7 +104,7 @@ def process_scansess(sesscans_in):
         duration_totprev = 0
         for scan in sesscans_in['scans']:
             # Get a title for this scan
-            scan_id = scan.get('scan_id')
+            scan_id = scan.get('id')
 
             # Prepare observation arguments:
 
@@ -199,7 +199,7 @@ def process_scansess(sesscans_in):
                           'file_dur': file_dur,
                           'starttime_in': starttime_in,
                           'source': source,
-                          'scan_id': scan_id
+                          'id': scan_id
                           }
             obsargs_in.update({'obsprog': obsprog})
             yield obsargs_in
@@ -307,7 +307,7 @@ class ScanSession(object):
         self.set_stn_session_id(self.session_id)
         # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
-        bfdsesdumpdir = self._sesssubpath()  # 'proj{}'.format(self.projectmeta['id'])
+        bfdsesdumpdir = self._sesssubpath()
         # Boot Time handling
         dt2beamctl = datetime.timedelta(
             seconds=self.stndrv._beam_time2startup_hint())
@@ -351,7 +351,7 @@ class ScanSession(object):
                               starttime, acc=acc, bfs=bfs,
                               destpath=sesspath, destpath_bfs=bfdsesdumpdir,
                               file_dur=scan['file_dur'],
-                              scan_id=scan['scan_id'])
+                              scan_id=scan['id'])
                 logging.info(f"Start LScan:: {lscan.describe_scan()}")
                 subscan = iter(lscan)
                 # Start the subscan
