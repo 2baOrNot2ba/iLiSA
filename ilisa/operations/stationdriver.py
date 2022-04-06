@@ -927,17 +927,34 @@ class StationDriver(object):
         timdif = remunit_dattim - stndrv_mean
         return timdif
 
-    def _beam_time2startup_hint(self):
+    def _time2startup_hint(self, whatservice='beam'):
         """\
         Give a guess as to how much time it will take for beam to start
+
+        Parameters
+        ----------
+        whatservice : str
+            The service to lookup the startup time for.
+            Defined services are: 'beam' (default), 'boot' and 'tof'.
         """
-        beamctl_inittime = 13
-        sshcmd_delay = 20  # This is a maximum time
-        # Seen to IE613 from dvalin
-        beam_time2startup = beamctl_inittime + sshcmd_delay
-        if self.mockrun:
-            beam_time2startup = 1
-        return beam_time2startup
+        stnid = self.get_stnid()
+        sshcmd_delay = 20  # This is a maximum time e.g. IE613 from OSO
+        if stnid == 'SE607':
+            sshcmd_delay = 2
+        service_inittime = 0
+        if whatservice == 'boot':
+            boot_inittime = 20
+            if self._lcu_interface.get_swlevel() != 3:
+                boot_inittime = 0
+            service_inittime = boot_inittime
+        elif whatservice == 'beam':
+            beamctl_inittime = 13
+            service_inittime = beamctl_inittime
+        elif whatservice == 'tof':
+            tof_inittime = 7
+            service_inittime = tof_inittime
+        service_time2startup = service_inittime + sshcmd_delay
+        return service_time2startup
 
 
 def _is_sshfs_mounted(hostname):

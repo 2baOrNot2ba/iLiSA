@@ -66,8 +66,6 @@ def process_scansess(sesscans_in):
         Processed metadata for sesscan_in.
     generate_scans() : generator
         scans settings.
-    paststart : bool
-        True if starttime is in the past.
     """
     # Set the session_id to something
     session_id = sesscans_in.get('session_id')
@@ -100,7 +98,7 @@ def process_scansess(sesscans_in):
         margintime = datetime.timedelta(seconds=13.0)
 
         # Initialize "previous" values for scan loop
-        starttimeprev = sessmeta['start']
+        scanstarttimeprev = sessmeta['start']
         duration_totprev = 0
         for scan in sesscans_in['scans']:
             # Get a title for this scan
@@ -110,24 +108,31 @@ def process_scansess(sesscans_in):
 
             # - Starttime computed based on previous starttime
             # - - and after time:
-            starttime_in = scan.get('starttime')
-            if not starttime_in:
-                after = scan.get('after')
+            scanstarttime = scan.get('starttime')
+            if scan == sesscans_in['scans'][0] and\
+                (not scanstarttime or scanstarttime == 'ASAP'):
+                # First scan set to session start if not set already or ASAP
+                scanstarttime = sessmeta['start']
+            scanstarttime_guess = scanstarttime
+            if not scanstarttime_guess or scanstarttime_guess == 'ASAP':
                 dur_dprev = datetime.timedelta(seconds=duration_totprev)
+                after = scan.get('after')
                 if after:
+                    # 'after' field overrides scanstarttime set to 'ASAP'
                     after_delta = modeparms.hmsstr2deltatime(after)
                     if after_delta < (dur_dprev + margintime):
                         time2nxtscan = (dur_dprev, after_delta, margintime)
                         logging.warning(
                             'No time for scan: after {} - dur {} < marg {}'
                             .format(*time2nxtscan))
-                    starttime_in = starttimeprev + after_delta
-                elif scan == sesscans_in['scans'][0]:
-                    # First scan should not include margintime between scans
-                    starttime_in = starttimeprev + dur_dprev
+                    scanstarttime = scanstarttimeprev + after_delta
+                    scanstarttime_guess = scanstarttime
                 else:
-                    # All other scans should include margintime between scans
-                    starttime_in = starttimeprev + dur_dprev + margintime
+                    # Now we will have to predict scanstarttime
+                    # and it should include margintime between scans
+                    scanstarttime = 'ASAP'
+                    scanstarttime_guess = (scanstarttimeprev + dur_dprev
+                                           + margintime)
 
             # - Duration total
             duration_in = scan.get('duration')
@@ -135,7 +140,6 @@ def process_scansess(sesscans_in):
                                                       ).total_seconds()
             # duration_tot = eval(str(scan['duration']))
             file_dur = scan.get('file_dur')
-
 
             # - Source name
             source = scan.get('source')
@@ -197,17 +201,42 @@ def process_scansess(sesscans_in):
                           'integration': integration,
                           'duration': duration_tot,
                           'file_dur': file_dur,
-                          'starttime_in': starttime_in,
+                          'starttime': modeparms.astimestr(scanstarttime),
+                          'starttime_guess': \
+                              modeparms.astimestr(scanstarttime_guess),
                           'source': source,
                           'id': scan_id
                           }
             obsargs_in.update({'obsprog': obsprog})
             yield obsargs_in
             # Next scan use current time as previous time and current time
-            starttimeprev = starttime_in
+            scanstarttimeprev = scanstarttime_guess
             duration_totprev = duration_tot
 
     return sessmeta, generate_scans()
+
+
+def lcu_services(scan):
+    """
+    Find out what LCU services are needed
+
+    Parameters
+    ----------
+    scan : dict
+        The scan specification.
+
+    Return
+    ------
+    service : str
+        The service required.
+    """
+    beam = scan.get('beam')
+    if beam.get('pointing'):
+        return 'beam'
+    elif beam.get('freqspec') and\
+        modeparms.FreqSetup(beam['freqspec']).rcumodes[0] > 4:
+        return 'tof'
+    return None
 
 
 def check_sess_start_passed(sessmeta):
@@ -309,11 +338,11 @@ class ScanSession(object):
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self._sesssubpath()
         # Boot Time handling
-        dt2beamctl = datetime.timedelta(
-            seconds=self.stndrv._beam_time2startup_hint())
+        dt2boot = datetime.timedelta(
+            seconds=self.stndrv._time2startup_hint('boot'))
 
         # Wait until it is time to bootup
-        waituntil(sessmeta['start'], dt2beamctl)
+        waituntil(sessmeta['start'], dt2boot)
         logging.info(f"Scansession {self.session_id} started")
 
         scans_done = []
@@ -337,8 +366,10 @@ class ScanSession(object):
                 freqsetup = modeparms.FreqSetup(freqspec)
 
                 # Calculate scan schedule fundamental timings
-                starttime = scan['starttime_in']
-                duration_tot = scan['duration']
+                starttime = modeparms.timestr2datetime(scan['starttime'])
+                _lcu_services = lcu_services(scan)
+                duration_tot = (scan['duration']
+                                + self.stndrv._time2startup_hint(_lcu_services))
                 stoptime = starttime + datetime.timedelta(
                     seconds=int(duration_tot))
                 logging.info('Will stop @ {}'.format(stoptime))
@@ -383,7 +414,7 @@ class ScanSession(object):
             logging.info("Saved scan here: {}".format(scanpath_scdat))
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
-            duration_req = datetime.timedelta(seconds=duration_tot)
+            duration_req = datetime.timedelta(seconds=scan['duration'])
             logging.info(f"End LScan:: id: {scan['id']}")
             logging.debug(f"Request dur={duration_req}, "
                           f"Actual dur={duration_actual}")
@@ -465,7 +496,7 @@ def check_scan_sess(scansess_in):
     else:
         print(yaml.dump(sessscans, default_flow_style=False))
     lastscan = sessscans['scans'][-1]
-    endtime = lastscan['starttime_in']\
+    endtime = modeparms.timestr2datetime(lastscan['starttime_guess'])\
               + datetime.timedelta(seconds=lastscan['duration'])
     print('end:', endtime)
     starttime = sessmeta['start']
