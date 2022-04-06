@@ -15,7 +15,7 @@ ut2lt_offset = datetime.datetime.fromtimestamp(__now_timestamp) \
 del __now_timestamp
 DEFAULT_PROJ = 0
 # Margin of time before starttime 'at' command issued
-BEFORE_AT_MARGIN = datetime.timedelta(seconds=6)
+BEFORE_AT_MARGIN = datetime.timedelta(seconds=8)
 
 def sched2at(schedfile):
     with open(schedfile, 'rb') as file:
