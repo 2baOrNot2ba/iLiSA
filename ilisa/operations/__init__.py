@@ -22,5 +22,7 @@ def default_access_lclstn_conf():
 logging.Formatter.converter = time.gmtime
 logging.basicConfig(
     format='%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s',
-    datefmt=DATETIMESTRFMT, level=logging.INFO
+    datefmt=DATETIMESTRFMT,
+    level=logging.DEBUG,
+    # filename='ilisa_run.log',
 )
