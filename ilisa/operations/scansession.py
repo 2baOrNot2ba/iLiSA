@@ -368,6 +368,7 @@ class ScanSession(object):
                 # Calculate scan schedule fundamental timings
                 starttime = modeparms.timestr2datetime(scan['starttime'])
                 _lcu_services = lcu_services(scan)
+                # duration_tot is the requested duration plus time 4 lcu ops
                 duration_tot = (scan['duration']
                                 + self.stndrv._time2startup_hint(_lcu_services))
                 stoptime = starttime + datetime.timedelta(
@@ -378,7 +379,7 @@ class ScanSession(object):
                 startedtime = waituntil(starttime, margin_scan_start)
                 # Initialize LScan
                 lscan = LScan(self.stndrv, bsx_stat, freqsetup,
-                              duration_tot, pointing_spec, integration,
+                              scan['duration'], pointing_spec, integration,
                               starttime, acc=acc, bfs=bfs,
                               destpath=sesspath, destpath_bfs=bfdsesdumpdir,
                               file_dur=scan['file_dur'],
