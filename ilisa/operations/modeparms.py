@@ -908,7 +908,11 @@ def astimestr(datim):
     """\
     Convert a datetime to iLiSA compatible string
     """
-    return datim.strftime(DATETIMESTRFMT)
+    if datim == 'ASAP':
+        timestr = 'ASAP'
+    else:
+        timestr = datim.strftime(DATETIMESTRFMT)
+    return timestr
 
 
 def normalizetimestr(timestr):
