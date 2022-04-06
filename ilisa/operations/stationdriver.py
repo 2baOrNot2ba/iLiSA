@@ -951,7 +951,7 @@ class StationDriver(object):
             beamctl_inittime = 13
             service_inittime = beamctl_inittime
         elif whatservice == 'tof':
-            tof_inittime = 7
+            tof_inittime = 10
             service_inittime = tof_inittime
         service_time2startup = service_inittime + sshcmd_delay
         return service_time2startup
