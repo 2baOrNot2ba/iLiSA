@@ -469,7 +469,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stn_pos, stn_antpos, pointing,
 
 def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                  phaseref=None, calibrated=None, pbcor=None, maskhrz=True,
-                 fluxperbeam=True):
+                 fluxperbeam=True, flash_plot=False):
     """
     Generic plot of images of Stokes components from sky map.
     
@@ -503,6 +503,8 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     fluxperbeam : boolean
         Normalize flux values to be in units of flux per beam.
         Default True. If False, flux is in units of flux per steradian (s.r.).
+    flash_plot : bool
+        Whether to just flash the plot or plot and stop.
     """
 
     # Compute extent
@@ -614,9 +616,12 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         Station {}, int={}s, UT={}, PbCor={}, {}
         """.format(pointing_tuple2str(phaseref), freq/1e6, stnid, integration,
                    t, pbcor, caltag), fontsize=8)
-    plt.draw()
-    plt.pause(0.001)
-    plt.clf()
+    if flash_plot:
+        plt.draw()
+        plt.pause(0.001)
+        plt.clf()
+    else:
+        plt.show()
 
 
 def pntsrc_hmsph(*pntsrcs, imsize=101):
