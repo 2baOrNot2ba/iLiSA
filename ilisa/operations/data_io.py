@@ -169,6 +169,11 @@ def obsfileinfo2filefolder(obsfileinfo):
     Name format is
         <station_id>_<filenametime>_spw<rcumodes>_sb<sb>_int<integration>\
         _dur<duration_tot>[_dir<pointing>]_<ldat_type>
+
+    Returns
+    -------
+    filefoldername : str
+        Meta-data formatted name of file-folder.
     """
     if obsfileinfo.get('datatype', None):
         ldat_type = obsfileinfo['datatype']
@@ -202,7 +207,22 @@ def obsfileinfo2filefolder(obsfileinfo):
 
 
 def filefolder2obsfileinfo(filefolderpath):
-    """Parse filefolder name and return an obsfileinfo"""
+    """\
+    Parse filefolder name and return an obsfileinfo
+
+    For description of filefolder naming and obsfileinfo see
+    obsfileinfo2filefolder().
+
+    Parameters
+    ----------
+    filefolderpath : str
+        Path to filefolder.
+
+    Returns
+    -------
+    obsfileinfo : dict
+        Dict of metadata corresponding to file-folder.
+    """
     filefolderpath = os.path.normpath(filefolderpath)
     filefoldername = os.path.basename(filefolderpath)
     # Format:
@@ -731,7 +751,27 @@ class LDatInfo(object):
 
 # BEGIN BST related code
 def readbstfolder(bst_filefolder):
-    """Read a BST filefolder"""
+    """\
+    Read a BST file-folder and return data
+
+    Parameters
+    ----------
+    bst_filefolder : str
+        Path to BST file-folder.
+
+    Returns
+    -------
+    bst_data_x : array
+        Data array from X antenna of power per beamlet over time.
+    bst_data_y : array
+        Data array from Y antenna of power per beamlet over time.
+    ts : array
+        Sample epoch times.
+    freqs : array
+        Frequencies.
+    obsfileinfo :
+        Observation metadata.
+    """
     obsfileinfo = filefolder2obsfileinfo(bst_filefolder)
     maxnrsbs = obsfileinfo['max_nr_bls']
     intg = obsfileinfo['integration']
@@ -755,7 +795,8 @@ def readbstfolder(bst_filefolder):
                                                        '%Y%m%d_%H%M%S')
             file_dur = filedata.shape[0]
             ts_rel = numpy.arange(0., file_dur, intg)
-            file_ts = [file_start_dt + datetime.timedelta(seconds=t) for t in ts_rel]
+            file_ts =\
+                [file_start_dt + datetime.timedelta(seconds=t) for t in ts_rel]
             ts.append(file_ts)
         elif pol == 'Y':
             bst_data_y.append(filedata)
@@ -1438,17 +1479,33 @@ import ilisa.operations.modeparms as modeparms
 
 
 def viewbst(bstff, pol_stokes=True, printout=False):
-    """Plot BST data."""
+    """\
+    View BST data
+
+    Parameters
+    ----------
+    bstff : str
+        Path to BST file-folder.
+    pol_stokes : bool
+        Use Stokes representation for polarization?
+    printout : bool
+        Just print-out data rather than plot it?
+    """
     bst_datas_x, bst_datas_y, ts_list, freqs, obsfileinfo = readbstfolder(bstff)
     stnid = obsfileinfo['station_id']
     starttime = obsfileinfo['datetime']
     intg = obsfileinfo['integration']
-    dur_tot = obsfileinfo['duration_scan']
+    dur_tot = float(obsfileinfo['duration_scan'])
     pointing = obsfileinfo['pointing']
     max_nr_bls = obsfileinfo['max_nr_bls']
 
     # Squash list of data arrays (no padding between files)
+    file_dur = (ts_list[0][-1]-ts_list[0][0]).total_seconds()
     ts = numpy.ravel(ts_list)
+    dur_cur = (ts[-1]-ts[0]).total_seconds()
+    t_left = dur_tot - dur_cur
+    if t_left > 0:
+        print("Recording not finished yet ()".format(t_left))
     bst_data_x = numpy.stack(bst_datas_x).reshape(-1, max_nr_bls).T
     bst_data_y = numpy.stack(bst_datas_y).reshape(-1, max_nr_bls).T
 
@@ -1494,10 +1551,11 @@ def viewbst(bstff, pol_stokes=True, printout=False):
         ax_q.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
         ax_q.set_ylabel('Frequency [MHz]')
 
-        supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur_tot)
+        supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur_cur)
                       + ' pointing: {}'.format(pointing))
         plt.suptitle(supertitle)
-        plt.show()
+        plt.draw()
+        plt.pause(file_dur)
     else:
         # CSV style:
         #   Header
@@ -1695,19 +1753,50 @@ def latest_scanrec_path():
                 scanrec_nr += 1
                 scanrecpath = contents[scanrec_nr]
             elif scanrec_nr+1 == len(contents):
-                # No new datafiles yet
-                scanrecpath = None
+                # No new datafiles yet (keep last scanrecpath)
+                # scanrecpath = None
+                pass
             if scanrecpath is None and _contents[0] != 'ONGOING':
                 break
             yield scanrecpath
 
 
-def view_bsxst(args):
+def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
     """\
     View BST, SST, XST statistics data files
+
+    Nominal use-case is plotting data after completed recording.
+    It this case, a file-folder is given, which could be one of
+    the 'STatistics' data: BST, SST or XST. Each of these
+    would then be displayed in a matter appropriate to it.
+
+    BST is plotted as beamlets versus time with all (chunked) files collated,
+    albeit with time gaps.
+
+    SST is plotted as RCU versus time with all (chunked) files collated,
+    albeit with time gaps.
+
+    XST is plotted as a sequence of plots of RCU versus RCU per sampnr
+    per filenr.
+
+    This function can also be used to plot real-time data.
+
+    Parameters
+    ----------
+    dataff : str
+        Data file-folder containing the bst, sst or xst.
+    freq : float
+        Frequency selection.
+    sampnr : int
+        Sample number selection.
+    linear : bool
+        Use linear representation for polarization?
+    printout : bool
+        Print out data rather than plot.
+    filenr : int
+        File number selection.
     """
-    dataff = args.dataff
-    if args.dataff:
+    if dataff:
         dataffs = [dataff]
     else:
         dataffs = latest_scanrec_path()
@@ -1719,18 +1808,18 @@ def view_bsxst(args):
         dataff = os.path.normpath(dataff)
         lofar_datatype = datafolder_type(dataff)
         print('Viewing datafile:', dataff)
-        if not args.freq:
+        if not freq:
             if lofar_datatype == 'acc' or lofar_datatype == 'sst':
                 freq = 0.0
         else:
-            freq = float(args.freq)
+            freq = float(freq)
         if lofar_datatype =='acc':
             plotacc(dataff, freq)
         if lofar_datatype=='bst' or lofar_datatype=='bst-357':
-            viewbst(dataff, pol_stokes=not(args.linear),
-                    printout=args.printout)
+            viewbst(dataff, pol_stokes=not(linear),
+                    printout=printout)
         elif lofar_datatype=='sst':
-            plotsst(dataff, freq, args.sampnr, args.filenr)
+            plotsst(dataff, freq, sampnr, filenr)
         elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
             plotxst(dataff)
         else:
@@ -1753,7 +1842,8 @@ def main():
     parser.add_argument('dataff', nargs='?', default=None,
                         help="acc, bst, sst or xst filefolder")
     args = parser.parse_args()
-    view_bsxst(args)
+    view_bsxst(args.dataff, args.freq, args.sampnr, args.linear, args.printout,
+               args.filenr)
 
 
 if __name__ == "__main__":
