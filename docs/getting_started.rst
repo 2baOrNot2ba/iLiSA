@@ -43,14 +43,20 @@ The simplest way to use a LOFAR station is to record data using the command
 line interface called ``ilisa_rec``. For let's say you want to record XST data
 for Cassiopeia-A:
 
-.. code-block:: bash
+.. code-block:: console
 
-localhost$ ilisa_rec xst 55e6 10 Cas-A
-localhost$ ls /data/LOFAR/SE607/xst/
-scan_59632.40269
-localhost$ ls /data/LOFAR/SE607/xst/scan_59632.40269
-SCANREC_INFO.yml  SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
-localhost$ ilisa_view /data/LOFAR/SE607/xst/
+   [localhost]$ ilisa_rec xst 55e6 10 Cas-A
+   [localhost]$ ls /data/LOFAR/SE607/xst/
+   scan_59632.40269
+   [localhost]$ ls /data/LOFAR/SE607/xst/scan_59632.40269
+   SCANREC_INFO.yml  SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+   [localhost]$ ilisa_view /data/LOFAR/SE607/xst/
 
-Basic Scan Observations
------------------------
+Running Scan Sessions
+---------------------
+In practice so-called *iLiSA scan sessions* are more useful. You write an yaml
+file with a list of scans that can look like this:
+
+.. code-block:: yaml
+
+
