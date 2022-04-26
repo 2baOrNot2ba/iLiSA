@@ -1,10 +1,19 @@
 Getting Started
 ===============
+This is a simple introduction to using ``iLiSA`` for high-level
+LOFAR standalone operations and visualizations.
+Here I introduce some basic concepts, some prerequist configurations,
+and some one-line commands to run observations and finally how
+to visualize the data you recorded.
 
 LOFAR station resource basics
 -----------------------------
 ``iLiSA`` is designed so that it can run one or more telescope resources
-remotely. A typical layout topology is that you have a local control unit
+remotely. Look at the following diagram
+
+.. image:: Unit_resource_topology.png
+
+This shows a typical layout topology consisting of a local control unit
 (LCU) that performs the actual observations, a data recording unit (DRU)
 where recorded data ends up and a central control unit (CCU) from which
 you control and monitor the LCU and DRU. For security reasons, the LCU
@@ -84,6 +93,7 @@ Visualizing LOFAR station data
 -------------------------------
 ``iLiSA`` also has commands to visualize LOFAR station data.
 One simply types:
+
 .. code-block:: console
 
    [localhost]$ ilisa_view
@@ -92,13 +102,19 @@ In this case the latest, potentially realtime, data is plotted. Otherwise one
 can type
 
 .. code-block:: console
+
    [localhost]$ ilisa_view /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
 
 which will browse through the XST data which is shown as covariance matrices.
 If one wishes to see the sky image maps, one can use the command:
 
 .. code-block:: console
+
    [localhost]$ ilisa_image bf /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
 
 where ``bf`` argument implies using the beamform imaging algorithm.
+The result should look something like:
+
+.. image:: Allsky_SE607_ex1.png
+
 There is also a nearfield ``nf`` for imaging RFI sources around the station.
