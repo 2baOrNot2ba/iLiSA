@@ -50,7 +50,6 @@ for Cassiopeia-A:
    scan_59632.40269
    [localhost]$ ls /data/LOFAR/SE607/xst/scan_59632.40269
    SCANREC_INFO.yml  SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
-   [localhost]$ ilisa_view /data/LOFAR/SE607/xst/
 
 Running Scan Sessions
 ---------------------
@@ -59,4 +58,47 @@ file with a list of scans that can look like this:
 
 .. code-block:: yaml
 
+    # Save this file as 'bst_scnses.yml'
+    scans:
+      - beam:
+          freqspec: '52e6:148e6'
+          pointing: Cas-A
+        rec: [bst]
+        integration:  1
+        duration: 60
 
+This is a minimal example where a beam is set up to point towards Cassiopeia-A
+with a frequency range between 52-148 MHz for 60 s and the beamlets power data
+is recorded. This scan session can be executed using the follow command:
+.. code-block:: console
+
+   [localhost]$ ilisa_obs -t 2022-04-26T11:15:00 bst_scnses.yml
+
+where the last argument was the name of the yaml file shown previously
+and the ``-t`` flag specifies when the scan session should start.
+After the start has occured, the scan session will execute and after 60 s
+the BST data will be recorded, along with metadata, on the DRU under the path
+specified in the config file.
+
+Visualizing LOFAR station data
+-------------------------------
+``iLiSA`` also has commands to visualize LOFAR station data.
+One simply types:
+.. code-block:: console
+
+   [localhost]$ ilisa_view
+
+In this case the latest, potentially realtime, data is plotted. Otherwise one
+can type
+
+.. code-block:: console
+   [localhost]$ ilisa_view /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+
+which will browse through the XST data which is shown as covariance matrices.
+If one wishes to see the sky image maps, one can use the command:
+
+.. code-block:: console
+   [localhost]$ ilisa_image bf /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+
+where ``bf`` argument implies using the beamform imaging algorithm.
+There is also a nearfield ``nf`` for imaging RFI sources around the station.
