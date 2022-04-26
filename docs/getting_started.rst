@@ -79,6 +79,7 @@ file with a list of scans that can look like this:
 This is a minimal example where a beam is set up to point towards Cassiopeia-A
 with a frequency range between 52-148 MHz for 60 s and the beamlets power data
 is recorded. This scan session can be executed using the follow command:
+
 .. code-block:: console
 
    [localhost]$ ilisa_obs -t 2022-04-26T11:15:00 bst_scnses.yml
