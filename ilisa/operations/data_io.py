@@ -1509,42 +1509,42 @@ def viewbst(bstff, pol_stokes=True, printout=False):
     bst_data_x = numpy.stack(bst_datas_x).reshape(-1, max_nr_bls).T
     bst_data_y = numpy.stack(bst_datas_y).reshape(-1, max_nr_bls).T
 
-    data2plot_p_name, data2plot_p = 'X-pol', bst_data_x
-    data2plot_q_name, data2plot_q = 'Y-pol', bst_data_x
-    data2plot_q_unit = 'Flux [arb. units]'
+    data2view_p_name, data2view_p = 'X-pol', bst_data_x
+    data2view_q_name, data2view_q = 'Y-pol', bst_data_x
+    data2view_q_unit = 'Flux [arb. units]'
     norm_p, norm_q = None, None
     cmap_q = None
-    fig, (ax_p, ax_q) = plt.subplots(2, 1, sharex=True, sharey=True)
     if pol_stokes:
-        data2plot_p_name = 'Stokes I'
-        data2plot_p = bst_data_x + bst_data_y
+        data2view_p_name = 'Stokes I'
+        data2view_p = bst_data_x + bst_data_y
         norm_p = colors.LogNorm()
-        data2plot_q_name = '(antenna) Stokes Q'
-        data2plot_q = bst_data_x - bst_data_y
-        data2plot_q_unit = 'Signed flux [arb. units]'
+        data2view_q_name = '(antenna) Stokes Q'
+        data2view_q = bst_data_x - bst_data_y
+        data2view_q_unit = 'Signed flux [arb. units]'
         cmap_q = 'RdBu_r'
         norm_q = colors.SymLogNorm(linthresh=1e2)
         stokes_norm = True
         if stokes_norm:
-            data2plot_q = data2plot_q / data2plot_p
-            data2plot_q_name = '(antenna) Stokes q'
-            data2plot_q_unit = 'Signed relative flux [%]'
+            data2view_q = data2view_q / data2view_p
+            data2view_q_name = '(antenna) Stokes q'
+            data2view_q_unit = 'Signed relative flux [%]'
             norm_q = colors.SymLogNorm(linthresh=1e-3)
     if not printout:
+        fig, (ax_p, ax_q) = plt.subplots(2, 1, sharex=True, sharey=True)
         # Plot quantity p:
         fr_grd, ts_grd = numpy.meshgrid(freqs/1e6, ts)
-        bstplt_p = ax_p.pcolormesh(ts_grd, fr_grd, data2plot_p.T, norm=norm_p,
+        bstplt_p = ax_p.pcolormesh(ts_grd, fr_grd, data2view_p.T, norm=norm_p,
                                    shading='nearest')
         cbar_p = fig.colorbar(bstplt_p, ax=ax_p)
         cbar_p.set_label('Flux [arb. units]')
         ax_p.set_ylabel('Frequency [MHz]')
-        ax_p.set_title('{}'.format(data2plot_p_name))
+        ax_p.set_title('{}'.format(data2view_p_name))
         # Plot quantity q:
-        bstplt_q = ax_q.pcolormesh(ts_grd, fr_grd, data2plot_q.T, cmap=cmap_q,
+        bstplt_q = ax_q.pcolormesh(ts_grd, fr_grd, data2view_q.T, cmap=cmap_q,
                                    norm=norm_q, shading='nearest')
         cbar_q = fig.colorbar(bstplt_q, ax=ax_q)
-        cbar_q.set_label(data2plot_q_unit)
-        ax_q.set_title('{}'.format(data2plot_q_name))
+        cbar_q.set_label(data2view_q_unit)
+        ax_q.set_title('{}'.format(data2view_q_name))
         fig.autofmt_xdate()
 
         ax_q.xaxis.set_major_formatter( mdates.DateFormatter('%H:%M:%S'))
@@ -1556,17 +1556,18 @@ def viewbst(bstff, pol_stokes=True, printout=False):
         plt.suptitle(supertitle)
         plt.draw()
         plt.pause(file_dur)
+        plt.close()
     else:
         # CSV style:
         #   Header
         t_prev = ts[0]
         print("#H:M:S since {} UT".format(t_prev.isoformat()), "Freq[MHz]",
-              data2plot_p_name, data2plot_q_name, sep=', ')
+              data2view_p_name, data2view_q_name, sep=', ')
         #   Data
         for ti, t in enumerate(ts):
             for freqi, freq in enumerate(freqs):
-                dataval_p, dataval_q = (data2plot_p[freqi, ti],
-                                        data2plot_q[freqi, ti])
+                dataval_p, dataval_q = (data2view_p[freqi, ti],
+                                        data2view_q[freqi, ti])
                 del_t = t - t_prev
                 print(del_t, freq/1e6, dataval_p, dataval_q, sep=', ')
 
