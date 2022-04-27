@@ -935,7 +935,7 @@ class StationDriver(object):
         ----------
         whatservice : str
             The service to lookup the startup time for.
-            Defined services are: 'beam' (default), 'boot' and 'tof'.
+            Defined services are: 'beam' (default), 'boot', 'bst' and 'tof'.
         """
         stnid = self.get_stnid()
         sshcmd_delay = 20  # This is a maximum time e.g. IE613 from OSO
@@ -950,6 +950,9 @@ class StationDriver(object):
         elif whatservice == 'beam':
             beamctl_inittime = 13
             service_inittime = beamctl_inittime
+        elif whatservice == 'bst':
+            bst_inittime = 7
+            service_inittime = bst_inittime
         elif whatservice == 'tof':
             tof_inittime = 10
             service_inittime = tof_inittime
