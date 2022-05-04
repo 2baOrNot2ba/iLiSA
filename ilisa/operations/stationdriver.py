@@ -21,7 +21,6 @@ from ilisa.operations.druinterface import DRUinterface
 from ilisa.operations._rem_exec import ostimenow
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
-from ilisa.pipelines import bfbackend
 
 
 class StationDriver(object):
