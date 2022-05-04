@@ -121,7 +121,29 @@ class DRUinterface:
             dumplognames.append(dumplogname)
         return outdumpdirs, outargs, datafileguesses, dumplognames
 
-    def parse_bfs_filename(self, bfs_filename):
+    def parse_bfs_filename(self, bfs_filepath):
+        """\
+        Parse name of BFS file to extract basic observation metadata
+
+        Parameters
+        ----------
+        bfs_filepath : str
+            Path to BFS file.
+
+        Returns
+        -------
+        port: int
+            Port number
+        hostname: str
+            Name of station
+        startstr: str
+            Datetime of observation start in ISO format.
+        ms: str
+            Fractional seconds of start
+        cmprss_suf: str
+            Compression suffix. If equal to 'zst' BFS compresses with Zlib.
+        """
+        bfs_filename = os.path.basename(bfs_filepath)
         udp, stnid, prt_host_start_ms_compress = bfs_filename.split('_', 2)
         port, hostname, startstr, ms, cmprss_suf =\
             prt_host_start_ms_compress.split('.', 4)
