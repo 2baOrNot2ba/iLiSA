@@ -120,6 +120,10 @@ def std_pointings(directionterm='?'):
         'S':    str(2*math.pi/2)+',0.,AZELGEO',
         'W':    str(3*math.pi/2)+',0.,AZELGEO',
         'Z':    '0.,'+str(math.pi/2)+',AZELGEO',
+        'NE':   str(0.5 * math.pi / 2) + ',0.,AZELGEO',
+        'SE':   str(1.5 * math.pi / 2) + ',0.,AZELGEO',
+        'SW':   str(2.5 * math.pi / 2) + ',0.,AZELGEO',
+        'NW':   str(3.5 * math.pi / 2) + ',0.,AZELGEO',
         'CasA':  '6.123487,1.026515,J2000',  # Alternative to 'Cas-A'
         'Cas-A': '6.123487,1.026515,J2000',  # 3C-461
         'Cyg-A': '5.233660,0.710940,J2000',  # 3C-405
