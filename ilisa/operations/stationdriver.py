@@ -943,7 +943,7 @@ class StationDriver(object):
         service_inittime = 0
         if whatservice == 'boot':
             boot_inittime = 20
-            if self._lcu_interface.get_swlevel() != 3:
+            if self._lcu_interface.get_swlevel() == 3:
                 boot_inittime = 0
             service_inittime = boot_inittime
         elif whatservice == 'beam':
