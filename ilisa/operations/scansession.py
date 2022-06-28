@@ -343,6 +343,7 @@ class ScanSession(object):
 
         # Wait until it is time to bootup
         waituntil(sessmeta['start'], dt2boot)
+        self.stndrv.goto_observingstate()
         logging.info(f"Scansession {self.session_id} started")
 
         scans_done = []
