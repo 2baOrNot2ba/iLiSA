@@ -168,7 +168,7 @@ def ostimenow(url, remunit):
         return _exec_ssh(nodeurl=url, cmdline=cmdline, nodetype=remunit,
                          accessible=True)
     isofmt = ilisa.operations.DATETIMESTRFMT
-    datecmdline = f"date -u '+{isofmt}'"
+    datecmdline = "date -u '+{}'".format(isofmt)
     lcunow_str = _rem_exec(cmdline=datecmdline)
     print(lcunow_str)
     lcunow = datetime.datetime.strptime(lcunow_str, isofmt)
@@ -187,7 +187,7 @@ if __name__ == '__main__':
     import sys
     url = sys.argv[1]
     cmdline = ' '.join(sys.argv[2:])
-    print(f"Executing {cmdline} on {url}")
+    print("Executing {} on {}".format(cmdline, url))
     try:
         hn = _exec_ssh(url, cmdline, nodetype='TEST', accessible=True, verbose=True)
         print(hn)

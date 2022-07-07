@@ -343,7 +343,8 @@ class LScan:
         if not pnting:
             pnting = self.pointing_spec.get('pointing')
         freqarg = self.freqsetup.arg
-        descriptor = f"id: {id}, rec: {rec}, pnting: {pnting}, freq: {freqarg}"
+        descriptor = "id: {}, rec: {}, pnting: {}, freq: {}"\
+                     .format(id, rec, pnting, freqarg)
         return descriptor
 
 
@@ -407,7 +408,7 @@ def do_nominal_scan(args):
     try:
         duration_tot = float(eval(str(args.duration_tot)))
     except NameError:
-        logging.error(f"Cannot understand duration='{args.duration_tot}'.")
+        logging.error("Cannot understand duration='{}'.".format(args.duration_tot))
         raise
     # Start criteria: Time
     args.starttime = modeparms.timestr2datetime(args.starttime)

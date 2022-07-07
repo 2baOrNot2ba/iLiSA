@@ -41,7 +41,7 @@ def sched2at(schedfile):
         else:
             raise RuntimeError(type(schedline['start']))
         if start_ut < datetime.datetime.utcnow():
-            raise RuntimeError(f'Starttime {start_ut} is in the past.')
+            raise RuntimeError('Starttime {} is in the past.'.format(start_ut))
         else:
             schedline['start'] = start_ut
     # Now do it for real
@@ -84,7 +84,7 @@ def sched2at(schedfile):
         # First send sleep before ilisa command (at only does down to minutes)
         sleepcmd = ''
         if sleep_before_at_secs:
-            sleepcmd = f"sleep {sleep_before_at_secs}\n"
+            sleepcmd = "sleep {}\n".format(sleep_before_at_secs)
         # Send ilisa_cmd to pipe
         cmdline_wlog = '{} {} >> err_{}.log\n'.format(sleepcmd, cmdline,
                                                       station)

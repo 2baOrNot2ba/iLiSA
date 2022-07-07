@@ -91,7 +91,7 @@ class LCUInterface(object):
         # Now check accessibility
         self.accessible = self.checkaccess()
         if not self.accessible:
-            raise ConnectionError(f"Cannot access LCU using {self.url}.")
+            raise ConnectionError("Cannot access LCU using {}.".format(self.url))
         elif self.verbose:
             logging.info("Established access to LCU on {}.".format(self.stnid))
 

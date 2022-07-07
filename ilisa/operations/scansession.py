@@ -344,7 +344,7 @@ class ScanSession(object):
         # Wait until it is time to bootup
         waituntil(sessmeta['start'], dt2boot)
         self.stndrv.goto_observingstate()
-        logging.info(f"Scansession {self.session_id} started")
+        logging.info("Scansession {} started".format(self.session_id))
 
         scans_done = []
         for scan in scans_iter:
@@ -379,7 +379,7 @@ class ScanSession(object):
                               destpath=sesspath, destpath_bfs=bfdsesdumpdir,
                               file_dur=scan['file_dur'],
                               scan_id=scan['id'])
-                logging.info(f"Started LScan:: {lscan.describe_scan()}")
+                logging.info("Started LScan:: {}".format(lscan.describe_scan()))
                 subscan = iter(lscan)
                 # Start the subscan
                 scanrecpath = {'acc': None, 'bfs': None, 'bsx': None}
@@ -418,9 +418,9 @@ class ScanSession(object):
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
             duration_req = datetime.timedelta(seconds=scan['duration'])
-            logging.info(f"End LScan:: id: {scan['id']}")
-            logging.debug(f"Request dur={duration_req}, "
-                          f"Actual dur={duration_actual}")
+            logging.info("End LScan:: id: {}".format(scan['id']))
+            logging.debug("Request dur={}, ".format(duration_req)
+                          +"Actual dur={}".format(duration_actual))
             scans_done.append(scan)
         # Collate session metadata with scan meta data as scansession metadata
         sessmeta['scans'] = scans_done
@@ -540,8 +540,8 @@ def obs(scansess_in, sac):
             priority_fld = 'M'
         else:
             priority_fld = '0'
-        lgf.write(f"{issued_at} {cli_start} {priority_fld} {projectid}"
-                  f" {stndrv.get_stnid()} {cmd}\n")
+        lgf.write("{} {} {} {}".format(issued_at, cli_start, priority_fld, projectid)
+                  +" {} {}\n".format(stndrv.get_stnid(), cmd))
 
 
 def main_cli():
