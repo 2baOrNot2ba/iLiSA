@@ -5,9 +5,39 @@ import subprocess
 import multiprocessing
 import platform
 import argparse
+import datetime
 
-from ilisa.operations.modeparms import timestr2datetime
 import ilisa.pipelines.rec_bf_streams_py as rec_bf_streams_py
+
+
+def timestr2datetime(timestr):
+    # Note: this is the same as in modeparms, but to avoid pipeline package's
+    # dependence on anything I copied it here.
+    """\
+    Convert time string into a python datetime object
+
+    Parameters
+    ----------
+    timestr: str
+        Date-Time string in ISO-like format '%Y-%m-%dT%H:%M:%S'
+        OR 'NOW' or 'ASAP', which imply the current UT datetime.
+
+    Returns
+    -------
+    dattim: datetime.datetime
+        Python datetime object corresponding to input.
+    """
+    if timestr == 'NOW' or timestr == 'ASAP':
+        # Set time to nearest rounded second from now:
+        dattim = datetime.datetime.utcnow()
+        dattim = dattim.replace(microsecond=0)
+        dattim += datetime.timedelta(seconds=1)
+    else:
+        try:
+            dattim = datetime.datetime.strptime(timestr, DATETIMESTRFMT)
+        except:
+            raise RuntimeError("Wrong datetime format.")
+    return dattim
 
 # DUMPERNAME is name of binary executable on DRU which is run by
 # PL_REC_WRAPPER when capturing UDP packets with LOFAR beamformed voltages data.
