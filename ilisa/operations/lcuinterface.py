@@ -57,7 +57,7 @@ class LCUInterface(object):
             mac_version = self.get_mac_version()
         except Exception:
             logging.error("Cannot access LCU with URL: " + self.url)
-        if mac_version is not "":
+        if mac_version != "":
             accessible = True
         else:
             accessible = False
