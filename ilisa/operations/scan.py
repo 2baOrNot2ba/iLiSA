@@ -191,7 +191,7 @@ class LScan:
                         if not bfs_yield:
                             # BFS does not need to block and
                             # so with no BSX have to throttle it...
-                            logging.info(f'waiting {file_dur}s for BFS')
+                            logging.info("waiting {}s for BFS".format(file_dur))
                             time.sleep(file_dur)
                     if self.acc:
                         if not acc_yield:

@@ -965,7 +965,7 @@ def _is_sshfs_mounted(hostname):
     sshfs_mnt_pnts = filter(lambda l : 'fuse.sshfs' in l, mounts_pnts)
     hostname_mnt_pnts = list(filter(lambda l : l.beginswith(hostname),
                                     sshfs_mnt_pnts))
-    logging.debug(f"hostname_mnt_pnts={hostname_mnt_pnts}")
+    logging.debug("hostname_mnt_pnts={}".format(hostname_mnt_pnts))
     if hostname_mnt_pnts:
         return True
     else:
