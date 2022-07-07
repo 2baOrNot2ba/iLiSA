@@ -8,7 +8,7 @@ import argparse
 import datetime
 
 import ilisa.pipelines.rec_bf_streams_py as rec_bf_streams_py
-
+DATETIMESTRFMT = '%Y-%m-%dT%H:%M:%S'  # Same as in ilisa.operations
 
 def timestr2datetime(timestr):
     # Note: this is the same as in modeparms, but to avoid pipeline package's
