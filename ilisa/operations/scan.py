@@ -200,7 +200,7 @@ class LScan:
                                 wait_acc = modeparms.ACC_DUR
                             else:
                                 wait_acc = 10
-                            logging.info(f'waiting {wait_acc}s for ACC')
+                            logging.info("waiting {}s for ACC".format(wait_acc))
                             time.sleep(wait_acc)
                             normal_acc_wait = False
                         else:
