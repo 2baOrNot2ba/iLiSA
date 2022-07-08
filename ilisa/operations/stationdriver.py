@@ -963,7 +963,7 @@ def _is_sshfs_mounted(hostname):
     mounts_pnts = subprocess.run('mount', stdout=subprocess.PIPE
                                  ).stdout.decode().rstrip().split('\n')
     sshfs_mnt_pnts = filter(lambda l : 'fuse.sshfs' in l, mounts_pnts)
-    hostname_mnt_pnts = list(filter(lambda l : l.beginswith(hostname),
+    hostname_mnt_pnts = list(filter(lambda l : l.startswith(hostname),
                                     sshfs_mnt_pnts))
     logging.debug("hostname_mnt_pnts={}".format(hostname_mnt_pnts))
     if hostname_mnt_pnts:
