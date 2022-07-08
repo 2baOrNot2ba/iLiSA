@@ -26,7 +26,7 @@ import ilisa
 import ilisa.operations
 import ilisa.operations.directions
 import ilisa.antennameta.antennafieldlib as antennafieldlib
-from ilisa.operations import LATESTDATAFILE
+from ilisa.operations import USER_CACHE_DIR
 
 try:
     import dreambeam
@@ -1727,7 +1727,10 @@ def latest_scanrec_path():
     latest_scanrecpath : str
         Path on DRU of latest ScanRec data.
     """
-    with open(LATESTDATAFILE, 'r') as f:
+    latestdatafile = sorted(filter(lambda f : f.startswith('latest'),
+                                    os.listdir(USER_CACHE_DIR)),
+                             key=os.path.getmtimeget)[-1]
+    with open(latestdatafile, 'r') as f:
         lines_in = f.readlines()
     _contents = [l.rstrip() for l in lines_in]
     if _contents[0] != 'ONGOING':
@@ -1736,7 +1739,7 @@ def latest_scanrec_path():
     else:
         scanrec_nr = None
         while True:
-            with open(LATESTDATAFILE, 'r') as f:
+            with open(latestdatafile, 'r') as f:
                 lines_in = f.readlines()
             _contents = [l.rstrip() for l in lines_in]
             if _contents[0] == 'ONGOING':
