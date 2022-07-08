@@ -145,9 +145,16 @@ class DRUinterface:
         """
         bfs_filename = os.path.basename(bfs_filepath)
         udp, stnid, prt_host_start_ms_compress = bfs_filename.split('_', 2)
-        port, hostname, startstr, ms, cmprss_suf =\
-            prt_host_start_ms_compress.split('.', 4)
-        return port, hostname, startstr, ms, cmprss_suf
+        prt_host_start_ms_compress = prt_host_start_ms_compress.split('.')
+        port = prt_host_start_ms_compress.pop(0)
+        cmprss_suf = prt_host_start_ms_compress.pop(-1)
+        if cmprss_suf != 'zst':
+            prt_host_start_ms_compress.append(cmprss_suf)
+        ms_nr = prt_host_start_ms_compress.pop(-1)
+        startstr = prt_host_start_ms_compress.pop(-1)
+        hostname = prt_host_start_ms_compress
+
+        return port, hostname, startstr, ms_nr, cmprss_suf
 
     def get_bfs_filenames(self, bf_dat_dir_tmplt):
         """\
