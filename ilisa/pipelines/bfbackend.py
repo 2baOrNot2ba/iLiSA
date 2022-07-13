@@ -7,6 +7,7 @@ import platform
 import argparse
 import datetime
 
+from . import __version__ as pipeline_version
 import ilisa.pipelines.rec_bf_streams_py as rec_bf_streams_py
 DATETIMESTRFMT = '%Y-%m-%dT%H:%M:%S'  # Same as in ilisa.operations
 
@@ -257,9 +258,14 @@ def bfsrec_main_cli():
                         )
     parser.add_argument('-c', '--compress', action="store_true",
                         help="Compress recorded data")
+    parser.add_argument('-v', '--version', action="store_true",
+                        help="Print version of module")
     args = parser.parse_args()
     starttime = timestr2datetime(args.starttime)
     args.ports = [int(portstr) for portstr in args.ports.split(',')]
+    if args.version:
+        print(pipeline_version)
+        return
     if not args.mockrun:
         if args.which == 'py':
             rec_bf_streams_py.main(args.ports[0], args.bfdatadir, args.duration)
