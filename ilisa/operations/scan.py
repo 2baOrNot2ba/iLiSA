@@ -173,7 +173,6 @@ class LScan:
             # Enter subscan data collection loop
             normal_acc_wait = True
             acc_yield = None
-            # bfs_yield = None
             while continue_scan:
                 if bsx_type:
                     if self.ldatinfos == []:
