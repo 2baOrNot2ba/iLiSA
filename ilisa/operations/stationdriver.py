@@ -676,6 +676,8 @@ class StationDriver(object):
                                              compress=compress,
                                              band=freqsetup.rcubands[0],
                                              stnid=self.get_stnid())
+        # bf_rec started, now yield None to sync
+        yield None
         firstbfs = True
         continue_bfs = True
         filetime_prev = None
