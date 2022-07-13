@@ -8,7 +8,7 @@ import logging
 
 import ilisa
 import ilisa.operations
-from ilisa.operations import LATESTDATAFILE
+from ilisa.operations import USER_CACHE_DIR
 import ilisa.operations.directions as directions
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.programs as programs
@@ -264,11 +264,12 @@ class ScanSession(object):
         if session_id is None:
             session_id = self.make_session_id()
         self.session_id = session_id
-        if os.path.exists(LATESTDATAFILE):
-            # Create the file with 1st line noting ongoing session
-            # This should be removed when session is finished.
-            with open(LATESTDATAFILE, 'w') as f:
-                f.writelines(['ONGOING\n'])
+        latestdatafile = 'latestdatafiles_' + self.stndrv.get_stnid() + '.txt'
+        self.latestdatafile = os.path.join(USER_CACHE_DIR, latestdatafile)
+        # Create the file with 1st line noting ongoing session
+        # This should be removed when session is finished.
+        with open(self.latestdatafile, 'w') as f:
+            f.writelines(['ONGOING\n'])
 
     def set_stn_session_id(self, parent_session_id):
         self.stn_sess_id = '{}_{}'.format(parent_session_id, self.stndrv.get_stnid())
@@ -321,7 +322,7 @@ class ScanSession(object):
             if rec_state and not scanrecpath[rec_name]:
                 scanrecpath[rec_name] = lscan.scanresult[rec_name].scanrecpath
                 if scanrecpath[rec_name]:
-                    with open(LATESTDATAFILE, 'a') as f:
+                    with open(self.latestdatafile, 'a') as f:
                         f.write(scanrecpath[rec_name])
                         f.write('\n')
 
@@ -427,11 +428,11 @@ class ScanSession(object):
         # and save it:
         self.save_scansess(sessmeta)
         # Update LATESTDATAFILE that session is no longer on-going:
-        with open(LATESTDATAFILE, 'r') as f:
+        with open(self.latestdatafile, 'r') as f:
             filecontents = f.readlines()
             # 1st line containing ongoing status. Remove it.
             _ongoing = filecontents.pop(0)
-        with open(LATESTDATAFILE, 'w') as f:
+        with open(self.latestdatafile, 'w') as f:
             f.writelines(filecontents)
 
 
