@@ -1078,7 +1078,10 @@ def main_cli():
                             help="Mockrun")
     cmdln_prsr.add_argument('admcmd', help='Admin command')
     args = cmdln_prsr.parse_args(sys.argv[1:])
-    accessconf = ilisa.operations.default_access_lclstn_conf()
+    accessconf = ilisa.operations.default_access_lclstn_conf(args.station)
+    if accessconf==None:
+        sys.exit("No default access config for local station {}"
+                 .format(args.station))
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=args.mockrun)
     # Dispatch admin commands
