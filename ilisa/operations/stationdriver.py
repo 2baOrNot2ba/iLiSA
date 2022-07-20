@@ -97,6 +97,9 @@ class StationDriver(object):
             self._lcu_interface.DryRun = self.mockrun
 
         _lofardatadir = accessconf_dru['LOFARdataArchive']
+        # Make _lofardatadir relative to self._dru_root so it can be joined:
+        if os.path.isabs(_lofardatadir):
+            _lofardatadir = os.path.relpath(_lofardatadir, os.sep)
         self.tbbraw2h5cmd = accessconf_dru['TBBraw2h5Cmd']
         self.tbbh5dumpdir = accessconf_dru['TBBh5dumpDir']
 
@@ -112,9 +115,8 @@ class StationDriver(object):
             self._dru_root = os.path.join(ilisa.operations.USER_CACHE_DIR,
                                           'DRU', self._dru_interface.hostname)
             # Mount it using sshfs
-            if not _is_sshfs_mounted(self._dru_interface.hostname):
-                subprocess.run(['sshfs', self._dru_interface.hostname + ':/',
-                                self._dru_root])
+            subprocess.run(['sshfs', self._dru_interface.hostname + ':/',
+                            self._dru_root])
         # Set the root path to where the lofar data should be stored
         self.dru_data_root = os.path.join(self._dru_root, _lofardatadir)
         # ID of current scan
@@ -243,6 +245,10 @@ class StationDriver(object):
             _filetimenames.add(obsdatetime_stamp)
         filetimenames = sorted(list(_filetimenames))
         return filetimenames
+
+    def get_ccu2dru(self):
+        """Get path to DRU root from CCU"""
+        return self._dru_root
 
     def get_bfsdatlogpaths(self):
         """\
@@ -718,6 +724,7 @@ class StationDriver(object):
                     'sb': freqsetup.subbands_spw,
                     'station_id': self.get_stnid()
                 }
+                # Create BFS destination folder on DRU:
                 bfsfilefolder = data_io.obsfileinfo2filefolder(obsfileinfo)
                 scanrecpath = os.path.join(self.scanpath_scdat, bfsfilefolder)
                 os.makedirs(scanrecpath)

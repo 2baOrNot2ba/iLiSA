@@ -55,6 +55,8 @@ class LScan:
             If true, record 'bfs': Record BeamFormed Stream data.
         destpath: str
             Destination path for this recording.
+        destpath_bfs: str
+            Destination path on DRU to where bfs to be recorded.
         file_dur: float
             Duration of file of recorded (subscan) data.
         scanid: str
@@ -300,22 +302,32 @@ class LScan:
         """\
         Stop BFS scan
         """
+        def _DRU2CCUpath(drupath):
+            ccu2dru = self.stndrv.get_ccu2dru()
+            # Convert drupath from abs path on DRU to rel path from root:
+            drupath = os.path.relpath(drupath, os.sep)
+            # Determine path to bfs datafiles on DRU via CCU:
+            ccupath = os.path.join(ccu2dru, drupath)
+            return ccupath
+
         bfsdatapaths, bfslogpaths = self.stndrv.get_bfsdatlogpaths()
         for ldatinfo in ldatinfos_bfs:
             self.scanresult['bfs'].add_obs(ldatinfo)
 
-        # Make a project folder for BFS data
+        # Get path under Scans folder that will contain BFS data
         scanrecpath = self.scanresult['bfs'].scanrecpath
-        # Create BFS destination folder on DPU:
-        if self.stndrv._dru_interface.hostname == 'localhost':
-            # Make soft links to actual BFS files and move logs to scanrec
-            # folder
-            for abfsdatapath in bfsdatapaths:
-                _basename = os.path.basename(abfsdatapath)
-                _lnkname = os.path.join(scanrecpath, _basename)
-                os.symlink(abfsdatapath, _lnkname)
-            for abfslogpath in bfslogpaths:
-                shutil.move(abfslogpath, scanrecpath)
+        #if self.stndrv._dru_interface.hostname == 'localhost':
+        # Make hard links between actual BFS files and scanrec folder:
+        for abfsdatapath in bfsdatapaths:
+            _drusrc = _DRU2CCUpath(abfsdatapath)
+            # Create new link path under scanrecpath on DRU via CCU:
+            _basename = os.path.basename(abfsdatapath)
+            _lnkname = os.path.join(scanrecpath, _basename)
+            os.link(_drusrc, _lnkname)
+        # Move logs to scanrec folder
+        for abfslogpath in bfslogpaths:
+            _drusrc = _DRU2CCUpath(abfslogpath)
+            shutil.move(_drusrc, scanrecpath)
 
     def _gen_scan_id(self, scan_dt):
         scan_mjd_id = modeparms.dt2mjd(scan_dt)
