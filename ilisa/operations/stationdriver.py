@@ -211,14 +211,18 @@ class StationDriver(object):
 
     def movefromlcu(self, source, dest, recursive=False):
         """Move file(s) off LCU to DRU."""
-        if not os.path.exists(dest):
-            os.makedirs(dest)
         move_cmdline = ["scp", "-3"]
         if recursive:
             move_cmdline.append("-r")
         src_arg = self._lcu_interface.url + ":" + source
         move_cmdline.append(src_arg)
-        dst_arg = self._dru_interface.url + ":" + dest
+        if self.use_sshfs or self._dru_interface.hostname == 'localhost':
+            dst_arg = dest
+            if not os.path.exists(dest):
+                os.makedirs(dest)
+        else:
+            dst_arg = self._dru_interface.url + ":" + dest
+            # TODO: mkdir on DRU
         move_cmdline.append(dst_arg)
         cmdprompt = "spawn on driver>"
         if self._lcu_interface.verbose:
