@@ -323,7 +323,10 @@ class LScan:
             # Create new link path under scanrecpath on DRU via CCU:
             _basename = os.path.basename(abfsdatapath)
             _lnkname = os.path.join(scanrecpath, _basename)
-            os.link(_drusrc, _lnkname)
+            try:
+                os.link(_drusrc, _lnkname)
+            except:
+                os.symlink(_drusrc, _lnkname)
         # Move logs to scanrec folder
         for abfslogpath in bfslogpaths:
             _drusrc = _DRU2CCUpath(abfslogpath)
