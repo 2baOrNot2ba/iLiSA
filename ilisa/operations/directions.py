@@ -90,6 +90,26 @@ def pointing_tuple2str(dirtuple):
     return beamctldirarg
 
 
+def check_directionstr(beamctldirarg):
+    """\
+    Check direction string is correctly formatted
+
+    Parameters
+    ----------
+    beamctldirarg : str
+        Direction argument to beamctl process. Format e.g. 'az,el,J2000'
+
+    Returns
+    -------
+    bool
+        True if beamctldirarg is a valid beamctl direction argument, else False.
+    """
+    if pointing_tuple2str(pointing_str2tuple(beamctldirarg)):
+        return True
+    else:
+        return False
+
+
 def std_pointings(directionterm='?'):
     """
     Find beamctl direction string based on direction term.
