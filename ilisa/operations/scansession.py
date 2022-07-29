@@ -141,9 +141,6 @@ def process_scansess(sesscans_in):
             # duration_tot = eval(str(scan['duration']))
             file_dur = scan.get('file_dur')
 
-            # - Source name
-            source = scan.get('source')
-
             # - Beam
             beam = scan.get('beam', {})
             # -- Freq
@@ -152,6 +149,8 @@ def process_scansess(sesscans_in):
             pointing = beam.get('pointing')
             # -- direction: alternative to pointing but can't be name
             direction = beam.get('direction')
+            # -- Source name
+            source = beam.get('source')
 
             # Postprocess beam to get direction
             if not direction:
@@ -159,6 +158,9 @@ def process_scansess(sesscans_in):
                     direction = directions.normalizebeamctldir(pointing)
                 elif source:
                     direction = directions.std_pointings(source)
+            if not directions.check_directionstr(direction):
+                raise ValueError('direction {} is not correct format'
+                                 .format(direction))
             if not source:
                 if pointing:
                     source = pointing
@@ -193,7 +195,9 @@ def process_scansess(sesscans_in):
             obsargs_in = {'beam':
                               {'freqspec': freqspec,
                                'pointing': pointing,
-                               'direction': direction},
+                               'direction': direction,
+                               'source': source
+                               },
                           'rec': rec,
                           'acc': acc,
                           'bfs': bfs,
@@ -204,7 +208,6 @@ def process_scansess(sesscans_in):
                           'starttime': modeparms.astimestr(scanstarttime),
                           'starttime_guess': \
                               modeparms.astimestr(scanstarttime_guess),
-                          'source': source,
                           'id': scan_id
                           }
             obsargs_in.update({'obsprog': obsprog})
@@ -359,7 +362,7 @@ class ScanSession(object):
                 # Only pointing used not source name but it's in scan metadata
                 pointing_spec = {'pointing': scan['beam']['pointing'],
                                  'direction': scan['beam']['direction'],
-                                 'source': scan['source']}
+                                 'source': scan['beam']['source']}
                 acc = scan['acc']
                 bfs = scan['bfs']
                 bsx_stat = scan['bsx_stat']
