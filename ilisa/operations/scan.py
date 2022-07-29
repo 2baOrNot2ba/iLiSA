@@ -75,12 +75,12 @@ class LScan:
         self.destpath = destpath if destpath else stndrv.scanpath
         self.destpath_bfs = destpath_bfs
 
-        pointing = pointing_spec['pointing']
-        self.dir_bmctl = ilisa.operations.directions.normalizebeamctldir(pointing)
-        if pointing and not self.dir_bmctl:
-            raise ValueError("Invalid pointing syntax: {}".format(pointing))
+        self.dir_bmctl = pointing_spec['direction']  # ilisa.operations.directions.normalizebeamctldir(pointing)
+        if self.dir_bmctl:
+            if not ilisa.operations.directions.check_directionstr(self.dir_bmctl):
+                raise ValueError("Invalid pointing syntax: {}".format(self.dir_bmctl))
         beam_needed = bfs or rec_type == 'bst'
-        if beam_needed and not pointing:
+        if beam_needed and not self.dir_bmctl:
             raise ValueError("No pointing, but beam needed")
 
         self.stndrv.goto_observingstate()
@@ -136,17 +136,15 @@ class LScan:
         rec_type = self.rec_type
         freqsetup = self.freqsetup
         duration_tot = self.duration_tot
-        pointing_spec = self.pointing_spec
         integration = self.integration
         starttime = self.starttime
         file_dur = self.file_dur
 
-        pointing = pointing_spec['pointing']
         bsx_type = modeparms._xtract_bsx(rec_type)
 
         if rec_type != 'tbb' and rec_type != 'dmp':
-            if pointing:
-                stndrv.field = pointing_spec['source']
+            if self.dir_bmctl:
+                stndrv.field = self.pointing_spec['source']
                 if self.acc:
                     # ACC needs to be enabled before beam
                     # so initialize the subscan generator...
