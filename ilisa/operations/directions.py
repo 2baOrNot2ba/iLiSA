@@ -97,13 +97,16 @@ def check_directionstr(beamctldirarg):
     Parameters
     ----------
     beamctldirarg : str
-        Direction argument to beamctl process. Format e.g. 'az,el,J2000'
+        Direction argument to beamctl process. Format e.g. 'az,el,J2000'.
+        A value of None, is interpreted as valid and means no direction.
 
     Returns
     -------
     bool
         True if beamctldirarg is a valid beamctl direction argument, else False.
     """
+    if beamctldirarg is None:
+        return True
     if pointing_tuple2str(pointing_str2tuple(beamctldirarg)):
         return True
     else:
