@@ -252,16 +252,16 @@ class LScan:
         ldatinfos = self.ldatinfos
         ldatinfo_bfs = self.ldatinfos_bfs
 
-        pointing = pointing_spec['pointing']
         bsx_type = modeparms._xtract_bsx(rec_type)
 
         if rec_type != 'tbb' and rec_type != 'dmp':
-            if pointing:
+            if self.dir_bmctl:
                 stndrv.stop_beam()
                 if acc:
                     self.scanresult['acc'].sourcename = pointing_spec['source']
                     self.scanresult['acc']._pointing = pointing_spec['pointing']
                     self._stop_acc_scan()
+                del(self.dir_bmctl)
             elif stndrv.septonconf:
                 # No pointing and tiles-off mode, so stop tiles-off mode
                 stndrv.stop_tof()
