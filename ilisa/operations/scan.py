@@ -354,6 +354,8 @@ class LScan:
         pnting = self.pointing_spec.get('source')
         if not pnting:
             pnting = self.pointing_spec.get('pointing')
+            if not pnting:
+                pnting = self.pointing_spec.get('direction')
         freqarg = self.freqsetup.arg
         descriptor = "id: {}, rec: {}, pnting: {}, freq: {}"\
                      .format(id, rec, pnting, freqarg)
