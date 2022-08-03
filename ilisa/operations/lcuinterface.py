@@ -529,7 +529,16 @@ class LCUInterface(object):
         # Convert output into a list of dict per antset
         calinfolist = []
         # Strip off first initial lines and split on blank lines
-        calinfooutlist = (''.join(calinfoout.splitlines(True)[2:])).split('\n\n')
+        calinfooutspl = list(calinfoout.splitlines(True))
+        _startcalinfo = False
+        while not _startcalinfo:
+            _hdr = calinfooutspl.pop(0)
+            # Expects beamctl --calinfo to start with info proper after the line
+            #  containing 'Calibration info'
+            _startcalinfo = 'Calibration info' in _hdr
+            # Note that it can take a while before calinfo is return,
+            # should maybe have a timeout?
+        calinfooutlist = (''.join(calinfooutspl)).split('\n\n')
         if calinfooutlist[0] == '':
             # No calinfo. Return blank
             return ""
