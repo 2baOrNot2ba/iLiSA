@@ -677,6 +677,27 @@ class LDatInfo(object):
             return None
 
     @classmethod
+    def from_obsfilefolder(cls, obsfilefolder):
+        """Create an LDatInfo from an obsfilefolder dict"""
+        datatype = obsfilefolder['datatype']
+        sb = obsfilefolder['subband']
+        rcusetup_cmds = ''
+        anadigdir = ilisa.operations.directions.normalizebeamctldir(
+            obsfilefolder['pointing'][0])
+        beamlets = modeparms.alloc_beamlets(sb)[0]
+        beamctl_cmds = modeparms.beamctl_args2cmds(beamlets=beamlets,
+                                                   subbands=sb,
+                                                   band=obsfilefolder['rcumode'],
+                                                   anadigdir=anadigdir)
+        rspctl_cmds = modeparms.rspctl_stats_args2cmds(datatype,
+                                                       obsfilefolder['integration'],
+                                                       obsfilefolder['duration_tot'],
+                                                       sb)
+        obsinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds)
+        obsinfo.filenametime = obsfilefolder['datetime'].strftime('%Y%m%d_%H%M%S')
+        return obsinfo
+
+    @classmethod
     def read_ldat_header(cls, headerpath):
         """Parse a ldat header file and return it as an LDatInfo."""
         # TODO extract CalTable info.
@@ -1134,6 +1155,8 @@ class CVCfiles(object):
             except:
                 warnings.warn(
                     "Couldn't find a header file for {}".format(cvcfile))
+                obsinfo = LDatInfo.from_obsfilefolder(obsfolderinfo)
+                scanrecinfo.add_obs(obsinfo)
             _datatype, t_begin = self._parse_cvcfile(os.path.join(self.filefolder, cvcfile))
 
             # Compute time of each autocovariance matrix sample per subband
