@@ -1,2 +1,2 @@
-dump_udp_ow_12:
-	gcc -Wall -O -o dump_udp_ow_12 dump_udp_ow_12.c -lpthread
+dump_udp_ow_14:
+	gcc -Wall -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread

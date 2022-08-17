@@ -1,21 +1,21 @@
 /*
 
-gcc -Wall -O -o dump_udp_ow_12 dump_udp_ow_12.c -lpthread
+gcc -Wall -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread
 
 or more pedantic:
 
-gcc -Wall -std=c11 -pedantic -Werror -O -o dump_udp_ow_12 dump_udp_ow_12.c -lpthread
+gcc -Wall -std=c11 -pedantic -Werror -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread
 
 even more (too much for the current code):
 
-gcc -Wall -ansi -pedantic -Werror -O -o dump_udp_ow_12 dump_udp_ow_12.c -lpthread
+gcc -Wall -ansi -pedantic -Werror -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread
 
 
 
 
 
 static (may not work):
-gcc -static -Wall -O -o dump_udp_ow_12 dump_udp_ow_12.c -lpthread
+gcc -static -Wall -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread
 
 
 maintained by Olaf Wucknitz <wucknitz@mpifr-bonn.mpg.de>
@@ -33,7 +33,7 @@ for tests on instantmix.mpifr-bonn.mpg.de:
 
 dd if=/media/storage_1/wucknitz/TEMP/B1133+16_udp/B1133+16_band110_190_lanes4_sb12-499_lofarc4.16033.start.2018-11-28T06:00:31.000 bs=7824 | ~/astro_mpi/SOFT/MIRACULIX2/bin/throttle -w 1 -M 100 -s 7824 | ~/astro_mpi/SOFT/MIRACULIX2/bin/socat -b 7824 -u STDIN UDP-DATAGRAM:localhost:16011
 
-./dump_udp_ow_12 --ports 16011 --out /media/storage_1/wucknitz/TEST/test --duration 1 --check
+./dump_udp_ow_14 --ports 16011 --out /media/storage_1/wucknitz/TEST/test --duration 1 --check
 
 
 
@@ -148,8 +148,8 @@ struct vrb {
 void  init_vrb (struct vrb  *vrb, long  minsize)
 {
   int  i, fd;
-  static char  path1[]= "/dev/shm/dump_udp_ow_12_vrb-XXXXXX";
-  static char  path2[]= "/tmp/dump_udp_ow_12_vrb-XXXXXX";
+  static char  path1[]= "/dev/shm/dump_udp_ow_14_vrb-XXXXXX";
+  static char  path2[]= "/tmp/dump_udp_ow_14_vrb-XXXXXX";
   char  *addr, *path;
   
   /* promote to the next full page size: */
@@ -303,10 +303,14 @@ struct vrb  ringbuffer;
 int  maxsock;
 int  sock[MAXNSOCK];
 
+long  dropped_kernel[MAXNSOCK];
+
 int  packlen;
 
 int  do_blocklen= 0;
 int  verbose= 0;
+int  check_dropped_kernel= 0;
+int  dowrite= 1;
 
 int  beamformed_check= 0;
 
@@ -317,6 +321,7 @@ int  beamformed_check= 0;
 int  stopped= 0;
 /* is set by signal_handler and read by producer() and consumer() */
 
+int  timeout_exit= 0;
 
 /*long bufsize; */
 long maxsize, bytes_written_thisfile;
@@ -431,6 +436,77 @@ double  realtime ()
 
 
 
+/* count packets dropped by kernel using /proc/net/udp
+   the sockets must be open (and nsock set)
+   initialised by 0, no abort on error (only message)
+*/
+void  count_dropped_kernel ()
+{
+  char  buff[999];
+  FILE  *f;
+  int  valid, i;
+
+
+  /* initialise with 0 */
+  for (i= 0; i<nsock; i++)
+    {
+      //      last_dropped_kernel[i]= dropped_kernel[i];
+      dropped_kernel[i]= -1;
+    }
+  
+  f= fopen ("/proc/net/udp", "r");
+  if (f==NULL)
+    {
+      perror ("count_dropped_kernel: opening /proc/net/udp");
+      return;
+    }
+  valid= 0;
+  while (fgets (buff, sizeof (buff), f))
+    if (valid)  /* first line has header */
+      {
+	unsigned port;
+	long  dropped;
+
+	i= sscanf (buff, "%*s %*8s:%x %*s %*s %*s %*s %*s %*s %*s %*s %*s %*s %ld", &port, &dropped);
+	if (i!=2)
+	  {
+	    fprintf (stderr, "count_dropped_kernel: cannot parse line <%s>\n",
+		     buff);
+	    return;
+	  }
+
+#if 0
+	printf ("port %d  dropped %ld\n", port, dropped);
+#endif
+
+	
+	/* find socket with this port number */
+	for (i= 0; i<nsock; i++)
+	  if (portnos[i]==port)
+	    {
+#if 0
+	      printf ("found port %d in socket %d\n", port, i);
+#endif
+	    dropped_kernel[i]= dropped;
+	    }
+      }
+    else
+      valid= 1;
+  if (valid==0)
+    {
+      perror ("count_dropped_kernel: reading /proc/net/udp");
+      return;
+    }
+  i= fclose (f);
+  if (i)
+    {
+      perror ("count_dropped_kernel: closing /proc/net/udp");
+      return;
+    }
+
+}
+		  
+
 void  final_statistics ()
 {
   long  ntot;
@@ -440,8 +516,8 @@ void  final_statistics ()
   if (totlen==0)
     return;
   
-  printf ("\ntotal per socket:  (with%s checks for beamformed data)\n",
-	  beamformed_check?"":"out");
+  printf ("\ntotal per socket:  (with%s checks for beamformed data and with%s checks for packets dropped by kernel)\n",
+	  beamformed_check?"":"out", check_dropped_kernel?"":"out");
   for (i= 0; i<nsock; i++)
     {
       if (beamformed_check)
@@ -454,8 +530,7 @@ void  final_statistics ()
 		    "               dropped packets %9ld   %10.6f %% of seen\n"
 		    "               written packets %9ld   %10.6f %% of seen\n"
 		    "                                           "
-		    "%10.6f %% of exp\n"
-		    "                       volume    %7.3f GB\n",
+		    "%10.6f %% of exp\n",
 		    portnos[i], ntot,
 		    ntot-packs_seen[i], (ntot-packs_seen[i])*100./ntot,
 		    packs_seen[i], packs_seen[i]*100./ntot,
@@ -464,22 +539,24 @@ void  final_statistics ()
 		    packs_dropped[i], packs_dropped[i]*100./packs_seen[i],
 		    packs_seen[i]-packs_dropped[i],
 		    (packs_seen[i]-packs_dropped[i])*100./packs_seen[i],
-		    (packs_seen[i]-packs_dropped[i])*100./ntot,
-		    bytes_written[i]/pow (1024,3));
+		    (packs_seen[i]-packs_dropped[i])*100./ntot);
 	}
       else
 	{
 	  ntot= packs_seen[i];
 	  printf (  "port %5d :  seen packets %9ld\n"
 		    "           dropped packets %9ld   %10.6f %% of seen\n"
-		    "           written packets %9ld   %10.6f %% of seen\n"
-		    "                   volume    %7.3f GB\n",
+		    "           written packets %9ld   %10.6f %% of seen\n",
 		    portnos[i], ntot,
 		    packs_dropped[i], packs_dropped[i]*100./ntot,
 		    packs_seen[i]-packs_dropped[i],
-		    (packs_seen[i]-packs_dropped[i])*100./ntot,
-		    bytes_written[i]/pow (1024,3));
+		    (packs_seen[i]-packs_dropped[i])*100./ntot);
 	}
+      if (check_dropped_kernel)
+	printf (      "             dropped by kernel %9ld   %10.6f %% of (seen+dropped by kernel)\n", dropped_kernel[i], dropped_kernel[i]*100./(packs_seen[i]+dropped_kernel[i]));
+      printf ("                   volume    %7.3f GB\n",
+	      bytes_written[i]/pow (1024,3));
+
     }
 
   printf ("\ntotal %7.3f GB  max buff %ld/%ld (%.1f %% full)  mean frac %.3e\n",
@@ -527,8 +604,12 @@ void  signal_handler(int signum)
   
   
   lasttotlen= totlen;
-  
-  
+
+  /*
+  if (totlen)
+    if (check_dropped_kernel)
+      count_dropped_kernel ();
+  */
   for (i= 0; i<nsock; i++)
     {
       if (totlen)
@@ -577,11 +658,17 @@ void  signal_handler(int signum)
 		    (packs_dropped[i]-last_packs_dropped[i])*100./(
 			packs_seen[i]-last_packs_seen[i]));
 	}
+
+
+	
 	}
     last_packs_dropped[i]= packs_dropped[i];
     last_packs_seen[i]= packs_seen[i];
     }
 
+
+  fflush (stdout);
+  
   if (signum==SIGINT || signum==SIGTERM || signum==SIGALRM)
     {
       printf ("stopping\n");
@@ -612,7 +699,20 @@ void  signal_handler(int signum)
 		  if (stopped==0)  /* may already be 2 */
 		    {
 		      pthread_mutex_lock(&stopped_mutex);
-		      stopped= 1;
+		      if (timeout_exit)
+			stopped= 2;
+		      else
+			stopped= 1;
+
+
+		      /* we should probably do this elsewhere */
+	      if (check_dropped_kernel)
+		count_dropped_kernel ();
+
+
+
+
+		      
 		      pthread_mutex_unlock(&stopped_mutex);
 		    }
 
@@ -673,6 +773,8 @@ int  beamformed_checkpack (struct header_lofar  *header)
 {
   return header->source.error==0 && header->timestamp!=-1;
 }
+
+
 
 
 void *producer ()
@@ -749,12 +851,14 @@ void *producer ()
 		      "closing sockets\n", __LINE__);
 	      pthread_mutex_unlock (&mydebug_mutex);
 #endif
+
+	      
 	      /* close all sockets and return */
 	      assert (nsock!=1 || portnos[0]!=0);  /* not reading from stdin */
 	      for (i= 0; i<nsock; i++)
 		{
 		  int  j;
-		  
+
 		  j= close (sock[i]);
 		  if (j)
 		    {
@@ -928,7 +1032,8 @@ void  init_thisfilestat ()
 	beamformed_good_packs[j]= 0;
 
       last_packs_dropped[j]= last_packs_expected[j]= last_packs_seen[j]= 
-	  last_good_packs[j]= 0;
+	last_good_packs[j]= 0;
+
     }
 
   lasttotlen= totlen= 0;
@@ -1190,11 +1295,14 @@ void *consumer ()
 #endif
 
       /*oldpoi= vrb_poi_old (&ringbuffer); */
-      i= fwrite (oldpoi, 1, thissize, outf);
-      if (i!=thissize)
+      if (dowrite)
 	{
-	  perror ("writing file in consumer()");
-	  exit (1);
+	  i= fwrite (oldpoi, 1, thissize, outf);
+	  if (i!=thissize)
+	    {
+	      perror ("writing file in consumer()");
+	      exit (1);
+	    }
 	}
       bytes_written_thisfile+= thissize;
       
@@ -1271,7 +1379,7 @@ int  main (int  argc, char  **argv)
 
   struct option long_options[] =
     {
-      {"verbose",  no_argument, &verbose, 1},
+      {"verbose",  no_argument, &verbose, 1},  // short: v
       {"len",      required_argument, 0, 'l'},
       {"ports",    required_argument, 0, 'p'},
       {"out",      required_argument, 0, 'o'},
@@ -1284,19 +1392,23 @@ int  main (int  argc, char  **argv)
       {"duration", required_argument, 0, 'd'},
       {"Maxfilesize", required_argument, 0, 'M'},
       {"check",    no_argument,       0, 'c'},
+      {"dropped_kernel", no_argument, 0, 'k'},
       {"bufsize",  required_argument, 0, 'b'},
+      {"sock_bufsize", required_argument, 0, 'B'},
       {"maxwrite", required_argument, 0, 'm'},
       {"compress", no_argument,       0, 'z'},
       {"compcommand", required_argument, 0, 'Z'},
       {"path", required_argument, 0, 'P'},
+      {"nowrite", no_argument, &dowrite, 0},  // short: n
       {0, 0, 0, 0}
     };
-  char  *short_options= "hHvl:p:o:sb:m:t:S:E:d:M:czZ:P:", *cp, *cp2, *cp3, *cp4,
+  char  *short_options= "hHvl:p:o:sb:B:m:t:S:E:d:M:ckzZ:P:n", *cp, *cp2, *cp3, *cp4,
     stdportlist[]= "4346", *start_time= NULL, *end_time= NULL;
   /*    *compcommand_std= "zstd -1 --zstd='strategy=0,wlog=13,hlog=7,slog=1,slen=7' -q -f -T2 -o %s"; */
   int  i, j, c, option_index= 0;
   double  start_timestamp= 0, end_timestamp= 0, duration= 0,  timeout_sec= 10.0;
-  long bufsize;  
+  long bufsize;
+  int  sock_bufsize;
 
   
   maxfilesize= 0.;
@@ -1323,6 +1435,7 @@ int  main (int  argc, char  **argv)
 
 
   bufsize= 104857600;
+  sock_bufsize= 0; /* 0 for default */
   packlen= 0;  /* arbitrary */
 
   stat_per_splitfile= 1;
@@ -1351,7 +1464,10 @@ int  main (int  argc, char  **argv)
           case 'v':
             verbose= 1;
             break;
-          case 'l':
+	case 'n':
+	  dowrite= 0;
+	  break;
+	case 'l':
             if (sscanf (optarg, "%d", &packlen)!=1 ||
                 packlen<=0 || packlen>=MMAXLEN)
               {
@@ -1380,6 +1496,21 @@ int  main (int  argc, char  **argv)
 		bufsize= (long)bufsize_float;
 	    }
             break;
+          case 'B':
+	    {
+	      double  bufsize_float;
+	      
+	      if (sscanf (optarg, "%lf", &bufsize_float)!=1 ||
+		  bufsize_float<0 || bufsize_float>2e9)
+		{
+		  fprintf (stderr,
+			   "problem with sock_bufsize\n");
+		  c= '?';
+		}
+	      else
+		sock_bufsize= (int)bufsize_float;
+	    }
+            break;
           case 'm':
             if (sscanf (optarg, "%ld", &maxwrite)!=1 ||
                 maxwrite<=1024)
@@ -1391,11 +1522,16 @@ int  main (int  argc, char  **argv)
             break;
           case 't':
             if (sscanf (optarg, "%lf", &timeout_sec)!=1 ||
-                timeout_sec<1e-3)
+                fabs (timeout_sec)<1e-3)
               {
                 fprintf (stderr, "problem with timeout\n");
                 c= '?';
               }
+	    if (timeout_sec<0)
+	      {
+		timeout_exit= 1;
+		timeout_sec= -timeout_sec;
+	      }
             break;
           case 'o':
             strncpy (filename, optarg, sizeof (filename)-1);
@@ -1454,7 +1590,7 @@ int  main (int  argc, char  **argv)
               }
 	    /* standard: stats per file, otherwise for all split-files comb */
 	    stat_per_splitfile= maxfilesize>0;
-	    maxfilesize= abs (maxfilesize);
+	    maxfilesize= fabs (maxfilesize);
 	    break;
 	  case 'c':
 	    if (packlen && packlen!=7824)
@@ -1467,7 +1603,10 @@ int  main (int  argc, char  **argv)
 	    packlen= 7824;
 	    beamformed_check= 1;
 	    break;
-	  case 'z':
+	case 'k':
+	  check_dropped_kernel= 1;
+	  break;
+	case 'z':
 	    compress= 1;
 	    break;
 	  case 'Z':
@@ -1486,8 +1625,10 @@ int  main (int  argc, char  **argv)
 	      exit (1);
 	    }
 	  break;
+	case 'H':
+	  break;  /* is treated below */
 	default:  /* incl '?' */
-            c= '?';
+	  c= '?';
         }
       if (c=='?' || c=='h' || c=='H')  /* some error or help */
         {
@@ -1508,7 +1649,7 @@ int  main (int  argc, char  **argv)
                    "    [--len/-l packet_len]    current: %d, 0=arbitrary\n"
                    "    [--sizehead/-s]          write packet lengths as headers\n"
 		   "                             (not well tested)\n"
-                   "    [--timeout/-t sec]       current: %f\n"
+                   "    [--timeout/-t sec]       current: %f, negative: exit after first timeout\n"
                    /*		   "    [--out/-o filename]\n" */
 		   "    [--Start/-S time]        default: now\n"
 		   "    [--End/-E time]          default: never\n"
@@ -1517,6 +1658,7 @@ int  main (int  argc, char  **argv)
 		   "    [--duration/-d sec]      default: infinity\n"
 		   "                             (from start time or first packet)\n"
 		   "    [--check/-c]             packet statistics for beamformed data\n"
+		   "    [--dropped_kernel/-k]    count packets dropped by kernel (may not work)\n"
 		   "                             implies --len 7824\n"
 		   "    [--compress/-z]          compress with zstd\n"
 		   "    [--compcommand/-Z]       compression command, current: %s\n"
@@ -1525,11 +1667,14 @@ int  main (int  argc, char  **argv)
 		   "                             (bytes before compression), default: no limit\n"
 		   "                             pos: stats per file, neg: stats combined\n"
                    "    [--bufsize/-b size]      current: %ld  (float will be converted)\n"
+                   "    [--sock_bufsize/-B size]  socket buffer size, 0 for default, current: %d  (float will be converted)\n"
 		   "    [--maxwrite/-m size]     max. write block, current: %ld\n"
+		   "    [--nowrite/-n]           do not write data to file, only open (for debugging purposes)\n"
                    "    [--help/-h]              brief help\n"
                    "    [--Help/-H]              extended help\n",
 		   argv[0], portlist, filename, packlen,
-		   timeout_sec, compcommand, bufsize, maxwrite);
+		   timeout_sec, compcommand, bufsize, sock_bufsize, maxwrite);
+	  printf ("\n\n\n%c\n\n", c);
 	  if (c=='H')
 	    fprintf (stderr,
 "\nWe can work in different modes. If --Start is given, start at that time,\n"
@@ -1551,6 +1696,7 @@ int  main (int  argc, char  **argv)
 "accepted (others discarded). For variable packet length we can write the\n"
 "lengths as headers (--sizehead). The internal ring buffer size can be set\n"
 "with --bufsize. --verbose produces more output.\n"
+"The socket buffer can be set with --sock_bufsize. This is used for setsockopt(), the value reported with getsockopt () will be twice this (if successful). Note that kernel limits apply, in particular sysctl net.core.rmem_max.\n"
 "Reading and writing have their own threads, data are written in maximum\n"
 "blocks given by --maxwrite. (Should be << bufsize, because each block\n"
 "is only released after complete write.)\n"
@@ -1708,8 +1854,12 @@ hostname
 
 
   if (verbose)
+    {
       for (i= 0; i<nsock; i++)
         printf ("port %d  %d\n", i, portnos[i]);
+      printf ("own buffer size: %ld\n", bufsize);
+    }
+
 
   if (nsock==1 && portnos[0]==0)   /* then read stdin */
     {
@@ -1824,6 +1974,27 @@ hostname
 	  /*      printf ("sock %d %d\n", i, sock[i]); */
 	  if (sock[i]>maxsock)
 	    maxsock= sock[i];
+
+	  if (sock_bufsize>0 &&
+	      (setsockopt (sock[i], SOL_SOCKET, SO_RCVBUF, &sock_bufsize,
+			   sizeof (sock_bufsize)) < 0))
+	    perror ("setsockopt");
+	  if (verbose)
+	    {
+	      int siz;
+	      socklen_t optlen;
+	      optlen= sizeof (siz);
+	      if (getsockopt (sock[i], SOL_SOCKET, SO_RCVBUF, &siz, &optlen)
+		  < 0)
+		perror ("getsockopt");
+	      else
+		{
+		  printf ("socket buffer size for port %d: %d\n", portnos[i],
+			  siz);
+		}
+	      assert (optlen==sizeof (siz));
+	  }
+	  
 	  
 	  memset(&addr[i], 0, sizeof(addr[i]));
 	  addr[i].sin_family= AF_INET;
@@ -1836,13 +2007,17 @@ hostname
 	      perror ("bind()");
 	      exit (1);
 	    }
-	  
+
 	  FD_SET (sock[i], &allsocks);
 	}
     }
 
 
+  if (check_dropped_kernel)
+    count_dropped_kernel ();  // init (may be 0 or -1)
 
+
+  
   init_thisfilestat ();
 
 
@@ -1912,6 +2087,9 @@ hostname
 
   
   free_vrb (&ringbuffer);
+
+
+  
 
 #if  MYDEBUG
   printf ("regular exit of %s with MYDEBUG\n", __FILE__);
