@@ -42,7 +42,7 @@ _RCU_SB_SEP = "+"
 regex_ACCfolder = (
     r"^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
     r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-    r"_rcu(?P<rcumode>\d+)_dur(?P<duration_tot>\d+)(_(?P<calsrc>\w+))?_acc$")
+    r"_spw(?P<rcumode>\d+)_int(?P<integration>\d+)_dur(?P<duration_tot>\d+)_dir(?P<calsrc>[^_]+)_acc$")
 regex_ACCfilename = (
     r"^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
     r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
@@ -1083,7 +1083,7 @@ class CVCfiles(object):
             obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
             obsfolderinfo['source'] = obsdirinfo['calsrc']
             obsfolderinfo['pointing'] = \
-                ilisa.monitorcontrol.directions.std_pointings(
+                ilisa.operations.directions.std_pointings(
                     obsfolderinfo['source'])
         else:
             raise ValueError("Folder not expected xst or acc format.")
