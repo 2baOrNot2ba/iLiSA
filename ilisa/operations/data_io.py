@@ -575,6 +575,11 @@ class LDatInfo(object):
                 self.sb.append(subbands)
                 self.bl.append(beamlets)
             self.direction = digdir
+        else:
+            # No beamctl was issued so figure out LCU setup for other info
+            if self.mode:
+                self.rcumode = self.mode
+                self.antset = modeparms.rcumode2antset_eu(self.mode)
 
         # rspctl_cmds attr
         if rspctl_cmds == []:
