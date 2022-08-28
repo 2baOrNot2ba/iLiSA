@@ -1605,6 +1605,22 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     """\
     Plot SST data
 
+    SST data vary over frequency, time sample, and RCU. Various types of plots
+    of it can be produced:
+      * *persbs*: per frequency, plot over time waterfall of RCUs
+      * *mean*: mean dynamic spectra averaged over RCU
+      * *overlay*:
+      * *timsamp*: mosaic of spectra for all RCUs at time sample
+
+    Which plot is selected depends on argument settings (T,F,X = Set, Unset,
+    Arbitrary), see Table:
+    | freqreq | sample_nr| rcu_sel | Plot    |
+    |---------|----------|---------|---------|
+    | T       | X        | X       | persb   |
+    | F       | F        | X       | mean    |
+    | F       | T        | T       | overlay |
+    | F       | F        | T       | timsamp |
+
     Parameters
     ----------
     sstff : str
@@ -1685,19 +1701,23 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
             plt.subplot(axdim0, axdim1, sbplt_nr)
             plt.semilogy(freqs, sstdata[rcu_nr + 1, sample_nr, :])
             plt.title('{},{}'.format(rcu_nr, rcu_nr + 1))
+        plt.suptitle('RCU spectra @ {} UT, station {}'.format(
+            ts[sample_nr], obsfolderinfo['station_id']))
     elif show == 'overlay':
         if rcu_sel is not None:
             if ':' in rcu_sel:
                 rcu_sel = rcu_sel.split(':')
                 rcu_sel = slice(*[int(_a) for _a in rcu_sel])
             else:
-                rcu_sel = int(rcu_sel)
+                rcu_sel = slice(int(rcu_sel), int(rcu_sel)+1)
         else:
             rcu_sel = slice(None)
         res = sstdata[rcu_sel, sample_nr, :].squeeze()
         plt.semilogy(freqs, numpy.transpose(res))
         rcus = range(rcu_sel.start, rcu_sel.stop)
         plt.legend(rcus)
+        plt.title('RCU spectrum @ {} UT, station {}'.format(
+            ts[sample_nr], obsfolderinfo['station_id']))
     plt.show()
 
 
