@@ -1876,9 +1876,12 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-n', '--filenr', type=str, default=None)
-    parser.add_argument('-s', '--sampnr', type=int, default=None)
-    parser.add_argument('-f', '--freq', type=float, default=None)
+    parser.add_argument('-n', '--filenr', type=str, default=None,
+                        help='Can be file # or RCU #')
+    parser.add_argument('-s', '--sampnr', type=int, default=None,
+                        help='Sample #')
+    parser.add_argument('-f', '--freq', type=float, default=None,
+                        help='Frequency in Hz')
     parser.add_argument('-l', '--linear', action="store_true",
                         help='Use linear X,Y polarization rather than Stokes')
     parser.add_argument('-p', '--printout', action="store_true",
