@@ -1602,10 +1602,21 @@ def viewbst(bstff, pol_stokes=True, printout=False):
 
 
 def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
-    """Plot SST data."""
+    """\
+    Plot SST data
+
+    Parameters
+    ----------
+    sstff : str
+        Path to SST file-folder.
+    freqreq : float
+        Requested frequency in Hz.
+    sample_nr : int
+        Sample number to plot.
+    rcu_sel : int
+        RCU number to plot.
+    """
     sstdata_rcu, ts_list, freqs, obsfolderinfo = readsstfolder(sstff)
-    scanrecinfo = ScanRecInfo()
-    scanrecinfo.read_scanrec(sstff)
     starttime = obsfolderinfo['datetime']
     sbreq = None
     if freqreq:
@@ -1632,7 +1643,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
             plt.colorbar()
             plt.title('Mean (over RCUs) dynamicspectrum\n'
                       + 'Starttime: {} Station: {}'
-                      .format(starttime, scanrecinfo.stnid))
+                      .format(starttime, obsfolderinfo['station_id']))
             plt.xlabel('Frequency [MHz]')
             plt.ylabel('Time [h]')
         else:
