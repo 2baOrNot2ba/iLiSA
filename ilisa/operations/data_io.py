@@ -963,7 +963,8 @@ class CVCfiles(object):
             raise ValueError('Path does not exist')
         # Get/Compute ant positions
         stnid = self.scanrecinfo.get_stnid()
-        antset = next(iter(self.scanrecinfo.obsinfos.values())).antset
+        antset = self.scanrecinfo.obsinfos[
+            self.scanrecinfo.get_obs_ids()[0]].antset
         self.stn_pos, self.stn_rot, self.stn_antpos, self.stn_intilepos \
             = antennafieldlib.get_antset_params(stnid, antset)
         # Account for SEPTON antenna positions
