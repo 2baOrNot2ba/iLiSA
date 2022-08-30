@@ -106,8 +106,9 @@ def process_scansess(sesscans_in):
 
             # Prepare observation arguments:
 
-            # - Starttime computed based on previous starttime
-            # - - and after time:
+            # - Compute `starttime` of this scan
+            #   `after` converted to `starttime` using formula:
+            #      `starttime` = `starttimeprev` + `after`
             scanstarttime = scan.get('starttime')
             if scan == sesscans_in['scans'][0] and\
                 (not scanstarttime or scanstarttime == 'ASAP'):
@@ -369,6 +370,7 @@ class ScanSession(object):
                 integration = scan['integration']
                 freqspec = scan['beam']['freqspec']
                 freqsetup = modeparms.FreqSetup(freqspec)
+                scan_dur = scan['duration']
 
                 # Calculate scan schedule fundamental timings
                 starttime = modeparms.timestr2datetime(scan['starttime'])
@@ -376,9 +378,18 @@ class ScanSession(object):
 
                 margin_scan_start = datetime.timedelta(seconds=2)
                 startedtime = waituntil(starttime, margin_scan_start)
+                _lag_delta = startedtime - starttime  # positive for proper lag
+                if _lag_delta > datetime.timedelta(0.0):
+                    logging.warning("Scan start is lagging by {}".format(_lag_delta))
+                    _dur_corr = _lag_delta.total_seconds()
+                    # Prioritize start of next scan over this scan's duration
+                    # by correcting `scan_dur` by lag:
+                    logging.info("Correcting duration by {}s for lag".format(_dur_corr))
+                    scan_dur -= _dur_corr
+
                 # Initialize LScan
                 lscan = LScan(self.stndrv, bsx_stat, freqsetup,
-                              scan['duration'], pointing_spec, integration,
+                              scan_dur, pointing_spec, integration,
                               starttime, acc=acc, bfs=bfs,
                               destpath=sesspath, destpath_bfs=bfdsesdumpdir,
                               file_dur=scan['file_dur'],
@@ -389,10 +400,9 @@ class ScanSession(object):
                 scanrecpath = {'acc': None, 'bfs': None, 'bsx': None}
                 next(subscan)
 
-                # duration_tot is the requested duration plus time 4 lcu ops
-                duration_tot = scan['duration']
+                # Compute stop time as now + scan_dur
                 stoptime = datetime.datetime.utcnow() + datetime.timedelta(
-                    seconds=int(duration_tot))
+                    seconds=scan_dur)
                 logging.info('Will stop @ {}'.format(stoptime))
                 stop_cond = still_time_fun(stoptime)
                 stop_scan_cond = stop_cond()
@@ -411,7 +421,7 @@ class ScanSession(object):
                 lscan.close()
                 # If no recording then simply wait for duration_tot
                 if not bfs and not modeparms._xtract_bsx(bsx_stat) and not acc:
-                    _sleepfor = (datetime.timedelta(seconds=duration_tot)
+                    _sleepfor = (datetime.timedelta(seconds=scan_dur)
                                  + margin_scan_start)
                     logging.info('Not recording for {}s'.format(_sleepfor))
                     time.sleep(_sleepfor)
@@ -537,6 +547,7 @@ def obs(scansess_in, sac):
         sys.exit(1)
     scansess_in['station'] = stndrv.get_stnid()
     scnsess = ScanSession(stndrv)
+    stndrv._lcu_interface._fake_slow_conn = 0  # Fake a slower connection
     scnsess.run_scansess(scansess_in)
     cmd = 'obs:' + file
     with open(LOGFILE, 'a') as lgf:
