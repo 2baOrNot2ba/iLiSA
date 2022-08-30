@@ -381,12 +381,13 @@ def gsmcal(dataff, filenr, sampnr, fluxpersterradian):
 
 def gsmcal_cli():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-n', '--filenr', type=int, default=0)
+    parser.add_argument('-s', '--sampnr', type=int, default=0)
+    parser.add_argument('-f', '--fluxpersterradian', action="store_true",
+                        help="Normalize flux per sterradian")
     parser.add_argument('dataff',
                         help="""Path to CVC folder""")
     args = parser.parse_args()
-    args.fluxpersterradian = False
-    args.filenr = 180
-    args.sampnr = 0
     gains = gsmcal(args.dataff, args.filenr, args.sampnr,
                    args.fluxpersterradian)
 
