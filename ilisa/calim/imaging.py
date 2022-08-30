@@ -469,7 +469,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stn_pos, stn_antpos, pointing,
 
 def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                  phaseref=None, calibrated=None, pbcor=None, maskhrz=True,
-                 fluxperbeam=True, flash_plot=False):
+                 fluxperbeam=True, plot_title='Sky image'):
     """
     Generic plot of images of Stokes components from sky map.
     
@@ -503,8 +503,8 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     fluxperbeam : boolean
         Normalize flux values to be in units of flux per beam.
         Default True. If False, flux is in units of flux per steradian (s.r.).
-    flash_plot : bool
-        Whether to just flash the plot or plot and stop.
+    plot_title : str
+        String to place in plot title describing image.
     """
 
     # Compute extent
@@ -545,7 +545,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         vmin = numpy.amin(compmap[pbeamfld])
         plt.imshow(compmap, origin='lower', extent=[lmin, lmax, mmin, mmax],
                    interpolation='none', cmap=plt.get_cmap("jet"),
-                   vmax=vmax,vmin=vmin)
+                   vmax=vmax, vmin=vmin)
         plt.gca().invert_xaxis()
         if pos == 2 or pos == 3:
             plt.xlabel(xlabel)
@@ -612,16 +612,10 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     if not phaseref:
         phaseref = ('', '', '')
     plt.suptitle(
-        """Sky Image: PhaseRef={} @ {} MHz,
+        """{}: PhaseRef={} @ {} MHz,
         Station {}, int={}s, UT={}, PbCor={}, {}
-        """.format(pointing_tuple2str(phaseref), freq/1e6, stnid, integration,
-                   t, pbcor, caltag), fontsize=8)
-    if flash_plot:
-        plt.draw()
-        plt.pause(0.001)
-        plt.clf()
-    else:
-        plt.show()
+        """.format(plot_title, pointing_tuple2str(phaseref), freq/1e6, stnid,
+                   integration, t, pbcor, caltag), fontsize=8)
 
 
 def pntsrc_hmsph(*pntsrcs, imsize=101):
@@ -729,10 +723,9 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
                 cvc_image(cvcobj, fileidx, tidx, phaseref,
                                   polrep=polrep, pbcor=correctpb,
                                   fluxperbeam=fluxperbeam)
-            plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid,
-                                 integration, _phaseref_, calibrated,
-                                 pbcor=correctpb, maskhrz=False,
-                                 fluxperbeam=fluxperbeam)
+            plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
+                         _phaseref_, calibrated, pbcor=correctpb, maskhrz=False,
+                         fluxperbeam=fluxperbeam, plot_title='Imaged Sky')
             if show_gsm:
                 gs_model = 'LFSM'
                 imsize = 200
@@ -748,10 +741,11 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
                 l, m = numpy.linspace(-1, 1, imsize), numpy.linspace(-1, 1, imsize)
                 ll, mm = numpy.meshgrid(l, m)
                 img_zero = numpy.zeros_like(img, dtype=float)
-                plotskyimage(ll, mm, (img, img_zero, img_zero, img_zero), 'stokes', t, freq, stnid,
-                                 integration, _phaseref_, calibrated,
-                                 pbcor=correctpb, maskhrz=False,
-                                 fluxperbeam=fluxperbeam)
+                plotskyimage(ll, mm, (img, img_zero, img_zero, img_zero),
+                             'stokes', t, freq, stnid, integration, _phaseref_,
+                             calibrated, pbcor=correctpb, maskhrz=False,
+                             fluxperbeam=fluxperbeam, plot_title='Model image ')
+            plt.show()
 
 
 def nfimage(dataff, filenr, sampnr):
@@ -774,6 +768,7 @@ def nfimage(dataff, filenr, sampnr):
             freq = cvcobj.freqset[fileidx][tidx]
             plotskyimage(xx, yy, nfimages, polrep, t, freq, stnid, integration,
                          maskhrz=False)
+            plt.show()
 
 
 def main_cli():
@@ -807,7 +802,7 @@ def main_cli():
         nfimage(args.dataff, args.filenr, args.sampnr)
     else:
         image(args.dataff, args.filenr, args.sampnr, args.phaseref,
-              args.correctpb, args.fluxpersterradian)
+              args.correctpb, args.fluxpersterradian, show_gsm=False)
 
 
 if __name__ == "__main__":

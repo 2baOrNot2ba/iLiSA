@@ -376,6 +376,7 @@ def gsmcal(dataff, filenr, sampnr, fluxpersterradian):
             imaging.plotskyimage(_l, _m, skyimages, 'linear', t, freq, stnid,
                                  integration, phaseref, calibrated, pbcor=False,
                                  maskhrz=False, fluxperbeam=fluxperbeam)
+            plt.show()
 
 
 def gsmcal_cli():
