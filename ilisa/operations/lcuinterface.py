@@ -77,6 +77,7 @@ class LCUInterface(object):
         self.url = self.user + "@" + self.hostname
         self.DryRun = False  # DryRun means commands to LCU are not executed
         self.verbose = True  # Write out LCU commands
+        self._fake_slow_conn = 0  # Fake slow connection (for tests) 0=False
 
         # Init some OS paths:
         ## User's home dir
@@ -113,7 +114,8 @@ class LCUInterface(object):
                          stdoutdir=self.lcuDumpDir, nodetype='LCU',
                          background_job=backgroundJOB, dryrun=self.DryRun,
                          accessible=self.accessible, quotes=quotes,
-                         verbose=self.verbose)
+                         verbose=self.verbose,
+                         _slow_conn_time=self._fake_slow_conn)
 
     def __exec_lcu_nomock(self, cmdline, backgroundJOB=False, quotes="'"):
         """\

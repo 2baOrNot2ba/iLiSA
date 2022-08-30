@@ -10,16 +10,18 @@ import logging
 import ilisa.operations  #.__init__  # To set default logging
 
 
-def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False, dryrun=False,
-              accessible=False, quotes="'", stdoutdir='~', verbose=True):
-    return _exec_ssh(remnode, cmdline, nodetype=nodetype, background_job=background_job,
-                     dryrun=dryrun, accessible=accessible, quotes=quotes,
-                     stdoutdir=stdoutdir, verbose=verbose)
+def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False,
+              dryrun=False, accessible=False, quotes="'", stdoutdir='~',
+              verbose=True, _slow_conn_time=0):
+    return _exec_ssh(remnode, cmdline, nodetype=nodetype,
+                     background_job=background_job, dryrun=dryrun,
+                     accessible=accessible, quotes=quotes, stdoutdir=stdoutdir,
+                     verbose=verbose, _slow_conn_time=_slow_conn_time)
 
 
 def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
               background_job=False, dryrun=False, accessible=False, quotes="'",
-              stdoutdir='~', verbose=True):
+              stdoutdir='~', verbose=True, _slow_conn_time=0):
     """Execute a command on the remnode, either as a background job or in the
     foreground (blocking). Typically access is remote via ssh.
     (To speed things up use the ssh CommandMaster option.)
@@ -33,6 +35,9 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
     else:
         shellinvoc = "ssh " + nodeurl
     output = None
+    if _slow_conn_time:
+        # Simulate a slow connection by executing a sleep before cmdline:
+        cmdline = "sleep {};".format(_slow_conn_time) + " " + cmdline
     if background_job:
         # Currently only run_beamctl & run_tbbctl run in background
         # Put stdout & stderr in log in dumpdir
