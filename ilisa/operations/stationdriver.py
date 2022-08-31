@@ -22,6 +22,8 @@ from ilisa.operations._rem_exec import ostimenow
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class StationDriver(object):
     """StationDriver is a client type class that allows one to observe with LCU
@@ -48,10 +50,10 @@ class StationDriver(object):
                     return True
                 return False
             else:
-                logging.warning("Station is not in stand-alone mode.")
+                _LOGGER.warning("Station is not in stand-alone mode.")
                 return False
         else:
-            logging.warning(
+            _LOGGER.warning(
                 """Someone else ({}) is using LCU (You are running as {})"""
                 .format(serviceuser, self._lcu_interface.user))
             return False
@@ -174,12 +176,12 @@ class StationDriver(object):
             # Dummy or hot beam start: (takes about 10sec)
             # This seems necessary: first beamctl after going to swlevel 3
             # seems to crash.
-            logging.info("Running warmup beam... @ {}".format(
+            _LOGGER.info("Running warmup beam... @ {}".format(
                 datetime.datetime.utcnow()))
             self.streambeams(modeparms.FreqSetup('10_90'),
                              '0.,1.5707963,AZELGEO')
             self._lcu_interface.stop_beam()
-            logging.info("Finished warmup beam... @ {}".format(
+            _LOGGER.info("Finished warmup beam... @ {}".format(
                 datetime.datetime.utcnow()))
 
     def halt_observingstate(self):
@@ -205,7 +207,7 @@ class StationDriver(object):
                 if self.is_observingallowed():
                     swlevel = self._lcu_interface.get_swlevel()
                     if swlevel != 0:
-                        logging.warning(
+                        _LOGGER.warning(
                             "You are leaving station in swlevel {} != 0"
                             .format(swlevel))
 
@@ -226,7 +228,7 @@ class StationDriver(object):
         move_cmdline.append(dst_arg)
         cmdprompt = "spawn on driver>"
         if self._lcu_interface.verbose:
-            logging.info("{} {}".format(cmdprompt, " ".join(move_cmdline)))
+            _LOGGER.info("{} {}".format(cmdprompt, " ".join(move_cmdline)))
         proc = subprocess.Popen(move_cmdline)
         proc.wait()  # Since cleanup() after might zap data before completion
         self._lcu_interface._rm(source)
@@ -430,7 +432,7 @@ class StationDriver(object):
                                                       band, anadigdir, rcusel)
         self.beamctl_cmds.append(beamctl_cmd)
         waittime = 0  # 11
-        logging.info("Waiting {}s for beam to settle...".format(waittime))
+        _LOGGER.info("Waiting {}s for beam to settle...".format(waittime))
         time.sleep(waittime)  # Wait for beam to settle
         return beamctl_cmd
 
@@ -440,7 +442,7 @@ class StationDriver(object):
         Form beams with station
         """
         if dummywarmup:
-            logging.warning("Warmup not currently implemented")
+            _LOGGER.warning("Warmup not currently implemented")
         bits = freqbndobj.bits
         rcuctl_cmds = self._rcusetup(bits, attenuation)
         beamctl_cmds = []
@@ -599,7 +601,7 @@ class StationDriver(object):
         rep = int(rep)
         if rep == 0:
             duration_tot = duration_file * nrsbs2sweep
-            logging.warning(
+            _LOGGER.warning(
                 "Total duration too short for 1 full repetition."
                 "Increasing total duration to {}s.".format(duration_tot))
             rep = 1
@@ -751,11 +753,11 @@ class StationDriver(object):
         timeuntilboot = d.total_seconds()
         if timeuntilboot < 0.:
             timeuntilboot = 0
-        logging.info("Will boot to observe state after {}s..."
+        _LOGGER.info("Will boot to observe state after {}s..."
                      .format(timeuntilboot))
         time.sleep(timeuntilboot)
         # From swlevel 0 it takes about 1:30min? to reach swlevel 3
-        logging.info("Booting")
+        _LOGGER.info("Booting")
 
     def setup_tof(self, elemsOn=modeparms.elOn_gILT):
         """Setup (HBA) tiling off mode."""
@@ -983,7 +985,7 @@ def _is_sshfs_mounted(hostname):
     sshfs_mnt_pnts = filter(lambda l : 'fuse.sshfs' in l, mounts_pnts)
     hostname_mnt_pnts = list(filter(lambda l : l.startswith(hostname),
                                     sshfs_mnt_pnts))
-    logging.debug("hostname_mnt_pnts={}".format(hostname_mnt_pnts))
+    _LOGGER.debug("hostname_mnt_pnts={}".format(hostname_mnt_pnts))
     if hostname_mnt_pnts:
         return True
     else:
@@ -1047,10 +1049,11 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     secondsleft = int(timeleft.total_seconds())
     if secondsleft < 0:
         lag = now - starttime
-        logging.info("Lagging {}s past {} (margin={})".format(lag, starttime,
+        _LOGGER.info("Lagging {}s past {} (margin={})".format(lag,
+                                                              starttime,
                                                               margin))
     else:
-        logging.info("Waiting {}s before {} (margin={})".format(secondsleft,
+        _LOGGER.info("Waiting {}s before {} (margin={})".format(secondsleft,
                                                                 starttime,
                                                                 margin))
         time.sleep(secondsleft)

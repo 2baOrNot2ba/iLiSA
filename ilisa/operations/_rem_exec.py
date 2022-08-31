@@ -7,7 +7,9 @@ try:
 except ImportError:
     IMPORTED_PARAMIKO = False
 import logging
-import ilisa.operations  #.__init__  # To set default logging
+import ilisa.operations
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False,
@@ -48,7 +50,7 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
     else:
         pre_prompt = ""
     if verbose:
-        logging.info(pre_prompt + nodeprompt + cmdline)
+        _LOGGER.info(pre_prompt + nodeprompt + cmdline)
     if (not dryrun) and accessible:
         if background_job == 'locally':
             # Runs in background locally rather than in background on LCU
@@ -62,7 +64,8 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
         if output:
             output = output.rstrip()
     elif not accessible:
-        logging.warning("Not running as "+nodeurl+" since it is not accesible.")
+        _LOGGER.warning("Not running as " + nodeurl
+                        + " since it is not accessible.")
     return output
 
 

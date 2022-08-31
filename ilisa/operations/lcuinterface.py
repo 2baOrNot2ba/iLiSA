@@ -14,6 +14,8 @@ import ilisa.operations.modeparms as modeparms
 from ilisa.operations.modeparms import parse_lofar_conf_files, rcumode2band,\
     beamctl_args2cmds, rcusetup_args2cmds, rspctl_stats_args2cmds
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class LCUInterface(object):
     """This class provides an interface to the Local Control Unit (LCU) of an
@@ -56,7 +58,7 @@ class LCUInterface(object):
         try:
             mac_version = self.get_mac_version()
         except Exception:
-            logging.error("Cannot access LCU with URL: " + self.url)
+            _LOGGER.error("Cannot access LCU with URL: " + self.url)
         if mac_version != "":
             accessible = True
         else:
@@ -94,7 +96,7 @@ class LCUInterface(object):
         if not self.accessible:
             raise ConnectionError("Cannot access LCU using {}.".format(self.url))
         elif self.verbose:
-            logging.info("Established access to LCU on {}.".format(self.stnid))
+            _LOGGER.info("Established access to LCU on {}.".format(self.stnid))
 
         # Check LCU OS env:
         path_ok, datadirs_ok = self.checkLCUenv()
@@ -178,7 +180,7 @@ class LCUInterface(object):
             getstationmode_out = self._exec_lcu("getstationmode")
         except:
             # Can happen if no ServiceBroker process running
-            logging.warning("ServiceBroker not running")
+            _LOGGER.warning("ServiceBroker not running")
             stationmode = None
         else:
             stationmode = getstationmode_out.split()[-1]
@@ -294,7 +296,7 @@ class LCUInterface(object):
         if self.DryRun:
             self.bits = bits
         waittime = 1
-        logging.info("Waiting {}s for rspctl to settle...".format(waittime))
+        _LOGGER.info("Waiting {}s for rspctl to settle...".format(waittime))
         time.sleep(waittime)  # Wait for rspctl to settle
         return rcusetup_cmds
 
@@ -457,7 +459,7 @@ class LCUInterface(object):
                 _dd_cmd_time = time.time() - _t0
                 _sleep_rem = modeparms.ACC_DUR - (_dd_cmd_time+_sleepfor0)
                 # Block for time remaining for nominal ACC
-                logging.debug('sleep_rest ' + _sleep_rem)
+                _LOGGER.debug('sleep_rest ' + _sleep_rem)
                 if _sleep_rem >= 0.0:
                     time.sleep(_sleep_rem)
                 filetime += datetime.timedelta(seconds=acc_cadence)
@@ -571,7 +573,7 @@ class LCUInterface(object):
         rspctl_cmd = "rspctl --rcu=0x00034880 --select=" + select
         self._exec_lcu(rspctl_cmd)
         if self.verbose:
-            logging.info("Turning OFF LBA LNAs...")
+            _LOGGER.info("Turning OFF LBA LNAs...")
         time.sleep(30)
         return rspctl_cmd
 

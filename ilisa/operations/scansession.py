@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import datetime
+import shutil
 import yaml
 import argparse
 import logging
@@ -15,7 +16,16 @@ import ilisa.operations.programs as programs
 from ilisa.operations.stationdriver import StationDriver, waituntil
 from ilisa.operations.scan import still_time_fun, LScan
 
-LOGFILE = "ilisa_cmds.log"
+OBSLOGFILE = "ilisa_obs.log"  # Log of each ilisa_obs CLI run
+SESLOGFILE = 'session.log'    # python logging of ilisa exec steps for session
+__FH = logging.FileHandler(SESLOGFILE)
+__FH.setFormatter(logging.Formatter(
+    '%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s',
+    datefmt=ilisa.operations.DATETIMESTRFMT))
+__FH.setLevel(logging.INFO)
+_LOGGER_ROOT = logging.getLogger(__package__)
+_LOGGER_ROOT.addHandler(__FH)
+_LOGGER = logging.getLogger(__name__)
 
 
 def projid2meta(projectid):
@@ -123,7 +133,7 @@ def process_scansess(sesscans_in):
                     after_delta = modeparms.hmsstr2deltatime(after)
                     if after_delta < (dur_dprev + margintime):
                         time2nxtscan = (dur_dprev, after_delta, margintime)
-                        logging.warning(
+                        _LOGGER.warning(
                             'No time for scan: after {} - dur {} < marg {}'
                             .format(*time2nxtscan))
                     scanstarttime = scanstarttimeprev + after_delta
@@ -349,7 +359,7 @@ class ScanSession(object):
         # Wait until it is time to bootup
         waituntil(sessmeta['start'], sesstart_dt)
         self.stndrv.goto_observingstate()
-        logging.info("Scansession {} started".format(self.session_id))
+        _LOGGER.info("Started {}".format(self.session_id))
 
         scans_done = []
         for scan in scans_iter:
@@ -382,15 +392,18 @@ class ScanSession(object):
                 if scan['starttime'] == 'ASAP':
                     _lag_delta = datetime.timedelta(0.0)
                 if _lag_delta > datetime.timedelta(0.0):
-                    logging.warning("Scan start is lagging by {}".format(_lag_delta))
+                    _LOGGER.warning("Scan start is lagging by {}"
+                                    .format(_lag_delta))
                     _dur_corr = _lag_delta.total_seconds()
                     # Prioritize start of next scan over this scan's duration
                     # by correcting `scan_dur` by lag:
-                    logging.info("Correcting duration by {}s for lag".format(_dur_corr))
+                    _LOGGER.info("Correcting duration by {}s for lag"
+                                 .format(_dur_corr))
                     scan_dur -= _dur_corr
                     if scan_dur <= 0.0:
                         scan['id'] = 'NoID' if not scan.get('id', None) else scan['id']
-                        logging.warning('No time for scan, so skipping this one.')
+                        _LOGGER.warning('No time for scan,'
+                                            ' so skipping this one.')
                         scan['id'] += '_SKIPPED'
                         scans_done.append(scan)
                         continue
@@ -402,7 +415,8 @@ class ScanSession(object):
                               destpath=sesspath, destpath_bfs=bfdsesdumpdir,
                               file_dur=scan['file_dur'],
                               scan_id=scan['id'])
-                logging.info("Started LScan:: {}".format(lscan.describe_scan()))
+                _LOGGER.info("Started LScan:: {}"
+                             .format(lscan.describe_scan()))
                 subscan = iter(lscan)
                 # Start the subscan
                 scanrecpath = {'acc': None, 'bfs': None, 'bsx': None}
@@ -411,12 +425,12 @@ class ScanSession(object):
                 # Compute stop time as now + scan_dur
                 stoptime = datetime.datetime.utcnow() + datetime.timedelta(
                     seconds=scan_dur)
-                logging.info('Will stop @ {}'.format(stoptime))
+                _LOGGER.info('Will stop @ {}'.format(stoptime))
                 stop_cond = still_time_fun(stoptime)
                 stop_scan_cond = stop_cond()
                 while stop_scan_cond:
                     try:
-                        logging.debug('scansession: IN TOP SUBSCAN LOOP')
+                        _LOGGER.debug('scansession: IN TOP SUBSCAN LOOP')
                         _ = subscan.send(stop_scan_cond)
                     except StopIteration:
                         stop_scan_cond = False
@@ -425,23 +439,23 @@ class ScanSession(object):
                     list(map(_update_latestdatafile,
                              *zip(('acc', acc), ('bfs', bfs), ('bsx',bsx_stat)))
                          )
-                logging.debug('scansession: END SUBSCAN LOOP')
+                _LOGGER.debug('scansession: END SUBSCAN LOOP')
                 lscan.close()
                 # If no recording then simply wait for duration_tot
                 if not bfs and not modeparms._xtract_bsx(bsx_stat) and not acc:
                     _sleepfor = (datetime.timedelta(seconds=scan_dur)
                                  + margin_scan_start)
-                    logging.info('Not recording for {}s'.format(_sleepfor))
+                    _LOGGER.info('Not recording for {}s'.format(_sleepfor))
                     time.sleep(_sleepfor)
                 scanresult = lscan.scanresult
             scan['id'] = scanresult.get('scan_id', None)
             scanpath_scdat = scanresult.get('scanpath_scdat', None)
-            logging.info("Saved scan here: {}".format(scanpath_scdat))
+            _LOGGER.info("Saved scan here: {}".format(scanpath_scdat))
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
             duration_req = datetime.timedelta(seconds=scan['duration'])
-            logging.info("End LScan:: id: {}".format(scan['id']))
-            logging.debug("Request dur={}, ".format(duration_req)
+            _LOGGER.info("End LScan:: id: {}".format(scan['id']))
+            _LOGGER.debug("Request dur={}, ".format(duration_req)
                           +"Actual dur={}".format(duration_actual))
             scans_done.append(scan)
         # Collate session metadata with scan meta data as scansession metadata
@@ -455,6 +469,7 @@ class ScanSession(object):
             _ongoing = filecontents.pop(0)
         with open(self.latestdatafile, 'w') as f:
             f.writelines(filecontents)
+        shutil.move(SESLOGFILE, os.path.join(self.get_sesspath()))
 
 
 def get_proj_stn_access_conf(projid, stnid=None):
@@ -527,8 +542,8 @@ def check_scan_sess(scansess_in):
     starttime = sessmeta['start']
     print('duration_total:', endtime - starttime)
     if check_sess_start_passed(sessmeta):
-        logging.warning("Session starttime {} is in the past."
-              .format(sessmeta['start']))
+        _LOGGER.warning("Session starttime {} is in the past."
+                        .format(sessmeta['start']))
 
 
 def obs(scansess_in, sac):
@@ -549,22 +564,23 @@ def obs(scansess_in, sac):
     try:
         stndrv = StationDriver(sac['LCU'], sac['DRU'], mockrun=mockrun)
     except (ConnectionError, AssertionError) as err:
-        logging.error ("Cannot setup {}'s LCU correctly"
-                       .format(sac['LCU']['stnid']))
-        logging.error(err)
+        _LOGGER.error("Cannot setup {}'s LCU correctly"
+                      .format(sac['LCU']['stnid']))
+        _LOGGER.error(err)
         sys.exit(1)
     scansess_in['station'] = stndrv.get_stnid()
     scnsess = ScanSession(stndrv)
     stndrv._lcu_interface._fake_slow_conn = 0  # Fake a slower connection
     scnsess.run_scansess(scansess_in)
     cmd = 'obs:' + file
-    with open(LOGFILE, 'a') as lgf:
+    with open(OBSLOGFILE, 'a') as lgf:
         if mockrun:
             priority_fld = 'M'
         else:
             priority_fld = '0'
-        lgf.write("{} {} {} {}".format(issued_at, cli_start, priority_fld, projectid)
-                  +" {} {}\n".format(stndrv.get_stnid(), cmd))
+        lgf.write("{} {} {} {}".format(issued_at, cli_start, priority_fld,
+                                       projectid)
+                  + " {} {}\n".format(stndrv.get_stnid(), cmd))
 
 
 def main_cli():
@@ -598,7 +614,7 @@ def main_cli():
         sac = get_proj_stn_access_conf(scansess_in['projectid'],
                                        scansess_in['station'])
     except RuntimeError as e:
-        logging.error(e)
+        _LOGGER.error(e)
         sys.exit(1)
     scansess_in['station'] = sac['LCU']['stnid']
     if args.check:
@@ -607,7 +623,7 @@ def main_cli():
     try:
         obs(scansess_in, sac)
     except ValueError as err:
-        logging.error(err)
+        _LOGGER.error(err)
 
 
 if __name__ == "__main__":

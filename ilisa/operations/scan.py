@@ -11,6 +11,8 @@ import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
 from ilisa.operations.stationdriver import StationDriver, waituntil
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class LScan:
     def __init__(self, stndrv, rec_type, freqsetup, duration_tot,
@@ -190,7 +192,7 @@ class LScan:
                         if not bfs_yield:
                             # BFS does not need to block and
                             # so with no BSX have to throttle it...
-                            logging.info("waiting {}s for BFS".format(file_dur))
+                            _LOGGER.info("waiting {}s for BFS".format(file_dur))
                             time.sleep(file_dur)
                     if self.acc:
                         if not acc_yield:
@@ -199,7 +201,7 @@ class LScan:
                                 wait_acc = modeparms.ACC_DUR
                             else:
                                 wait_acc = 10
-                            logging.info("waiting {}s for ACC".format(wait_acc))
+                            _LOGGER.info("waiting {}s for ACC".format(wait_acc))
                             time.sleep(wait_acc)
                             normal_acc_wait = False
                         else:
@@ -381,11 +383,11 @@ def still_time_fun(stoptime):
         now = datetime.datetime.utcnow()
         timeleft = stoptime - now
         secondsleft = int(timeleft.total_seconds())
-        logging.info('Stop condition: TIME LEFT {}'.format(secondsleft))
+        _LOGGER.info('Stop condition: TIME LEFT {}'.format(secondsleft))
         if secondsleft > 0:
             return True
         else:
-            logging.info("Stop condition: TIME'S UP")
+            _LOGGER.info("Stop condition: TIME'S UP")
             return False
     return still_time
 
@@ -422,14 +424,14 @@ def do_nominal_scan(args):
     try:
         duration_tot = float(eval(str(args.duration_tot)))
     except NameError:
-        logging.error("Cannot understand duration='{}'.".format(args.duration_tot))
+        _LOGGER.error("Cannot understand duration='{}'.".format(args.duration_tot))
         raise
     # Start criteria: Time
     args.starttime = modeparms.timestr2datetime(args.starttime)
     starttime = waituntil(args.starttime, datetime.timedelta(seconds=2))
     stoptime = (starttime + datetime.timedelta(seconds=int(duration_tot))
                 + datetime.timedelta(seconds=0))
-    logging.info('Will stop @{}'.format(stoptime))
+    _LOGGER.info('Will stop @{}'.format(stoptime))
     stop_cond = still_time_fun(stoptime)
     # Initialize LScan
     lscan = LScan(stndrv, rec_type, freqsetup, duration_tot,
@@ -441,17 +443,17 @@ def do_nominal_scan(args):
     next(subscan)
     while stop_cond():
         try:
-            logging.debug('do_nominal_scan: IN SUBSCAN LOOP')
+            _LOGGER.debug('do_nominal_scan: IN SUBSCAN LOOP')
             _ = subscan.send(stop_cond())
         except StopIteration:
             break
-    logging.debug('do_nominal_scan: END SUBSCAN LOOP')
+    _LOGGER.debug('do_nominal_scan: END SUBSCAN LOOP')
     lscan.close()
     for res in lscan.scanresult['rec']:
-        logging.info("Saved {} scanrec here: {}"
-            .format(res, lscan.scanresult[res].scanrecpath))
+        _LOGGER.info("Saved {} scanrec here: {}"
+                     .format(res, lscan.scanresult[res].scanrecpath))
     if not lscan.scanresult['rec']:
-        logging.info("No data recorded ('None' selected)")
+        _LOGGER.info("No data recorded ('None' selected)")
 
 
 def main_cli():
