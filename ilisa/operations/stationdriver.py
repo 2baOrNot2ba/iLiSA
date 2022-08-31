@@ -962,13 +962,19 @@ class StationDriver(object):
             sshcmd_delay = 0
         service_inittime = 0
         if whatservice == 'boot':
-            boot_inittime = 138
+            boot_inittime = 138  # 77
             if self._lcu_interface.get_swlevel() == 3:
                 boot_inittime = 4
             service_inittime = boot_inittime
         elif whatservice == 'beam':
             beamctl_inittime = 2
             service_inittime = beamctl_inittime
+        elif whatservice == 'idle':
+            idle_inittime = 41
+            service_inittime = idle_inittime
+        elif whatservice == 'checkobs':
+            checkobs_inittime = 2
+            service_inittime = checkobs_inittime
         elif whatservice == 'bst':
             bst_inittime = 7
             service_inittime = bst_inittime
@@ -1101,7 +1107,7 @@ def checkobs(stndrv):
 def main_cli():
     """iLiSA adm CLI"""
     cmdln_prsr = argparse.ArgumentParser()
-    cmdln_prsr.add_argument('-t', '--time', type=str, default=None,
+    cmdln_prsr.add_argument('-t', '--time', type=str, default='ASAP',
                             help="Execute at time (format: YYYY-mm-ddTHH:MM:SS)"
                             )
     cmdln_prsr.add_argument('-s', '--station', type=str, default=None,
@@ -1116,6 +1122,8 @@ def main_cli():
                  .format(args.station))
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=args.mockrun)
+    starttime = modeparms.timestr2datetime(args.time)
+    waituntil(starttime, stndrv._time2startup_hint(args.admcmd))
     # Dispatch admin commands
     if args.admcmd == 'boot':
         boot(stndrv)
