@@ -342,12 +342,12 @@ class ScanSession(object):
         # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self._sesssubpath()
-        # Boot Time handling
-        dt2boot = datetime.timedelta(
-            seconds=self.stndrv._time2startup_hint('boot'))
+        # Sess start delta time handling (=boot time plus beam)
+        sesstart_dt = (self.stndrv._time2startup_hint('boot')+
+                       self.stndrv._time2startup_hint('beam'))
 
         # Wait until it is time to bootup
-        waituntil(sessmeta['start'], dt2boot)
+        waituntil(sessmeta['start'], sesstart_dt)
         self.stndrv.goto_observingstate()
         logging.info("Scansession {} started".format(self.session_id))
 
@@ -376,9 +376,11 @@ class ScanSession(object):
                 starttime = modeparms.timestr2datetime(scan['starttime'])
                 _lcu_services = lcu_services(scan)
 
-                margin_scan_start = datetime.timedelta(seconds=2)
+                margin_scan_start = self.stndrv._time2startup_hint('beam')
                 startedtime = waituntil(starttime, margin_scan_start)
                 _lag_delta = startedtime - starttime  # positive for proper lag
+                if scan['starttime'] == 'ASAP':
+                    _lag_delta = datetime.timedelta(0.0)
                 if _lag_delta > datetime.timedelta(0.0):
                     logging.warning("Scan start is lagging by {}".format(_lag_delta))
                     _dur_corr = _lag_delta.total_seconds()
@@ -386,6 +388,12 @@ class ScanSession(object):
                     # by correcting `scan_dur` by lag:
                     logging.info("Correcting duration by {}s for lag".format(_dur_corr))
                     scan_dur -= _dur_corr
+                    if scan_dur <= 0.0:
+                        scan['id'] = 'NoID' if not scan.get('id', None) else scan['id']
+                        logging.warning('No time for scan, so skipping this one.')
+                        scan['id'] += '_SKIPPED'
+                        scans_done.append(scan)
+                        continue
 
                 # Initialize LScan
                 lscan = LScan(self.stndrv, bsx_stat, freqsetup,
