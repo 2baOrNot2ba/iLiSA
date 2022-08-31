@@ -1046,9 +1046,14 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     timeleft = (starttime - margin) - now
     secondsleft = int(timeleft.total_seconds())
     if secondsleft < 0:
-        secondsleft = 0
-    logging.info("Waiting {}s until {}.".format(secondsleft, starttime))
-    time.sleep(secondsleft)
+        lag = now - starttime
+        logging.info("Lagging {}s past {} (margin={})".format(lag, starttime,
+                                                              margin))
+    else:
+        logging.info("Waiting {}s before {} (margin={})".format(secondsleft,
+                                                                starttime,
+                                                                margin))
+        time.sleep(secondsleft)
     time_at_return = datetime.datetime.utcnow()
     return time_at_return
 
