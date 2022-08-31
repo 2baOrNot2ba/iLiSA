@@ -1059,12 +1059,20 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
 
 
 def boot(stndrv):
-    """Put station into ready to observe state."""
+    """\
+    Put station into ready to observe state
+
+    Note: This typically takes 77 s.
+    """
     stndrv.goto_observingstate()
 
 
 def idle(stndrv):
-    """Put station into idle state."""
+    """\
+    Put station into idle state
+
+    Note: This typically takes 41 s.
+    """
     stndrv.halt_observingstate()
 
 
