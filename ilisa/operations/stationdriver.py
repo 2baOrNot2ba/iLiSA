@@ -948,19 +948,24 @@ class StationDriver(object):
         whatservice : str
             The service to lookup the startup time for.
             Defined services are: 'beam' (default), 'boot', 'bst' and 'tof'.
+
+        Returns
+        -------
+        service_time2startup : datetime.timedelta
+            The time it takes for this service to startup in seconds.
         """
         stnid = self.get_stnid()
         sshcmd_delay = 20  # This is a maximum time e.g. IE613 from OSO
         if stnid == 'SE607':
-            sshcmd_delay = 2
+            sshcmd_delay = 0
         service_inittime = 0
         if whatservice == 'boot':
-            boot_inittime = 20
+            boot_inittime = 138
             if self._lcu_interface.get_swlevel() == 3:
-                boot_inittime = 0
+                boot_inittime = 4
             service_inittime = boot_inittime
         elif whatservice == 'beam':
-            beamctl_inittime = 13
+            beamctl_inittime = 2
             service_inittime = beamctl_inittime
         elif whatservice == 'bst':
             bst_inittime = 7
@@ -968,8 +973,8 @@ class StationDriver(object):
         elif whatservice == 'tof':
             tof_inittime = 10
             service_inittime = tof_inittime
-        service_time2startup = service_inittime + sshcmd_delay
-        return service_time2startup
+        service_time2startup = service_inittime + 0*sshcmd_delay
+        return datetime.timedelta(seconds=service_time2startup)
 
 
 def _is_sshfs_mounted(hostname):
