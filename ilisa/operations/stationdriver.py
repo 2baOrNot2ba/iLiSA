@@ -1131,6 +1131,7 @@ def main_cli():
     starttime = modeparms.timestr2datetime(args.time)
     waituntil(starttime, stndrv._time2startup_hint(args.admcmd))
     # Dispatch admin commands
+    _LOGGER.info('ilisa_adm {} -t{} -s{}'.format(args.admcmd, args.time, args.station))
     if args.admcmd == 'boot':
         boot(stndrv)
     elif args.admcmd == 'idle':
