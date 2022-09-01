@@ -16,15 +16,7 @@ import ilisa.operations.programs as programs
 from ilisa.operations.stationdriver import StationDriver, waituntil
 from ilisa.operations.scan import still_time_fun, LScan
 
-OBSLOGFILE = "ilisa_obs.log"  # Log of each ilisa_obs CLI run
-SESLOGFILE = 'session.log'    # python logging of ilisa exec steps for session
-__FH = logging.FileHandler(SESLOGFILE)
-__FH.setFormatter(logging.Formatter(
-    '%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s',
-    datefmt=ilisa.operations.DATETIMESTRFMT))
-__FH.setLevel(logging.INFO)
-_LOGGER_ROOT = logging.getLogger(__package__)
-_LOGGER_ROOT.addHandler(__FH)
+OBSLOGFILE = "ilisa_cmds.log"  # Log of each ilisa_obs or ilisa_adm CLI run
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -353,9 +345,7 @@ class ScanSession(object):
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self._sesssubpath()
         # Sess start delta time handling (=boot time plus beam)
-        sesstart_dt = (self.stndrv._time2startup_hint('boot')+
-                       self.stndrv._time2startup_hint('beam'))
-
+        sesstart_dt = datetime.timedelta(minutes=1)
         # Wait until it is time to bootup
         waituntil(sessmeta['start'], sesstart_dt)
         self.stndrv.goto_observingstate()
@@ -386,7 +376,7 @@ class ScanSession(object):
                 starttime = modeparms.timestr2datetime(scan['starttime'])
                 _lcu_services = lcu_services(scan)
 
-                margin_scan_start = self.stndrv._time2startup_hint('beam')
+                margin_scan_start = datetime.timedelta(seconds=20)
                 startedtime = waituntil(starttime, margin_scan_start)
                 _lag_delta = startedtime - starttime  # positive for proper lag
                 if scan['starttime'] == 'ASAP':
@@ -469,7 +459,6 @@ class ScanSession(object):
             _ongoing = filecontents.pop(0)
         with open(self.latestdatafile, 'w') as f:
             f.writelines(filecontents)
-        shutil.move(SESLOGFILE, os.path.join(self.get_sesspath()))
 
 
 def get_proj_stn_access_conf(projid, stnid=None):
@@ -571,6 +560,9 @@ def obs(scansess_in, sac):
     scansess_in['station'] = stndrv.get_stnid()
     scnsess = ScanSession(stndrv)
     stndrv._lcu_interface._fake_slow_conn = 0  # Fake a slower connection
+    if stndrv._lcu_interface._fake_slow_conn != 0:
+        _LOGGER.warning('Faking slow connection. Delay {}s.'.format(
+            stndrv._lcu_interface._fake_slow_conn))
     scnsess.run_scansess(scansess_in)
     cmd = 'obs:' + file
     with open(OBSLOGFILE, 'a') as lgf:
@@ -581,6 +573,7 @@ def obs(scansess_in, sac):
         lgf.write("{} {} {} {}".format(issued_at, cli_start, priority_fld,
                                        projectid)
                   + " {} {}\n".format(stndrv.get_stnid(), cmd))
+    return scnsess
 
 
 def main_cli():
@@ -603,6 +596,23 @@ def main_cli():
     cmdln_prsr.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(sys.argv[1:])
 
+    # python logging of ilisa exec steps for session
+    SESLOGFILE = 'session_{}.log'.format(args.station)
+    __FH = logging.FileHandler(SESLOGFILE)
+    __FH.setFormatter(logging.Formatter(
+        '%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s',
+        datefmt=ilisa.operations.DATETIMESTRFMT))
+    __FH.setLevel(logging.INFO)
+    _LOGGER_ROOT = logging.getLogger(__package__)
+    _LOGGER_ROOT.addHandler(__FH)
+    global _LOGGER
+    _LOGGER = logging.getLogger(__name__)
+
+    _LOGGER.info('ilisa_obs -t{} -p{} -m{} -s{} -c{} {}'.format(
+        args.time, args.project, args.mockrun, args.station, args.check,
+        args.file)
+    )
+
     with open(args.file, 'r') as f:
         scansess_in = yaml.safe_load(f)
     scansess_in['cli_start'] = args.time
@@ -621,9 +631,11 @@ def main_cli():
         check_scan_sess(scansess_in)
         return
     try:
-        obs(scansess_in, sac)
+        the_scansess = obs(scansess_in, sac)
     except ValueError as err:
         _LOGGER.error(err)
+    _LOGGER.info('Ending scansession {}'.format(the_scansess.session_id))
+    shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
 
 
 if __name__ == "__main__":
