@@ -956,31 +956,37 @@ class StationDriver(object):
         service_time2startup : datetime.timedelta
             The time it takes for this service to startup in seconds.
         """
+        # N.B. These times are valid for current scheme of iLiSA internal
+        # commands issued from SE607's SDU to its LCU.
         stnid = self.get_stnid()
         sshcmd_delay = 20  # This is a maximum time e.g. IE613 from OSO
+        boot_time = 138  # 77
+        boot3_time = 4
+        beam_time = 2
+        beamsettle_time = 13  # Time it takes after beamctl to get real data
+        idle_time = 41
+        checkobs_time = 2
+        bst_time = 7
+        tof_time = 10
+        bfs_time = beam_time + 18
+
         if stnid == 'SE607':
             sshcmd_delay = 0
         service_inittime = 0
         if whatservice == 'boot':
-            boot_inittime = 138  # 77
+            service_inittime = boot_time
             if self._lcu_interface.get_swlevel() == 3:
-                boot_inittime = 4
-            service_inittime = boot_inittime
+                service_inittime = boot3_time
         elif whatservice == 'beam':
-            beamctl_inittime = 2
-            service_inittime = beamctl_inittime
+            service_inittime = beam_time
         elif whatservice == 'idle':
-            idle_inittime = 41
-            service_inittime = idle_inittime
+            service_inittime = idle_time
         elif whatservice == 'checkobs':
-            checkobs_inittime = 2
-            service_inittime = checkobs_inittime
+            service_inittime = checkobs_time
         elif whatservice == 'bst':
-            bst_inittime = 7
-            service_inittime = bst_inittime
+            service_inittime = bst_time
         elif whatservice == 'tof':
-            tof_inittime = 10
-            service_inittime = tof_inittime
+            service_inittime = tof_time
         service_time2startup = service_inittime + 0*sshcmd_delay
         return datetime.timedelta(seconds=service_time2startup)
 
