@@ -1320,7 +1320,6 @@ def cvc2polrep(cvc, crlpolrep='lin'):
     elif crlpolrep == 'cir':
         cvpol = cov_lin2cir(cvcpolidx)
     elif crlpolrep == 'sto':
-        print("Hej")
         (S0, S1, S2, S3) =\
             convertxy2stokes(cvcpolidx[0][0], cvcpolidx[0][1], cvcpolidx[1][0],
                              cvcpolidx[1][1])
@@ -1721,7 +1720,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     plt.show()
 
 
-def plotxst(xstff):
+def plotxst(xstff, filenr0, sampnr0, plottype=None):
     """Plot XST data."""
     colorscale = None  # Colorscale for xst data plot (default None)
     if colorscale == 'log':
@@ -1730,25 +1729,70 @@ def plotxst(xstff):
         normcolor = None
     xstobj = CVCfiles(xstff)
     obs_ids = xstobj.scanrecinfo.get_obs_ids()
-    # Assume freq sweep over nr of files, so filenr is also sb.
-    for sbstepidx in range(xstobj.getnrfiles()):
-        obsinfo = xstobj.scanrecinfo.obsinfos[obs_ids[sbstepidx]]
+    for filenr, times_in_filetimes in enumerate(xstobj.samptimeset):
+        if filenr0>filenr:
+            continue
+        obsinfo = xstobj.scanrecinfo.obsinfos[obs_ids[filenr]]
         intg = obsinfo.integration
         dur = obsinfo.duration_subscan
-
         freq = obsinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
-        xstdata = xstobj[sbstepidx]
-        for tidx in range(xstdata.shape[0]):
+        xstfiledata = xstobj[filenr]
+        for tidx, samptime in enumerate(times_in_filetimes):
+            if sampnr0>tidx:
+                continue
             print("Kill plot window for next plot...")
-            plt.imshow(numpy.abs(xstdata[tidx,...]), norm=normcolor,
-                       interpolation='none')
-            plt.title("""Time (from start {}) {}s
-                      @ freq={} MHz""".format(obsinfo.get_starttime(),
-                      ts[tidx], freq/1e6))
-            plt.xlabel('RCU [#]')
-            plt.ylabel('RCU [#]')
-            plt.colorbar()
+            if plottype == 'sto':
+                xstdata = cvc2polrep(xstfiledata[tidx], 'sto')
+                plt.clf()
+
+                plt.subplot(2,2,1)
+                plt.imshow(xstdata[0, ...], norm=normcolor,
+                           interpolation='none')
+                plt.colorbar()
+                plt.title('Stokes I')
+
+                plt.subplot(2, 2, 2)
+                plt.imshow(xstdata[1, ...], norm=normcolor,
+                           interpolation='none', cmap='seismic')
+                plt.colorbar()
+                plt.title('Stokes Q')
+
+                plt.subplot(2, 2, 3)
+                plt.imshow(xstdata[2, ...], norm=normcolor,
+                           interpolation='none', cmap='seismic')
+                plt.colorbar()
+                plt.title('Stokes U')
+
+                plt.subplot(2, 2, 4)
+                plt.imshow(xstdata[3, ...], norm=normcolor,
+                           interpolation='none', cmap='seismic')
+                plt.colorbar()
+                plt.title('Stokes V')
+            else:
+                xstdata = xstfiledata[tidx]
+                plt.clf()
+                plt.subplot(1,2,1)
+                plt.imshow(numpy.abs(xstdata[...]), norm=normcolor,
+                           interpolation='none')
+                plt.title('abs(Visibility)')
+                plt.xlabel('RCU [#]')
+                plt.ylabel('RCU [#]')
+                plt.colorbar()
+
+                plt.subplot(1,2,2)
+                plt.imshow(numpy.angle(xstdata[...]), norm=normcolor,
+                           interpolation='none', cmap='hsv')
+                plt.title('arg(Visibility)')
+                plt.xlabel('RCU [#]')
+                plt.ylabel('RCU [#]')
+                plt.colorbar()
+            plt.suptitle("""\
+                         Visibilities
+                         Time (from start {}) {}s
+                         @ freq={} MHz""".format(obsinfo.get_starttime(),
+                         ts[tidx], freq/1e6))
+
             plt.show()
 
 
@@ -1885,7 +1929,7 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
         elif lofar_datatype=='sst':
             plotsst(dataff, freq, sampnr, filenr)
         elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
-            plotxst(dataff)
+            plotxst(dataff, int(filenr), sampnr, None)
         else:
             raise RuntimeError("Not a bst, sst, or xst filefolder")
 
