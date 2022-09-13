@@ -473,7 +473,7 @@ def main_cli():
                         type=float, default=modeparms.MIN_STATS_INTG)
     parser.add_argument('-a', '--acc', help="Enable ACC",
                         action='store_true')
-    parser.add_argument('-b', '--bfs', help="Record also BST",
+    parser.add_argument('-b', '--bfs', help="Record also BFS",
                         action='store_true')
     parser.add_argument('ldat_type',
                         help="lofar data type to record."
