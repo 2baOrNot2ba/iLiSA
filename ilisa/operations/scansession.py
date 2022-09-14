@@ -37,6 +37,8 @@ def projid2meta(projectid):
         The access files keyed on station ID.
     projectfile : str
         Path to the file for which the above information was take.
+    proj_srcs : list
+        List of source names and directions.
     """
     # Setup projectmeta:
     if projectid is not None:
@@ -46,11 +48,13 @@ def projid2meta(projectid):
             projectprofile = yaml.safe_load(projectfilep)
         projectmeta = projectprofile['project']
         accessfiles = projectprofile['accessfiles']
+        proj_srcs = projectprofile.get('sources')
     else:
         projectmeta = {'observer': None, 'name': None}
         accessfiles = None
         projectfile = None
-    return projectmeta, accessfiles, projectfile
+        proj_srcs = []
+    return projectmeta, accessfiles, projectfile, proj_srcs
 
 
 def process_scansess(sesscans_in):
@@ -339,7 +343,7 @@ class ScanSession(object):
         self.session_id = session_id
         if not self.session_id:
             self.session_id = self.make_session_id(sessmeta['start'])
-        self.projectmeta, _, _ = projid2meta(sessmeta['projectid'])
+        self.projectmeta, _, _, _ = projid2meta(sessmeta['projectid'])
         self.set_stn_session_id(self.session_id)
         # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
@@ -483,7 +487,7 @@ def get_proj_stn_access_conf(projid, stnid=None):
         In projid's project file: if there is no accessfile defined for stnid
         or if stnid is not given and there are no stnid's.
     """
-    projectmeta, accessfiles, projectfile = projid2meta(projid)
+    projectmeta, accessfiles, projectfile, _ = projid2meta(projid)
     if stnid is None:
         # Try to get station from accessfiles in project config file:
         #    1st key in accessfiles dict taken as default stnid
