@@ -576,7 +576,8 @@ def obs(scansess_in, sac):
             priority_fld = '0'
         lgf.write("{} {} {} {}".format(issued_at, cli_start, priority_fld,
                                        projectid)
-                  + " {} {}\n".format(stndrv.get_stnid(), cmd))
+                  + " {} {} {}\n".format(stndrv.get_stnid(), cmd,
+                                         scnsess.session_id))
     return scnsess
 
 
