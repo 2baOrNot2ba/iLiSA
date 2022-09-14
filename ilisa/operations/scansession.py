@@ -42,7 +42,7 @@ def projid2meta(projectid):
     """
     # Setup projectmeta:
     if projectid is not None:
-        projectfile =  "project_"+projectid+".yml"
+        projectfile = "project_" + projectid + ".yml"
         projectfile = os.path.join(ilisa.operations.USER_CONF_DIR, projectfile)
         with open(projectfile) as projectfilep:
             projectprofile = yaml.safe_load(projectfilep)
@@ -116,8 +116,8 @@ def process_scansess(sesscans_in):
             #   `after` converted to `starttime` using formula:
             #      `starttime` = `starttimeprev` + `after`
             scanstarttime = scan.get('starttime')
-            if scan == sesscans_in['scans'][0] and\
-                (not scanstarttime or scanstarttime == 'ASAP'):
+            if scan == sesscans_in['scans'][0] and \
+                    (not scanstarttime or scanstarttime == 'ASAP'):
                 # First scan set to session start if not set already or ASAP
                 scanstarttime = sessmeta['start']
             scanstarttime_guess = scanstarttime
@@ -243,8 +243,8 @@ def lcu_services(scan):
     beam = scan.get('beam')
     if beam.get('pointing'):
         return 'beam'
-    elif beam.get('freqspec') and\
-        modeparms.FreqSetup(beam['freqspec']).rcumodes[0] > 4:
+    elif beam.get('freqspec') and \
+            modeparms.FreqSetup(beam['freqspec']).rcumodes[0] > 4:
         return 'tof'
     return None
 
@@ -262,12 +262,13 @@ def check_sess_start_passed(sessmeta):
     if sessmeta['start'] != 'ASAP':
         utcnow = datetime.datetime.utcnow()
         if sessmeta['start'] < utcnow:
-             paststart = True
+            paststart = True
     return paststart
 
 
 class ScanSession(object):
     """Class that runs a session on a station."""
+
     def __init__(self, stndrv, session_id=None):
         """Initialize Session."""
         self.stndrv = stndrv
@@ -397,7 +398,7 @@ class ScanSession(object):
                     if scan_dur <= 0.0:
                         scan['id'] = 'NoID' if not scan.get('id', None) else scan['id']
                         _LOGGER.warning('No time for scan,'
-                                            ' so skipping this one.')
+                                        ' so skipping this one.')
                         scan['id'] += '_SKIPPED'
                         scans_done.append(scan)
                         continue
@@ -431,7 +432,7 @@ class ScanSession(object):
                     else:
                         stop_scan_cond = stop_cond()
                     list(map(_update_latestdatafile,
-                             *zip(('acc', acc), ('bfs', bfs), ('bsx',bsx_stat)))
+                             *zip(('acc', acc), ('bfs', bfs), ('bsx', bsx_stat)))
                          )
                 _LOGGER.debug('scansession: END SUBSCAN LOOP')
                 lscan.close()
@@ -450,7 +451,7 @@ class ScanSession(object):
             duration_req = datetime.timedelta(seconds=scan['duration'])
             _LOGGER.info("End LScan:: id: {}".format(scan['id']))
             _LOGGER.debug("Request dur={}, ".format(duration_req)
-                          +"Actual dur={}".format(duration_actual))
+                          + "Actual dur={}".format(duration_actual))
             scans_done.append(scan)
         # Collate session metadata with scan meta data as scansession metadata
         sessmeta['scans'] = scans_done
@@ -529,7 +530,7 @@ def check_scan_sess(scansess_in):
     else:
         print(yaml.dump(sessscans, default_flow_style=False))
     lastscan = sessscans['scans'][-1]
-    endtime = modeparms.timestr2datetime(lastscan['starttime_guess'])\
+    endtime = modeparms.timestr2datetime(lastscan['starttime_guess']) \
               + datetime.timedelta(seconds=lastscan['duration'])
     print('end:', endtime)
     starttime = sessmeta['start']
@@ -633,6 +634,8 @@ def main_cli():
     scansess_in['mockrun'] = args.mockrun
     scansess_in['projectid'] = args.project
     scansess_in['file'] = args.file
+    if args.note:
+        scansess_in['note'] = args.note
     scansess_in['station'] = stnid
     if args.check:
         check_scan_sess(scansess_in)
