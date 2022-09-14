@@ -1060,14 +1060,18 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     timeleft = (starttime - margin) - now
     secondsleft = int(timeleft.total_seconds())
     if secondsleft < 0:
-        lag = now - starttime
-        _LOGGER.info("Lagging {}s past {} (margin={})".format(lag,
-                                                              starttime,
-                                                              margin))
+        lag = (now - starttime)
+        if lag.total_seconds() > 0:
+            _LOGGER.info(
+                "Lagging {}s past {}".format(lag, starttime))
+        else:
+            _LOGGER.info(
+                "Waiting {}s before {} (passed margin {})".format(-lag,
+                                                                  starttime,
+                                                                  margin))
     else:
-        _LOGGER.info("Waiting {}s before {} (margin={})".format(secondsleft,
-                                                                starttime,
-                                                                margin))
+        _LOGGER.info("Waiting {}s before {} - {}".format(secondsleft, starttime,
+                                                         margin))
         time.sleep(secondsleft)
     time_at_return = datetime.datetime.utcnow()
     return time_at_return
