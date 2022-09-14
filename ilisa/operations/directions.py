@@ -231,7 +231,7 @@ def lookupsource(src_name):
 
     Returns
     -------
-    pointing : tuple
+    direction : tuple
         Length 3 tuple with (az, el, ref).
 
     """
@@ -246,18 +246,15 @@ def lookupsource(src_name):
         srcs_data = srcs_cat['sources']
         for source_entry in srcs_data:
             source_names = source_entry['name']
-            direction_str = source_entry['direction']
+            _direction_str = source_entry['direction']
             if type(source_names) is not list:
                 source_names = [source_names]
-            for source_name in source_names:
+            for _source_name in source_names:
                 # No conversion:
-                src_database[source_name] = direction_str
-    try:
-        pointing = src_database[src_name]
-    except KeyError:
-        # User query term not found. Return None.
-        return None
-    return pointing
+                src_database[_source_name] = _direction_str
+    # Lookup src_name in src_database else return None
+    direction = src_database.get(src_name)
+    return direction
 
 
 def _req_calsrc_proc(req_calsrc, allsky, pointingstr):
