@@ -1128,8 +1128,9 @@ def main_cli():
     args = cmdln_prsr.parse_args(sys.argv[1:])
     accessconf = ilisa.operations.default_access_lclstn_conf(args.station)
     if accessconf==None:
-        sys.exit("No default access config for local station {}"
-                 .format(args.station))
+        _LOGGER.critical("No default access config for local station {}"
+                         .format(args.station))
+        sys.exit()
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=args.mockrun)
     starttime = modeparms.timestr2datetime(args.time)

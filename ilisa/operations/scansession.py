@@ -582,7 +582,7 @@ def main_cli():
     """
     """Parse a schedule commandline."""
     cmdln_prsr = argparse.ArgumentParser()
-    cmdln_prsr.add_argument('-t', '--time', type=str, default=None,
+    cmdln_prsr.add_argument('-t', '--time', type=str, default='ASAP',
                             help="Start Time (format: YYYY-mm-ddTHH:MM:SS)"
                             )
     cmdln_prsr.add_argument('-p', '--project', type=str, default='0',
