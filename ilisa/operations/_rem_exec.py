@@ -9,6 +9,7 @@ except ImportError:
 import logging
 import ilisa.operations
 
+_USE_SSH_ControlMaster = True  # Whether to use SSH's ControlMaster option
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -35,7 +36,13 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
         shellinvoc = ''
         quotes = ''
     else:
-        shellinvoc = "ssh " + nodeurl
+        shellinvoc = "ssh"
+        if _USE_SSH_ControlMaster:
+            shellinvoc += " -o ControlMaster=auto"  # Set ControlMaster
+            shellinvoc += " -o ControlPersist=3600"  # Set
+            shellinvoc += (" -S " + ilisa.operations.USER_CACHE_DIR
+                           + "/cm-%r@%h:%p")  # Set unique socket in cache dir
+        shellinvoc += ' ' + nodeurl
     output = None
     if _slow_conn_time:
         # Simulate a slow connection by executing a sleep before cmdline:
