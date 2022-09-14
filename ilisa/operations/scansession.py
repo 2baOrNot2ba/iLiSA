@@ -600,8 +600,18 @@ def main_cli():
     cmdln_prsr.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(sys.argv[1:])
 
-    # python logging of ilisa exec steps for session
-    SESLOGFILE = 'session_{}.log'.format(args.station)
+    global _LOGGER
+    try:
+        sac = get_proj_stn_access_conf(args.project, args.station)
+    except RuntimeError as e:
+        _LOGGER = logging.getLogger(__name__)
+        _LOGGER.error(e)
+        sys.exit(1)
+
+    stnid = args.station if args.station else sac['LCU']['stnid']
+
+    # python logging of ilisa exec steps for session added to file
+    SESLOGFILE = 'session_{}.log'.format(stnid)
     __FH = logging.FileHandler(SESLOGFILE)
     __FH.setFormatter(logging.Formatter(
         '%(asctime)s.%(msecs)03d | %(levelname)s | %(message)s',
@@ -609,7 +619,6 @@ def main_cli():
     __FH.setLevel(logging.INFO)
     _LOGGER_ROOT = logging.getLogger(__package__)
     _LOGGER_ROOT.addHandler(__FH)
-    global _LOGGER
     _LOGGER = logging.getLogger(__name__)
 
     _LOGGER.info('ilisa_obs -t{} -p{} -m{} -s{} -c{} {}'.format(
@@ -623,14 +632,7 @@ def main_cli():
     scansess_in['mockrun'] = args.mockrun
     scansess_in['projectid'] = args.project
     scansess_in['file'] = args.file
-    scansess_in['station'] = args.station
-    try:
-        sac = get_proj_stn_access_conf(scansess_in['projectid'],
-                                       scansess_in['station'])
-    except RuntimeError as e:
-        _LOGGER.error(e)
-        sys.exit(1)
-    scansess_in['station'] = sac['LCU']['stnid']
+    scansess_in['station'] = stnid
     if args.check:
         check_scan_sess(scansess_in)
         return
