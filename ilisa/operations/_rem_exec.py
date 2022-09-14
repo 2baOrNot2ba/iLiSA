@@ -9,7 +9,7 @@ except ImportError:
 import logging
 import ilisa.operations
 
-_USE_SSH_ControlMaster = True  # Whether to use SSH's ControlMaster option
+_USE_SSH_MASTER_MODE = True  # Whether to use SSH's Master mode option
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -37,7 +37,7 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
         quotes = ''
     else:
         shellinvoc = "ssh"
-        if _USE_SSH_ControlMaster:
+        if _USE_SSH_MASTER_MODE:
             shellinvoc += " -o ControlMaster=auto"  # Set ControlMaster
             shellinvoc += " -o ControlPersist=3600"  # Set
             shellinvoc += (" -S " + ilisa.operations.USER_CACHE_DIR
