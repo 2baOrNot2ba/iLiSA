@@ -1,9 +1,9 @@
-#Example crontab for istn status service.
-#It runs the service every five minutes.
-#Deploy by running:
+#Example crontab for the iLiSA monitoring service
+#that sends a status update every five minutes. Deploy by running:
 #
-# $ crontab stnStatMon_crontab
+# bash$ crontab stnStatMon_crontab
 #
-#where $ is the shell prompt and stnStatMon_crontab is
-#the name of this file.
-*/5 * * * *	$HOME/iStnMonitor/server/stnStatMon.py
+#In the line below, replace $HOME/iLiSA/ilisa/monitor/server/stnStatMon.py
+#with the full path to the stnStatMon.py script ($HOME is evaluated by crontab
+#to the user's home directory).
+*/5 * * * *	$HOME/iLiSA/ilisa/monitor/server/stnStatMon.py

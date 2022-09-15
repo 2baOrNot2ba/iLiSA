@@ -1,14 +1,13 @@
-#Edit following lines for your particular network configuration.
-#Then rename this file, removing the ".template" suffix.
+# Edit following lines for your particular network configuration,
+# then rename this file 'relay_config.py'.
 
-RELAYSTNSTAT = False    #Relay istn status message to outside node.
-IPin=""                 #ip address on gateway to which LCU can connect.
-IPto="123.45.67.89"     #ip address to which gateway should relay istn status.
-UDP_PORT=6070           #UDP port to which istn status message connects.
-SHAMECAST = False       #Generate shamecast broadcast.
-MULTICAST_ADDRESS = '224.1.1.04' #Shamecast multicast address
-MULTICAST_PORT = 4242   #Shamecast multicast port
-isLogging=False         #Produce log file
-logfilename='istnStatus.log' #Location of logfile. Set to '' to send to stdout.
-
-#End configurable variables
+RELAYSTNSTAT = False              # Relay status message to outside node.
+IPin = ''                         # ip address on gateway to which LCU can connect.
+IPto = '123.45.67.89'             # ip address to which gateway should relay istn status.
+UDP_PORT = 6070                   # UDP port to which istn status message connects.
+SHAMECAST = False                 # Generate shamecast broadcast if True.
+if SHAMECAST:
+    MULTICAST_ADDRESS = '224.1.1.04'  # Shamecast multicast address
+    MULTICAST_PORT = 4242             # Shamecast multicast port
+isLogging = False                 # Produce log file
+logfilename = 'istnStatus.log'    # Location of logfile. Set to '' to send to stdout.
