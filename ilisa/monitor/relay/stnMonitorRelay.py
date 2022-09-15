@@ -120,7 +120,7 @@ def stnstat2shamecast(status):
     SHAME_BLOCK_DATA = 'ff'
     endian = '<'  # little
     lofar_scb = struct.pack(endian+SHAME_BLOCK_HEAD+SHAME_BLOCK_DATA,
-                            name, size, version, timestamp, flag,
+                            name.encode('utf-8'), size, version, timestamp, flag,
                             cab3temp, cab3hum)
     return lofar_scb
 
