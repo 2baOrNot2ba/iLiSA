@@ -885,12 +885,14 @@ def timestr2datetime(timestr):
     timestr: str
         Date-Time string in ISO-like format '%Y-%m-%dT%H:%M:%S'
         OR 'NOW' or 'ASAP', which imply the current UT datetime.
+        If timestr is a datetime object, it is returned as is.
 
     Returns
     -------
     dattim: datetime.datetime
         Python datetime object corresponding to input.
     """
+    if type(timestr) == datetime.datetime: return timestr
     if timestr == 'NOW' or timestr == 'ASAP':
         # Set time to nearest rounded second from now:
         dattim = datetime.datetime.utcnow()
