@@ -1054,7 +1054,7 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     """
     now = datetime.datetime.utcnow()
     if starttime_req == "NOW" or starttime_req == "ASAP":
-        starttime = now
+        return now
     else:
         starttime = starttime_req
     timeleft = (starttime - margin) - now
