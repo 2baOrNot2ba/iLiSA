@@ -94,9 +94,12 @@ class LCUInterface(object):
         # Now check accessibility
         self.accessible = self.checkaccess()
         if not self.accessible:
-            raise ConnectionError("Cannot access LCU using {}.".format(self.url))
+            err = "Cannot access LCU using {}.".format(self.url)
+            _LOGGER.error(err)
+            raise ConnectionError(err)
         elif self.verbose:
-            _LOGGER.info("Established access to LCU on {}.".format(self.stnid))
+            _LOGGER.info("Established access to LCU on {} with user {}."
+                         .format(self.stnid, self.user))
 
         # Check LCU OS env:
         path_ok, datadirs_ok = self.checkLCUenv()
