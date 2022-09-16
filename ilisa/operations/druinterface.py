@@ -156,7 +156,7 @@ class DRUinterface:
 
         return port, hostname, startstr, ms_nr, cmprss_suf
 
-    def get_bfs_filenames(self, bf_dat_dir_tmplt):
+    def get_bfs_filenames(self, bf_dat_dir_tmplt, lanes=[0,1,2,3]):
         """\
         Get BFS data and log file names on DRU
 
@@ -164,6 +164,8 @@ class DRUinterface:
         ----------
         bf_data_dir : str
             Data dir where bfs files were recorded
+        lanes : list of ints
+            The lanes used.
 
         Returns
         -------
@@ -172,12 +174,11 @@ class DRUinterface:
         paths_logs : list
             Paths to the BFS log files.
         """
-        nrlanes = 4
         bf_dir_list = [bf_dat_dir_tmplt]
         # Convert /paths/?/like/this to real paths
         if '?' in bf_dat_dir_tmplt:
             bf_dir_list = [bf_dat_dir_tmplt.replace('?', str(lanenr))
-                           for lanenr in range(nrlanes)]
+                           for lanenr in lanes]
         paths_data = []
         paths_logs = []
         for _bf_data_dir in bf_dir_list:

@@ -261,7 +261,7 @@ class StationDriver(object):
         Get BFS data and log file paths
         """
         bfs_data_names, bfs_log_names = self._dru_interface.get_bfs_filenames(
-            self.scanpath_bfdat)
+            self.scanpath_bfdat, self.lanes)
         dru_bf_data_dir = self._dru_interface.bf_data_dir
         bfsdatapaths = []
         bfslogpaths = []
@@ -695,18 +695,17 @@ class StationDriver(object):
         filetime_prev = None
         while continue_bfs:
             bfs_datfiles, bfs_logfiles = self._dru_interface.get_bfs_filenames(
-                self.scanpath_bfdat
-            )
-            filetime_new = None
+                self.scanpath_bfdat, self.lanes)
+            is_filetime_new = False
             if bfs_datfiles:
                 port, hostname, startstr, ms, cmprss_suf = \
                     self._dru_interface.parse_bfs_filename(bfs_datfiles[-1])
                 filetime_curr = modeparms.timestr2datetime(startstr).strftime(
                     "%Y%m%d_%H%M%S")
                 if filetime_curr != filetime_prev:
-                    filetime_new = filetime_curr
+                    is_filetime_new = True
                     filetime_prev = filetime_curr
-            if not filetime_new:
+            if not is_filetime_new:
                 # There is no new BFS on DRU yet
                 continue_bfs = yield None
                 continue
@@ -718,7 +717,7 @@ class StationDriver(object):
             # Duration of BFS not determinable via LCU commands
             # so add this by hand
             ldatinfo_bfs.duration_subscan = duration_file
-            ldatinfo_bfs.filenametime = filetime_new
+            ldatinfo_bfs.filenametime = filetime_curr
             if firstbfs:
                 obsfileinfo = {
                     'duration': duration_tot,
