@@ -339,7 +339,11 @@ class LScan:
             _drusrc = _DRU2CCUpath(abfslogpath)
             shutil.move(_drusrc, scanrecpath)
 
-    def _gen_scan_id(self, scan_dt):
+    def _gen_scan_id(self, scan_started):
+        """\
+        Generate Scan ID
+        """
+        scan_dt = modeparms.timestr2datetime(scan_started)
         scan_mjd_id = modeparms.dt2mjd(scan_dt)
         scan_id = "scan_{}".format(scan_mjd_id)
         return scan_id
