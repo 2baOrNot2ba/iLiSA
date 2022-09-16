@@ -29,6 +29,7 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
     foreground (blocking). Typically access is remote via ssh.
     (To speed things up use the ssh CommandMaster option.)
     """
+    _log_exec_exit = False  # Add info line in logging when exec exits
     if nodetype == 'TEST':
         nodetype = nodeurl
     nodeprompt = "On " + nodetype + "> "
@@ -68,6 +69,8 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
                                     + quotes + cmdline + quotes,
                                     shell=True, universal_newlines=True,
                                     stdout=subprocess.PIPE).stdout
+            if _log_exec_exit:
+                _LOGGER.info('End {} {}'.format(nodetype, cmdline))
         if output:
             output = output.rstrip()
     elif not accessible:
