@@ -2,7 +2,7 @@ import os
 import datetime
 
 from ilisa.operations._rem_exec import _exec_ssh
-from ilisa.operations.modeparms import band2rcumode, normalizetimestr
+from ilisa.operations.modeparms import band2rcumode, normalizetimestr, astimestr
 from ilisa.pipelines.bfbackend import PL_REC_WRAPPER, DUMPERNAME
 
 
@@ -52,7 +52,7 @@ class DRUinterface:
 
         Parameters
         ----------
-        starttime : str
+        starttime : datetime or str
             The datetime string when the BF stream started.
         band :
             The band name for the BF stream.
@@ -211,9 +211,8 @@ class DRUinterface:
         """
         dumpercmd = PL_REC_WRAPPER
         which_recorder = 'ow'
-        starttime_str = starttime.strftime('%Y-%m-%dT%H:%M:%S')
         outdumpdirs, outargs, datafiles, logfiles = \
-            self.bfsfilepathslist(starttime_str, band, bf_data_dir, ports,
+            self.bfsfilepathslist(starttime, band, bf_data_dir, ports,
                                   stnid, compress)
         for outdumpdir in outdumpdirs:
             self.dru('mkdir -p '+outdumpdir)
@@ -225,7 +224,8 @@ class DRUinterface:
                        '--stnid', stnid]
         if file_dur and file_dur != duration:
             cmdlineargs += ['--file_duration', str(file_dur)]
-        cmdlineargs.extend(['--starttime', starttime_str])
+        if starttime != 'ASAP':
+            cmdlineargs.extend(['--starttime', astimestr(starttime)])
         if compress:
             cmdlineargs.append('--compress')
         if mockrun:
