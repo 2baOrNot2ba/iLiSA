@@ -174,6 +174,7 @@ class LScan:
             continue_scan = yield
             # Enter subscan data collection loop
             normal_acc_wait = True
+            bfs_wait = file_dur
             acc_yield = None
             while continue_scan:
                 if bsx_type:
@@ -188,12 +189,15 @@ class LScan:
                 else:
                     # Might have to wait since bsx_type is only blocking
                     # datataking mode...
-                    if self.bfs:
+                    # TODO: handle case when both ACC and BFS are running
+                    if self.bfs and not self.acc:
                         if not bfs_yield:
                             # BFS does not need to block and
                             # so with no BSX have to throttle it...
-                            _LOGGER.info("waiting {}s for BFS".format(file_dur))
-                            time.sleep(file_dur)
+                            _LOGGER.info("waiting {}s for BFS".format(bfs_wait))
+                            time.sleep(bfs_wait)
+                            if bfs_wait==file_dur:
+                                bfs_wait = 1
                     if self.acc:
                         if not acc_yield:
                             # ACC does block and with no BSX have to throttle it
@@ -207,7 +211,10 @@ class LScan:
                         else:
                             normal_acc_wait = True
                 if self.bfs:
-                    bfs_yield = bfs_subscan.send(continue_scan)
+                    try:
+                        bfs_yield = bfs_subscan.send(continue_scan)
+                    except StopIteration:
+                        continue_scan = False
                     if bfs_yield:
                         if self.ldatinfos_bfs == []:
                             # 1st yield is scanrecpath

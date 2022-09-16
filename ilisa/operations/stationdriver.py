@@ -707,8 +707,12 @@ class StationDriver(object):
                     filetime_prev = filetime_curr
             if not is_filetime_new:
                 # There is no new BFS on DRU yet
-                continue_bfs = yield None
-                continue
+                if self._dru_interface._bfsrec_thread.is_alive():
+                    continue_bfs = yield None
+                    continue
+                else:
+                    continue_bfs = False
+                    return
             # Create obsinfo each BFS file
             rspctl_cmds = []  # BFS doesn't have any rspctl cmds
             ldatinfo_bfs = data_io.LDatInfo(
