@@ -906,6 +906,14 @@ def timestr2datetime(timestr):
     return dattim
 
 
+def as_asapdatetime(t):
+    """\
+    Convert timestr to datetime but keep ASAP
+    """
+    if t == 'ASAP': return 'ASAP'
+    return timestr2datetime(t)
+
+
 def astimestr(datim):
     """\
     Convert a datetime to iLiSA compatible string
