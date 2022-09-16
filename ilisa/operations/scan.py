@@ -439,12 +439,13 @@ def do_nominal_scan(args):
         _LOGGER.error("Cannot understand duration='{}'.".format(args.duration_tot))
         raise
     # Start criteria: Time
-    args.starttime = modeparms.timestr2datetime(args.starttime)
-    starttime = waituntil(args.starttime, datetime.timedelta(seconds=2))
-    stoptime = (starttime + datetime.timedelta(seconds=int(duration_tot))
+
+    starttime = modeparms.as_asapdatetime(args.starttime)
+    _nowtime = waituntil(starttime, datetime.timedelta(seconds=2))
+    stoptime = (_nowtime + datetime.timedelta(seconds=int(duration_tot))
                 + datetime.timedelta(seconds=0))
-    _LOGGER.info('Will stop @{}'.format(stoptime))
-    stop_cond = still_time_fun(stoptime)
+    _LOGGER.info('Expected scan stop @ {}'.format(stoptime))
+    stop_cond = lambda : True  # Always True, thus wait for LCU procs to finish
     # Initialize LScan
     lscan = LScan(stndrv, rec_type, freqsetup, duration_tot,
                   {'pointing': pointing, 'direction': direction,
