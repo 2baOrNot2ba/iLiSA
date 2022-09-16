@@ -415,6 +415,7 @@ def do_nominal_scan(args):
     accessconf = ilisa.operations.default_access_lclstn_conf()
     stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
                            mockrun=args.mockrun)
+    stndrv._lcu_interface._fake_slow_conn = 0  # Fake slow connection for test
     sesspath = stndrv.dru_data_root  # accessconf['DRU']['LOFARdataArchive']
     rec_type = args.ldat_type
     if rec_type == 'None':
