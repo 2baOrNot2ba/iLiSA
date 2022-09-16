@@ -1,5 +1,6 @@
 import os
 import datetime
+import threading
 
 from ilisa.operations._rem_exec import _exec_ssh
 from ilisa.operations.modeparms import band2rcumode, normalizetimestr, astimestr
@@ -231,8 +232,10 @@ class DRUinterface:
         if mockrun:
             cmdlineargs.append('--mockrun')
         print("BFS rec process issued to DRU @", datetime.datetime.utcnow())
-        self.dru(' '.join([dumpercmd] + cmdlineargs), background_job=True)
-        print("BFS_end")
+        self._bfsrec_thread = threading.Thread(
+            target=self.dru, args=(' '.join([dumpercmd] + cmdlineargs),))
+        self._bfsrec_thread.start()
+        print("BFS rec started")
         return datafiles, logfiles
 
     def _rec_bf_proxy(self, ports, duration, bf_data_dir, starttime,
