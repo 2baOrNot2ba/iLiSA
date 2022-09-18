@@ -102,8 +102,10 @@ class StationDriver(object):
         # Make _lofardatadir relative to self._dru_root so it can be joined:
         if os.path.isabs(_lofardatadir):
             _lofardatadir = os.path.relpath(_lofardatadir, os.sep)
-        self.tbbraw2h5cmd = accessconf_dru['TBBraw2h5Cmd']
-        self.tbbh5dumpdir = accessconf_dru['TBBh5dumpDir']
+        self.tbbraw2h5cmd = accessconf_dru.get('TBBraw2h5Cmd')
+        if not self.tbbraw2h5cmd:
+            _LOGGER.warning('access config parameter TBBraw2h5Cmd not set ')
+        self.tbbh5dumpdir = accessconf_dru.get('TBBh5dumpDir')
 
         # Possibly setup sshfs
         self.use_sshfs = True
