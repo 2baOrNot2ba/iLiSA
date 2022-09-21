@@ -130,6 +130,7 @@ while True:
     ready = select.select([sockin], [], [], output_rate)
     if ready[0]:
         message, addr = sockin.recvfrom(1*1024)  # buffer size is 1024 bytes
+        message = message.decode('utf8')
     if isLogging:
         if logfilename == '':
             stnstatdict = stnstat2dict(message)
