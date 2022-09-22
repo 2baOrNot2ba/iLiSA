@@ -440,7 +440,7 @@ def do_nominal_scan(args):
         raise
     # Start criteria: Time
 
-    starttime = modeparms.as_asapdatetime(args.starttime)
+    starttime = modeparms.as_asapdatetime(args.timestart)
     _nowtime = waituntil(starttime, datetime.timedelta(seconds=2))
     stoptime = (_nowtime + datetime.timedelta(seconds=int(duration_tot))
                 + datetime.timedelta(seconds=0))
@@ -478,8 +478,8 @@ def main_cli():
     parser = argparse.ArgumentParser()
     parser.add_argument('-m', '--mockrun', help="Run mock rec",
                         action='store_true')
-    parser.add_argument('-s', '--starttime',
-                        help="Start Time (format: YYYY-mm-ddTHH:MM:SS)",
+    parser.add_argument('-t', '--timestart',
+                        help="Start time: YYYY-mm-ddTHH:MM:SS [UT] or 'ASAP'",
                         type=str, default='ASAP')
     parser.add_argument('-i', '--integration',
                         help="Integration time [s]",
