@@ -95,16 +95,16 @@ def process_scansess(sesscans_in):
     # # cli_start overrides scan session start (if not None)
     if sessmeta['cli_start']:
         # Command Line Interface requested starttime takes priority
-        sessmeta['start'] = modeparms.timestr2datetime(sessmeta['cli_start'])
+        sessmeta['start'] = modeparms.as_asapdatetime(sessmeta['cli_start'])
     if not sessmeta['start']:
-        sessmeta['start'] = modeparms.timestr2datetime('ASAP')
+        sessmeta['start'] = 'ASAP'
 
     def generate_scans():
         # Margin of time between two scans in seconds (fastest safe switching)
         margintime = datetime.timedelta(seconds=13.0)
 
         # Initialize "previous" values for scan loop
-        scanstarttimeprev = sessmeta['start']
+        scanstarttimeprev = modeparms.timestr2datetime(sessmeta['start'])
         duration_totprev = 0
         for scan in sesscans_in['scans']:
             # Get a title for this scan
@@ -520,7 +520,7 @@ def check_scan_sess(scansess_in):
         The ScanSession metadata.
     """
     sessmeta, scans_obsargs = process_scansess(scansess_in)
-    print(yaml.dump(sessmeta, default_flow_style=False))
+    print(yaml.dump(sessmeta, default_flow_style=False), end='')
     sessscans = {'scans': []}
     try:
         for scan_obsargs in scans_obsargs:
@@ -528,12 +528,12 @@ def check_scan_sess(scansess_in):
     except ValueError as ve:
         print("ValueError:", ve)
     else:
-        print(yaml.dump(sessscans, default_flow_style=False))
+        print(yaml.dump(sessscans, default_flow_style=False), end='')
     lastscan = sessscans['scans'][-1]
     endtime = modeparms.timestr2datetime(lastscan['starttime_guess']) \
               + datetime.timedelta(seconds=lastscan['duration'])
     print('end:', endtime)
-    starttime = sessmeta['start']
+    starttime = modeparms.timestr2datetime(sessscans['scans'][0]['starttime_guess'])
     print('duration_total:', endtime - starttime)
     if check_sess_start_passed(sessmeta):
         _LOGGER.warning("Session starttime {} is in the past."
@@ -589,7 +589,7 @@ def main_cli():
     """
     """Parse a schedule commandline."""
     cmdln_prsr = argparse.ArgumentParser()
-    cmdln_prsr.add_argument('-t', '--time', type=str, default='ASAP',
+    cmdln_prsr.add_argument('-t', '--time', type=str, default=None,
                             help="Start Time: YYYY-mm-ddTHH:MM:SS or 'ASAP'"
                             )
     cmdln_prsr.add_argument('-p', '--project', type=str, default='0',
