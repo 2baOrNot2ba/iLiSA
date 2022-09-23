@@ -19,7 +19,7 @@ OPERATIONSPATH = "/opt/operations/bin/"
 # OPERATIONSPATH="/usr/local/bin/"
 LOFARBINPATH = "/opt/lofar/bin/"
 
-VERSION = '2.4'  # version of this script
+VERSION = '2.5'  # version of this script
 
 STATUS = {}  # Status of LCU
 
