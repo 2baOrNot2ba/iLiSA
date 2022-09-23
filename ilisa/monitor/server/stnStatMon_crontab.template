@@ -1,0 +1,14 @@
+#Template crontab file for the iLiSA monitoring service
+#that sends a status update every five minutes.
+#
+#First, make a copy of this file without the '.template' suffix in the name.
+#Then edit the 'stnStatMon_crontab' file so that in the last, uncommented line
+#(see below), $HOME/iLiSA/ilisa/monitor/server/stnStatMon.py is replaced
+#with the full path to the stnStatMon.py script ($HOME is evaluated by crontab
+#to the user's home directory).
+#
+#Deploy by running:
+#
+# bash$ crontab stnStatMon_crontab
+#
+*/5 * * * *	$HOME/iLiSA/ilisa/monitor/server/stnStatMon.py
