@@ -293,7 +293,8 @@ class ScanSession(object):
         session_id has format 'sid<CT>' where <CT> is the datetime
         in the format '%Y%m%dT%H%M%S' of the time of creation.
         """
-        session_id = "sid{}".format(ref_dattim.strftime('%Y%m%dT%H%M%S'))
+        session_id = "sid{}".format(
+            modeparms.normalizetimestr(ref_dattim, dt_fformat='%Y%m%dT%H%M%S'))
         return session_id
 
     def get_datastorepath(self):
