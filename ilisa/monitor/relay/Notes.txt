@@ -1,9 +1,0 @@
-Set up "relay" segment of iStnMonitor as rc script. Specifically put in the
-script /etc/rc.local the line:
-
-sudo nohup /home/tobia/lofar/iStnMonitor/relay/stnMonitorRelay.py &
-
-Execute it after bootup (if it is not running) as
-
-$ sudo sh /etc/rc.local
-
