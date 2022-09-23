@@ -876,7 +876,7 @@ def nrrcus_stnid(stnid):
     return nrrcus
 
 
-def timestr2datetime(timestr):
+def timestr2datetime(timestr, dt_format=DATETIMESTRFMT):
     """\
     Convert time string into a python datetime object
 
@@ -886,6 +886,9 @@ def timestr2datetime(timestr):
         Date-Time string in ISO-like format '%Y-%m-%dT%H:%M:%S'
         OR 'NOW' or 'ASAP', which imply the current UT datetime.
         If timestr is a datetime object, it is returned as is.
+    dt_format : str
+        Format string to parse input timestr
+        (syntax as defined in python datetime package).
 
     Returns
     -------
@@ -900,7 +903,7 @@ def timestr2datetime(timestr):
         dattim += datetime.timedelta(seconds=1)
     else:
         try:
-            dattim = datetime.datetime.strptime(timestr, DATETIMESTRFMT)
+            dattim = datetime.datetime.strptime(timestr, dt_format)
         except:
             raise RuntimeError("Wrong datetime format.")
     return dattim
