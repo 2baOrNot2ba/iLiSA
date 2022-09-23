@@ -4,7 +4,6 @@
 # Inspired by (and partially borrowed from) A. Horneffers "isEcStatus.py" code.
 # T. Carozzi 30 Sep 2013 (25 Jan 2012) (TobiaC)
 # Modified by A. Horneffer 2013--2017
-import sys
 import socket
 import time
 from subprocess import Popen, PIPE
@@ -25,8 +24,8 @@ VERSION = '2.4'  # version of this script
 STATUS = {}  # Status of LCU
 
 
-def pathtoISSTATUS():
-    """Determine path to ISSTATUS script."""
+def pathto_isStatus():
+    """Determine path to isStatus script."""
     lcu_sw_ver = get_lofar_sw_ver()
     change1 = (1, 16, 0)
     change2 = (2, 17, 6)
@@ -41,14 +40,15 @@ def pathtoISSTATUS():
         stationtestpath = '/opt/stationtest/test/envcontroltest/'
         isstatuspy = 'isStatus.py'
     else:
-        print("Cannot determine version of path")
-        sys.exit(1)
-        
+        raise RuntimeError("Cannot determine version of path")
     return stationtestpath+isstatuspy
 
 
-def get_isStatus():
-    isstatus_script = pathtoISSTATUS()
+def update_is_STATUS():
+    """\
+    Update local international station status given by global var STATUS
+    """
+    isstatus_script = pathto_isStatus()
     # Environmental control status:
     ec_stat_out = Popen(isstatus_script,
                         stdout=PIPE).communicate()[0].decode('UTF8')
@@ -91,13 +91,13 @@ def get_lofar_sw_ver():
     return ver_maj, ver_min, ver_pat
 
 
-def aggregateInfo():
+def aggregate_info(check_stn_switch=True, check_swlevel=True):
     """Aggregate information from various sources into a useful iStnMon status.
        The result is in the 'status' global variable."""
     # Get the isStatus status.
-    get_isStatus()
-    
-    if True:
+    update_is_STATUS()
+
+    if check_stn_switch:
         # Station switch status:
         stn_swtchstat_out = Popen(
            # ['sudo', OPERATIONSPATH+'stationswitch','-s'],
@@ -105,7 +105,7 @@ def aggregateInfo():
            stdout=PIPE).communicate()[0].decode('UTF8')
         stn_swtchstat_out_lns = stn_swtchstat_out.splitlines()
         STATUS['switch'] = stn_swtchstat_out_lns[0].split()[-1]
-    if True:
+    if check_swlevel:
         # Software level:
         swlstat_out = Popen([LOFARBINPATH+'swlevel', '-S'],
                             stdout=PIPE).communicate()[0].decode('UTF8')
@@ -152,7 +152,7 @@ def who_beamctl():
     return bc_user
 
 
-def printInfo():
+def print_info():
     print(STATUS['station'])
     print(STATUS['version'])
     print(STATUS['time'])
@@ -288,7 +288,7 @@ if __name__ == "__main__":
                       help="just print status messages to stdout (no UDP)")
     (options, args) = parser.parse_args()
 
-    aggregateInfo()
-    # printInfo()
+    aggregate_info(check_stn_switch=True, check_swlevel=True)
+    # print_info()
     sendstatus(isUDP=not options.prntout)
     bc_user=who_beamctl()
