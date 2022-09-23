@@ -917,14 +917,26 @@ def as_asapdatetime(t):
     return timestr2datetime(t)
 
 
-def astimestr(datim):
+def astimestr(datim, dt_format=DATETIMESTRFMT):
     """\
-    Convert a datetime to iLiSA compatible string
+    Convert a datetime or 'ASAP' to string
+
+    Parameters
+    ----------
+    datim : datetime or 'ASAP'
+        The datetime or 'ASAP' to be converted.
+    dt_format : str
+        python datetime format.
+
+    Returns
+    -------
+    timestr : str
+        Either 'ASAP' or the string formatted datim.
     """
     if datim == 'ASAP':
         timestr = 'ASAP'
     else:
-        timestr = datim.strftime(DATETIMESTRFMT)
+        timestr = datim.strftime(dt_format)
     return timestr
 
 
