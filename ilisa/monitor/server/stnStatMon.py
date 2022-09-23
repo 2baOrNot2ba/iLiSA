@@ -19,7 +19,7 @@ OPERATIONSPATH = "/opt/operations/bin/"
 # OPERATIONSPATH="/usr/local/bin/"
 LOFARBINPATH = "/opt/lofar/bin/"
 
-VERSION = '2.5'  # version of this script
+VERSION = '2.6'  # version of this script
 
 STATUS = {}  # Status of LCU
 
@@ -261,7 +261,7 @@ def sendstatus(isUDP=True, isSendTest=False, isLogged=True):
                      % (STATUS['tbbstat']['volt12min'],
                         STATUS['tbbstat']['volt25min'],
                         STATUS['tbbstat']['volt33min'])
-
+    outstring += "\n"  # End of outstring has newline
     if isSendTest:
         outstring = "TEST "+outstring
 
