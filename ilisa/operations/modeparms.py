@@ -878,11 +878,11 @@ def nrrcus_stnid(stnid):
 
 def timestr2datetime(timestr, dt_format=DATETIMESTRFMT):
     """\
-    Convert time string into a python datetime object
+    Convert into a python datetime
 
     Parameters
     ----------
-    timestr: str
+    timestr: str or datetime.datetime
         Date-Time string in ISO-like format '%Y-%m-%dT%H:%M:%S'
         OR 'NOW' or 'ASAP', which imply the current UT datetime.
         If timestr is a datetime object, it is returned as is.
@@ -909,17 +909,17 @@ def timestr2datetime(timestr, dt_format=DATETIMESTRFMT):
     return dattim
 
 
-def as_asapdatetime(t):
+def as_asapdatetime(timestr, dt_format=DATETIMESTRFMT):
     """\
     Convert timestr to datetime but keep ASAP
     """
-    if t == 'ASAP': return 'ASAP'
-    return timestr2datetime(t)
+    if timestr == 'ASAP': return 'ASAP'
+    return timestr2datetime(timestr, dt_format)
 
 
 def astimestr(datim, dt_format=DATETIMESTRFMT):
     """\
-    Convert a datetime or 'ASAP' to string
+    Convert datetime object or 'ASAP' to datetime string or 'ASAP' resp.
 
     Parameters
     ----------
@@ -940,12 +940,30 @@ def astimestr(datim, dt_format=DATETIMESTRFMT):
     return timestr
 
 
-def normalizetimestr(timestr):
+def normalizetimestr(timestr, dt_pformat=DATETIMESTRFMT,
+                     dt_fformat=DATETIMESTRFMT):
     """\
     Normalize iLiSA time str
+
+    Parameters
+    ----------
+    timestr :  str or datetime.datetime
+        The date-time to convert. If `timestr` is a string that is datetime
+        formatted, then `dt_pformat` is used to parse it. If it is the str
+        'ASAP' it is evaluated as the date-time now. Special case is if
+        `timestr` is a datetime.datetime.
+
+    Returns
+    -------
+    timestr_nrm : str
+        Date-time string in the format specified by `dt_fformat`.
     """
-    datim = timestr2datetime(timestr)
-    return astimestr(datim)
+    if type(timestr) != datetime.datetime:
+        datim = timestr2datetime(timestr, dt_pformat)
+    else:
+        datim = timestr
+    timestr_nrm = astimestr(datim, dt_fformat)
+    return timestr_nrm
 
 
 def hmsstr2deltatime(hms):
