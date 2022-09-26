@@ -1608,17 +1608,17 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     of it can be produced:
       * *persbs*: per frequency, plot over time waterfall of RCUs
       * *mean*: mean dynamic spectra averaged over RCU
-      * *overlay*:
-      * *timsamp*: mosaic of spectra for all RCUs at time sample
+      * *overlay*: overlay spectrum of given RCU slice
+      * *ssmosaic*: snapshot mosaic at time samp of spectra for all RCUs
 
     Which plot is selected depends on argument settings (T,F,X = Set, Unset,
     Arbitrary), see Table:
-    | freqreq | sample_nr| rcu_sel | Plot    |
-    |---------|----------|---------|---------|
-    | T       | X        | X       | persb   |
-    | F       | F        | X       | mean    |
-    | F       | T        | T       | overlay |
-    | F       | F        | T       | timsamp |
+    | freqreq | sample_nr | rcu_sel | Plot     |
+    |---------|-----------|---------|----------|
+    | T       | X         | X       | persb    |
+    | F       | F         | X       | mean     |
+    | F       | T         | T       | overlay  |
+    | F       | T         | F       | ssmosaic |
 
     Parameters
     ----------
@@ -1642,7 +1642,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     elif rcu_sel:
         show = 'overlay'
     else:
-        show = 'timsamp'
+        show = 'ssmosaic'
 
     # Squash file_nr and in file intg index to just samples
     sstdata = numpy.array(sstdata_rcu).reshape((192, -1, 512))
@@ -1688,7 +1688,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
         plt.xlabel('Time [UT]')
         plt.title('Y pol')
         plt.suptitle('Freq {} MHz'.format(freqs[sbreq]/1e6))
-    elif show == 'timsamp':
+    elif show == 'ssmosaic':
         axdim1 = 8
         axdim0 = 192 // axdim1 // 2
         for rcu_nr in range(0, 192, 2):
