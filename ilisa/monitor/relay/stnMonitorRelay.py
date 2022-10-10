@@ -125,27 +125,41 @@ def stnstat2shamecast(status):
     return lofar_scb
 
 message = ''
+stnstatdict = None
+errmesg = "Error: could not parse station status"
 
 while True:
     ready = select.select([sockin], [], [], output_rate)
     if ready[0]:
         message, addr = sockin.recvfrom(1*1024)  # buffer size is 1024 bytes
         message = message.decode('utf8')
+        try:
+            stnstatdict = stnstat2dict(message)
+        except:
+            stnstatdict = None
     if isLogging:
         if logfilename == '':
-            stnstatdict = stnstat2dict(message)
-            print(stnstatdict)
+            if stnstatdict:
+                print(stnstatdict)
+            else:
+                print(errmesg)
         else:
-            f = open(logfilename, 'w')
-            f.write("Latest message:\n")
-            f.write(message)
-            f.close()
+            with open(logfilename, 'w') as f:
+                f.write("Latest message:\n")
+                f.write(message)
+                if not stnstatdict:
+                    f.write("\n")
+                    f.write(errmesg)
+                    f.write("\n")
     if message[0:4] == "TEST":
         print("Testing:\n", message)
     if RELAYSTNSTAT:
         sockout.sendto(message, (IPto, UDP_PORT))
     if SHAMECAST:
         # Multicast
-        stnstatdict = stnstat2dict(message)
-        stnstatshm = stnstat2shamecast(stnstatdict)
-        sockmout.sendto(stnstatshm, MULTICAST_GROUP)
+        if stnstatdict:
+            stnstatshm = stnstat2shamecast(stnstatdict)
+            sockmout.sendto(stnstatshm, MULTICAST_GROUP)
+        else:
+            # Error: no stnstatdict. For now do nothing
+            pass
