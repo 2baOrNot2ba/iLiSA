@@ -15,9 +15,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class LScan:
-    def __init__(self, stndrv, rec_type, freqsetup, duration_tot,
-                 pointing_spec, integration, starttime, acc=False, bfs=False,
-                 destpath=None, destpath_bfs=None, file_dur=None, scan_id=None):
+    def __init__(self, stndrv, rec_type, freqsetup, pointing_spec, duration_tot,
+                 integration, starttime, acc=False, bfs=False, destpath=None,
+                 destpath_bfs=None, file_dur=None, scan_id=None):
         """\
         Record a scan of LOFAR station data
 
@@ -38,11 +38,11 @@ class LScan:
                 None: No recording of data.
         freqsetup: FreqSetup
             FreqSetup() instance.
-        duration_tot: float
-            Requested total duration of scan in seconds.
         pointing_spec: dict
             Pointing source direction of scan. Can be a source name or a
             beamctl direction str. If None, then allsky image is implied.
+        duration_tot: float
+            Requested total duration of scan in seconds.
         integration: float
             Integration time in seconds.
         starttime: str
@@ -447,10 +447,11 @@ def do_nominal_scan(args):
     _LOGGER.info('Expected scan stop @ {}'.format(stoptime))
     stop_cond = lambda : True  # Always True, thus wait for LCU procs to finish
     # Initialize LScan
-    lscan = LScan(stndrv, rec_type, freqsetup, duration_tot,
-                  {'pointing': pointing, 'direction': direction,
-                   'source': source}, args.integration, starttime,
-                  args.acc, args.bfs, destpath=sesspath, destpath_bfs='Scans')
+    _pointing_spec = {'pointing': pointing, 'direction': direction,
+                      'source': source}
+    lscan = LScan(stndrv, rec_type, freqsetup, _pointing_spec, duration_tot,
+                  args.integration, starttime, args.acc, args.bfs,
+                  destpath=sesspath, destpath_bfs='Scans')
     subscan = iter(lscan)
     # Start the subscan
     next(subscan)

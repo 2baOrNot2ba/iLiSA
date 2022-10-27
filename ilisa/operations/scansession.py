@@ -405,12 +405,11 @@ class ScanSession(object):
                         continue
 
                 # Initialize LScan
-                lscan = LScan(self.stndrv, bsx_stat, freqsetup,
-                              scan_dur, pointing_spec, integration,
-                              starttime, acc=acc, bfs=bfs,
-                              destpath=sesspath, destpath_bfs=bfdsesdumpdir,
-                              file_dur=scan['file_dur'],
-                              scan_id=scan['id'])
+                lscan = LScan(self.stndrv, bsx_stat, freqsetup, pointing_spec,
+                              scan_dur, integration, starttime,
+                              acc=acc, bfs=bfs, destpath=sesspath,
+                              destpath_bfs=bfdsesdumpdir,
+                              file_dur=scan['file_dur'], scan_id=scan['id'])
                 _LOGGER.info("Started LScan:: {}"
                              .format(lscan.describe_scan()))
                 subscan = iter(lscan)
