@@ -201,12 +201,13 @@ def convert2binary(bfs_filepath):
     fout.close()
 
 
-def convert2bst(bfs_filepath, integrate_time=0):
+def convert2bst(bfs_filepath, integration_req=1.0):
     """Recreate bst style data based on the streamed beamformed data
 
     It also adds the novel combination of X*Y data.
     """
     bfs_filenamebase = os.path.basename(bfs_filepath)
+    nrpackets = os.path.getsize(bfs_filepath)/BytesBFPacket
     foutXX = open(bfs_filenamebase + ".XX.bst", "wb")
     foutYY = open(bfs_filenamebase + ".YY.bst", "wb")
     foutXY = open(bfs_filenamebase + ".XY.bst", "wb")
@@ -226,13 +227,13 @@ def convert2bst(bfs_filepath, integrate_time=0):
             xx = numpy.zeros((nrbeamlets,), dtype=float)
             yy = numpy.zeros((nrbeamlets,), dtype=float)
             xy = numpy.zeros((nrbeamlets,), dtype=complex)
-            if integrate_time == 0:
-                integrateSamps = 1
-            else:
-                integrateSamps = int(samprate / FFTSIZE \
-                                     * integrate_time / NRTIMS_PACKET) \
-                                 * NRTIMS_PACKET
-            normfac = 1.0 / integrateSamps * (samprate / FFTSIZE)
+            integrate_samps = (math.floor(integration_req * samprate
+                                          / (FFTSIZE * NRTIMS_PACKET))
+                               * NRTIMS_PACKET)
+            integration = integrate_samps / samprate * FFTSIZE
+            print("Requested {}s integration, but will instead use {}s".format(
+                integration_req, integration))
+            normfac = 1.0 / integrate_samps * (samprate / FFTSIZE)
             initialize = False
         for bi in range(nrbeamlets):
             xx[bi] += numpy.real(numpy.vdot(x[bi, :], x[bi, :]))
@@ -240,7 +241,10 @@ def convert2bst(bfs_filepath, integrate_time=0):
             xy[bi] += numpy.vdot(x[bi, :], y[bi, :])
             # yx[bi]=numpy.vdot(y[bi,:],x[bi,:])
         totnrtimsamp += NRTIMS_PACKET
-        if (totnrtimsamp % integrateSamps) == 0:
+        if (totnrtimsamp % integrate_samps) == 0:
+            print("Integrated {}/{} time samples".format(
+                totnrtimsamp//integrate_samps,
+                nrpackets*NRTIMS_PACKET/integrate_samps))
             # Normalize to covariance
             xx = xx * normfac
             yy = yy * normfac
@@ -387,6 +391,8 @@ def main_cli():
     parser_bst = subparsers.add_parser('bst', help='Convert to BST files')
     parser_bst.set_defaults(func=convert2bst)
     parser_bst.add_argument('bfs_filename', help="BFS filename")
+    parser_bst.add_argument('integration', type=float,
+                            help="Integration in float seconds")
 
     args = cmdln_prsr.parse_args()
 
@@ -412,7 +418,7 @@ def main_cli():
         convert2binary(args.bfs_filename)
     elif args.func == convert2bst:
         integration = 1.0
-        convert2bst(args.bfs_filename, int(integration))
+        convert2bst(args.bfs_filename, args.integration)
 
 
 if __name__ == "__main__":
