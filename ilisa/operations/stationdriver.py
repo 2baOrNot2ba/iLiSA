@@ -521,7 +521,7 @@ class StationDriver(object):
             ldatinfo_acc.filenametime = filetimestamps[0]
             if firstacc:
                 obsinfo = {
-                    'duration': dur1acc,
+                    'duration_scan': dur1acc,
                     'filenametime': ldatinfo_acc.filenametime,
                     'integration': integration,
                     'spw': ldatinfo_acc.get_spw(),
@@ -624,7 +624,7 @@ class StationDriver(object):
                 if not filenametime_first:
                     filenametime_first = ldatinfo.filenametime
                     obsinfo = {
-                        'duration': duration_tot,
+                        'duration_scan': duration_tot,
                         'filenametime': filenametime_first,
                         'integration': integration,
                         'spw': ldatinfo.get_spw(),
@@ -726,7 +726,7 @@ class StationDriver(object):
             ldatinfo_bfs.filenametime = filetime_curr
             if firstbfs:
                 obsinfo = {
-                    'duration': duration_tot,
+                    'duration_scan': duration_tot,
                     'filenametime': ldatinfo_bfs.filenametime,
                     'integration': None,
                     'spw': ldatinfo_bfs.get_spw(),

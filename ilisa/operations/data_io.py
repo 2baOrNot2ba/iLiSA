@@ -141,7 +141,7 @@ def obsinfo2filefolder(obsinfo):
     Convert obsinfo dict to filefolder name
 
     obsinfo:
-        duration:
+        duration_scan:
         filenametime:
         integration:
         spw:
@@ -152,7 +152,7 @@ def obsinfo2filefolder(obsinfo):
 
     Name format is
         <station_id>_<filenametime>_spw<rcumodes>_sb<subbands>_int<integration>\
-        _dur<duration_tot>[_dir<pointing>]_<ldat_type>
+        _dur<duration_scan>[_dir<pointing>]_<ldat_type>
 
     Returns
     -------
@@ -178,8 +178,8 @@ def obsinfo2filefolder(obsinfo):
         filefoldername += seqlists2slicestr(obsinfo['subbands'])
     if 'integration' in obsinfo and obsinfo['integration']:
         filefoldername += "_int" + str(int(obsinfo['integration']))
-    if 'duration' in obsinfo:
-        filefoldername += "_dur" + str(int(obsinfo['duration']))
+    if 'duration_scan' in obsinfo:
+        filefoldername += "_dur" + str(int(obsinfo['duration_scan']))
     if ldat_type != 'sst':
         if str(obsinfo['pointing']) != "":
             filefoldername += "_dir" + str(obsinfo['pointing'])
