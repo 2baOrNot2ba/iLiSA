@@ -1495,6 +1495,8 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     """\
     View SST data
 
+    If printout is False it produces a plot otherwise it prints data to stdout.
+
     SST data vary over frequency, time sample, and RCU. Various types of plots
     of it can be produced:
       * *persbs*: per frequency, plot over time waterfall of RCUs
@@ -1520,29 +1522,39 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     freqreq : float
         Requested frequency in Hz.
     sample_nr : int
-        Sample number to plot.
+        Sample number.
     rcu_sel : int
-        RCU number to plot.
+        RCU number.
     printout : bool
         Print out data instead of plotting it.
     """
     sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(sstff)
     starttime = obsinfo['datetime']
+    # Squash file_nr and in file intg index to just samples
+    sstdata = numpy.array(sstdata_rcu).reshape((192, -1, 512))
+    ts = numpy.ravel(ts_list)
     sbreq = None
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
     if printout:
-        rcus = range(len(sstdata_rcu))
-        print('#UT Freq[Hz] '+' '.join(['P_rcu'+str(_rcu) for _rcu in range(196)])
-              )
-        for filenr, file_ts in enumerate(ts_list):
-            for tidx, t in enumerate(file_ts):
-                for frqidx, freq in enumerate(freqs):
-                    print(modeparms.astimestr(t), freq, end=' ')
-                    _out = []
-                    for rcu in rcus:
-                        _out.append(sstdata_rcu[rcu][filenr][tidx, frqidx])
-                    print(*_out)
+        if rcu_sel is None:
+            rcus_str = ' '.join(['P_rcu'+str(_rcu) for _rcu in range(196)])
+        else:
+            rcus_str = 'P_rcu' + str(rcu_sel)
+        print('#UT Freq[Hz] ' + rcus_str)
+        for tidx, t in enumerate(ts):
+            if sample_nr is not None:
+                if tidx != sample_nr:
+                    continue
+            for frqidx, freq in enumerate(freqs):
+                if sbreq is not None:
+                    if sbreq != frqidx:
+                        continue
+                print(modeparms.astimestr(t), freq, end=' ')
+                _out = sstdata[:,tidx, frqidx]
+                if rcu_sel is not None:
+                    _out = [_out[rcu_sel]]
+                print(*_out)
         return
     # Plot
     if freqreq:
@@ -1557,9 +1569,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
         if sample_nr is not None and rcu_sel is None:
             show = 'ssmosaic'
 
-    # Squash file_nr and in file intg index to just samples
-    sstdata = numpy.array(sstdata_rcu).reshape((192, -1, 512))
-    ts = numpy.ravel(ts_list)
+
 
     if show == 'mean':
         # Show mean over RCUs
