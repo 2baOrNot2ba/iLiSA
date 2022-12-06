@@ -136,11 +136,11 @@ def seqlists2slicestr(seqlists):
     return slicestr
 
 
-def obsfileinfo2filefolder(obsfileinfo):
+def obsinfo2filefolder(obsinfo):
     """\
-    Convert obsfileinfo dict to filefolder name
+    Convert obsinfo dict to filefolder name
 
-    obsfileinfo:
+    obsinfo:
         duration:
         filenametime:
         integration:
@@ -159,44 +159,44 @@ def obsfileinfo2filefolder(obsfileinfo):
     filefoldername : str
         Meta-data formatted name of file-folder.
     """
-    if obsfileinfo.get('datatype', None):
-        ldat_type = obsfileinfo['datatype']
+    if obsinfo.get('datatype', None):
+        ldat_type = obsinfo['datatype']
     else:
-        ldat_type = obsfileinfo.get('ldat_type')
-    filefoldername = '{}_{}'.format(obsfileinfo['station_id'],
-                                    obsfileinfo['filenametime'])
+        ldat_type = obsinfo.get('ldat_type')
+    filefoldername = '{}_{}'.format(obsinfo['station_id'],
+                                    obsinfo['filenametime'])
 
     spwstr = ''
-    if obsfileinfo['spw']:
+    if obsinfo['spw']:
         spwstr = \
-            ''.join([str(spw) for spw in obsfileinfo['spw']])
+            ''.join([str(spw) for spw in obsinfo['spw']])
     filefoldername += "_spw" + spwstr
 
-    if (ldat_type != 'sst' and obsfileinfo['subbands'] != []
-            and obsfileinfo['subbands'] != ''):
+    if (ldat_type != 'sst' and obsinfo['subbands'] != []
+            and obsinfo['subbands'] != ''):
         filefoldername += "_sb"
-        filefoldername += seqlists2slicestr(obsfileinfo['subbands'])
-    if 'integration' in obsfileinfo and obsfileinfo['integration']:
-        filefoldername += "_int" + str(int(obsfileinfo['integration']))
-    if 'duration' in obsfileinfo:
-        filefoldername += "_dur" + str(int(obsfileinfo['duration']))
+        filefoldername += seqlists2slicestr(obsinfo['subbands'])
+    if 'integration' in obsinfo and obsinfo['integration']:
+        filefoldername += "_int" + str(int(obsinfo['integration']))
+    if 'duration' in obsinfo:
+        filefoldername += "_dur" + str(int(obsinfo['duration']))
     if ldat_type != 'sst':
-        if str(obsfileinfo['pointing']) != "":
-            filefoldername += "_dir" + str(obsfileinfo['pointing'])
+        if str(obsinfo['pointing']) != "":
+            filefoldername += "_dir" + str(obsinfo['pointing'])
         else:
             filefoldername += "_dir,,"
-    # filefoldername += "_" + obsfileinfo['source']
+    # filefoldername += "_" + obsinfo['source']
     # ldat_type extension
     filefoldername += "_" + ldat_type
     return filefoldername
 
 
-def filefolder2obsfileinfo(filefolderpath):
+def filefolder2obsinfo(filefolderpath):
     """\
-    Parse filefolder name and return an obsfileinfo
+    Parse filefolder name and return an obsinfo
 
-    For description of filefolder naming and obsfileinfo see
-    obsfileinfo2filefolder().
+    For description of filefolder naming and obsinfo see
+    obsinfo2filefolder().
 
     Parameters
     ----------
@@ -205,7 +205,7 @@ def filefolder2obsfileinfo(filefolderpath):
 
     Returns
     -------
-    obsfileinfo : dict
+    obsinfo : dict
         Dict of metadata corresponding to file-folder.
     """
     filefolderpath = os.path.normpath(filefolderpath)
@@ -238,40 +238,40 @@ def filefolder2obsfileinfo(filefolderpath):
         stnid = None
     (Ymd, HMS, spwstr, intstr, durstr) = filefoldersplit[:]
 
-    obsfileinfo = {}
-    obsfileinfo['station_id'] = stnid
-    obsfileinfo['filenametime'] = Ymd + '_' + HMS
-    obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
+    obsinfo = {}
+    obsinfo['station_id'] = stnid
+    obsinfo['filenametime'] = Ymd + '_' + HMS
+    obsinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                          '%Y%m%dT%H%M%S')
-    obsfileinfo['spw'] = spwstr[3:]
-    obsfileinfo['subbands'] = sbstr[2:]
-    obsfileinfo['integration'] = int(intstr[3:])
-    obsfileinfo['duration_scan'] = int(durstr[3:])
-    obsfileinfo['pointing'] = dirstr[3:]
-    obsfileinfo['ldat_type'] = ldat_type
+    obsinfo['spw'] = spwstr[3:]
+    obsinfo['subbands'] = sbstr[2:]
+    obsinfo['integration'] = int(intstr[3:])
+    obsinfo['duration_scan'] = int(durstr[3:])
+    obsinfo['pointing'] = dirstr[3:]
+    obsinfo['ldat_type'] = ldat_type
 
-    if len(obsfileinfo['spw']) > 1:
-        obsfileinfo['spw'] = list(obsfileinfo['spw'])
-    if _RCU_SB_SEP in obsfileinfo['subbands']:
-        obsfileinfo['subbands'] = obsfileinfo['subbands'].split(
+    if len(obsinfo['spw']) > 1:
+        obsinfo['spw'] = list(obsinfo['spw'])
+    if _RCU_SB_SEP in obsinfo['subbands']:
+        obsinfo['subbands'] = obsinfo['subbands'].split(
             _RCU_SB_SEP)
 
-    if type(obsfileinfo['spw']) is not list:
-        obsfileinfo['spw'] = [obsfileinfo['spw']]
-    if type(obsfileinfo['subbands']) is not list:
-        obsfileinfo['subbands'] = [obsfileinfo['subbands']]
-    obsfileinfo['frequencies'] = numpy.empty(0)
+    if type(obsinfo['spw']) is not list:
+        obsinfo['spw'] = [obsinfo['spw']]
+    if type(obsinfo['subbands']) is not list:
+        obsinfo['subbands'] = [obsinfo['subbands']]
+    obsinfo['frequencies'] = numpy.empty(0)
     beamlets = []
     totnrsbs = 0
-    for spw_nr, spw in enumerate(obsfileinfo['spw']):
-        sblist = modeparms.seqarg2list(obsfileinfo['subbands'][spw_nr])
+    for spw_nr, spw in enumerate(obsinfo['spw']):
+        sblist = modeparms.seqarg2list(obsinfo['subbands'][spw_nr])
         nrsbs = len(sblist)
         sblo = sblist[0]
         sbhi = sblist[-1]
         nz = modeparms.rcumode2nyquistzone(spw)
         freqlo = modeparms.sb2freq(sblo, nz)
         freqhi = modeparms.sb2freq(sbhi, nz)
-        obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
+        obsinfo['frequencies'] = numpy.append(obsinfo['frequencies'],
                                                   numpy.linspace(freqlo,
                                                                  freqhi,
                                                                  nrsbs))
@@ -302,34 +302,34 @@ def filefolder2obsfileinfo(filefolderpath):
             sbhi = sblo + nrsbs - 1
             freqlo = modeparms.sb2freq(sblo, nz)
             freqhi = modeparms.sb2freq(sbhi, nz)
-            obsfileinfo['frequencies'] = numpy.append(obsfileinfo['frequencies'],
+            obsinfo['frequencies'] = numpy.append(obsinfo['frequencies'],
                                                       numpy.linspace(freqlo,
                                                                      freqhi,
                                                                      nrsbs))
-        obsfileinfo['max_nr_bls'] = maxnrbls
+        obsinfo['max_nr_bls'] = maxnrbls
 
     # Assemble _cmds
     #    rcusetup_cmds
     rcusetup_cmds = modeparms.rcusetup_args2cmds(bits, 0)
-    obsfileinfo['rcusetup_cmds'] = rcusetup_cmds
+    obsinfo['rcusetup_cmds'] = rcusetup_cmds
     #    beamctl_cmds
     beamctl_cmds = []
-    for spw_nr, spw in enumerate(obsfileinfo['spw']):
+    for spw_nr, spw in enumerate(obsinfo['spw']):
         band = modeparms.rcumode2band(spw)
-        anadigdir = ','.join(obsfileinfo['pointing'])
+        anadigdir = ','.join(obsinfo['pointing'])
         beamctl_cmd = modeparms.beamctl_args2cmds(beamlets[spw_nr],
-                                                  obsfileinfo['subbands'][spw_nr],
+                                                  obsinfo['subbands'][spw_nr],
                                                   band, anadigdir)
         beamctl_cmds.append(beamctl_cmd)
-    obsfileinfo['beamctl_cmds'] = beamctl_cmds
+    obsinfo['beamctl_cmds'] = beamctl_cmds
     #     rspctl_cmds
-    rspctl_cmds = modeparms.rspctl_stats_args2cmds(obsfileinfo['ldat_type'],
-                                                   obsfileinfo['integration'],
-                                                   obsfileinfo['duration_scan'],
-                                                   obsfileinfo['subbands'])
-    obsfileinfo['rspctl_cmds'] = rspctl_cmds
+    rspctl_cmds = modeparms.rspctl_stats_args2cmds(obsinfo['ldat_type'],
+                                                   obsinfo['integration'],
+                                                   obsinfo['duration_scan'],
+                                                   obsinfo['subbands'])
+    obsinfo['rspctl_cmds'] = rspctl_cmds
 
-    return obsfileinfo
+    return obsinfo
 
 
 class ScanRecInfo(object):
@@ -338,28 +338,28 @@ class ScanRecInfo(object):
     files of a unique LOFAR station data product (ldat), i.e. acc, bfs, bst,
     sst or xst. The info in a ScanRecInfo object consists of sufficient
     parameters to redo the data, namely the stn_id, the iLiSA scanrec
-    parameters, and a list of LDatInfo objects called obsinfos that maps to
+    parameters, and a list of LDatInfo objects called ldatinfos that maps to
     each ldat within the scanrec.
     """
     scanrecinfo_header = "SCANREC_INFO.yml"
 
     def __init__(self):
         self.headerversion = 5
-        self.obsinfos = {}
+        self.ldatinfos = {}
         self._pointing = ''
         self.sourcename = ''
         self.caltabinfos = []
         self.scanrecpath = None
 
-    def add_obs(self, obsinfo):
+    def add_obs(self, ldatinfo):
         """Add an LDatInfo object to this ScanRecInfo."""
-        obs_id = obsinfo.filenametime
-        self.obsinfos[obs_id] = obsinfo
+        obs_id = ldatinfo.filenametime
+        self.ldatinfos[obs_id] = ldatinfo
 
     def get_obs_ids(self):
         """Get list of obs_ids.
-        A obs_id is a key to the obsinfos list."""
-        return sorted(self.obsinfos.keys())
+        A obs_id is a key to the ldatinfos list."""
+        return sorted(self.ldatinfos.keys())
 
     def set_stnid(self, stnid):
         self.stnid = stnid
@@ -369,7 +369,7 @@ class ScanRecInfo(object):
             stnid = self.stnid
         except:
             try:
-                stnid = self.obsinfos[0].stnid
+                stnid = self.ldatinfos[0].stnid
             except:
                 try:
                     stnid = self.scanrecparms['station']
@@ -398,7 +398,7 @@ class ScanRecInfo(object):
             f.write("headerversion: {}\n".format(self.headerversion))
             f.write("station: {}\n".format(self.stnid))
             f.write("scanrecparms: {!r}\n".format(self.scanrecparms))
-            f.write("ldat_ids: {!r}\n".format(list(self.obsinfos.keys())))
+            f.write("ldat_ids: {!r}\n".format(list(self.ldatinfos.keys())))
             if self.caltabinfos != []:
                 f.write("caltabinfos: {}".format(self.caltabinfos))
 
@@ -446,7 +446,7 @@ class ScanRecInfo(object):
                                           ).rcumodes[0]
         except:
             try:
-                rcumode = self.obsinfos[filenr].beamctl_cmd['rcumode']
+                rcumode = self.ldatinfos[filenr].beamctl_cmd['rcumode']
             except:
                 rcumode = self.scanrecparms['rcumode']
         return str(rcumode)
@@ -459,7 +459,7 @@ class ScanRecInfo(object):
         return antset.split('_')[0]
 
     def get_xcsubband(self, filenr=0):
-        return int(self.obsinfos[filenr].rspctl_cmd['xcsubband'])
+        return int(self.ldatinfos[filenr].rspctl_cmd['xcsubband'])
 
     def get_integration(self):
         return self.scanrecparms['integration']
@@ -470,14 +470,14 @@ class ScanRecInfo(object):
     def is_septon(self, filenr=0):
         obs_ids = self.get_obs_ids()
         try:
-            self.obsinfos[obs_ids[filenr]]
+            self.ldatinfos[obs_ids[filenr]]
         except:
             if self.get_datatype().endswith('SEPTON'):
                 return True
             else:
                 return False
         else:
-            if self.obsinfos[obs_ids[filenr]].septonconf:
+            if self.ldatinfos[obs_ids[filenr]].septonconf:
                 return True
             else:
                 return False
@@ -485,7 +485,7 @@ class ScanRecInfo(object):
     def get_septon_elmap(self, filenr=0):
         obs_ids = self.get_obs_ids()
         elmap = modeparms.str2elementMap2(
-                    self.obsinfos[obs_ids[filenr]].septonconf)
+                    self.ldatinfos[obs_ids[filenr]].septonconf)
         return elmap
 
     def get_ldat_filenames(self):
@@ -684,9 +684,9 @@ class LDatInfo(object):
                                                        obsfilefolder['integration'],
                                                        obsfilefolder['duration_scan'],
                                                        sb)
-        obsinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds)
-        obsinfo.filenametime = obsfilefolder['datetime'].strftime('%Y%m%d_%H%M%S')
-        return obsinfo
+        ldatinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds)
+        ldatinfo.filenametime = obsfilefolder['datetime'].strftime('%Y%m%d_%H%M%S')
+        return ldatinfo
 
     @classmethod
     def read_ldat_header(cls, headerpath):
@@ -755,13 +755,12 @@ class LDatInfo(object):
                     septonconf = contents['septonconf']
                 else:
                     septonconf = None
-        obsinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
+        ldatinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
                       caltabinfos=caltabinfos, septonconf=septonconf)
-        obsinfo.filenametime = filenametime
-        return obsinfo
+        ldatinfo.filenametime = filenametime
+        return ldatinfo
 
 
-# BEGIN BST related code
 def readbstfolder(bst_filefolder):
     """\
     Read a BST file-folder and return data
@@ -934,8 +933,8 @@ class CVCfiles(object):
 
         datapath = os.path.abspath(datapath)
         if os.path.isdir(datapath):
-            obsfileinfo = filefolder2obsfileinfo(datapath)
-            stnid = obsfileinfo['station_id']
+            obsinfo = filefolder2obsinfo(datapath)
+            stnid = obsinfo['station_id']
             nrrcus = modeparms.nrrcus_stnid(stnid)
             self.cvcdim1 = nrrcus
             self.cvcdim2 = nrrcus
@@ -949,7 +948,7 @@ class CVCfiles(object):
             raise ValueError('Path does not exist')
         # Get/Compute ant positions
         stnid = self.scanrecinfo.get_stnid()
-        antset = self.scanrecinfo.obsinfos[
+        antset = self.scanrecinfo.ldatinfos[
             self.scanrecinfo.get_obs_ids()[0]].antset
         self.stn_pos, self.stn_rot, self.stn_antpos, self.stn_intilepos \
             = antennafieldlib.get_antset_params(stnid, antset)
@@ -1040,7 +1039,7 @@ class CVCfiles(object):
             warnings.warn("Could not read session header."
                           +" Will try filefolder name...")
             try:
-                obsinfo = filefolder2obsfileinfo(self.filefolder)
+                obsinfo = filefolder2obsinfo(self.filefolder)
             except ValueError as er:
                 print("Could not parse filefolder {}".format(self.filefolder))
                 # Will hope to read LDat header
@@ -1444,13 +1443,13 @@ def viewbst(bstff, pol_stokes=True, printout=False):
     printout : bool
         Just print-out data rather than plot it?
     """
-    bst_datas_x, bst_datas_y, ts_list, freqs, obsfileinfo = readbstfolder(bstff)
-    stnid = obsfileinfo['station_id']
-    starttime = obsfileinfo['datetime']
-    intg = obsfileinfo['integration']
-    dur_tot = float(obsfileinfo['duration_scan'])
-    pointing = obsfileinfo['pointing']
-    max_nr_bls = obsfileinfo['max_nr_bls']
+    bst_datas_x, bst_datas_y, ts_list, freqs, obsinfo = readbstfolder(bstff)
+    stnid = obsinfo['station_id']
+    starttime = obsinfo['datetime']
+    intg = obsinfo['integration']
+    dur_tot = float(obsinfo['duration_scan'])
+    pointing = obsinfo['pointing']
+    max_nr_bls = obsinfo['max_nr_bls']
 
     # Squash list of data arrays (no padding between files)
     file_dur = (ts_list[0][-1]-ts_list[0][0]).total_seconds()
@@ -1661,10 +1660,10 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
     for filenr, times_in_filetimes in enumerate(xstobj.samptimeset):
         if filenr0>filenr:
             continue
-        obsinfo = xstobj.scanrecinfo.obsinfos[obs_ids[filenr]]
-        intg = obsinfo.integration
-        dur = obsinfo.duration_subscan
-        freq = obsinfo.get_recfreq()
+        ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
+        intg = ldatinfo.integration
+        dur = ldatinfo.duration_subscan
+        freq = ldatinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
         xstfiledata = xstobj[filenr]
         for tidx, samptime in enumerate(times_in_filetimes):
@@ -1719,7 +1718,7 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
             plt.suptitle("""\
                          Visibilities
                          Time (from start {}) {}s
-                         @ freq={} MHz""".format(obsinfo.get_starttime(),
+                         @ freq={} MHz""".format(ldatinfo.get_starttime(),
                          ts[tidx], freq/1e6))
 
             plt.show()
