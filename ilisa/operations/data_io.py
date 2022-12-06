@@ -39,22 +39,6 @@ if canuse_dreambeam:
 
 _RCU_SB_SEP = "+"
 
-regex_ACCfolder = (
-    r"^(?P<stnid>\w{5})_(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
-    r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-    r"_spw(?P<rcumode>\d+)_int(?P<integration>\d+)_dur(?P<duration_tot>\d+)_dir(?P<calsrc>[^_]+)_acc$")
-regex_ACCfilename = (
-    r"^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
-    r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-    r"_acc_(?P<totnrsb>\d+)x(?P<nrrcu0>\d+)x(?P<nrrcu1>\d+)"
-    r".dat$")
-regex_xstfilename = (
-    r"^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})"
-    r"_(?P<hour>\d{2})(?P<minute>\d{2})(?P<second>\d{2})"
-    r"_rcu(?P<rcumode>\d+)_int(?P<integration>\d+)_dur(?P<duration_scan>\d+)"
-    r"_dir(?P<RAint>\d+).(?P<RAdecimal>\d+),(?P<DECint>\d+).(?P<DECdecimal>\d+),(?P<ref>\s+)"
-    r"_xst.dat$")
-
 
 def datafolder_type(datafolderpath):
     """Determine what type of LOFAR local mode recording the datafolder is.
@@ -163,11 +147,11 @@ def obsfileinfo2filefolder(obsfileinfo):
         spw:
         ldat_type or datatype:
         pointing:
-        sb:
+        subbands:
         station_id:
 
     Name format is
-        <station_id>_<filenametime>_spw<rcumodes>_sb<sb>_int<integration>\
+        <station_id>_<filenametime>_spw<rcumodes>_sb<subbands>_int<integration>\
         _dur<duration_tot>[_dir<pointing>]_<ldat_type>
 
     Returns
@@ -188,9 +172,10 @@ def obsfileinfo2filefolder(obsfileinfo):
             ''.join([str(spw) for spw in obsfileinfo['spw']])
     filefoldername += "_spw" + spwstr
 
-    if ldat_type != 'sst' and obsfileinfo['sb'] != [] and obsfileinfo['sb'] != '':
+    if (ldat_type != 'sst' and obsfileinfo['subbands'] != []
+            and obsfileinfo['subbands'] != ''):
         filefoldername += "_sb"
-        filefoldername += seqlists2slicestr(obsfileinfo['sb'])
+        filefoldername += seqlists2slicestr(obsfileinfo['subbands'])
     if 'integration' in obsfileinfo and obsfileinfo['integration']:
         filefoldername += "_int" + str(int(obsfileinfo['integration']))
     if 'duration' in obsfileinfo:
@@ -682,21 +667,22 @@ class LDatInfo(object):
             return None
 
     @classmethod
-    def from_obsfilefolder(cls, obsfilefolder):
+    def from_obsinfo(cls, obsfilefolder):
         """Create an LDatInfo from an obsfilefolder dict"""
-        datatype = obsfilefolder['datatype']
-        sb = obsfilefolder['subband']
+        datatype = obsfilefolder['ldat_type']
+        sb = obsfilefolder['subbands'][0]
         rcusetup_cmds = ''
         anadigdir = ilisa.operations.directions.normalizebeamctldir(
-            obsfilefolder['pointing'][0])
+            obsfilefolder['pointing'])
         beamlets = modeparms.alloc_beamlets(sb)[0]
         beamctl_cmds = modeparms.beamctl_args2cmds(beamlets=beamlets,
                                                    subbands=sb,
-                                                   band=obsfilefolder['rcumode'],
+                                                   band=modeparms.rcumode2band(
+                                                       obsfilefolder['spw'][0]),
                                                    anadigdir=anadigdir)
         rspctl_cmds = modeparms.rspctl_stats_args2cmds(datatype,
                                                        obsfilefolder['integration'],
-                                                       obsfilefolder['duration_tot'],
+                                                       obsfilefolder['duration_scan'],
                                                        sb)
         obsinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds)
         obsinfo.filenametime = obsfilefolder['datetime'].strftime('%Y%m%d_%H%M%S')
@@ -1034,68 +1020,6 @@ class CVCfiles(object):
             filebegindatetime = filenamedatetime
         return datatype, filebegindatetime
 
-    def _parse_cvcfolder(self, cvcfolderpath):
-        """Parse the cvc filefolder.
-
-        The filefolder should have the format:
-            stnid_Ymd_HMS_rcumode_subband_integration_duration_pointing_cvc
-
-        Parameters
-        ----------
-        cvcfolderpath: str
-            Path of folder with CVC files.
-
-        Returns
-        -------
-        scanrecparms
-        """
-        cvcfoldername = os.path.basename(os.path.abspath(cvcfolderpath))
-        obsfolderinfo = {}
-        cvcextstr = cvcfoldername.split('_')[-1]
-        if cvcextstr == 'xst' or cvcextstr == 'xst-SEPTON':
-            cvcfoldername_split = cvcfoldername.split('_')
-            try:
-                (stnid, Ymd, HMS, rcustr, sbstr, intstr, durstr, dirstr, cvcextstr
-                 ) = cvcfoldername_split
-                obsfolderinfo['stnid'] = stnid
-                obsfolderinfo['datetime'] = datetime.datetime.strptime(
-                    Ymd + 'T' + HMS, '%Y%m%dT%H%M%S')
-                obsfolderinfo['rcumode'] = rcustr[3:]
-                obsfolderinfo['subband'] = sbstr[2:]
-                obsfolderinfo['integration'] = float(intstr[3:])
-                obsfolderinfo['duration_tot'] = float(durstr[3:])
-                obsfolderinfo['pointing'] = dirstr[3:].split(',')
-            except:
-                raise ValueError("Foldername not in xst_ext format.")
-        elif cvcextstr == 'acc':
-            dirpat = re.compile(regex_ACCfolder)
-            obsdirinfo_m = dirpat.match(cvcfoldername)
-            if obsdirinfo_m is None:
-                print("Cal error")
-                raise ValueError(
-                        "Calibration directory does not have correct syntax.")
-            obsdirinfo = obsdirinfo_m.groupdict()
-            obsfolderinfo['stnid'] = obsdirinfo['stnid']
-            d0 = datetime.datetime(int(obsdirinfo['year']),
-                                   int(obsdirinfo['month']),
-                                   int(obsdirinfo['day']),
-                                   int(obsdirinfo['hour']),
-                                   int(obsdirinfo['minute']),
-                                   int(obsdirinfo['second']))
-            obsfolderinfo['sessiontimeid'] = d0
-            obsfolderinfo['rcumode'] = obsdirinfo['rcumode']
-            obsfolderinfo['subband'] = '0:511'
-            obsfolderinfo['integration'] = 1.0
-            obsfolderinfo['duration_tot'] = int(obsdirinfo['duration_tot'])
-            obsfolderinfo['source'] = obsdirinfo['calsrc']
-            obsfolderinfo['pointing'] = \
-                ilisa.operations.directions.std_pointings(
-                    obsfolderinfo['source'])
-        else:
-            raise ValueError("Folder not expected xst or acc format.")
-        obsfolderinfo['datatype'] = cvcextstr
-        return obsfolderinfo
-
     def _readcvcfolder(self):
         """Read in CVC data from the filefolder.
 
@@ -1116,22 +1040,23 @@ class CVCfiles(object):
             warnings.warn("Could not read session header."
                           +" Will try filefolder name...")
             try:
-                obsfolderinfo = self._parse_cvcfolder(self.filefolder)
+                obsinfo = filefolder2obsfileinfo(self.filefolder)
             except ValueError as er:
-                print(er)
+                print("Could not parse filefolder {}".format(self.filefolder))
+                # Will hope to read LDat header
                 scanrecinfo.scanrecparms = None
             else:
-                spw = obsfolderinfo['rcumode']
+                spw = obsinfo['spw'][0]
                 nqz = modeparms.rcumode2nyquistzone(spw)
-                sbs = modeparms.seqarg2list(obsfolderinfo['subband'])
+                sbs = modeparms.seqarg2list(obsinfo['subbands'][0])
                 freqspec_hi = modeparms.sb2freq(sbs[-1], nqz)
-                scanrecinfo.set_scanrecparms(obsfolderinfo['datatype'],
+                scanrecinfo.set_scanrecparms(obsinfo['ldat_type'],
                                              str(freqspec_hi),
-                                             obsfolderinfo['duration_tot'],
-                                             obsfolderinfo['pointing'],
-                                             obsfolderinfo['integration'])
+                                             obsinfo['duration_scan'],
+                                             obsinfo['pointing'],
+                                             obsinfo['integration'])
                 scanrecinfo.scanrecparms['rcumode'] = spw
-                scanrecinfo.set_stnid(obsfolderinfo['stnid'])
+                scanrecinfo.set_stnid(obsinfo['station_id'])
                 scanrecinfo.calibrationfile = None
                 print("Read in filefolder meta.")
         # Select only data files in folder (avoid CalTable*.dat files)
@@ -1156,13 +1081,13 @@ class CVCfiles(object):
                 if ldattype == 'xst':
                     hfilename = ymd+'_'+hms+'_'+ldattype+'.h'
                 hfilepath = os.path.join(self.filefolder, hfilename)
-                obsinfo = LDatInfo.read_ldat_header(hfilepath)
-                scanrecinfo.add_obs(obsinfo)
+                ldatinfo = LDatInfo.read_ldat_header(hfilepath)
+                scanrecinfo.add_obs(ldatinfo)
             except:
                 warnings.warn(
                     "Couldn't find a header file for {}".format(cvcfile))
-                obsinfo = LDatInfo.from_obsfilefolder(obsfolderinfo)
-                scanrecinfo.add_obs(obsinfo)
+                ldatinfo = LDatInfo.from_obsinfo(obsinfo)
+                scanrecinfo.add_obs(ldatinfo)
             _datatype, t_begin = self._parse_cvcfile(os.path.join(self.filefolder, cvcfile))
 
             # Compute time of each autocovariance matrix sample per subband
@@ -1181,7 +1106,7 @@ class CVCfiles(object):
             if scanrecinfo.get_datatype() == 'acc':
                 freqs = modeparms.rcumode2sbfreqs(rcumode)
             else:
-                sb = obsinfo.sb
+                sb = ldatinfo.sb
                 freq = modeparms.sb2freq(sb, nz)
                 freqs = [freq] * cvcdim_t
             freqset.append(freqs)
@@ -1722,6 +1647,10 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
 
 def plotxst(xstff, filenr0, sampnr0, plottype=None):
     """Plot XST data."""
+    if not filenr0:
+        filenr0 = 0
+    if not sampnr0:
+        sampnr0 = 0
     colorscale = None  # Colorscale for xst data plot (default None)
     if colorscale == 'log':
         normcolor = colors.LogNorm()
@@ -1929,7 +1858,7 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
         elif lofar_datatype=='sst':
             plotsst(dataff, freq, sampnr, filenr)
         elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
-            plotxst(dataff, int(filenr), sampnr, None)
+            plotxst(dataff, filenr, sampnr, None)
         else:
             raise RuntimeError("Not a bst, sst, or xst filefolder")
 
@@ -1940,7 +1869,7 @@ import argparse
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-n', '--filenr', type=str, default=None,
+    parser.add_argument('-n', '--filenr', type=int, default=None,
                         help='Can be file # or RCU #')
     parser.add_argument('-s', '--sampnr', type=int, default=None,
                         help='Sample #')

@@ -527,7 +527,7 @@ class StationDriver(object):
                     'spw': ldatinfo_acc.get_spw(),
                     'ldat_type': 'acc',
                     'pointing': self.field,
-                    'sb': [],
+                    'subbands': [],
                     'station_id': self.get_stnid()
                 }
                 accfilefolder = data_io.obsfileinfo2filefolder(obsfileinfo)
@@ -630,7 +630,7 @@ class StationDriver(object):
                         'spw': ldatinfo.get_spw(),
                         'ldat_type': bsxtype,
                         'pointing': self.field,
-                        'sb': freqsetup.subbands_spw,
+                        'subbands': freqsetup.subbands_spw,
                         'station_id': self.get_stnid()
                     }
                     bsxfilefolder = data_io.obsfileinfo2filefolder(obsfileinfo)
@@ -732,7 +732,7 @@ class StationDriver(object):
                     'spw': ldatinfo_bfs.get_spw(),
                     'ldat_type': 'bfs',
                     'pointing': self.field,
-                    'sb': freqsetup.subbands_spw,
+                    'subbands': freqsetup.subbands_spw,
                     'station_id': self.get_stnid()
                 }
                 # Create BFS destination folder on DRU:
