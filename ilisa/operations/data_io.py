@@ -780,13 +780,13 @@ def readbstfolder(bst_filefolder):
         Sample epoch times.
     freqs : array
         Frequencies.
-    obsfileinfo :
+    obsinfo :
         Observation metadata.
     """
-    obsfileinfo = filefolder2obsfileinfo(bst_filefolder)
-    maxnrsbs = obsfileinfo['max_nr_bls']
-    intg = obsfileinfo['integration']
-    freqs = obsfileinfo['frequencies']
+    obsinfo = filefolder2obsinfo(bst_filefolder)
+    maxnrsbs = obsinfo['max_nr_bls']
+    intg = obsinfo['integration']
+    freqs = obsinfo['frequencies']
     bst_dirls = os.listdir(bst_filefolder)
     bst_files = sorted([f for f in bst_dirls if f.endswith('.dat')])
 
@@ -813,59 +813,7 @@ def readbstfolder(bst_filefolder):
             bst_data_y.append(filedata)
             # Assumes 'Y' identical to 'X'
 
-    return bst_data_x, bst_data_y, ts, freqs, obsfileinfo
-
-
-def parse_sstfolder(SSTfolderpath):
-    SSTfoldername = os.path.basename(os.path.normpath(SSTfolderpath))
-    obsfolderinfo = {}
-    try:
-        (Ymd, HMS, rcustr, intstr, durstr, _sststr) = SSTfoldername.split('_')
-        obsfolderinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
-                                                               '%Y%m%dT%H%M%S')
-        obsfolderinfo['rcumode'] = rcustr[3:]
-        obsfolderinfo['integration'] = int(intstr[3:])
-        obsfolderinfo['duration'] = int(durstr[3:])
-    except:
-        raise ValueError("Folder name not in sst_ext format.")
-    return obsfolderinfo
-
-
-def parse_sstfilename(SSTfilepath):
-    SSTfilename = os.path.basename(SSTfilepath)
-    obsfileinfo = {}
-    try:
-        (Ymd, HMS, _sststr, rcudatstr) = SSTfilename.split('_')
-        obsfileinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
-                                                             '%Y%m%dT%H%M%S')
-        (rcu, _datext) = rcudatstr[3:].split('.')
-        obsfileinfo['rcu'] = int(rcu)
-    except:
-        raise ValueError("File name not in sst format.")
-    return obsfileinfo
-
-
-def readsst(sstfile):
-    """Read-in SST datafile.
-
-    Parameters
-    ----------
-    sstfile : str
-        Name of SST datafile.
-
-    Returns
-    -------
-    sstdata : (S, 512)
-        The SST data, where S is the number of time samples.
-    obsfileinfo : dict
-        Metadata for this sst file, such as RCU nr.
-    """
-    obsfileinfo = parse_sstfilename(sstfile)
-    # Now read the SST data
-    sst_dtype = numpy.dtype(('f8', (512,)))
-    with open(sstfile, "rb") as fin:
-        sstdata = numpy.fromfile(fin, dtype=sst_dtype)
-    return sstdata, obsfileinfo
+    return bst_data_x, bst_data_y, ts, freqs, obsinfo
 
 
 def readsstfolder(sstfolder):
@@ -882,30 +830,42 @@ def readsstfolder(sstfolder):
         The SST data, where N is number of files per RCU
         and S is the number of time samples with a file.
     """
-    obsfolderinfo = filefolder2obsfileinfo(sstfolder)
-    intg = obsfolderinfo['integration']
-    freqs = obsfolderinfo['frequencies']
+    obsinfo = filefolder2obsinfo(sstfolder)
+    intg = obsinfo['integration']
+    freqs = obsinfo['frequencies']
     files = os.listdir(sstfolder)
     sstfiles = [f for f in files if f.endswith('.dat')]
     sstfiles.sort()
     ts = []
     sstdata_rcu = [[] for _ in range(192)]
     for sstfile in sstfiles:
-        sstfiledata, obsfileinfo = readsst(os.path.join(sstfolder, sstfile))
-        sstdata_rcu[obsfileinfo['rcu']].append(sstfiledata)
+        # Read sst file
+        sst_filepath = os.path.join(sstfolder, sstfile)
+        try:
+            (Ymd, HMS, _sststr, rcudatstr) = sstfile.split('_')
+            file_start_dattim = datetime.datetime.strptime(Ymd + 'T' + HMS,
+                                                           '%Y%m%dT%H%M%S')
+            (rcu, _datext) = rcudatstr[3:].split('.')
+            rcu = int(rcu)
+        except:
+            raise ValueError("File name {} not in sst format.".format(sstfile))
+        # Now read the SST data
+        sst_dtype = numpy.dtype(('f8', (512,)))
+        with open(sst_filepath, "rb") as fin:
+            sstfiledata = numpy.fromfile(fin, dtype=sst_dtype)
+        # Append file data array for this rcu to full data array
+        sstdata_rcu[rcu].append(sstfiledata)
         # Assume time of samples is same for all RCU files;
         # deal only with 1st one
-        if obsfileinfo['rcu'] == 0:
+        if rcu == 0:
             Ymd, HMS, _ = sstfile.split('_', 2)
-            file_start_dt = datetime.datetime.strptime(Ymd + '_' + HMS,
-                                                       '%Y%m%d_%H%M%S')
             file_nrsmps = sstfiledata.shape[0]
             file_dur = intg * file_nrsmps
             ts_rel = numpy.arange(0., file_dur, intg)
-            file_ts = [file_start_dt + datetime.timedelta(seconds=t)
+            file_ts = [file_start_dattim + datetime.timedelta(seconds=t)
                        for t in ts_rel]
             ts.append(file_ts)
-    return sstdata_rcu, ts, freqs, obsfolderinfo
+    return sstdata_rcu, ts, freqs, obsinfo
 
 
 class CVCfiles(object):
@@ -1555,8 +1515,8 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     rcu_sel : int
         RCU number to plot.
     """
-    sstdata_rcu, ts_list, freqs, obsfolderinfo = readsstfolder(sstff)
-    starttime = obsfolderinfo['datetime']
+    sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(sstff)
+    starttime = obsinfo['datetime']
     sbreq = None
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
@@ -1582,7 +1542,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
             plt.colorbar()
             plt.title('Mean (over RCUs) dynamicspectrum\n'
                       + 'Starttime: {} Station: {}'
-                      .format(starttime, obsfolderinfo['station_id']))
+                      .format(starttime, obsinfo['station_id']))
             plt.xlabel('Frequency [MHz]')
             plt.ylabel('Time [h]')
         else:
@@ -1625,7 +1585,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
             plt.semilogy(freqs, sstdata[rcu_nr + 1, sample_nr, :])
             plt.title('{},{}'.format(rcu_nr, rcu_nr + 1))
         plt.suptitle('RCU spectra @ {} UT, station {}'.format(
-            ts[sample_nr], obsfolderinfo['station_id']))
+            ts[sample_nr], obsinfo['station_id']))
     elif show == 'overlay':
         if rcu_sel is not None:
             if ':' in rcu_sel:
@@ -1640,7 +1600,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
         rcus = range(rcu_sel.start, rcu_sel.stop)
         plt.legend(rcus)
         plt.title('RCU spectrum @ {} UT, station {}'.format(
-            ts[sample_nr], obsfolderinfo['station_id']))
+            ts[sample_nr], obsinfo['station_id']))
     plt.show()
 
 
