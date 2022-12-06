@@ -1492,6 +1492,7 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     of it can be produced:
       * *persbs*: per frequency, plot over time waterfall of RCUs
       * *mean*: mean dynamic spectra averaged over RCU
+      * *dynspec*: dynamic spectra averaged of RCU
       * *overlay*: overlay spectrum of given RCU slice
       * *ssmosaic*: snapshot mosaic at time samp of spectra for all RCUs
 
@@ -1500,7 +1501,8 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     | freqreq | sample_nr | rcu_sel | Plot     |
     |---------|-----------|---------|----------|
     | T       | X         | X       | persb    |
-    | F       | F         | X       | mean     |
+    | F       | F         | F       | mean     |
+    | F       | F         | T       | dynspec  |
     | F       | T         | T       | overlay  |
     | F       | T         | F       | ssmosaic |
 
@@ -1521,12 +1523,15 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
         show = 'persb'
-    elif sample_nr is None:
-        show = 'mean'
-    elif rcu_sel:
-        show = 'overlay'
     else:
-        show = 'ssmosaic'
+        if sample_nr is None and rcu_sel is None:
+            show = 'mean'
+        if sample_nr is None and rcu_sel is not None:
+            show = 'dynspec'
+        if sample_nr is not None and rcu_sel is not None:
+            show = 'overlay'
+        if sample_nr is not None and rcu_sel is None:
+            show = 'ssmosaic'
 
     # Squash file_nr and in file intg index to just samples
     sstdata = numpy.array(sstdata_rcu).reshape((192, -1, 512))
@@ -1543,6 +1548,25 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
             plt.title('Mean (over RCUs) dynamicspectrum\n'
                       + 'Starttime: {} Station: {}'
                       .format(starttime, obsinfo['station_id']))
+            plt.xlabel('Frequency [MHz]')
+            plt.ylabel('Time [h]')
+        else:
+            # Only one integration so show it as 2D spectrum
+            plt.plot(freqs/1e6, res[0, :])
+            plt.yscale('log')
+            plt.xlabel('Frequency [MHz]')
+            plt.ylabel('Power [arb. unit]')
+    elif show == 'dynspec':
+        # Show dynamic spectrum of RCU
+        dynspec = sstdata[rcu_sel]
+        res = dynspec
+        if res.shape[0] > 1:
+            plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm(),
+                           shading='nearest')
+            plt.colorbar()
+            plt.title(('Dynamicspectrum of RCU {}\n'
+                      + 'Starttime: {} Station: {}')
+                      .format(rcu_sel, starttime, obsinfo['station_id']))
             plt.xlabel('Frequency [MHz]')
             plt.ylabel('Time [h]')
         else:
