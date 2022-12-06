@@ -16,17 +16,23 @@ the corresponding datatype.
 import os
 import shutil
 import numpy
-import re
 import time
 import datetime
 import h5py
 import yaml
 import warnings
+import argparse
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+import matplotlib.dates as mdates
+
 import ilisa
 import ilisa.operations
 import ilisa.operations.directions
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 from ilisa.operations import USER_CACHE_DIR
+import ilisa.operations.modeparms as modeparms
+
 
 try:
     import dreambeam
@@ -243,7 +249,7 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo['station_id'] = stnid
     obsinfo['filenametime'] = Ymd + '_' + HMS
     obsinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
-                                                         '%Y%m%dT%H%M%S')
+                                                     '%Y%m%dT%H%M%S')
     obsinfo['spw'] = spwstr[3:]
     obsinfo['subbands'] = sbstr[2:]
     obsinfo['integration'] = int(intstr[3:])
@@ -273,9 +279,8 @@ def filefolder2obsinfo(filefolderpath):
         freqlo = modeparms.sb2freq(sblo, nz)
         freqhi = modeparms.sb2freq(sbhi, nz)
         obsinfo['frequencies'] = numpy.append(obsinfo['frequencies'],
-                                                  numpy.linspace(freqlo,
-                                                                 freqhi,
-                                                                 nrsbs))
+                                              numpy.linspace(freqlo, freqhi,
+                                                             nrsbs))
         bmltarg = seqlists2slicestr(
             ','.join([str(_b) for _b in range(nrsbs)]))
         beamlets.append(bmltarg)
@@ -304,9 +309,8 @@ def filefolder2obsinfo(filefolderpath):
             freqlo = modeparms.sb2freq(sblo, nz)
             freqhi = modeparms.sb2freq(sbhi, nz)
             obsinfo['frequencies'] = numpy.append(obsinfo['frequencies'],
-                                                      numpy.linspace(freqlo,
-                                                                     freqhi,
-                                                                     nrsbs))
+                                                  numpy.linspace(freqlo, freqhi,
+                                                                 nrsbs))
         obsinfo['max_nr_bls'] = maxnrbls
 
     # Assemble _cmds
@@ -351,6 +355,10 @@ class ScanRecInfo(object):
         self.sourcename = ''
         self.caltabinfos = []
         self.scanrecpath = None
+        self.scanrecparms = {}
+        self.obs_ids = []
+        self.stnid = ''
+        self.calibrationfile = None
 
     def add_obs(self, ldatinfo):
         """Add an LDatInfo object to this ScanRecInfo."""
@@ -381,7 +389,6 @@ class ScanRecInfo(object):
     def set_scanrecparms(self, datatype, freqspec, duration,
                          direction="None,None,None", integration=None):
         """Record parameters used as arguments to record_scan program."""
-        self.scanrecparms = {}
         self.scanrecparms['datatype'] = datatype
         self.scanrecparms['freqspec'] = freqspec
         self.scanrecparms['duration'] = duration
@@ -568,7 +575,7 @@ class LDatInfo(object):
                 self.antset = modeparms.rcumode2antset_eu(self.mode)
 
         # rspctl_cmds attr
-        if rspctl_cmds == []:
+        if not rspctl_cmds:
             rspctl_cmds = ['rspctl']
         self.rspctl_cmds = rspctl_cmds
         rspctl_args = modeparms.parse_rspctl_args(self.rspctl_cmds)
@@ -622,7 +629,7 @@ class LDatInfo(object):
             contents['septonconf'] = self.septonconf
 
         if not self.isLOFARdatatype(self.ldat_type):
-            raise ValueError("Unknown LOFAR statistic type {}."\
+            raise ValueError("Unknown LOFAR statistic type {}."
                              .format(self.ldat_type))
         xtra = ''
         if self.ldat_type == 'acc':
@@ -660,7 +667,7 @@ class LDatInfo(object):
 
         Could either be rcumode (as set with beamctl) or mode (set with rspctl).
         """
-        if self.rcumode != []:
+        if self.rcumode:
             return self.rcumode
         elif self.mode:
             return self.mode
@@ -757,7 +764,7 @@ class LDatInfo(object):
                 else:
                     septonconf = None
         ldatinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds,
-                      caltabinfos=caltabinfos, septonconf=septonconf)
+                       caltabinfos=caltabinfos, septonconf=septonconf)
         ldatinfo.filenametime = filenametime
         return ldatinfo
 
@@ -876,17 +883,19 @@ def readsstfolder(sstfolder):
 
 
 class CVCfiles(object):
-    """Provides functionality for covariance cube (CVC) files. (CVC is
-    essentially visiblity cubes.) CVC files from a LOFAR station includes ACC
-    and XST files.
+    """Provides functionality for covariance cube (CVC) files
+
+    CVC is essentially visiblity cubes. CVC files from a LOFAR station includes
+    ACC and XST files. The dataset files are accessed on demand through a
+    __getitem__ call. Each item corresponds to one CVC file and is the actual
+    covariance matrix cube with shape cvcdim0 x cvcdim1 x cvcdim2.
 
     Attributes
     ----------
-    dataset: list of array_like
-        Each item in list corresponds to one CVC file and is the actual
-        covariance matrix cube with shape cvcdim0 x cvcdim1 x cvcdim2.
     samptimeset: list of datetimes
         The datetime of the visibility matrix sample.
+    freqset: list of floats
+        The frequencies of the subbands used.
     """
     NRRCUS_EU = 192  # Default number of RCUs on EU stations
 
@@ -1004,10 +1013,10 @@ class CVCfiles(object):
             scanrecinfo.read_scanrec(self.filefolder)
         except Exception:
             warnings.warn("Could not read session header."
-                          +" Will try filefolder name...")
+                          + " Will try filefolder name...")
             try:
                 obsinfo = filefolder2obsinfo(self.filefolder)
-            except ValueError as er:
+            except ValueError:
                 print("Could not parse filefolder {}".format(self.filefolder))
                 # Will hope to read LDat header
                 scanrecinfo.scanrecparms = None
@@ -1054,7 +1063,8 @@ class CVCfiles(object):
                     "Couldn't find a header file for {}".format(cvcfile))
                 ldatinfo = LDatInfo.from_obsinfo(obsinfo)
                 scanrecinfo.add_obs(ldatinfo)
-            _datatype, t_begin = self._parse_cvcfile(os.path.join(self.filefolder, cvcfile))
+            _datatype, t_begin = self._parse_cvcfile(
+                os.path.join(self.filefolder, cvcfile))
 
             # Compute time of each autocovariance matrix sample per subband
             integration = scanrecinfo.get_integration()
@@ -1164,7 +1174,7 @@ def cov_flat2polidx(cvc, parity_ord=True):
         qp = cvc[..., 1::2, ::2]
     else:
         # First-half, second-half order
-        n =  cvc.shape[-1]/2
+        n = cvc.shape[-1]/2
         pp = cvc[..., :n, :n]
         qq = cvc[..., n:, n:]
         pq = cvc[..., :n, n:]
@@ -1328,6 +1338,8 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
         ID string of the station used.
     used_autocorr: bool
         Was autocorrelation used in beamforming or not?
+    saveformat : str
+        Format to use for saving.
 
     See Also
     --------
@@ -1344,7 +1356,7 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
     acc2bstbase = "{}_{}_spw{}_{}_dur{}_ct{}_v{}_{}".format(
         stnid, calrunstarttime.strftime("%Y%m%dT%H%M%S"), rcumode, calsrc,
         calrundurationstr, caltab_id, version, dtlabel)
-    pntstr = ilisa.monitorcontrol.directions.normalizebeamctldir(calsrc)
+    pntstr = ilisa.operations.directions.normalizebeamctldir(calsrc)
     # Write out the data.
     if saveformat == 'hdf5':
         hf = h5py.File(acc2bstbase + ".hdf5", "w")
@@ -1389,12 +1401,6 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
         numpy.save(acc2bstbase + '_XY', bstXY)
         numpy.save(acc2bstbase + '_YY', bstYY)
     return acc2bstbase + "." + saveformat
-
-
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-import matplotlib.dates as mdates
-import ilisa.operations.modeparms as modeparms
 
 
 def viewbst(bstff, pol_stokes=True, printout=False):
@@ -1466,7 +1472,7 @@ def viewbst(bstff, pol_stokes=True, printout=False):
         ax_q.set_title('{}'.format(data2view_q_name))
         fig.autofmt_xdate()
 
-        ax_q.xaxis.set_major_formatter( mdates.DateFormatter('%H:%M:%S'))
+        ax_q.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
         ax_q.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
         ax_q.set_ylabel('Frequency [MHz]')
 
@@ -1551,7 +1557,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
                     if sbreq != frqidx:
                         continue
                 print(modeparms.astimestr(t), freq, end=' ')
-                _out = sstdata[:,tidx, frqidx]
+                _out = sstdata[:, tidx, frqidx]
                 if rcu_sel is not None:
                     _out = [_out[rcu_sel]]
                 print(*_out)
@@ -1568,8 +1574,6 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
             show = 'overlay'
         if sample_nr is not None and rcu_sel is None:
             show = 'ssmosaic'
-
-
 
     if show == 'mean':
         # Show mean over RCUs
@@ -1676,7 +1680,7 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
     xstobj = CVCfiles(xstff)
     obs_ids = xstobj.scanrecinfo.get_obs_ids()
     for filenr, times_in_filetimes in enumerate(xstobj.samptimeset):
-        if filenr0>filenr:
+        if filenr0 > filenr:
             continue
         ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
         intg = ldatinfo.integration
@@ -1685,14 +1689,14 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
         ts = numpy.arange(0., dur, intg)
         xstfiledata = xstobj[filenr]
         for tidx, samptime in enumerate(times_in_filetimes):
-            if sampnr0>tidx:
+            if sampnr0 > tidx:
                 continue
             print("Kill plot window for next plot...")
             if plottype == 'sto':
                 xstdata = cvc2polrep(xstfiledata[tidx], 'sto')
                 plt.clf()
 
-                plt.subplot(2,2,1)
+                plt.subplot(2, 2, 1)
                 plt.imshow(xstdata[0, ...], norm=normcolor,
                            interpolation='none')
                 plt.colorbar()
@@ -1718,7 +1722,7 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
             else:
                 xstdata = xstfiledata[tidx]
                 plt.clf()
-                plt.subplot(1,2,1)
+                plt.subplot(1, 2, 1)
                 plt.imshow(numpy.abs(xstdata[...]), norm=normcolor,
                            interpolation='none')
                 plt.title('abs(Visibility)')
@@ -1726,7 +1730,7 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
                 plt.ylabel('RCU [#]')
                 plt.colorbar()
 
-                plt.subplot(1,2,2)
+                plt.subplot(1, 2, 2)
                 plt.imshow(numpy.angle(xstdata[...]), norm=normcolor,
                            interpolation='none', cmap='hsv')
                 plt.title('arg(Visibility)')
@@ -1762,8 +1766,8 @@ def plotacc(accff, freqreq=None):
             ax2.set_xlabel('RCU [#]')
             ax2.set_ylabel('RCU [#]')
             fig.colorbar(angdatplt, ax=ax2)
-            plt.suptitle('Station element covariance. Time: {}UT, SB: {}'\
-                                .format(dataobj.samptimeset[fileidx][sb], sb))
+            plt.suptitle('Station element covariance. Time: {}UT, SB: {}'
+                         .format(dataobj.samptimeset[fileidx][sb], sb))
             plt.show()
             sb += 1
 
@@ -1777,12 +1781,12 @@ def latest_scanrec_path():
     latest_scanrecpath : str
         Path on DRU of latest ScanRec data.
     """
-    latestdatafile = sorted(filter(lambda f : f.startswith('latest'),
-                                    os.listdir(USER_CACHE_DIR)),
-                             key=os.path.getmtimeget)[-1]
+    latestdatafile = sorted(filter(lambda _f: _f.startswith('latest'),
+                                   os.listdir(USER_CACHE_DIR)),
+                            key=os.path.getmtimeget)[-1]
     with open(latestdatafile, 'r') as f:
         lines_in = f.readlines()
-    _contents = [l.rstrip() for l in lines_in]
+    _contents = [_l.rstrip() for _l in lines_in]
     if _contents[0] != 'ONGOING':
         contents = _contents
         yield from contents
@@ -1791,7 +1795,7 @@ def latest_scanrec_path():
         while True:
             with open(latestdatafile, 'r') as f:
                 lines_in = f.readlines()
-            _contents = [l.rstrip() for l in lines_in]
+            _contents = [_l.rstrip() for _l in lines_in]
             if _contents[0] == 'ONGOING':
                 contents = _contents[1:]
             else:
@@ -1867,20 +1871,17 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
                 freq = 0.0
         else:
             freq = float(freq)
-        if lofar_datatype =='acc':
+        if lofar_datatype == 'acc':
             plotacc(dataff, freq)
-        if lofar_datatype=='bst' or lofar_datatype=='bst-357':
-            viewbst(dataff, pol_stokes=not(linear),
+        if lofar_datatype == 'bst' or lofar_datatype == 'bst-357':
+            viewbst(dataff, pol_stokes=not linear,
                     printout=printout)
-        elif lofar_datatype=='sst':
+        elif lofar_datatype == 'sst':
             viewsst(dataff, freq, sampnr, filenr, printout)
-        elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
+        elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON':
             plotxst(dataff, filenr, sampnr, None)
         else:
             raise RuntimeError("Not a bst, sst, or xst filefolder")
-
-
-import argparse
 
 
 def main():
