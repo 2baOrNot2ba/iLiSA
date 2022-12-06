@@ -520,7 +520,7 @@ class StationDriver(object):
                 rspctl_cmds)
             ldatinfo_acc.filenametime = filetimestamps[0]
             if firstacc:
-                obsfileinfo = {
+                obsinfo = {
                     'duration': dur1acc,
                     'filenametime': ldatinfo_acc.filenametime,
                     'integration': integration,
@@ -530,7 +530,7 @@ class StationDriver(object):
                     'subbands': [],
                     'station_id': self.get_stnid()
                 }
-                accfilefolder = data_io.obsfileinfo2filefolder(obsfileinfo)
+                accfilefolder = data_io.obsinfo2filefolder(obsinfo)
                 scanrecpath = os.path.join(self.scanpath_scdat, accfilefolder)
             self.movefromlcu(accfilepath, scanrecpath)
             ldatinfo_acc.write_ldat_header(scanrecpath)
@@ -623,7 +623,7 @@ class StationDriver(object):
                 ldatinfo.filenametime = ft_last
                 if not filenametime_first:
                     filenametime_first = ldatinfo.filenametime
-                    obsfileinfo = {
+                    obsinfo = {
                         'duration': duration_tot,
                         'filenametime': filenametime_first,
                         'integration': integration,
@@ -633,7 +633,7 @@ class StationDriver(object):
                         'subbands': freqsetup.subbands_spw,
                         'station_id': self.get_stnid()
                     }
-                    bsxfilefolder = data_io.obsfileinfo2filefolder(obsfileinfo)
+                    bsxfilefolder = data_io.obsinfo2filefolder(obsinfo)
                     scanrecpath = os.path.join(self.scanpath_scdat,
                                                bsxfilefolder)
                     continue_sub = yield scanrecpath
@@ -725,7 +725,7 @@ class StationDriver(object):
             ldatinfo_bfs.duration_subscan = duration_file
             ldatinfo_bfs.filenametime = filetime_curr
             if firstbfs:
-                obsfileinfo = {
+                obsinfo = {
                     'duration': duration_tot,
                     'filenametime': ldatinfo_bfs.filenametime,
                     'integration': None,
@@ -736,7 +736,7 @@ class StationDriver(object):
                     'station_id': self.get_stnid()
                 }
                 # Create BFS destination folder on DRU:
-                bfsfilefolder = data_io.obsfileinfo2filefolder(obsfileinfo)
+                bfsfilefolder = data_io.obsinfo2filefolder(obsinfo)
                 scanrecpath = os.path.join(self.scanpath_scdat, bfsfilefolder)
                 os.makedirs(scanrecpath)
                 yield scanrecpath
