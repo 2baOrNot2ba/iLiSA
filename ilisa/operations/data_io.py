@@ -148,6 +148,7 @@ def obsinfo2filefolder(obsinfo):
         ldat_type or datatype:
         pointing:
         subbands:
+        frequencies: Optional
         station_id:
 
     Name format is
@@ -829,6 +830,12 @@ def readsstfolder(sstfolder):
     sstdata_rcu : (192, N, S, 512)
         The SST data, where N is number of files per RCU
         and S is the number of time samples with a file.
+    ts : (N, S)
+        The datetimes over files and samples.
+    freqs : (F)
+        Array of the subband freqs.
+    obsinfo : dict
+        Observation metadata
     """
     obsinfo = filefolder2obsinfo(sstfolder)
     intg = obsinfo['integration']
@@ -1484,9 +1491,9 @@ def viewbst(bstff, pol_stokes=True, printout=False):
                 print(del_t, freq/1e6, dataval_p, dataval_q, sep=', ')
 
 
-def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
+def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     """\
-    Plot SST data
+    View SST data
 
     SST data vary over frequency, time sample, and RCU. Various types of plots
     of it can be produced:
@@ -1516,12 +1523,29 @@ def plotsst(sstff, freqreq, sample_nr=None, rcu_sel=None):
         Sample number to plot.
     rcu_sel : int
         RCU number to plot.
+    printout : bool
+        Print out data instead of plotting it.
     """
     sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(sstff)
     starttime = obsinfo['datetime']
     sbreq = None
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
+    if printout:
+        rcus = range(len(sstdata_rcu))
+        print('#UT Freq[Hz] '+' '.join(['P_rcu'+str(_rcu) for _rcu in range(196)])
+              )
+        for filenr, file_ts in enumerate(ts_list):
+            for tidx, t in enumerate(file_ts):
+                for frqidx, freq in enumerate(freqs):
+                    print(modeparms.astimestr(t), freq, end=' ')
+                    _out = []
+                    for rcu in rcus:
+                        _out.append(sstdata_rcu[rcu][filenr][tidx, frqidx])
+                    print(*_out)
+        return
+    # Plot
+    if freqreq:
         show = 'persb'
     else:
         if sample_nr is None and rcu_sel is None:
@@ -1839,7 +1863,7 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
             viewbst(dataff, pol_stokes=not(linear),
                     printout=printout)
         elif lofar_datatype=='sst':
-            plotsst(dataff, freq, sampnr, filenr)
+            viewsst(dataff, freq, sampnr, filenr, printout)
         elif lofar_datatype=='xst' or lofar_datatype=='xst-SEPTON':
             plotxst(dataff, filenr, sampnr, None)
         else:
