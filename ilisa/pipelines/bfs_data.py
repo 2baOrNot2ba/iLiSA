@@ -351,7 +351,7 @@ def check_packets(bfs_filename):
     packetnr = 0
     missedpackets = 0
     for header, x, y in next_bfpacket(bfs_filename, False):
-        seq = header['blocksequencenumber']
+        seq = header['_blocksequencenumber']
         if header['error'] == 1:
             print("Error in packet")
         if packetnr != 0:
