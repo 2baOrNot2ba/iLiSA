@@ -19,7 +19,7 @@ import argparse
 import warnings
 import matplotlib.pyplot as plt
 
-import ilisa.operations.modeparms
+import ilisa.operations.modeparms as iom
 
 __version__ = '0.2'
 CALTABDIRROOT = os.path.join(os.path.dirname(__file__), 'share/CalTables/')
@@ -160,7 +160,7 @@ def readcaltab(caltabfile):
     # is always 512, while nr of RCUs (ilisa.operations.modeparms.nrofrcus)
     # may differ:
     caltab = numpy.fromfile(fin, dtype='c16').reshape(
-        (ilisa.monitorcontrol.modeparms.TotNrOfsb, -1))
+        (iom.TotNrOfsb, -1))
     # nrrcus = caltab.shape[1]
     fin.close()
     header = {'Observation': observation,
@@ -191,12 +191,12 @@ def initcaltab(stnid, rcumode):
     # Default filename
     ctfname = _default_caltab_filename(stnid, rcumode)
     # Init caltab
-    nrrcus = ilisa.monitorcontrol.modeparms.nrofrcus
-    nrsbs = ilisa.monitorcontrol.modeparms.TotNrOfsb
+    nrrcus = iom.nrofrcus
+    nrsbs = iom.TotNrOfsb
     caltab = numpy.ones((nrrcus, nrsbs), dtype='c16')
     # Init header
-    band = ilisa.monitorcontrol.modeparms.rcumode2band(rcumode)
-    antset = ilisa.monitorcontrol.modeparms.band2antset(band)
+    band = iom.rcumode2band(rcumode)
+    antset = iom.band2antset(band)
     header_observation = {'Station': stnid, 'Mode': rcumode,
                           'AntennaSet': antset, 'Band': band, 'Source': '',
                           'Date': ''}
