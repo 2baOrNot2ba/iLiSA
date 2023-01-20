@@ -1,8 +1,6 @@
 """
 Provides support direct imaging of LOFAR stand-alone data such as ACC and XST.
 """
-#from __future__ import print_function
-
 import sys
 import os
 import argparse
@@ -19,7 +17,7 @@ from ilisa.antennameta.export import ITRF2lonlat
 from ilisa.operations import data_io as dataIO
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
-from ilisa.calim.skymodels import globaldiffuseskymodel
+from .skymodels import globaldiffuseskymodel
 
 try:
     import dreambeam
@@ -484,6 +482,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     polrep : str
         Polarization representation for skyimages.
         Can be 'stokes', 'linear', 'circular' or 'S0'.
+        If none of these options plot them as unknown.
     t : datetime
         UT date-time of image.
     freq : float
@@ -594,7 +593,6 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         plotcomp(s1, s1lbl, 1)
         plotcomp(s2, s2lbl, 2)
         plotcomp(s3, s3lbl, 3)
-
     elif polrep == 'linear':
         plotcomp(numpy.real(skyimages[0]), 'XX*', 0)
         plotcomp(numpy.real(skyimages[1]), 'Re(XY*)', 1)
@@ -605,6 +603,11 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                    extent=[lmin, lmax, mmin, mmax], interpolation='none',
                    cmap=plt.get_cmap("jet")) #, vmax=vmax, vmin=vmin)
         plt.gca().invert_xaxis()
+    else:
+        plotcomp(skyimages[0], '0', 0)
+        plotcomp(skyimages[1], '1', 1)
+        plotcomp(skyimages[2], '2', 2)
+        plotcomp(skyimages[3], '3', 3)
     if calibrated:
         caltag = 'Cal'
     else:
