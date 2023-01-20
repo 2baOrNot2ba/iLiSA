@@ -2,8 +2,6 @@
 Robust calibration
 """
 import numpy as np
-from ilisa.calim.calibration import apply_polgains
-from ilisa.calim.imaging import beamformed_image, calc_uvw, phaseref_xstpol
 
 
 def robviscal(vis_src, sigv_nr=0):
