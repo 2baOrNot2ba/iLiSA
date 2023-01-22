@@ -69,7 +69,7 @@ def applycal_cvcfolder(cvcpath, caltabpath):
         Path to caltab file
     """
     try:
-        caltab, header = calibrationtables.readcaltab(caltabpath)
+        caltab, header = calibrationtables.read_caltabfile(caltabpath)
     except:
         raise
     ldat_type = dataIO.datafolder_type(cvcpath)

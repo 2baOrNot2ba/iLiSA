@@ -1,9 +1,10 @@
 #!/usr/bin/python
 """Provides support for handling LOFAR calibration tables.
 
-LOFAR caltables are files on the station (and included in the './share/CalTables/'
-directory) that contain estimated corrective complex gains for each subband and each rcu
-per band. They also contain metadata about e.g. when they made.
+LOFAR caltables are files on the station (and included in
+the './share/CalTables/' directory) that contain estimated corrective complex
+gains for each subband and each rcu per band. They also contain metadata
+about e.g. when they were made.
 
 The format of a caltable is an complex array indexed by [subband,rcunr].
 To apply them to data, one uses the generic formula:
@@ -21,7 +22,7 @@ import matplotlib.pyplot as plt
 
 import ilisa.operations.modeparms as iom
 
-__version__ = '0.2'
+__version__ = '0.3'
 CALTABDIRROOT = os.path.join(os.path.dirname(__file__), 'share/CalTables/')
 
 
@@ -32,7 +33,7 @@ def _default_caltab_filename(stnid, rcumode):
     return caltabfilename
 
 
-def _findcaltabpath(rcumode, stnid, obsdatestr=None):
+def find_caltabpath(rcumode, stnid, obsdatestr=None):
     """Find appropriate caltab file based on rcumode stnid and observation
     date.
     """
@@ -66,13 +67,13 @@ def _findcaltabpath(rcumode, stnid, obsdatestr=None):
         for ctdir in caltabstndatestr:
             ctfullpath = os.path.join(caltabarchive, ctdir, caltabfilename)
             try:
-                (cttable, ctheader) = readcaltab(ctfullpath)
+                (cttable, ctheader) = read_caltabfile(ctfullpath)
             except RuntimeError:
                 continue
             adddatestr(cthist, ctfullpath, ctheader)
         # Get latest:
         ctfullpath = os.path.join(caltabdirstn, 'data', caltabfilename)
-        (caltab_latest, ctheader_latest) = readcaltab(ctfullpath)
+        (caltab_latest, ctheader_latest) = read_caltabfile(ctfullpath)
         adddatestr(cthist, ctfullpath, ctheader_latest)
         obsdate = datetime.datetime.strptime(obsdatestr, "%Y-%m-%d")
         cthistdates = list(cthist.keys())
@@ -87,34 +88,7 @@ def _findcaltabpath(rcumode, stnid, obsdatestr=None):
     return caltabpath
 
 
-def getcaltab(rcumode, stnid, obsdatestr=None):
-    """Return appropriate calibration table content based on rcumode stnid and
-    observation date.
-
-    Parameters
-    ----------
-    rcumode : str, int
-        The rcumode. Can be 3, 4, 5, 6, 7, either as string or integer.
-    stnid : str
-        The station id, e.g. 'SE607'.
-    obsdatestr : str
-        Date of the observation. The format is 'YYYY-mm-dd'.
-        If None (default), will use latest.
-
-    Returns
-    -------
-    caltab : (512, 192) array
-        The calibration (gains) table: 0-axis=subband, 1-axis=rcunr
-    header : dict
-        The header of the calibration table file.
-    """
-    rcumode = str(rcumode)
-    caltabpath = _findcaltabpath(rcumode, stnid, obsdatestr)
-    (caltab, header) = readcaltab(caltabpath)
-    return caltab, header
-
-
-def readcaltab(caltabfile):
+def read_caltabfile(caltabfile):
     """Readin a calibration table file by name.
     
     Parameters
@@ -169,8 +143,8 @@ def readcaltab(caltabfile):
     return caltab, header
 
 
-def writecaltab(filename, caltab, observation, calibration, comments):
-    """Write a calibration table to file. Inverse of readcaltab()."""
+def write_caltabfile(filename, caltab, observation, calibration, comments):
+    """Write a calibration table to file. Inverse of read_caltabfile()."""
     fout = open(filename, 'w')
     fout.write('HeaderStart\n')
     for k in observation.keys():
@@ -184,16 +158,19 @@ def writecaltab(filename, caltab, observation, calibration, comments):
     fout.close()
 
 
-def initcaltab(stnid, rcumode):
-    """Initialize a calibration table file.
+def create_caltabfile(stnid, rcumode, caltab=None):
+    """
+    Create a calibration table file
+
     Sets gains for all rcus and all subbands to 1.
     """
     # Default filename
     ctfname = _default_caltab_filename(stnid, rcumode)
     # Init caltab
-    nrrcus = iom.nrofrcus
-    nrsbs = iom.TotNrOfsb
-    caltab = numpy.ones((nrrcus, nrsbs), dtype='c16')
+    if not caltab:
+        nrrcus = iom.nrofrcus
+        nrsbs = iom.TotNrOfsb
+        caltab = numpy.ones((nrrcus, nrsbs), dtype='c16')
     # Init header
     band = iom.rcumode2band(rcumode)
     antset = iom.band2antset(band)
@@ -206,8 +183,8 @@ def initcaltab(stnid, rcumode):
                           'Date': now.strftime('YYYYmmdd'),
                           'PPSDelay': '[]'}
     header_comment = ['Initial CalTable created with iLiSA']
-    writecaltab(ctfname, caltab, header_observation, header_calibration,
-                header_comment)
+    write_caltabfile(ctfname, caltab, header_observation, header_calibration,
+                     header_comment)
 
 
 def getelemgainampdel(caltab):
@@ -229,8 +206,35 @@ def getelemgainampdel(caltab):
         assert numpy.allclose(caltab, caltabr)
     return ampsrcu, delay_n_phasercu
 
+def print_caltab(caltab, header):
+    """
+    Print out a calibration table file
 
-def plotcaltab(caltab, header):
+    Parameters
+    ----------
+    caltab: array
+        Caltable data array.
+    header: dict
+        Caltab file Header
+    """
+    print('Header:')
+    print('  '+'Observation:')
+    for k in header['Observation']:
+        print('    '+k+':', header['Observation'][k])
+    print('  '+'Calibration:')
+    for k in header['Calibration']:
+        print('    '+k+':', header['Calibration'][k])
+    print('  '+'Comment:', header['Comment'])
+    print('CalTable:')
+    rcumode = header['Observation']['Mode']
+    nqz = iom.rcumode2nyquistzone(rcumode)
+    print('Freq[Hz]', *['RCU' + str(rcunr) for rcunr in range(caltab.shape[1])])
+    for sbnr in range(caltab.shape[0]):
+        freq = iom.sb2freq(sbnr, nqz)
+        print(freq, *caltab[sbnr, :])
+
+
+def plot_caltab(caltab, header):
     """Plot a calibration table."""
     plt.subplot(211)
     plt.pcolormesh(numpy.abs(caltab.T))
@@ -273,11 +277,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     if args.subparser_name == 'show':
-        caltab_cur, header_cur = readcaltab(args.caltab_path)
-        print(header_cur)
-        print(caltab_cur)
-        plotcaltab(caltab_cur, header_cur)
+        caltab_cur, header_cur = read_caltabfile(args.caltab_path)
+        print_caltab(caltab_cur, header_cur)
+        plot_caltab(caltab_cur, header_cur)
     elif args.subparser_name == 'find':
-        print(_findcaltabpath(args.rcumode, args.stnid, args.date))
+        print(find_caltabpath(args.rcumode, args.stnid, args.date))
     elif args.subparser_name == 'create':
-        initcaltab(args.stnid, args.rcumode)
+        create_caltabfile(args.stnid, args.rcumode)
