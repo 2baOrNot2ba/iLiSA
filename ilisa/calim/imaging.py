@@ -17,7 +17,6 @@ from ilisa.antennameta.export import ITRF2lonlat
 from ilisa.operations import data_io as dataIO
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
-from .skymodels import globaldiffuseskymodel
 
 try:
     import dreambeam
@@ -705,6 +704,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     show_gsm : bool
         Should a global sky model be shown?
     """
+    from .skymodels import globaldiffuseskymodel
     polrep = 'stokes'
     lofar_datatype = dataIO.datafolder_type(dataff)
     fluxperbeam = not fluxpersterradian
