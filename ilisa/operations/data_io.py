@@ -156,11 +156,12 @@ def obsinfo2filefolder(obsinfo):
         subbands:
         frequencies: Optional
         station_id:
-        cal:
+        *cal:
+        *model:
 
     Name format is
         <station_id>_<filenametime>_spw<rcumodes>_sb<subbands>_int<integration>\
-        _dur<duration_scan>[_dir<pointing>][_cal]_<ldat_type>
+        _dur<duration_scan>[_dir<pointing>][_cal|_mod]_<ldat_type>
 
     Returns
     -------
@@ -193,6 +194,9 @@ def obsinfo2filefolder(obsinfo):
             filefoldername += '_dir' + str(obsinfo['pointing'])
         else:
             filefoldername += '_dir,,'
+    model = obsinfo.get('model', None)
+    if model:
+        filefoldername += '_mod'
     cal = obsinfo.get('cal', None)
     if cal:
         if ldat_type == 'acc' or ldat_type == 'xst':
@@ -232,10 +236,13 @@ def filefolder2obsinfo(filefolderpath):
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_xst
     filefoldersplit = filefoldername.split('_')
     # Take care of possible "cal*" tag just before ldattype:
-    if filefoldersplit[-2].startswith('cal'):
-        # Calibration applied to this ldat
-        filefoldersplit.pop(-2)
-        obsinfo['cal'] = True
+    if filefoldersplit[-2].startswith('cal')\
+            or filefoldersplit[-2].startswith('mod'):
+        # Special modality for this ldat either
+        # calibration has been applied
+        # or this is a visibility model for the ldat.
+        modality = filefoldersplit.pop(-2)
+        obsinfo[modality] = True
     ldat_type = filefoldersplit.pop()
     if ldat_type != 'sst' and ldat_type != 'acc':
         # Have a sb<str> field:
