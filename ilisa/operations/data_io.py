@@ -1188,7 +1188,7 @@ def cov_polidx2flat(cvcpol, parity_ord=True):
         N = cvcpol.shape[-1]
         restshape = cvcpol.shape[2:-2]
         flatshape = restshape + (2 * N, 2 * N)
-        cvcflat = numpy.empty_like(flatshape)
+        cvcflat = numpy.zeros(flatshape, dtype=numpy.complex)
         cvcflat[..., ::2, ::2] = pp
         cvcflat[..., 1::2, 1::2] = qq
         cvcflat[..., ::2, 1::2] = pq
