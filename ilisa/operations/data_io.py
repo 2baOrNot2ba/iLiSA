@@ -156,10 +156,11 @@ def obsinfo2filefolder(obsinfo):
         subbands:
         frequencies: Optional
         station_id:
+        cal:
 
     Name format is
         <station_id>_<filenametime>_spw<rcumodes>_sb<subbands>_int<integration>\
-        _dur<duration_scan>[_dir<pointing>]_<ldat_type>
+        _dur<duration_scan>[_dir<pointing>][_cal]_<ldat_type>
 
     Returns
     -------
@@ -177,21 +178,27 @@ def obsinfo2filefolder(obsinfo):
     if obsinfo['spw']:
         spwstr = \
             ''.join([str(spw) for spw in obsinfo['spw']])
-    filefoldername += "_spw" + spwstr
+    filefoldername += '_spw' + spwstr
 
     if (ldat_type != 'sst' and obsinfo['subbands'] != []
             and obsinfo['subbands'] != ''):
         filefoldername += "_sb"
         filefoldername += seqlists2slicestr(obsinfo['subbands'])
     if 'integration' in obsinfo and obsinfo['integration']:
-        filefoldername += "_int" + str(int(obsinfo['integration']))
+        filefoldername += '_int' + str(int(obsinfo['integration']))
     if 'duration_scan' in obsinfo:
-        filefoldername += "_dur" + str(int(obsinfo['duration_scan']))
+        filefoldername += '_dur' + str(int(obsinfo['duration_scan']))
     if ldat_type != 'sst':
-        if str(obsinfo['pointing']) != "":
-            filefoldername += "_dir" + str(obsinfo['pointing'])
+        if str(obsinfo['pointing']) != '':
+            filefoldername += '_dir' + str(obsinfo['pointing'])
         else:
-            filefoldername += "_dir,,"
+            filefoldername += '_dir,,'
+    cal = obsinfo.get('cal', None)
+    if cal:
+        if ldat_type == 'acc' or ldat_type == 'xst':
+            filefoldername += '_cal'
+        else:
+            warnings.warn('Only ACC and XST can be calibrated.')
     # filefoldername += "_" + obsinfo['source']
     # ldat_type extension
     filefoldername += "_" + ldat_type
@@ -215,6 +222,7 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo : dict
         Dict of metadata corresponding to file-folder.
     """
+    obsinfo = {}
     filefolderpath = os.path.normpath(filefolderpath)
     filefoldername = os.path.basename(filefolderpath)
     # Format:
@@ -227,6 +235,7 @@ def filefolder2obsinfo(filefolderpath):
     if filefoldersplit[-2].startswith('cal'):
         # Calibration applied to this ldat
         filefoldersplit.pop(-2)
+        obsinfo['cal'] = True
     ldat_type = filefoldersplit.pop()
     if ldat_type != 'sst' and ldat_type != 'acc':
         # Have a sb<str> field:
@@ -245,7 +254,6 @@ def filefolder2obsinfo(filefolderpath):
         stnid = None
     (Ymd, HMS, spwstr, intstr, durstr) = filefoldersplit[:]
 
-    obsinfo = {}
     obsinfo['station_id'] = stnid
     obsinfo['filenametime'] = Ymd + '_' + HMS
     obsinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
