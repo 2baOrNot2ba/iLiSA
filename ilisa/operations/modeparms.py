@@ -1,5 +1,6 @@
 """This package is for the parameters involved in observation modes.
 """
+import os
 import argparse
 import math
 import numpy
@@ -964,6 +965,66 @@ def normalizetimestr(timestr, dt_pformat=DATETIMESTRFMT,
         datim = timestr
     timestr_nrm = astimestr(datim, dt_fformat)
     return timestr_nrm
+
+
+def parse_ldattype_datetime_from_filename(filenamepath):
+    """
+    Parse LDAT-type and datetime from LDAT filename
+
+    The data files produced on the LCU (LDAT) have the format
+
+        20221214_101419_xst.dat
+
+    which consists of a date and UT followed by a lofar data type with
+    file extension '.dat'.
+
+    Parameters
+    ----------
+    filename: str
+        LDAT filename
+
+    Returns
+    -------
+    dattim: datetime
+        Datetime corresponding to ldat filename.
+    ldattype: str
+        LDAT type
+
+    Raises
+    ------
+    ValueError
+        LDAT file extension is expected to be '.dat'
+    """
+    filename = os.path.basename(os.path.normpath(filenamepath))
+    filenamebase, ext = os.path.splitext(filename)
+    if ext != '.dat':
+        raise ValueError(
+            "LDAT name not in expected (extension was {} rather than '-dat')"
+                .format(ext))
+    Ymd, HMS, ldattype = filenamebase.split('_')
+    dattim = datetime.datetime.strptime(Ymd+'_'+HMS, '%Y%m%d_%H%M%S')
+    return dattim, ldattype
+
+
+def format_filename_from_ldattype_datetime(dattim, ldattype):
+    """
+    Return the LDAT formatted file name for LDAAT-type and datetime
+
+    Parameters
+    ----------
+    dattim: datetime
+        Date-time of file.
+    ldattype:
+        LDAT-type, i.e. 'bst','sst' or 'xst'.
+
+    Returns
+    -------
+    filename: str
+        The file name.
+    """
+    Ymd_HMS = dattim.strftime('%Y%m%d_%H%M%S')
+    filename = "{}_{}.dat".format(Ymd_HMS, ldattype)
+    return filename
 
 
 def hmsstr2deltatime(hms):
