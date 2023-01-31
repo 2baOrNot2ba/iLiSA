@@ -1015,19 +1015,16 @@ def parse_ldattype_datetime_from_filename(filenamepath):
         Datetime corresponding to ldat filename.
     ldattype: str
         LDAT type
-
-    Raises
-    ------
-    ValueError
-        LDAT file extension is expected to be '.dat'
     """
     filename = os.path.basename(os.path.normpath(filenamepath))
     filenamebase, ext = os.path.splitext(filename)
     if ext != '.dat':
-        raise ValueError(
+        warnings.warn(
             "LDAT name not in expected (extension was {} rather than '-dat')"
                 .format(ext))
     Ymd, HMS, ldattype = filenamebase.split('_')
+    if not is_ldattype(ldattype):
+        warnings.warn("'{}' is not valid LDAT type.".format(ldattype))
     dattim = datetime.datetime.strptime(Ymd+'_'+HMS, '%Y%m%d_%H%M%S')
     return dattim, ldattype
 
@@ -1041,13 +1038,15 @@ def format_filename_from_ldattype_datetime(dattim, ldattype):
     dattim: datetime
         Date-time of file.
     ldattype:
-        LDAT-type, i.e. 'bst','sst' or 'xst'.
+        LDAT-type, e.g. 'bst','sst' or 'xst'.
 
     Returns
     -------
     filename: str
         The file name.
     """
+    if not is_ldattype(ldattype):
+        warnings.warn("'{}' is not valid LDAT type.".format(ldattype))
     Ymd_HMS = dattim.strftime('%Y%m%d_%H%M%S')
     filename = "{}_{}.dat".format(Ymd_HMS, ldattype)
     return filename
