@@ -967,7 +967,7 @@ def normalizetimestr(timestr, dt_pformat=DATETIMESTRFMT,
     return timestr_nrm
 
 
-def is_ldattype(self, obsdatatype):
+def is_ldattype(obsdatatype):
     """
     Test if a string 'obsdatatype' is a type of LOFAR data
 
