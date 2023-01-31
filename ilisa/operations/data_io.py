@@ -603,19 +603,6 @@ class LDatInfo(object):
         elif self.ldat_type == 'bst':
             self.sb = self.sb
 
-    def isLOFARdatatype(self, obsdatatype):
-        """Test if a string 'obsdatatype' is one of iLiSA's recognized LOFAR
-        data types"""
-        if (obsdatatype == 'acc' or
-                obsdatatype == 'bst' or
-                obsdatatype == 'bst-357' or
-                obsdatatype == 'sst' or
-                obsdatatype == 'xst' or
-                obsdatatype == 'xst-SEPTON' or
-                obsdatatype == 'bfs'):
-            return True
-        else:
-            return False
 
     def write_ldat_header(self, datapath):
         """Create a header file for LOFAR standalone observation."""
@@ -628,7 +615,7 @@ class LDatInfo(object):
         if self.septonconf:
             contents['septonconf'] = self.septonconf
 
-        if not self.isLOFARdatatype(self.ldat_type):
+        if not modeparms.is_ldattype(self.ldat_type):
             raise ValueError("Unknown LOFAR statistic type {}."
                              .format(self.ldat_type))
         xtra = ''

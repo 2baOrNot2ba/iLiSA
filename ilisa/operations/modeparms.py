@@ -967,6 +967,32 @@ def normalizetimestr(timestr, dt_pformat=DATETIMESTRFMT,
     return timestr_nrm
 
 
+def is_ldattype(self, obsdatatype):
+    """
+    Test if a string 'obsdatatype' is a type of LOFAR data
+
+    Parameters
+    ----------
+    obsdatatype: str
+        Acronym for an LDAT type. Can be: 'acc', 'bst', 'sst', 'xst' or 'bfs'.
+
+    Returns
+    -------
+    _isldattype: bool
+        If True, `obsdatatype` is an LDAT-type, else it is not.
+    """
+    _isldattype = False
+    if (obsdatatype == 'acc' or
+            obsdatatype == 'bst' or
+            obsdatatype == 'bst-357' or
+            obsdatatype == 'sst' or
+            obsdatatype == 'xst' or
+            obsdatatype == 'xst-SEPTON' or
+            obsdatatype == 'bfs'):
+        _isldattype = True
+    return _isldattype
+
+
 def parse_ldattype_datetime_from_filename(filenamepath):
     """
     Parse LDAT-type and datetime from LDAT filename
