@@ -7,13 +7,11 @@ import argparse
 
 import numpy
 import matplotlib.pyplot as plt
-from matplotlib import pylab
 from scipy.constants import speed_of_light
 
 import casacore.measures
 import casacore.quanta.quantity
 import ilisa.antennameta.antennafieldlib as antennafieldlib
-from ilisa.antennameta.export import ITRF2lonlat
 from ilisa.operations import data_io as dataIO
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
@@ -581,7 +579,6 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
             s1, s1lbl = sq, 'q'
             s2, s2lbl = su, 'u'
             s3, s3lbl = sv, 'v'
-            print('Normalized')
         else:
             # If we have negative Stokes I values
             # then relative Stokes are not meaningful
@@ -638,50 +635,6 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
     return ll, mm, (img_S0, img_S1, img_S2, img_S3)
 
 
-def gdsm(dattim, geopos, freq, gs_model='LFSM', imsize=200):
-    """\
-    Generate hemisphere of global diffuse sky model (GDSM) over a position and for
-    given datetime and freq.
-    """
-    from pygdsm.pygsm import GlobalSkyModel
-    from pygdsm.pygsm2016 import GlobalSkyModel2016
-    from pygdsm.lfsm import LowFrequencySkyModel
-    from pygdsm.base_observer import CommonGSMObserver
-    import healpy as hp
-    (longitude, latitude, elevation) = geopos
-    freq_unit = 'Hz'  # ('Hz', 'MHz', 'GHz')
-    if gs_model =='LFSM':
-        gsm = LowFrequencySkyModel(freq_unit=freq_unit)
-    elif gs_model == 'GSM' or gs_model == 'GSM2008':
-        gsm = GlobalSkyModel(freq_unit=freq_unit,
-                             basemap='haslam',  # 'haslam', 'wmap' or '5deg'
-                             interpolation='pchip'  # 'cubic' or 'pchip'
-                             )
-    else:
-        gsm = GlobalSkyModel2016(freq_unit=freq_unit,
-                                 data_unit='MJysr',  # ('TCMB', 'MJysr', 'TRJ')
-                                 resolution='hi',  # ('hi', 'lo')
-                                 theta_rot=0, phi_rot=0)
-    # NOTE: CommonGSMObserver() is my addition to PyGDSM
-    gsm_obs = CommonGSMObserver(gsm)
-    gsm_obs.lon = str(longitude)
-    gsm_obs.lat = str(latitude)
-    gsm_obs.elev = elevation
-    gsm_obs.date = dattim
-    try:
-        gsm_map = gsm_obs.generate(freq)
-    except RuntimeError as e:
-        raise ValueError(e)
-    f = pylab.figure(None, figsize=None)
-    extent = (0.0, 0.0, 1.0, 1.0)
-    ax = hp.projaxes.HpxOrthographicAxes(f, extent)
-    img_ma = ax.projmap(gsm_map, xsize=imsize, half_sky=True)
-    img = numpy.ma.getdata(img_ma)
-    img[img == -numpy.inf] = 0.0
-    img = numpy.fliplr(img)  # Sky-model has a flip along East-West, so flipback
-    return img
-
-
 def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
           show_gsm=False):
     """\
@@ -729,25 +682,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
             plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                          _phaseref_, calibrated, pbcor=correctpb, maskhrz=False,
                          fluxperbeam=fluxperbeam, plot_title='Imaged Sky')
-            if show_gsm:
-                gs_model = 'LFSM'
-                imsize = 200
-                lon, lat, h = ITRF2lonlat(cvcobj.stn_pos[0, 0],
-                                          cvcobj.stn_pos[1, 0],
-                                          cvcobj.stn_pos[2, 0])
-                try:
-                    img = globaldiffuseskymodel(t, (lon, lat, h), freq,
-                                                gs_model=gs_model,
-                                                imsize=imsize)
-                except ValueError:
-                    print("Warning: skipping GSM plot since frequency invalid")
-                l, m = numpy.linspace(-1, 1, imsize), numpy.linspace(-1, 1, imsize)
-                ll, mm = numpy.meshgrid(l, m)
-                img_zero = numpy.zeros_like(img, dtype=float)
-                plotskyimage(ll, mm, (img, img_zero, img_zero, img_zero),
-                             'stokes', t, freq, stnid, integration, _phaseref_,
-                             calibrated, pbcor=correctpb, maskhrz=False,
-                             fluxperbeam=fluxperbeam, plot_title='Model image ')
+
             plt.show()
 
 
