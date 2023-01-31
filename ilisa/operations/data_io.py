@@ -1132,6 +1132,57 @@ class CVCfiles(object):
             fsamps[freq] = freqset_flat.count(freq)
         return fsamps
 
+def cov_polidx2flat(cvcpol, parity_ord=True):
+    """
+    Convert polarization indexed array covariance matrix to flat array
+
+    Parameters
+    ----------
+    cvcpol : array_like
+        Polarization index array covariance cube to be converted.
+        Shape will be (2, 2, ..., N, N).
+    parity_ord : Boolean
+        If True (default) then the polarization component is determined from
+        the index's parity: even index maps to component 0, odd to 1.
+        If False the baseline indices are split into a first and second half
+        and mapped to pol component 0,1 respectively.
+
+    Returns
+    -------
+    cvc : array_like
+        Converted flat covariance cube. Shape should be (..., 2*N, 2*N),
+        where N is the number of dual-polarized elements.
+
+    Examples
+    --------
+    Minimalist example:
+    >>> cov_polidx2flat(numpy.arange(4*4).reshape((2,2,2,2)))
+    array([[ 0.,  4.,  1.,  5.],
+           [ 8., 12.,  9., 13.],
+           [ 2.,  6.,  3.,  7.],
+           [10., 14., 11., 15.]])
+
+    See Also
+    --------
+    cov_flat2polidx : Inverse function.
+    """
+    pp = cvcpol[0, 0, ...]
+    qq = cvcpol[1, 1, ...]
+    pq = cvcpol[0, 1, ...]
+    qp = cvcpol[1, 0, ...]
+    if parity_ord:
+        N = cvcpol.shape[-1]
+        restshape = cvcpol.shape[2:-2]
+        flatshape = restshape + (2 * N, 2 * N)
+        cvcflat = numpy.empty(flatshape)
+        cvcflat[..., ::2, ::2] = pp
+        cvcflat[..., 1::2, 1::2] = qq
+        cvcflat[..., ::2, 1::2] = pq
+        cvcflat[..., 1::2, ::2] = qp
+    else:
+        cvcflat = numpy.block([[pp, pq], [qp, qq]])
+    return cvcflat
+
 
 def cov_flat2polidx(cvc, parity_ord=True):
     """
@@ -1153,8 +1204,7 @@ def cov_flat2polidx(cvc, parity_ord=True):
     -------
     cvcpol : array_like
         Polarization index array covariance cube. Shape will be 
-        (2, 2, ..., N, N). Polarization component order from flat
-        visibility will 
+        (2, 2, ..., N, N).
 
     Notes
     -----
@@ -1166,8 +1216,12 @@ def cov_flat2polidx(cvc, parity_ord=True):
     Examples
     --------
     Minimal example:
-    >>> cov_flat2polidx(numpy.arange(4*4).reshape((4,4))
-    (2.0, 0.0, 2.0, 2.0)
+    >>> cov_flat2polidx(numpy.arange(4).reshape((2,2)))[1,0,...]
+    array([[2]])
+
+    See Also
+    --------
+    cov_polidx2flat : Inverse function.
     """
     if parity_ord:
         pp = cvc[..., ::2, ::2]
@@ -1176,11 +1230,11 @@ def cov_flat2polidx(cvc, parity_ord=True):
         qp = cvc[..., 1::2, ::2]
     else:
         # First-half, second-half order
-        n = cvc.shape[-1]/2
+        n = cvc.shape[-1]//2
         pp = cvc[..., :n, :n]
         qq = cvc[..., n:, n:]
         pq = cvc[..., :n, n:]
-        qp = cvc[..., :n, n:]
+        qp = cvc[..., n:, :n]
     cvpol = numpy.array([[pp, pq], [qp, qq]])
     return cvpol
 
