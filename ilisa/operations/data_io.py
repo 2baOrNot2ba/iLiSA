@@ -460,6 +460,20 @@ class ScanRecInfo(object):
         with open(scanrecinfo_header_path, 'a') as h:
             h.write("calibrationfile: " + os.path.basename(caltabpath))
 
+    def set_model(self, gs_model):
+        """
+        Set the global-sky model used to generate this data
+
+        Parameters
+        ----------
+        gs_model: str
+            Global-sky model name.
+        """
+        scanrecinfo_header_path = os.path.join(self.scanrecpath,
+                                               self.scanrecinfo_header)
+        with open(scanrecinfo_header_path, 'a') as h:
+            h.write("gs_model: " + gs_model)
+
     def get_datatype(self):
         return self.scanrecparms['datatype']
 
