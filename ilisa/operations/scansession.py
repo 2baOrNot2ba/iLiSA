@@ -579,7 +579,7 @@ def obs(scansess_in, sac):
                                        projectid)
                   + " {} {} {} '{}'\n".format(stndrv.get_stnid(), cmd,
                                               scnsess.session_id,
-                                              scansess_in['note']))
+                                              scansess_in.get('note', '')))
     return scnsess
 
 
