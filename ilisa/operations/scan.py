@@ -104,27 +104,26 @@ class LScan:
                              destsubpath_bfs=self.destpath_bfs)
             self.scanresult['scanpath_scdat'] = self.stndrv.scanpath_scdat
             self.scanresult['rec'] = []
+            _scanrecinfo = data_io.ScanRecInfo()
+            _scanrecinfo.set_stnid(self.stndrv.get_stnid())
+            _scanrecinfo.set_caltabinfos(caltabinfos)
+            _scanrecinfo.mockdata = stndrv.mockrun
             if acc:
                 self.scanresult['rec'].append('acc')
-                self.scanresult['acc'] = data_io.ScanRecInfo()
-                self.scanresult['acc'].set_stnid(self.stndrv.get_stnid())
+                self.scanresult['acc'] = _scanrecinfo
                 self.scanresult['acc'].set_caltabinfos([])
                 self.scanresult['acc'].set_scanrecparms(
                     'acc', freqsetup.arg, duration_tot,
                     self.pointing_spec['direction'], 1.0)
             if bsx_stat:
                 self.scanresult['rec'].append('bsx')
-                self.scanresult['bsx'] = data_io.ScanRecInfo()
-                self.scanresult['bsx'].set_stnid(self.stndrv.get_stnid())
-                self.scanresult['bsx'].set_caltabinfos(caltabinfos)
+                self.scanresult['bsx'] = _scanrecinfo
                 self.scanresult['bsx'].set_scanrecparms(
                     bsx_stat, freqsetup.arg, duration_tot,
                     self.pointing_spec['direction'], integration)
             if bfs:
                 self.scanresult['rec'].append('bfs')
-                self.scanresult['bfs'] = data_io.ScanRecInfo()
-                self.scanresult['bfs'].set_stnid(self.stndrv.get_stnid())
-                self.scanresult['bfs'].set_caltabinfos(caltabinfos)
+                self.scanresult['bfs'] = _scanrecinfo
                 self.scanresult['bfs'].set_scanrecparms(
                     'bfs', freqsetup.arg, duration_tot,
                     self.pointing_spec['direction'], None)

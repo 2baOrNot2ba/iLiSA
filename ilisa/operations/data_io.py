@@ -365,7 +365,10 @@ class ScanRecInfo(object):
         self.scanrecparms = {}
         self.obs_ids = []
         self.stnid = ''
-        self.calibrationfile = None
+        # Data modalities (if none are set, then normal observed data):
+        self.calibrationfile = ''
+        self.gs_model = ''
+        self.mockdata = ''
 
     def add_obs(self, ldatinfo):
         """Add an LDatInfo object to this ScanRecInfo."""
@@ -414,8 +417,13 @@ class ScanRecInfo(object):
             f.write("station: {}\n".format(self.stnid))
             f.write("scanrecparms: {!r}\n".format(self.scanrecparms))
             f.write("ldat_ids: {!r}\n".format(list(self.ldatinfos.keys())))
+            # Data modalities:
             if self.caltabinfos != []:
                 f.write("caltabinfos: {}".format(self.caltabinfos))
+            if self.gs_model:
+                f.write("gs_model: {}".format(self.gs_model))
+            if self.mockdata:
+                f.write("mockdata: true")
 
     def read_scanrec(self, datapath):
         try:
@@ -428,12 +436,10 @@ class ScanRecInfo(object):
         self.stnid = scanrecfiledict['station']
         self.scanrecparms = scanrecfiledict['scanrecparms']
         self.obs_ids = scanrecfiledict['ldat_ids']
-        try:
-            scanrecfiledict['calibrationfile']
-        except KeyError:
-            self.calibrationfile = None
-        else:
-            self.calibrationfile = scanrecfiledict['calibrationfile']
+        # Data modalities:
+        self.calibrationfile = scanrecfiledict.get('calibrationfile', '')
+        self.gs_model = scanrecfiledict.get('gs_model', '')
+        self.mockdata = scanrecfiledict.get('mockdata', False)
 
     def set_postcalibration(self, caltabpath, scanrecpath):
         """Add the caltab file that was applied to this scanrec (typically CVC
