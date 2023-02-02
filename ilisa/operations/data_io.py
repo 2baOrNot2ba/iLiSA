@@ -186,15 +186,16 @@ def obsinfo2filefolder(obsinfo):
             filefoldername += '_dir' + str(obsinfo['pointing'])
         else:
             filefoldername += '_dir,,'
-    model = obsinfo.get('model', None)
-    if model:
-        filefoldername += '_mod'
     cal = obsinfo.get('cal', None)
     if cal:
         if ldat_type == 'acc' or ldat_type == 'xst':
             filefoldername += '_cal'
         else:
             warnings.warn('Only ACC and XST can be calibrated.')
+    else:
+        model = obsinfo.get('model', None)
+        if model:
+            filefoldername += '_mod'
     # filefoldername += "_" + obsinfo['source']
     # ldat_type extension
     filefoldername += "_" + ldat_type
@@ -227,7 +228,7 @@ def filefolder2obsinfo(filefolderpath):
     # stnid?_Ymd_HMS_rcustr_intstr_durstr_sst
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_xst
     filefoldersplit = filefoldername.split('_')
-    # Take care of possible "cal*" tag just before ldattype:
+    # Take care of possible "cal*" or "mod" tag just before ldattype:
     if filefoldersplit[-2].startswith('cal')\
             or filefoldersplit[-2].startswith('mod'):
         # Special modality for this ldat either
