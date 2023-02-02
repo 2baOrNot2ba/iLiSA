@@ -109,3 +109,55 @@ def split_horizon(im, hor_width=0.0, fill=0.0):
     below=below.squeeze()
     horiz=horiz.squeeze()
     return above, below, horiz
+
+
+def n_from_lm(ll,mm):
+    """
+    Compute n of an l,m grid
+
+    Parameters
+    ----------
+    ll: array
+        l grid values
+    mm: array
+        m grid values
+
+    Returns
+    -------
+    nn : array
+        Grid values for n=sqrt(1-l^2-m^2). Beyond horizon l^2+m^2=1, n is set
+        to unity.
+    """
+    lm_r2 = (ll**2+mm**2).astype(numpy.complex)
+    nn = numpy.sqrt(1-lm_r2)
+    nn[lm_r2 >= 1.0] = 1.0
+    return nn
+
+
+def brightness_sr_2_lm(map_sr, ll, mm):
+    """
+    Convert brightness per sterradian distribution to brightness per l,m
+
+    Brightness distribution is nominally given in units flux per sterradian.
+    For the integration in the van Cittert-Zernike relation, it is more
+    convenient to use direction cosines l,m, i.e.
+
+        int map_sr dSR = int map_lm / sqrt(1-l^2-m^2) dl dm
+
+    The conversion in this case thus: map_sr dSR = int map_lm / sqrt(1-l^2-m^2)
+
+    Parameters
+    ----------
+    map_sr: array
+        Brightness distribution per sterradian
+    ll, mm: array
+        l,m grid of brightness map
+
+    Returns
+    -------
+    map_lm: array
+        Brightness distribution per l,m pixel
+    """
+    nn = n_from_lm(ll, mm)
+    map_lm = map_sr / nn
+    return map_lm
