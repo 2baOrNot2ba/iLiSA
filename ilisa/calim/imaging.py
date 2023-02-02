@@ -12,7 +12,8 @@ from scipy.constants import speed_of_light
 import casacore.measures
 import casacore.quanta.quantity
 import ilisa.antennameta.antennafieldlib as antennafieldlib
-from ilisa.operations import data_io as dataIO
+import ilisa.calim.visibilities
+from ilisa.operations import data_io as data_io
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
 
@@ -275,7 +276,7 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, use_autocorr=False):
     (Useful for RFI).
     """
     freq = cvcobj.freqset[filestep][cubeslice]
-    cvcpol_lin = dataIO.cvc2polrep(cvcobj[filestep], crlpolrep='lin')
+    cvcpol_lin = ilisa.calim.visibilities.cvc2polrep(cvcobj[filestep], crlpolrep='lin')
     vis_S0 = cvcpol_lin[0, 0, cubeslice, ...] + cvcpol_lin[1, 1, cubeslice, ...]
     stn_antpos = cvcobj.stn_antpos
     if not use_autocorr:
@@ -344,7 +345,7 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     stn_pos = cvcobj.stn_pos
     stn_antpos = cvcobj.stn_antpos
 
-    cvcpol_lin = dataIO.cvc2polrep(cvcobj[filestep], crlpolrep='lin')
+    cvcpol_lin = ilisa.calim.visibilities.cvc2polrep(cvcobj[filestep], crlpolrep='lin')
 
     allsky = cvcobj.scanrecinfo.get_allsky()
     phaseref = _req_calsrc_proc(req_calsrc, allsky, pointingstr)
@@ -659,12 +660,12 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     """
     from .skymodels import globaldiffuseskymodel
     polrep = 'stokes'
-    lofar_datatype = dataIO.datafolder_type(dataff)
+    lofar_datatype = data_io.datafolder_type(dataff)
     fluxperbeam = not fluxpersterradian
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
                            .format(dataff))
-    cvcobj = dataIO.CVCfiles(dataff)
+    cvcobj = data_io.CVCfiles(dataff)
     calibrated = False
     if cvcobj.scanrecinfo.calibrationfile:
         calibrated = True
@@ -691,11 +692,11 @@ def nfimage(dataff, filenr, sampnr):
     Make near-field image.
     """
     polrep = 'S0'
-    lofar_datatype = dataIO.datafolder_type(dataff)
+    lofar_datatype = data_io.datafolder_type(dataff)
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
                            .format(dataff))
-    cvcobj = dataIO.CVCfiles(dataff)
+    cvcobj = data_io.CVCfiles(dataff)
     stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
