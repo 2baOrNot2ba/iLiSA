@@ -1795,7 +1795,8 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
         elif lofar_datatype == 'sst':
             viewsst(dataff, freq, sampnr, filenr, printout)
         elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON':
-            plotxst(dataff, filenr, sampnr, None)
+            plottype = 'lin' if linear else 'sto'
+            plotxst(dataff, filenr, sampnr, plottype)
         else:
             raise RuntimeError("Not a bst, sst, or xst filefolder")
 
