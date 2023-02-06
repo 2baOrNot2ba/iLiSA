@@ -26,11 +26,19 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.dates as mdates
 
+try:
+    import dreambeam
+    canuse_dreambeam = True
+except ImportError:
+    canuse_dreambeam = False
+if canuse_dreambeam:
+    from dreambeam.polarimetry import convertxy2stokes
+
 import ilisa
 import ilisa.operations
 import ilisa.operations.directions
 import ilisa.antennameta.antennafieldlib as antennafieldlib
-from ilisa.calim.visibilities import cvc2polrep
+from ilisa.calim.visibilities import cov_flat2polidx
 from ilisa.operations import USER_CACHE_DIR
 import ilisa.operations.modeparms as modeparms
 
@@ -1604,12 +1612,16 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
         freq = ldatinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
         xstfiledata = xstobj[filenr]
+        cvcpol = cov_flat2polidx(xstfiledata)
         for tidx, samptime in enumerate(times_in_filetimes):
             if sampnr0 > tidx:
                 continue
             print("Kill plot window for next plot...")
-            if plottype == 'sto':
-                xstdata = cvc2polrep(xstfiledata[tidx], 'sto')
+            if plottype:
+                cvpol = cvcpol[tidx]
+                xstdata = numpy.asarray(
+                    convertxy2stokes(cvpol[0][0], cvpol[0][1], cvpol[1][0],
+                                     cvpol[1][1]))
                 plt.clf()
 
                 plt.subplot(2, 2, 1)
