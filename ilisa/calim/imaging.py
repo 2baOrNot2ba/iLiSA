@@ -464,7 +464,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stn_pos, stn_antpos, pointing,
 
 
 def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
-                 phaseref=None, calibrated=None, pbcor=None, maskhrz=True,
+                 phaseref=None, modality='', pbcor=None, maskhrz=True,
                  fluxperbeam=True, plot_title='Sky image'):
     """
     Generic plot of images of Stokes components from sky map.
@@ -491,8 +491,9 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         Phase reference of image given as a tuple.
     integration : float
         Image exposure in seconds.
-    calibrated : boolean
-        Whether visibilities were calibrated or not.
+    modality : str
+        Modality of data creation. Could be that visibilities were calibrated,
+        mock data, or a model.
     pbcor : boolean
         Primary beam correction applied or not, default None.
     maskhrz : boolean
@@ -605,17 +606,13 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         plotcomp(skyimages[1], '1', 1)
         plotcomp(skyimages[2], '2', 2)
         plotcomp(skyimages[3], '3', 3)
-    if calibrated:
-        caltag = 'Cal'
-    else:
-        caltag = 'Raw'
     if not phaseref:
         phaseref = ('', '', '')
     plt.suptitle(
         """{}: PhaseRef={} @ {} MHz,
         Station {}, int={}s, UT={}, PbCor={}, {}
         """.format(plot_title, pointing_tuple2str(phaseref), freq/1e6, stnid,
-                   integration, t, pbcor, caltag), fontsize=8)
+                   integration, t, pbcor, modality), fontsize=8)
 
 
 def pntsrc_hmsph(*pntsrcs, imsize=101):
@@ -669,6 +666,16 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     calibrated = False
     if cvcobj.scanrecinfo.calibrationfile:
         calibrated = True
+    gs_model = cvcobj.scanrecinfo.gs_model
+    mockdata = cvcobj.scanrecinfo.mockdata
+    modality = 'raw'
+    if calibrated or gs_model or mockdata:
+        if calibrated:
+            modality = 'cal'
+        if gs_model:
+            modality = 'mod:'+gs_model
+        if mockdata:
+            modality = 'mock'
     stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
@@ -681,7 +688,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
                                   polrep=polrep, pbcor=correctpb,
                                   fluxperbeam=fluxperbeam)
             plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
-                         _phaseref_, calibrated, pbcor=correctpb, maskhrz=False,
+                         _phaseref_, modality, pbcor=correctpb, maskhrz=False,
                          fluxperbeam=fluxperbeam, plot_title='Imaged Sky')
 
             plt.show()
