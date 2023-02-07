@@ -1,11 +1,13 @@
+import sys
+import os
 import shutil
-import numpy
-from scipy.constants import speed_of_light as c
 
-from casacore.measures import measures
-import ilisa.calim
+import numpy
+import matplotlib.pyplot as plt
+
 from ilisa.antennameta import calibrationtables as calibrationtables
-from ilisa.operations import data_io as dataIO, modeparms as modeparms
+from ilisa.operations import data_io as data_io, modeparms as modeparms
+from . import visibilities
 
 
 def applycaltab_cvc(cvcunc, caltab, sb=None):
@@ -54,7 +56,8 @@ def applycaltab_cvc(cvcunc, caltab, sb=None):
 
 
 def applycal_cvcfolder(cvcpath, caltabpath):
-    """Apply a calibration table file to a CVC folder.
+    """
+    Apply a calibration table file to a CVC folder
 
     This creates a copy of the folder pointed to by cvcpath renamed with
     a '_cal_' before the ldat suffix. Then it applies the calibration table
@@ -72,7 +75,7 @@ def applycal_cvcfolder(cvcpath, caltabpath):
         caltab, header = calibrationtables.read_caltabfile(caltabpath)
     except:
         raise
-    ldat_type = dataIO.datafolder_type(cvcpath)
+    ldat_type = data_io.datafolder_type(cvcpath)
     if ldat_type != "acc" and ldat_type != "xst":
         raise ValueError("Not CVC data.")
     # Copy CVC folder within parent folder and add the tag "_cal_" in the name
@@ -81,7 +84,7 @@ def applycal_cvcfolder(cvcpath, caltabpath):
     cvccalpath = "_".join(spltpath[:-1]) + "_cal_" + spltpath[-1]
     shutil.copytree(cvcpath, cvccalpath)
     # Read in cvcobj:
-    cvcobj_cal = dataIO.CVCfiles(cvccalpath)
+    cvcobj_cal = data_io.CVCfiles(cvccalpath)
     nrfiles = cvcobj_cal.getnrfiles()
     # Loop over files in CVC folder:
     for filestep in range(nrfiles):
@@ -93,25 +96,24 @@ def applycal_cvcfolder(cvcpath, caltabpath):
         # Get actual covariance cubes:
         cvcdata_unc = cvcobj_cal[filestep]
         # Apply calibration
-        cvcdata = ilisa.calim.calibration.applycaltab_cvc(cvcdata_unc, caltab,
-                                                          sb)
+        cvcdata = applycaltab_cvc(cvcdata_unc, caltab, sb)
         # Replace uncalibrated data with calibrated:
         cvcobj_cal[filestep] = cvcdata
     # Note in ScanRecInfo about calibrating this dataset:
     cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
 
 
-def apply_polgains(gainspol, vispol):
+def apply_polgains(vispol, gainspol):
     """
     Apply polarized biscalar gains to polarized visibility
 
     Parameters
     ----------
+    vispol : array_like
+        Polarized visibility array. Its shape is (2,2,N,N)
     gainspol : array_like
         Polarized biscalar gains. g_pq has shape (2,N) where N is number of
         dual-polarized elements.
-    vispol : array_like
-        Polarized visibility array. Its shape is (2,2,N,N)
 
     Returns
     -------
@@ -151,11 +153,70 @@ def apply_polgains(gainspol, vispol):
              [0., 0., 0.],
              [0., 0., 0.]]]])
     """
-    #vispq = numpy.copy(vispq)
-    #    (2,N)^(2,N) swap 1,2 => (2,2,N,N) 
-    gg = numpy.tensordot(gainspol, numpy.conj(gainspol),0).swapaxes(1,2)
+    #    (T,2,N),conj(T,2,N) => (T,2,1,N,1)*conj(T,1,2,1,N) => (T,2,2,N,N)
+    gg = (gainspol[...,    :, None,    :, None] * numpy.conj(
+          gainspol[..., None,    :, None,    :]))
     vispol_gapp = gg * vispol
     return vispol_gapp
+
+
+def apply_polgains_cvcfolder(dataff, gainsolfile='gainsolutions.npy'):
+    """
+    Apply polarimetric gains to CVC data
+
+    Parameters
+    ----------
+    dataff_mod: str
+        Name of file-folder
+    gainsolfile: str
+        Name of gain solutions in model vis directory
+
+    Returns
+    -------
+    cvcobj_cal: CVCfiles
+        The calibrated CVCfiles object
+    """
+    ldat_type = data_io.datafolder_type(dataff)
+    if ldat_type != "acc" and ldat_type != "xst":
+        raise ValueError("Not CVC data.")
+    dataff = os.path.normpath(dataff)
+    dataff_dir, dataff = os.path.split(dataff)
+    obsinfo_raw = data_io.filefolder2obsinfo(dataff)
+    # Determine 'raw' and 'mod' dataffs,
+    obsinfo_raw.pop('cal', None)
+    obsinfo_raw.pop('model', None)
+    dataff_raw = data_io.obsinfo2filefolder(obsinfo_raw)
+    dataff_raw = os.path.join(dataff_dir, dataff_raw)
+    # Model
+    obsinfo_mod = dict(obsinfo_raw)
+    obsinfo_mod['model'] = True
+    dataff_mod = data_io.obsinfo2filefolder(obsinfo_mod)
+    dataff_mod = os.path.join(dataff_dir, dataff_mod)
+    # Cal
+    obsinfo_cal = dict(obsinfo_raw)
+    obsinfo_cal['cal'] = gainsolfile
+    dataff_cal = data_io.obsinfo2filefolder(obsinfo_cal)
+    dataff_cal = os.path.join(dataff_dir, dataff_cal)
+    # Copy raw into cal
+    shutil.copytree(dataff_raw, dataff_cal)
+    # Read in cvcobj:
+    cvcobj_cal = data_io.CVCfiles(dataff_cal)
+    # Read in gain solutions
+    gainsolpath = os.path.join(dataff_mod, gainsolfile)
+    gainsols = numpy.load(gainsolpath)
+    nrfiles = cvcobj_cal.getnrfiles()
+    # Loop over files in CVC folder:
+    for filestep in range(nrfiles):
+        # Get actual covariance cubes:
+        cvpol_unc = visibilities.cov_flat2polidx(cvcobj_cal[filestep])
+        # Apply calibration
+        _g = 1/numpy.conjugate(gainsols[filestep])
+        cvcdata_cal = apply_polgains(cvpol_unc, _g)
+        # Replace uncalibrated data with calibrated:
+        cvcobj_cal[filestep] = visibilities.cov_polidx2flat(cvcdata_cal)
+    # Note in ScanRecInfo about calibrating this dataset:
+    cvcobj_cal.scanrecinfo.set_postcalibration(gainsolpath, dataff_cal)
+    return cvcobj_cal
 
 
 def stefcal(r, m, niter=100):
@@ -164,8 +225,11 @@ def stefcal(r, m, niter=100):
     algorithm [stefs]_.
 
     Returns a solution, up to a phase factor, to the equation
-    .. math:: g r g^H = m
-    where g is a column vector and r, m are Hermitian matrices. 
+    .. math:: g m g^H = r
+    where g is a column vector and r, m are Hermitian matrices.
+    To apply gain solutions g (as returned from this function) in order
+    calibrate a measurement r, one should therefore use the formula
+    .. math:: r_cal = (1/g) r (1/g)^H
 
     Parameters
     ----------
@@ -252,134 +316,70 @@ def gain_cal_bs_lin(vis_pol_src):
     return g_bs_lin
 
 
-def vcz(ll, mm, skyimage, freq, ant_pos, imag_is_fd=False):
-    """\
-    Compute visibility from image via the van Cittert-Zernicke relation
+def gainsolve(dataff, gs_model='LFSM'):
+    """
+    Solve for gains based on uncalibrated and model data
 
     Parameters
     ----------
-    ll : array_like
-        Direction cosine, x-aligned image coordinate.
-    mm : array_like
-        Direction cosine, y-aligned image coordinate.
-    skyimage : array_like
-        Total flux image of sky.
-    uv: array_like
-        U,V vectors corresponding to 2D array configuration.
-    imag_is_fd : bool
-        Input image is flux distribution map (fd) rather than flux density
-        distribution (fdd) map.
-
-    Returns
-    -------
-    vis : array_like
-        Visibility corresponding to input skyimage via vCZ relation.
+    dataff: str
+        Path to CVC filefolder.
+    gs_model:  str
+        Name Global skymodel. Choose 'LFSM', 'GSM'.
     """
-    pos_x = ant_pos[:, 0].squeeze()
-    pos_y = ant_pos[:, 1].squeeze()
-    pos_z = ant_pos[:, 2].squeeze()
-
-    nr_ants = pos_x.shape[0]
-    vis = numpy.zeros((nr_ants, nr_ants), dtype=complex)
-    phas = 0.0
-    k = 2 * numpy.pi * freq / c
-    lm_r2 = (ll**2+mm**2).astype(numpy.complex)
-    nn = numpy.sqrt(1-lm_r2)
-    nn[lm_r2 >= 1.0] = 1.0
-    numpy.imag(nn)
-    if imag_is_fd:
-        fdd = skyimage / nn
-    else:
-        fdd = skyimage
-    for ant_i in range(nr_ants):
-        for ant_j in range(ant_i, nr_ants):
-            u = pos_x[ant_i] - pos_x[ant_j]
-            v = pos_y[ant_i] - pos_y[ant_j]
-            w = pos_z[ant_i] - pos_z[ant_j]
-            vis[ant_i, ant_j] = numpy.sum(
-                fdd * numpy.exp(+1.0j * k * (ll * u + mm * v + (nn-1) * w)))
-    do_conj = True
-    if do_conj:
-        for ant_i in range(nr_ants):
-            for ant_j in range(0, ant_i):
-                vis[ant_i, ant_j] = numpy.conj(vis[ant_j, ant_i])
-    return vis
-
-from ilisa.calim import imaging
-from ilisa.calim import skymodels # import gdskymodel
-import matplotlib.pyplot as plt
-def gsmcal(dataff, filenr, sampnr, fluxpersterradian):
-    ccm = measures()
-    gs_model = 'LFSM'
-    imsize = 200
-    fluxperbeam = True
-    l = numpy.linspace(-1, 1, imsize)
-    m = numpy.linspace(-1, 1, imsize)
-    ll, mm = numpy.meshgrid(l, m)
-    #normcolor = colors.LogNorm()
-    # The code below is almost cut-n-pasted from imaging.image()
-    polrep = 'stokes'
-    lofar_datatype = dataIO.datafolder_type(dataff)
-    fluxperbeam = not fluxpersterradian
+    dataff = os.path.normpath(dataff)
+    dataff_dir, dataff = os.path.split(dataff)
+    lofar_datatype = data_io.datafolder_type(dataff)
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
                            .format(dataff))
-    cvcobj = dataIO.CVCfiles(dataff)
-    calibrated = False
-    if cvcobj.scanrecinfo.calibrationfile:
-        calibrated = True
-    stnid = cvcobj.scanrecinfo.get_stnid()
-    lon, lat, h = imaging.ITRF2lonlat(cvcobj.stn_pos[0, 0],
-                                      cvcobj.stn_pos[1, 0],
-                                      cvcobj.stn_pos[2, 0])
-    stn_pos_x, stn_pos_y, stn_pos_z = cvcobj.stn_pos[0, 0], cvcobj.stn_pos[1, 0], \
-                                      cvcobj.stn_pos[2, 0]
-    ccm.doframe(ccm.position('ITRF', str(stn_pos_x) + 'm', str(stn_pos_y) + 'm',
-                             str(stn_pos_z) + 'm'))
-    for fileidx in range(filenr, cvcobj.getnrfiles()):
-        integration = cvcobj.scanrecinfo.get_integration()
-        intgs = len(cvcobj.samptimeset[fileidx])
-        for tidx in range(sampnr, intgs):
-            t = cvcobj.samptimeset[fileidx][tidx]
-            freq = cvcobj.freqset[fileidx][tidx]
-            img = skymodels.globaldiffuseskymodel(t, (lon, lat, h), freq,
-                                                  gs_model=gs_model,
-                                                  imsize=imsize)
-            ccm.doframe(ccm.epoch('UTC', t.isoformat('T')))
-            phaseref_ccm = ccm.measure(ccm.direction('AZEL', '0.0rad', str(numpy.deg2rad(90))+'rad'), 'J2000')
-            phaseref = (phaseref_ccm['m0']['value'],  phaseref_ccm['m1']['value'], phaseref_ccm['refer'])
-            uvw_sl = imaging.calc_uvw(t, phaseref, cvcobj.stn_pos, cvcobj.stn_antpos)
-            vis_mod = vcz(ll, mm, img, freq, uvw_sl, imag_is_fd=not(fluxperbeam))
-            cvcpol_lin = dataIO.cvc2polrep(cvcobj[fileidx], crlpolrep='lin')
-            cvpol_lin = cvcpol_lin[:, :, tidx, ...].squeeze()
-            cvpol_x = cvpol_lin[0,0,...].squeeze()
-            cvpol_y = cvpol_lin[1,1,...].squeeze()
-            vis_meas_xx = cvpol_x
-            vis_meas_yy = cvpol_y
-            g_xx = stefcal(vis_meas_xx, vis_mod/2.0)
-            g_yy = stefcal(vis_meas_yy, vis_mod/2.0)
-            inv_g_xx = 1/g_xx
-            inv_g_yy = 1/g_yy
-            vis_cal_xx = inv_g_xx[:,numpy.newaxis]*vis_meas_xx*numpy.conj(inv_g_xx)
-            vis_cal_yy = inv_g_yy[:,numpy.newaxis]*vis_meas_yy*numpy.conj(inv_g_yy)
-            vis_cal_I = vis_cal_xx + vis_cal_yy
-            vis_resid_I = vis_cal_I - vis_mod
-            xstpol = numpy.array([[vis_cal_I, numpy.zeros_like(vis_mod)],
-                                  [numpy.zeros_like(vis_mod), vis_resid_I]])
-            skyimages, _l, _m = imaging.beamformed_image(xstpol, uvw_sl.T, freq,
-                                                         use_autocorr=True,
-                                                         lmsize=2.0,
-                                                         nrpix=imsize,
-                                                         polrep='linear',
-                                                         fluxperbeam=fluxperbeam
-                                                         )
-            imaging.plotskyimage(_l, _m, skyimages, 'linear', t, freq, stnid,
-                                 integration, phaseref, calibrated, pbcor=False,
-                                 maskhrz=False, fluxperbeam=fluxperbeam)
-            plt.show()
+    obsinfo_raw = data_io.filefolder2obsinfo(dataff)
+    # Determine 'raw' and 'mod' dataffs,
+    obsinfo_raw.pop('cal', None)
+    obsinfo_raw.pop('model', None)
+    dataff_raw = data_io.obsinfo2filefolder(obsinfo_raw)
+    dataff_raw = os.path.join(dataff_dir, dataff_raw)
+    obsinfo_mod = dict(obsinfo_raw)
+    obsinfo_mod['model'] = gs_model
+    dataff_mod = data_io.obsinfo2filefolder(obsinfo_mod)
+    dataff_mod = os.path.join(dataff_dir, dataff_mod)
+    # Direct output to '_mod' data file-folder
+    cvcobj_uncal = data_io.CVCfiles(dataff_raw)
+    cvcobj_model = data_io.CVCfiles(dataff_mod)
+    gainsolutions = []
+    nrfiles = cvcobj_uncal.getnrfiles()
+    for fileidx in range(nrfiles):
+        print('Solving for file {}/{}'.format(fileidx, nrfiles))
+        intgs = len(cvcobj_uncal.samptimeset[fileidx])
+        gainsol_t = []
+        cvcpol_uncal = visibilities.cov_flat2polidx(cvcobj_uncal[fileidx])
+        cvcpol_model = visibilities.cov_flat2polidx(cvcobj_model[fileidx])
+        for tidx in range(intgs):
+            t = cvcobj_uncal.samptimeset[fileidx][tidx]
+            freq = cvcobj_uncal.freqset[fileidx][tidx]
+            vis_uncal = cvcpol_uncal[tidx]
+            vis_model = cvcpol_model[tidx]
+            g_xx = stefcal(vis_uncal[0, 0, ...], vis_model[0, 0, ...])
+            g_yy = stefcal(vis_uncal[1, 1, ...], vis_model[1, 1, ...])
+            gainsol_t.append([g_xx, g_yy])
+        gainsolutions.append(gainsol_t)
+    gainsolutions = numpy.asarray(gainsolutions)
+    gsol_file = os.path.join(dataff_mod, 'gainsolutions')
+    numpy.save(gsol_file, gainsolutions)
 
 
-def gsmcal_cli():
+import argparse
+
+
+def solvegains_cli():
+    """
+    Compute gain solutions for CVC files
+
+    Returns
+    -------
+    gains : array
+        Gain solutions
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--filenr', type=int, default=0)
     parser.add_argument('-s', '--sampnr', type=int, default=0)
@@ -388,26 +388,42 @@ def gsmcal_cli():
     parser.add_argument('dataff',
                         help="""Path to CVC folder""")
     args = parser.parse_args()
-    gains = gsmcal(args.dataff, args.filenr, args.sampnr,
-                   args.fluxpersterradian)
+    gains = gainsolve(args.dataff)
+    return gains
 
 
-import argparse
-
-
-def main_cli():
+def applygains_cli():
     """
     Apply a calibration file to ACC or XST data folder.
+
+    Returns
+    -------
+    cvcobj_cal : CVCfiles
+        Calibrated CVCfiles.
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('cvcpath',
-                        help="""Path to CVC folder""")
-    parser.add_argument('caltabpath', help="""Path to caltab file""")
+    parser.add_argument('cvcpath', help="Path to CVC folder")
+    parser.add_argument('caltabpath', nargs='?', default='',
+                        help="Path to caltab file")
     args = parser.parse_args()
-
-    applycal_cvcfolder(args.cvcpath, args.caltabpath)
+    if args.caltabpath:
+        applycal_cvcfolder(args.cvcpath, args.caltabpath)
+    else:
+        cvcobj_cal = apply_polgains_cvcfolder(args.cvcpath)
+    return cvcobj_cal
 
 
 if __name__ == "__main__":
-    #main_cli()
-    gsmcal_cli()
+    cmd = sys.argv.pop(1)
+    ran_sol = False
+    ran_app = False
+    if cmd.startswith('sol'):
+        print("Solving for gains...")
+        solvegains_cli()
+        ran_sol = True
+    if cmd.endswith('app'):
+        print("Applying solutions...")
+        applygains_cli()
+        ran_app = True
+    if not ran_sol and not ran_app:
+        print("Nothing was done.")

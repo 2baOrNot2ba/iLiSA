@@ -1,4 +1,7 @@
+import casacore.measures
 import numpy
+import numpy as np
+
 try:
     import dreambeam
     canuse_dreambeam = True
@@ -31,26 +34,45 @@ def cov_polidx2flat(cvcpol, parity_ord=True):
 
     Examples
     --------
-    Minimalist example:
-    >>> cov_polidx2flat(numpy.arange(4*4).reshape((2,2,2,2)))
-    array([[ 0.,  4.,  1.,  5.],
-           [ 8., 12.,  9., 13.],
-           [ 2.,  6.,  3.,  7.],
-           [10., 14., 11., 15.]])
+    For one sample and 2 elements, an example where the two polarization
+    indices are embedded along with elements as in
+    >>> v0=numpy.arange(1*2*2*2*2).reshape((1,2,2,2,2))
+    array([[[[[ 0,  1],
+          [ 2,  3]],
+         [[ 4,  5],
+          [ 6,  7]]],
+        [[[ 8,  9],
+          [10, 11]],
+         [[12, 13],
+          [14, 15]]]]])
+
+    then if odd pols are index 0 and even pols are index 1, then
+    >>> cov_polidx2flat(v0)
+    array([[[ 0,  4,  1,  5],
+        [ 8, 12,  9, 13],
+        [ 2,  6,  3,  7],
+        [10, 14, 11, 15]]])
+
+    while if one the other hand the lower half is pol 0 and upper half pol 1:
+    >>> cov_polidx2flat(v0, parity_ord=False)
+    array([[[ 0,  1,  4,  5],
+            [ 2,  3,  6,  7],
+            [ 8,  9, 12, 13],
+            [10, 11, 14, 15]]])
 
     See Also
     --------
     cov_flat2polidx : Inverse function.
     """
-    pp = cvcpol[0, 0, ...]
-    qq = cvcpol[1, 1, ...]
-    pq = cvcpol[0, 1, ...]
-    qp = cvcpol[1, 0, ...]
+    pp = cvcpol[..., 0, 0, :, :]
+    qq = cvcpol[..., 1, 1, :, :]
+    pq = cvcpol[..., 0, 1, :, :]
+    qp = cvcpol[..., 1, 0, :, :]
     if parity_ord:
         N = cvcpol.shape[-1]
-        restshape = cvcpol.shape[2:-2]
+        restshape = cvcpol.shape[:-4]
         flatshape = restshape + (2 * N, 2 * N)
-        cvcflat = numpy.zeros(flatshape, dtype=numpy.complex)
+        cvcflat = numpy.empty(flatshape, dtype=cvcpol.dtype)
         cvcflat[..., ::2, ::2] = pp
         cvcflat[..., 1::2, 1::2] = qq
         cvcflat[..., ::2, 1::2] = pq
@@ -80,7 +102,7 @@ def cov_flat2polidx(cvc, parity_ord=True):
     -------
     cvcpol : array_like
         Polarization index array covariance cube. Shape will be
-        (2, 2, ..., N, N).
+        (..., 2, 2, N, N).
 
     Notes
     -----
@@ -91,9 +113,34 @@ def cov_flat2polidx(cvc, parity_ord=True):
 
     Examples
     --------
-    Minimal example:
-    >>> cov_flat2polidx(numpy.arange(4).reshape((2,2)))[1,0,...]
-    array([[2]])
+    For one sample and 2 elements, an example where the two polarization
+    indices are embedded along with elements as in
+    >>> v0=numpy.arange(1*2*2*2*2).reshape((1,2*2,2*2))
+    array([[[ 0,  1,  2,  3],
+        [ 4,  5,  6,  7],
+        [ 8,  9, 10, 11],
+        [12, 13, 14, 15]]])
+
+    then if odd pols are index 0 and even pols are index 1, then
+    >>> cov_flat2polidx(v0)
+    array([[[[[ 0,  2],
+          [ 8, 10]],
+         [[ 1,  3],
+          [ 9, 11]]],
+        [[[ 4,  6],
+          [12, 14]],
+         [[ 5,  7],
+          [13, 15]]]]])
+    while if one the other hand the lower half is pol 0 and upper half pol 1:
+    >>> cov_flat2polidx(v0, parity_ord=False)
+    array([[[[[ 0,  1],
+          [ 4,  5]],
+         [[ 2,  3],
+          [ 6,  7]]],
+        [[[ 8,  9],
+          [12, 13]],
+         [[10, 11],
+          [14, 15]]]]])
 
     See Also
     --------
@@ -112,6 +159,9 @@ def cov_flat2polidx(cvc, parity_ord=True):
         pq = cvc[..., :n, n:]
         qp = cvc[..., n:, :n]
     cvpol = numpy.array([[pp, pq], [qp, qq]])
+    # Move pol-axes from leftmost axises rightward just before element indexes:
+    cvpol = numpy.moveaxis(cvpol, 1, -3)
+    cvpol = numpy.moveaxis(cvpol, 0, -4)
     return cvpol
 
 
@@ -127,7 +177,7 @@ def cvc2polrep(cvc, crlpolrep='lin'):
         The Covariance Cube array produced by an International LOFAR
         station when it is in calibration mode. It is the covariance
         matrices of the 196 rcus (98 X-polarized & 98 Y-polarized
-        interleaved) over 512subbands.
+        interleaved) over 512 subbands.
     crlpolrep : str
         Correlated polarization representation can be 'lin', 'cir', 'sto' where:
             'lin' is linear pol rep
@@ -138,9 +188,9 @@ def cvc2polrep(cvc, crlpolrep='lin'):
     -------
     cvpol : array
         Polarized visibilities. Shape depends on `crlpolrep`:
-            * (2,2,T,N,N) for 'lin' or 'cir'. Basis is indexed with
+            * (T,2,2,N,N) for 'lin' or 'cir'. Basis is indexed with
               0,1 corresponding to X,Y or L,R resp.
-            * (4,T,N,N) for 'sto'. Basis is indexed with
+            * (T,4,N,N) for 'sto'. Basis is indexed with
               0,1,2,3 corresponding to Stokes I,Q,U,V resp.
 
     Notes
@@ -152,11 +202,105 @@ def cvc2polrep(cvc, crlpolrep='lin'):
         cvpol = cvcpolidx
     elif crlpolrep == 'cir':
         cvpol = cov_lin2cir(cvcpolidx)
+        cvpol = numpy.moveaxis(cvpol, 1, -3)
+        cvpol = numpy.moveaxis(cvpol, 0, -4)
     elif crlpolrep == 'sto':
         (S0, S1, S2, S3) =\
             convertxy2stokes(cvcpolidx[0][0], cvcpolidx[0][1], cvcpolidx[1][0],
                              cvcpolidx[1][1])
         cvpol = numpy.array([S0, S1, S2, S3])
+        cvpol = numpy.moveaxis(cvpol, 0, -3)
     else:
         raise ValueError("No such correlated pol rep: '{}'".format(crlpolrep))
     return cvpol
+
+
+def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
+    """
+    Calculate UVW coords from datetime, phaseref and station & antenna positions
+
+    Parameters
+    ----------
+    obstime : datetime
+        Datetime of observation.
+    phaseref : tuple
+        Phase reference direction given by (lon, lat, ref),
+        where lon, lat are floats for longitude, latitude in radians and ref is
+        the reference frame str.
+    stn_pos : array_like
+        Vector of ITRF X,Y,Z coordinates in meters.
+    stn_antpos : array_like
+        Matrix over antenna versus ITRF X,Y,Z postions relative stn_pos.
+
+    Returns
+    -------
+    uvw_xyz : array_like
+        UVW coordinates in meters.
+    """
+    (pntRA, pntDEC, pntref) = phaseref
+    pos_ITRF_X = str(stn_pos[0, 0])+'m'
+    pos_ITRF_Y = str(stn_pos[1, 0])+'m'
+    pos_ITRF_Z = str(stn_pos[2, 0])+'m'
+    # Set up casacore measures object.
+    obsme = casacore.measures.measures()
+    where = obsme.position("ITRF", pos_ITRF_X, pos_ITRF_Y, pos_ITRF_Z)
+    what = obsme.direction(pntref, str(pntRA)+"rad", str(pntDEC)+"rad")
+    obsme.doframe(where)
+    obsme.doframe(what)
+    # Set up baselines of the array
+    nrant = stn_antpos.shape[0]
+    bls = []
+    for antnr in range(nrant):
+        bl = obsme.baseline("ITRF",
+                            *[str(comp)+'m' for comp in
+                              numpy.asarray(stn_antpos[antnr, :]).squeeze()])
+        bls.append(bl)
+    uvw_xyz = numpy.zeros((nrant,3))
+    # for obstime
+    when = obsme.epoch("UTC", obstime.isoformat('T'))
+    obsme.doframe(when)
+    for antnr in range(nrant):
+        uvw_xyz[antnr,:] = numpy.asarray(
+                        obsme.to_uvw(bls[antnr])["xyz"].get_value('m'))
+    return uvw_xyz
+
+
+def rot2uv(stn_antpos, stn_rot):
+    """
+    Calculate 2D UV coords from antenna positions and rotation
+
+    Parameters
+    ----------
+    stn_antpos : array_like
+        Matrix over antenna versus ITRF X,Y,Z postions relative stn_pos.
+    stn_rot : array_like
+        Vector of ITRF X,Y,Z coordinates in meters.
+
+    Returns
+    -------
+    uv_xy : array_like
+        UV coordinates in meters.
+    """
+    uv_xy = np.matmul(stn_antpos, stn_rot)[:,:3]
+    return uv_xy
+
+
+def rm_redundant_bls(cvc, rmconjbl=True, use_autocorr=False):
+    """Remove redundant baselines from covariance matrices.
+    Assumes baseline indices are in last components."""
+    nrelems = cvc.shape[-1]
+    # Total number of baselines incl. autocorr and conjugate baselines.
+    nrbaselinestot = nrelems**2
+    if rmconjbl:
+        # Remove conjugate baselines
+        for idx_i in range(1, nrelems):
+            for idx_j in range(idx_i):
+                cvc[..., idx_i, idx_j] = 0.0
+        nrbaselinestot -= nrelems*(nrelems-1)/2
+    if not use_autocorr:
+        # Do not use the autocorrelations (for all pol combos
+        # i.e. for XX, YY, XY and YX)
+        for idx in range(nrelems):
+            cvc[..., idx, idx] = 0.0
+        nrbaselinestot -= nrelems
+    return cvc, nrbaselinestot

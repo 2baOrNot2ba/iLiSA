@@ -11,11 +11,12 @@ from scipy.constants import speed_of_light
 
 import casacore.measures
 import casacore.quanta.quantity
+
 import ilisa.antennameta.antennafieldlib as antennafieldlib
-import ilisa.calim.visibilities
 from ilisa.operations import data_io as data_io
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
+from . import visibilities as vsb
 
 try:
     import dreambeam
@@ -27,6 +28,15 @@ if CANUSE_DREAMBEAM:
     from dreambeam.rime.scenarios import primarybeampat
 
 c = speed_of_light
+
+
+def imggrid_res(ll, mm):
+    """Image grid resolution"""
+    # Assume regular rectangular l,m grid,
+    # i.e. pixels are all the same size rectangle with dimensions:
+    dll = ll[0,1] - ll[0,0]
+    dmm = mm[1,0] - mm[0,0]
+    return dll, dmm
 
 
 def airydisk_radius(freq, d):
@@ -53,56 +63,6 @@ def airydisk_radius(freq, d):
     if sintheta > 1.0:
         sintheta = 1.0
     return sintheta
-
-
-def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
-    """
-    Calculate UVW coords from datetime, phaseref and station & antenna positions
-
-    Parameters
-    ----------
-    obstime : datetime
-        Datetime of observation.
-    phaseref : tuple
-        Phase reference direction given by (lon, lat, ref),
-        where lon, lat are floats for longitude, latitude in radians and ref is
-        the reference frame str.
-    stn_pos : array_like
-        Vector of ITRF X,Y,Z coordinates in meters.
-    stn_antpos : array_like
-        Matrix over antenna versus ITRF X,Y,Z postions relative stn_pos.
-    
-    Returns
-    -------
-    uvw_xyz : array_like
-        UVW coordinates in meters.
-    """
-    (pntRA, pntDEC, pntref) = phaseref
-    pos_ITRF_X = str(stn_pos[0, 0])+'m'
-    pos_ITRF_Y = str(stn_pos[1, 0])+'m'
-    pos_ITRF_Z = str(stn_pos[2, 0])+'m'
-    # Set up casacore measures object.
-    obsme = casacore.measures.measures()
-    where = obsme.position("ITRF", pos_ITRF_X, pos_ITRF_Y, pos_ITRF_Z)
-    what = obsme.direction(pntref, str(pntRA)+"rad", str(pntDEC)+"rad")
-    obsme.doframe(where)
-    obsme.doframe(what)
-    # Set up baselines of the array
-    nrant = stn_antpos.shape[0]
-    bls = []
-    for antnr in range(nrant):
-        bl = obsme.baseline("ITRF",
-                            *[str(comp)+'m' for comp in 
-                              numpy.asarray(stn_antpos[antnr, :]).squeeze()])
-        bls.append(bl)
-    uvw_xyz = numpy.zeros((nrant,3))
-    # for obstime
-    when = obsme.epoch("UTC", obstime.isoformat('T'))
-    obsme.doframe(when)
-    for antnr in range(nrant):
-        uvw_xyz[antnr,:] = numpy.asarray(
-                        obsme.to_uvw(bls[antnr])["xyz"].get_value('m'))
-    return uvw_xyz
 
 
 def phaseref_xstpol(xstpol, UVWxyz, freq):
@@ -172,7 +132,7 @@ def phasedup_vis(vis, srcname, t, freq, polrep, stn_pos, stn_antpos):
     """
     # Phase center on src
     dir_src = directionterm2tuple(srcname)
-    uvw_src = calc_uvw(t, dir_src, stn_pos, stn_antpos)
+    uvw_src = vsb.calc_uvw(t, dir_src, stn_pos, stn_antpos)
     vis_pu = phaseref_xstpol(vis, uvw_src, freq)
     return vis_pu
 
@@ -192,7 +152,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
     stn2Dcoord : array
         The 2D array configuration matrix.
     freq : float
-        The frequency of the the data in Hz.
+        The frequency of the data in Hz.
     use_autocorr : bool
         Whether or not to include the autocorrelations.
     lmsize : float
@@ -217,9 +177,11 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
         The l direction cosine of the image.
     mm : array
         The m direction cosine of the image.
-
     """
+    nrants = stn2Dcoord.shape[1]
+    nrbls =  nrants*(nrants-1)+nrants  # All, incl. autocorrs & conjug baselines
     if not use_autocorr:
+        nrbls -= nrants
         # Set Autocorrelations to zero:
         xstpol = numpy.copy(xstpol)  # Copy since diagonal will be rewritten
         for indi in range(2):
@@ -237,16 +199,21 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
     bf = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU)
                            + numpy.einsum('ij,k->ijk', mm, posV)))
     bfbf = numpy.einsum('ijk,ijl->ijkl', bf, numpy.conj(bf))
-    skyimag_xx = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 0, ...].squeeze())
-    skyimag_xy = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 1, ...].squeeze())
-    skyimag_yx = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 0, ...].squeeze())
-    skyimag_yy = numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 1, ...].squeeze())
+    nrm = nrbls
+    skyimag_xx = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 0, ...].squeeze())
+                  / nrm)
+    skyimag_xy = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 1, ...].squeeze())
+                  / nrm)
+    skyimag_yx = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 0, ...].squeeze())
+                  / nrm)
+    skyimag_yy = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 1, ...].squeeze())
+                  / nrm)
     if not fluxperbeam:
         ll2mm2 = ll**2+mm**2
         beyond_horizon = ll2mm2 >= 1.0
-        nn = numpy.sqrt(1-ll2mm2.astype('complex'))
-        # Weight values beyond horizon to zero
-        nn[beyond_horizon] = 0.0
+        nn = numpy.sqrt(1-ll2mm2)
+        # Weight values beyond horizon to one
+        nn[beyond_horizon] = 1.0
         skyimag_xx = skyimag_xx * nn
         skyimag_xy = skyimag_xy * nn
         skyimag_yx = skyimag_yx * nn
@@ -276,8 +243,8 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, use_autocorr=False):
     (Useful for RFI).
     """
     freq = cvcobj.freqset[filestep][cubeslice]
-    cvcpol_lin = ilisa.calim.visibilities.cvc2polrep(cvcobj[filestep], crlpolrep='lin')
-    vis_S0 = cvcpol_lin[0, 0, cubeslice, ...] + cvcpol_lin[1, 1, cubeslice, ...]
+    cvcpol_lin = vsb.cov_flat2polidx(cvcobj[filestep])
+    vis_S0 = cvcpol_lin[cubeslice, 0, 0, ...] + cvcpol_lin[cubeslice, 1, 1, ...]
     stn_antpos = cvcobj.stn_antpos
     if not use_autocorr:
         numpy.fill_diagonal(vis_S0[: ,:], 0.0)
@@ -304,7 +271,7 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, use_autocorr=False):
 
 
 def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
-              fluxperbeam=True, polrep='stokes'):
+              fluxperbeam=True, autocorr=False, polrep='stokes'):
     """
     Image CVC object using beamformed synthesis
 
@@ -320,6 +287,10 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         The requested sky source.
     pbcor : bool
         Perform primary beam correction or not.
+    fluxperbeam : bool
+        Use flux per beam units in image (else flux per sterradian).
+    autocorr: bool
+        Include autocorrelations
     polrep : str
         Polarization representation to use for image.
 
@@ -345,16 +316,16 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     stn_pos = cvcobj.stn_pos
     stn_antpos = cvcobj.stn_antpos
 
-    cvcpol_lin = ilisa.calim.visibilities.cvc2polrep(cvcobj[filestep], crlpolrep='lin')
+    cvcpol_lin = vsb.cov_flat2polidx(cvcobj[filestep])
 
     allsky = cvcobj.scanrecinfo.get_allsky()
     phaseref = _req_calsrc_proc(req_calsrc, allsky, pointingstr)
 
     # Select a visibility snapshot
-    cvpol_lin = cvcpol_lin[:, :, cubeslice, ...].squeeze()
+    cvpol_lin = cvcpol_lin[cubeslice]
 
     # Calculate UVW coords
-    UVWxyz = calc_uvw(t, phaseref, stn_pos, stn_antpos)
+    UVWxyz = vsb.calc_uvw(t, phaseref, stn_pos, stn_antpos)
 
     # Phase up visibilities
     cvpu_lin = phaseref_xstpol(cvpol_lin, UVWxyz, freq)
@@ -369,7 +340,8 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
 
     # Make image on phased up visibilities
     imgs_lin, ll, mm = beamformed_image(
-        cvpu_lin, UVWxyz.T, freq, use_autocorr=False, lmsize=lmsize,
+        cvpu_lin, UVWxyz.T, freq, use_autocorr=autocorr, lmsize=lmsize,
+        nrpix=43, #21, 43
         polrep='linear', fluxperbeam=fluxperbeam)
 
     # Potentially apply primary beam correction 
@@ -408,32 +380,11 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
     return images, ll, mm, phaseref
 
 
-def rm_redundant_bls(cvc, rmconjbl=True, use_autocorr=False):
-    """Remove redundant baselines from covariance matrices.
-    Assumes baseline indices are in last components."""
-    nrelems = cvc.shape[-1]
-    # Total number of baselines incl. autocorr and conjugate baselines.
-    nrbaselinestot = nrelems**2
-    if rmconjbl:
-        # Remove conjugate baselines
-        for idx_i in range(1, nrelems):
-            for idx_j in range(idx_i):
-                cvc[..., idx_i, idx_j] = 0.0
-        nrbaselinestot -= nrelems*(nrelems-1)/2
-    if not use_autocorr:
-        # Do not use the autocorrelations (for all pol combos
-        # i.e. for XX, YY, XY and YX)
-        for idx in range(nrelems):
-            cvc[..., idx, idx] = 0.0
-        nrbaselinestot -= nrelems
-    return cvc, nrbaselinestot
-
-
 # Conversion between datatypes
 def xst2bst(xst, obstime, pointing, stn_pos, stn_antpos, freq):
     """Convert xst data to bst data"""
-    xst, nrbaselinestot = rm_redundant_bls(xst)
-    UVWxyz = calc_uvw(obstime, pointing, stn_pos, stn_antpos)
+    xst, nrbaselinestot = vsb.rm_redundant_bls(xst)
+    UVWxyz = vsb.calc_uvw(obstime, pointing, stn_pos, stn_antpos)
     xstpu = phaseref_xstpol(xst, UVWxyz, freq)
     bstXX = numpy.sum(xstpu[0, 0, ...].squeeze(), axis=(0, 1))/nrbaselinestot
     bstXY = numpy.sum(xstpu[0, 1, ...].squeeze(), axis=(0, 1))/nrbaselinestot
@@ -448,7 +399,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stn_pos, stn_antpos, pointing,
     a set of 2 real and 1 complex powers (this is like beamlet statics, bst,
     data but also has the complex, cross-hand polarization components, which
     the bst does not have)."""
-    accpol, nrbaselinestot = rm_redundant_bls(accpol)
+    accpol, nrbaselinestot = vsb.rm_redundant_bls(accpol)
     # Phase up ACC towards pointing direction
     accpu = phaseref_accpol(accpol, sbobstimes, freqs, stn_pos, stn_antpos,
                             pointing)
@@ -634,7 +585,7 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
 
 
 def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
-          show_gsm=False):
+          autocorr=False):
     """\
     Image visibility-type data.
 
@@ -652,10 +603,9 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
         Should primary beam correction be applied?
     fluxpersterradian : bool
         Should returned data be in physical dimension of flux per sterradian?
-    show_gsm : bool
-        Should a global sky model be shown?
+    autocorr : bool
+        Include autocorrelations
     """
-    from .skymodels import globaldiffuseskymodel
     polrep = 'stokes'
     lofar_datatype = data_io.datafolder_type(dataff)
     fluxperbeam = not fluxpersterradian
@@ -686,7 +636,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
             skyimages, ll, mm, _phaseref_ = \
                 cvc_image(cvcobj, fileidx, tidx, phaseref,
                                   polrep=polrep, pbcor=correctpb,
-                                  fluxperbeam=fluxperbeam)
+                                  fluxperbeam=fluxperbeam, autocorr=autocorr)
             plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                          _phaseref_, modality, pbcor=correctpb, maskhrz=False,
                          fluxperbeam=fluxperbeam, plot_title='Imaged Sky')
@@ -737,6 +687,9 @@ def main_cli():
     parser_image.add_argument('-f', '--fluxpersterradian',
                               help="Normalize flux per sterradian",
                               action="store_true")
+    parser_image.add_argument('-a', '--autocorr',
+                              help="Include autocorrelations",
+                              action="store_true")
 
     parser_image = subparsers.add_parser('nf', help='nearfield image')
     parser_image.set_defaults(func=nfimage)
@@ -748,7 +701,7 @@ def main_cli():
         nfimage(args.dataff, args.filenr, args.sampnr)
     else:
         image(args.dataff, args.filenr, args.sampnr, args.phaseref,
-              args.correctpb, args.fluxpersterradian, show_gsm=False)
+              args.correctpb, args.fluxpersterradian, args.autocorr)
 
 
 if __name__ == "__main__":
