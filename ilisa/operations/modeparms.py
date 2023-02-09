@@ -740,6 +740,26 @@ def nqz2rcumode(nqzone, nqfreq=NQFREQ_NOM, filt_on=False):
     return rcumode
 
 
+def freq2bandarr(freq):
+    """
+    Frequency to band-array
+
+    Parameters
+    ----------
+    freq: float
+        Frequency in Hz.
+    Returns
+    -------
+    bandarr : str
+        Either LBA or HBA.
+    """
+    if freq < 100e6:
+        bandarr = 'LBA'
+    else:
+        bandarr = 'HBA'
+    return bandarr
+
+
 def dt2mjd(dt):
     """
     Convert a python datetime to modified julian date
