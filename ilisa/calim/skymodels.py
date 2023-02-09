@@ -191,7 +191,7 @@ def fiducial_visibility(stn_antpos_lambda, background=1.0):
     vis: array
         The fiducial visibility.
     """
-    imsize = 21  #21, 43
+    imsize = 100  #21, 43
     l = np.linspace(-1, 1, imsize)
     m = np.linspace(-1, 1, imsize)
     ll, mm = np.meshgrid(l, m)
@@ -199,7 +199,7 @@ def fiducial_visibility(stn_antpos_lambda, background=1.0):
     make_sq_reg = True
     if make_sq_reg:
         sqregion = np.zeros_like(ll)
-        sqregion[(-0.05<ll) & (ll<0.05) & (-0.05<mm) & (mm<0.05)] = 2.0
+        sqregion[(-0.0<ll) & (ll<0.2) & (-0.9<mm) & (mm<-0.7)] = 2.0
         img += sqregion
     # Zero beyond horizon
     img[ll**2+mm**2>=1.0] = 0.0
@@ -212,6 +212,8 @@ def model_visibility(t, stn_pos, freq, stn_antpos, gs_model):
     """
     Create visibility model
 
+    Parameters
+    ----------
     t: datetime
         Epoch date-time
     stn_pos: array
