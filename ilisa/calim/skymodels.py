@@ -1,5 +1,6 @@
 import argparse
 import shutil
+import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -50,6 +51,9 @@ def globaldiffuseskymodel(dattim, geopos, freq, gs_model='LFSM', imsize=200):
     Generate hemisphere of global diffuse sky model (GDSM) over a position and for
     given datetime and freq.
     """
+    if freq < 10e6:
+        warnings.warn('Freq =< 10 MHz, will use model for 10.1 MHz instead.')
+        freq = 10.1e6
     (longitude, latitude, elevation) = geopos
     freq_unit = 'Hz'  # ('Hz', 'MHz', 'GHz')
     if gs_model =='LFSM':
@@ -104,7 +108,7 @@ def plot_gsm(dattim, stn_pos, freq, gs_model='LFSM', imsize=200,
         skyimg_model = globaldiffuseskymodel(dattim, (lon, lat, h), freq,
                                              gs_model=gs_model, imsize=imsize)
     except ValueError:
-        print("Warning: skipping GSM plot since frequency invalid")
+        warnings.warn("Skipping GSM plot since frequency invalid")
     l, m = np.linspace(-1, 1, imsize), np.linspace(-1, 1, imsize)
     ll, mm = np.meshgrid(l, m)
     img_zero = np.zeros_like(skyimg_model, dtype=float)
@@ -164,9 +168,6 @@ def vcz(ll, mm, skyimage, freq, ant_pos, imag_is_fd=False):
             vis[ant_i, ant_j] = np.sum(
                 fdd * np.exp(+1.0j * k * (ll * u + mm * v + (nn-1) * w))
                 *dll*dmm)
-            # Test:
-            #if ant_i>nr_ants/2:
-            #    vis[ant_i, ant_j] = 0.0
     do_conj = True
     if do_conj:
         for ant_i in range(nr_ants):
@@ -334,8 +335,6 @@ def main_cli():
                         help="Normalize flux per sterradian")
     parser.add_argument('-g', '--gs_model', type=str, default='LFSM',
                         help="Name of global sky model")
-    parser.add_argument('-t', '--output_type', type=str, default=None,
-                        help="Type of output.")
     parser.add_argument('dataff',
                         help="""Path to CVC folder""")
     args = parser.parse_args()
