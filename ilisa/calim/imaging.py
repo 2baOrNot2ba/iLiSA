@@ -8,6 +8,7 @@ import pkg_resources
 
 import numpy
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 from scipy.constants import speed_of_light
 
 import casacore.measures
@@ -90,6 +91,8 @@ def beam_pat_shape(ll, mm, images_bf_pat):
         Minor diameter of beam FWHM.
     elltilt: float
         Angle of tilt of beam ellipse in radians.
+    fov_area: float
+        FoV area in direction cosine squared units.
     """
     def maskbb(crdgrd, msk):
         msk_crdgrd = msk * crdgrd
@@ -119,13 +122,16 @@ def beam_pat_shape(ll, mm, images_bf_pat):
     major_diam = 2*numpy.linalg.norm(semimajor_vec)
     minor_diam = smin_ext
     elltilt = numpy.arctan2(semimajor_vec[1], semimajor_vec[0])
-    return major_diam, minor_diam, elltilt
+    fov_area = area_beamell(major_diam, minor_diam)
+    return major_diam, minor_diam, elltilt, fov_area
 
 
-def stn_beam_fov(stnid, antset, freq, _use_lookuptab=True):
+def get_beam_shape_parms(stnid, antset, freq, _use_lookuptab=True):
     """
     Return station beam field-of-view size
 
+    Parameters
+    ----------
     stnid: str
         Station ID.
     antset: str
@@ -137,7 +143,13 @@ def stn_beam_fov(stnid, antset, freq, _use_lookuptab=True):
 
     Returns
     -------
-    fov_size: float
+    major_diam: float
+        Major diameter of beam ellipse
+    minor_diam: float
+        Minor diameter of beam FWHM.
+    elltilt: float
+        Angle of tilt of beam ellipse in radians.
+    fov_area: float
         FoV size in direction cosine.
     """
     if not _use_lookuptab:
@@ -145,15 +157,35 @@ def stn_beam_fov(stnid, antset, freq, _use_lookuptab=True):
             = antennafieldlib.get_antset_params(stnid, antset)
         antpos_uv = vsb.rot2uv(stn_antpos, stn_rot)
         ll, mm, bfps = beamformed_pattern(antpos_uv, freq)
-        madi, midi, tlt = beam_pat_shape(ll, mm, bfps)
+        major_diam, minor_diam, elltilt, fov_area = beam_pat_shape(ll, mm, bfps)
     else:
         bandarr = freq2bandarr(freq)
         beamshape_path = pkg_resources.resource_filename(__name__,
                             'beamshape_' + stnid + '_' + bandarr + '.npy')
         beamshapes = numpy.load(beamshape_path)
         freqidx = numpy.argmin(numpy.abs(beamshapes[:,0] - freq))
-        freq_cntr, madi, midi, tlt, fov_size = beamshapes[freqidx, :]
-    fov_sz_dlm = madi*midi/4*numpy.pi
+        freq_cntr, major_diam, minor_diam, elltilt, fov_area \
+            = beamshapes[freqidx, :]
+    return major_diam, minor_diam, elltilt, fov_area
+
+
+def area_beamell(major_diam, minor_diam):
+    """
+    Compute beam ellipse area
+
+    Parameters
+    ----------
+    major_diam: float
+        Major diameter in units of direction cosine.
+    minor_diam: float
+        Minor diameter in units of direction cosine.
+
+    Returns
+    -------
+    fov_sz_dlm: float
+        FoV size in direction cosine squared.
+    """
+    fov_sz_dlm = major_diam*minor_diam/4*numpy.pi
     return fov_sz_dlm
 
 
@@ -257,7 +289,7 @@ def phasedup_vis(vis, srcname, t, freq, polrep, stn_pos, stn_antpos):
 
 def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
                      lmsize=2.0, nrpix=101, polrep='linear', fluxperbeam=True,
-                     fov_sz=0.0):
+                     fov_area=0.0):
     """
     Beamformed image XSTpol data.
 
@@ -284,7 +316,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
         (If dreamBeam package not accessible only 'linear' is possible)
     fluxperbeam : bool
         If True, then the flux is per beam, else the flux is per sterradian.
-    fov_sz: float
+    fov_area: float
         Field-of-view size.
 
     Returns
@@ -321,8 +353,8 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
                            + numpy.einsum('ij,k->ijk', mm, posV)))
     bfbf = numpy.einsum('ijk,ijl->ijkl', bf, numpy.conj(bf))
     nrm = nrbls
-    if fov_sz:
-        nrm *= fov_sz
+    if fov_area:
+        nrm *= fov_area
     skyimag_xx = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 0, ...].squeeze())
                   / nrm)
     skyimag_xy = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 1, ...].squeeze())
@@ -394,7 +426,7 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, use_autocorr=False):
 
 
 def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
-              fluxperbeam=True, autocorr=False, polrep='stokes', fov_sz=0.0):
+              fluxperbeam=True, autocorr=False, polrep='stokes', fov_area=0.0):
     """
     Image CVC object using beamformed synthesis
 
@@ -416,8 +448,8 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         Include autocorrelations
     polrep : str
         Polarization representation to use for image.
-    fov_sz: float
-        Size of field-of-view dict over frequencies.
+    fov_area: float
+        Area of FoV.
 
     Returns
     -------
@@ -463,11 +495,11 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         fov = 2*airydisk_radius(freq, d)
         lmsize = 1.0*fov
 
-        # Make image on phased up visibilities
+    # Make image on phased up visibilities
     imgs_lin, ll, mm = beamformed_image(
         cvpu_lin, UVWxyz.T, freq, use_autocorr=autocorr, lmsize=lmsize,
-        nrpix=43, #21, 43
-        polrep='linear', fluxperbeam=fluxperbeam, fov_sz=fov_sz)
+        nrpix=101, #21, 43
+        polrep='linear', fluxperbeam=fluxperbeam, fov_area=fov_area)
 
     # Potentially apply primary beam correction 
     if pbcor and CANUSE_DREAMBEAM:
@@ -541,7 +573,7 @@ def accpol2bst(accpol, sbobstimes, freqs, stn_pos, stn_antpos, pointing,
 
 def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                  phaseref=None, modality='', pbcor=None, maskhrz=True,
-                 fluxperbeam=True, plot_title='Sky image'):
+                 fluxperbeam=True, beam_ell={}, plot_title='Sky image'):
     """
     Generic plot of images of Stokes components from sky map.
     
@@ -577,6 +609,9 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     fluxperbeam : boolean
         Normalize flux values to be in units of flux per beam.
         Default True. If False, flux is in units of flux per steradian (s.r.).
+    beam_ell : dict
+        Beam pattern ellipse parameters.
+        E.g {'major': 1.0, 'minor': 1.0, 'tilt': 90.0}
     plot_title : str
         String to place in plot title describing image.
     """
@@ -620,6 +655,12 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         plt.imshow(compmap, origin='lower', extent=[lmin, lmax, mmin, mmax],
                    interpolation='none', cmap=plt.get_cmap("jet"),
                    vmax=vmax, vmin=vmin)
+        if beam_ell and pos == 0:
+            plt.gca().add_patch(Ellipse(xy=(0.9,-0.9),
+                                        width=beam_ell['minor_diam'],
+                                        height=beam_ell['major_diam'],
+                                        angle=beam_ell['elltilt'], fill=None,
+                                        edgecolor='w'))
         plt.gca().invert_xaxis()
         if pos == 2 or pos == 3:
             plt.xlabel(xlabel)
@@ -754,9 +795,11 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     stnid = cvcobj.scanrecinfo.get_stnid()
     antset = cvcobj.scanrecinfo.get_bandarr()
     freqs =  cvcobj.getfreqs()
-    fovs = {}
+    beamparmsf = {}
     for freq in freqs:
-        fovs[freq] = stn_beam_fov(stnid, antset, freq)
+        majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset, freq)
+        beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
+                            'elltilt': tlt, 'fov_area': fov_sz}
     for fileidx in range(filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
         intgs = len(cvcobj.samptimeset[fileidx])
@@ -766,11 +809,12 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
             skyimages, ll, mm, _phaseref_ = \
                 cvc_image(cvcobj, fileidx, tidx, phaseref, polrep=polrep,
                           pbcor=correctpb, fluxperbeam=fluxperbeam,
-                          autocorr=autocorr, fov_sz=fovs[freq])
+                          autocorr=autocorr,
+                          fov_area=beamparmsf[freq]['fov_area'])
             plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                          _phaseref_, modality, pbcor=correctpb, maskhrz=False,
-                         fluxperbeam=fluxperbeam, plot_title='Imaged Sky')
-
+                         fluxperbeam=fluxperbeam, beam_ell=beamparmsf[freq],
+                         plot_title='Imaged Sky')
             plt.show()
 
 
@@ -869,7 +913,8 @@ def beampat_cli():
             plotskyimage(ll, mm, bfps, 'linear', 0, freq, args.stnid, 0)
             plt.show()
         madi, midi, tlt = beam_pat_shape(ll, mm, bfps)
-        beamshape = (freq, madi, midi, numpy.rad2deg(tlt), madi*midi/4*numpy.pi)
+        beamshape = (freq, madi, midi, numpy.rad2deg(tlt),
+                     area_beamell(madi, midi))
         print(beamshape)
         beamshapes.append(beamshape)
     if len(freqs) > 1:
