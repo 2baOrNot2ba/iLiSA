@@ -63,7 +63,6 @@ def beamformed_pattern(stn2Dcoord, freq, flagged_vis):
     skyimages: tuple
         Polarized sky images.
     """
-    print("Computing beampattern for freq {}".format(freq))
     nrants = stn2Dcoord.shape[0]
     vis_xx = numpy.ones((nrants, nrants))
     vis_yy = vis_xx
@@ -172,6 +171,7 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis,
             if numpy.any(numpy.logical_and(bl_flags, ac_mask)):
                 # Lookup table won't work since nonzero baselines are flagged
                 _use_lookuptab = False
+                print("Will compute beampattern")
             else:
                 # Just autocorrelations flagged, so looktable applies
                 _use_lookuptab = True
@@ -359,7 +359,6 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
         xstpol_flagged = ma.asarray(xstpol)
     # Count all, baselines per pol chan. incl. autocorrs & conjugate:
     nrbls = xstpol.count()/(2*2)
-    print('nrbls', nrbls)
     # Fill flagged values with 0.0:
     xstpol = ma.filled(xstpol_flagged, 0.0)
     posU, posV = stn2Dcoord[0, :].squeeze(), stn2Dcoord[1, :].squeeze()
@@ -948,16 +947,15 @@ def beampat_cli():
     flg_bls = vsb.select_cov_mask(eval(args.blflags), stn_antpos.shape[0])
     flag_vis = {'bls': flg_bls, 'pols': None}
     beamshapes = []
-    print('Freq Major Minor Tilt FoV\n')
+    print('Freq Major Minor Tilt FoV')
     for freq in freqs:
         ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flag_vis)
         if args.plot:
             plotskyimage(ll, mm, bfps, 'linear', 0, freq, args.stnid, 0)
             plt.show()
         madi, midi, tlt, fov_area = beam_pat_shape(ll, mm, bfps)
-        beamshape = (freq, madi, midi, numpy.rad2deg(tlt),
-                     fov_area)
-        print(beamshape)
+        beamshape = freq, madi, midi, numpy.rad2deg(tlt), fov_area
+        print(*beamshape)
         beamshapes.append(beamshape)
     if len(freqs) > 1:
         outfilename = 'beamshape_' + args.stnid + '_LBA.npy'
