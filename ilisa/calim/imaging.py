@@ -7,6 +7,7 @@ import argparse
 import pkg_resources
 
 import numpy
+import numpy.ma as ma
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 from scipy.constants import speed_of_light
@@ -42,9 +43,9 @@ def imggrid_res(ll, mm):
     return dll, dmm
 
 
-def beamformed_pattern(stn2Dcoord, freq):
+def beamformed_pattern(stn2Dcoord, freq, flagged_vis):
     """
-    Plot beamformed beam flux pattern
+    Compute beamformed beam flux pattern
 
     Parameters
     ----------
@@ -52,6 +53,8 @@ def beamformed_pattern(stn2Dcoord, freq):
         Positions of array elements.
     freq: float
         Frequency.
+    flagged_vis: dict of bool matrices
+        Keyed set of visibility flag-matrices.
 
     Returns
     -------
@@ -67,6 +70,7 @@ def beamformed_pattern(stn2Dcoord, freq):
     vis_xy = numpy.zeros_like(vis_xx)
     vis_yx = vis_xy
     vis_pol = numpy.array([[vis_xx, vis_xy],[vis_yx, vis_yy]])
+    vis_pol = vsb.apply_vispol_flags(vis_pol, flagged_vis)
     skyimages, ll, mm \
         = beamformed_image(vis_pol, stn2Dcoord.T, freq, nrpix=201)
     return ll, mm, skyimages
@@ -126,7 +130,8 @@ def beam_pat_shape(ll, mm, images_bf_pat):
     return major_diam, minor_diam, elltilt, fov_area
 
 
-def get_beam_shape_parms(stnid, antset, freq, _use_lookuptab=True):
+def get_beam_shape_parms(stnid, antset, freq, flagged_vis,
+                         _use_lookuptab=None):
     """
     Return station beam field-of-view size
 
@@ -138,6 +143,8 @@ def get_beam_shape_parms(stnid, antset, freq, _use_lookuptab=True):
         Band ID.
     freq: float
         Frequency.
+    flagged_vis: dict of bool matrices
+        Keyed set of visibility flag-matrices.
     _use_lookuptab : bool
         Use lookup table instead of calculating FoV size.
 
@@ -152,11 +159,28 @@ def get_beam_shape_parms(stnid, antset, freq, _use_lookuptab=True):
     fov_area: float
         FoV size in direction cosine.
     """
+    if  _use_lookuptab is None:
+        # Decide whether to use lookup table or not (since it is not set)
+        bl_flags = flagged_vis.get('bl_flags')
+        if bl_flags is None:
+            # No flags set so lookup table works
+            _use_lookuptab = True
+        else:
+            # Check if vis_flag is not just autocorrelation flags
+            ac_mask = numpy.ones_like(bl_flags, dtype=bool)
+            numpy.fill_diagonal(ac_mask, False)
+            if numpy.any(numpy.logical_and(bl_flags, ac_mask)):
+                # Lookup table won't work since nonzero baselines are flagged
+                _use_lookuptab = False
+            else:
+                # Just autocorrelations flagged, so looktable applies
+                _use_lookuptab = True
     if not _use_lookuptab:
         stn_pos, stn_rot, stn_antpos, stn_intilepos \
             = antennafieldlib.get_antset_params(stnid, antset)
         antpos_uv = vsb.rot2uv(stn_antpos, stn_rot)
-        ll, mm, bfps = beamformed_pattern(antpos_uv, freq)
+        flag_vis = {'bls': bl_flags, 'pols': None}
+        ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flag_vis)
         major_diam, minor_diam, elltilt, fov_area = beam_pat_shape(ll, mm, bfps)
     else:
         bandarr = freq2bandarr(freq)
@@ -287,15 +311,14 @@ def phasedup_vis(vis, srcname, t, freq, polrep, stn_pos, stn_antpos):
     return vis_pu
 
 
-def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
-                     lmsize=2.0, nrpix=101, polrep='linear', fluxperbeam=True,
-                     fov_area=0.0):
+def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
+                     polrep='linear', fluxperbeam=True, fov_area=0.0):
     """
     Beamformed image XSTpol data.
 
     Parameters
     ----------
-    xstpol : array
+    xstpol : array or masked array
         The crosslet statistics data. Should have format:
         xstpol[polport1, polport2, elemnr1, elemnr2] where polport1 and
         polport2 are the two polarization ports, e.g. X and Y, and elemnr1 and
@@ -331,15 +354,14 @@ def beamformed_image(xstpol, stn2Dcoord, freq, use_autocorr=True,
     mm : array
         The m direction cosine of the image.
     """
-    nrants = stn2Dcoord.shape[1]
-    nrbls =  nrants*(nrants-1)+nrants  # All, incl. autocorrs & conjug baselines
-    if not use_autocorr:
-        nrbls -= nrants
-        # Set Autocorrelations to zero:
-        xstpol = numpy.copy(xstpol)  # Copy since diagonal will be rewritten
-        for indi in range(2):
-            for indj in range(2):
-                numpy.fill_diagonal(xstpol[indi, indj, :, :], 0.0)
+    xstpol_flagged = xstpol
+    if type(xstpol_flagged) is not ma.core.MaskedArray:
+        xstpol_flagged = ma.asarray(xstpol)
+    # Count all, baselines per pol chan. incl. autocorrs & conjugate:
+    nrbls = xstpol.count()/(2*2)
+    print('nrbls', nrbls)
+    # Fill flagged values with 0.0:
+    xstpol = ma.filled(xstpol_flagged, 0.0)
     posU, posV = stn2Dcoord[0, :].squeeze(), stn2Dcoord[1, :].squeeze()
     lambda0 = sys.float_info.max
     if freq != 0.0:
@@ -426,7 +448,8 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, use_autocorr=False):
 
 
 def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
-              fluxperbeam=True, autocorr=False, polrep='stokes', fov_area=0.0):
+              fluxperbeam=True, flagged_vis=None, polrep='stokes',
+              fov_area=0.0):
     """
     Image CVC object using beamformed synthesis
 
@@ -444,8 +467,8 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         Perform primary beam correction or not.
     fluxperbeam : bool
         Use flux per beam units in image (else flux per sterradian).
-    autocorr: bool
-        Include autocorrelations
+    flagged_vis: dict of bool matrices
+        Keyed set of visibility flag-matrices.
     polrep : str
         Polarization representation to use for image.
     fov_area: float
@@ -495,12 +518,14 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         fov = 2*airydisk_radius(freq, d)
         lmsize = 1.0*fov
 
-    # Make image on phased up visibilities
-    imgs_lin, ll, mm = beamformed_image(
-        cvpu_lin, UVWxyz.T, freq, use_autocorr=autocorr, lmsize=lmsize,
-        nrpix=101, #21, 43
-        polrep='linear', fluxperbeam=fluxperbeam, fov_area=fov_area)
+    # Apply flag matrix to visibility matrix
+    vis = vsb.apply_vispol_flags(cvpu_lin, flagged_vis)
 
+    # Make image on phased up visibilities
+    imgs_lin, ll, mm = beamformed_image(vis, UVWxyz.T, freq, lmsize=lmsize,
+                                        nrpix=101, polrep='linear',
+                                        fluxperbeam=fluxperbeam,
+                                        fov_area=fov_area)
     # Potentially apply primary beam correction 
     if pbcor and CANUSE_DREAMBEAM:
         # Get dreambeam jones:
@@ -751,7 +776,7 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
 
 
 def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
-          autocorr=False):
+          flag_bl_sel=[], use_autocorr=False):
     """\
     Image visibility-type data.
 
@@ -769,8 +794,10 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
         Should primary beam correction be applied?
     fluxpersterradian : bool
         Should returned data be in physical dimension of flux per sterradian?
-    autocorr : bool
-        Include autocorrelations
+    flag_bl_sel : list
+        Select baselines to flag.
+    use_autocorr : bool
+        Whether to include autocorrelations or not.
     """
     polrep = 'stokes'
     lofar_datatype = data_io.datafolder_type(dataff)
@@ -795,9 +822,15 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     stnid = cvcobj.scanrecinfo.get_stnid()
     antset = cvcobj.scanrecinfo.get_bandarr()
     freqs =  cvcobj.getfreqs()
+    # Create visibility flag mask:
+    if use_autocorr:
+        flag_bl_sel.append((None,))
+    flag_bls = vsb.select_cov_mask(flag_bl_sel, cvcobj.cvcdim1 // 2)
+    flagged_vis = {'bls': flag_bls, 'pols': None}
     beamparmsf = {}
     for freq in freqs:
-        majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset, freq)
+        majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset, freq,
+                                                       flagged_vis)
         beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
                             'elltilt': tlt, 'fov_area': fov_sz}
     for fileidx in range(filenr, cvcobj.getnrfiles()):
@@ -809,7 +842,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
             skyimages, ll, mm, _phaseref_ = \
                 cvc_image(cvcobj, fileidx, tidx, phaseref, polrep=polrep,
                           pbcor=correctpb, fluxperbeam=fluxperbeam,
-                          autocorr=autocorr,
+                          flagged_vis=flagged_vis,
                           fov_area=beamparmsf[freq]['fov_area'])
             plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                          _phaseref_, modality, pbcor=correctpb, maskhrz=False,
@@ -861,6 +894,9 @@ def main_cli():
     parser_image.add_argument('-f', '--fluxpersterradian',
                               help="Normalize flux per sterradian",
                               action="store_true")
+    parser_image.add_argument('-b', '--blflags', type=str,
+                              default='[]',
+                              help="Baseline flag select")
     parser_image.add_argument('-a', '--autocorr',
                               help="Include autocorrelations",
                               action="store_true")
@@ -871,11 +907,13 @@ def main_cli():
 
     args = parser.parse_args()
     args.dataff = os.path.normpath(args.dataff)
+    args.blflags = eval(args.blflags)
     if args.func == nfimage:
         nfimage(args.dataff, args.filenr, args.sampnr)
     else:
         image(args.dataff, args.filenr, args.sampnr, args.phaseref,
-              args.correctpb, args.fluxpersterradian, args.autocorr)
+              args.correctpb, args.fluxpersterradian, args.blflags,
+              args.autocorr)
 
 
 def beampat_cli():
@@ -891,6 +929,8 @@ def beampat_cli():
     parser.add_argument('-s' , '--stnid', type=str, default='')
     parser.add_argument('-a', '--antset', type=str, default='')
     parser.add_argument('-f', '--freq', type=float, default=0.0)
+    parser.add_argument('-b', '--blflags', type=str, default='[]',
+                        help="Baseline flag select")
     args = parser.parse_args()
     if not args.stnid:
         raise(RuntimeError, 'Choose stnid')
@@ -902,19 +942,21 @@ def beampat_cli():
         freqs = rcumode2sbfreqs(rcumode)
     else:
         freqs = [args.freq]
+    stn_pos, stn_rot, stn_antpos, stn_intilepos \
+        = antennafieldlib.get_antset_params(args.stnid, args.antset)
+    antpos_uv = vsb.rot2uv(stn_antpos, stn_rot)
+    flg_bls = vsb.select_cov_mask(eval(args.blflags), stn_antpos.shape[0])
+    flag_vis = {'bls': flg_bls, 'pols': None}
     beamshapes = []
     print('Freq Major Minor Tilt FoV\n')
     for freq in freqs:
-        stn_pos, stn_rot, stn_antpos, stn_intilepos \
-            = antennafieldlib.get_antset_params(args.stnid, args.antset)
-        antpos_uv = vsb.rot2uv(stn_antpos, stn_rot)
-        ll, mm, bfps = beamformed_pattern(antpos_uv, freq)
+        ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flag_vis)
         if args.plot:
             plotskyimage(ll, mm, bfps, 'linear', 0, freq, args.stnid, 0)
             plt.show()
-        madi, midi, tlt = beam_pat_shape(ll, mm, bfps)
+        madi, midi, tlt, fov_area = beam_pat_shape(ll, mm, bfps)
         beamshape = (freq, madi, midi, numpy.rad2deg(tlt),
-                     area_beamell(madi, midi))
+                     fov_area)
         print(beamshape)
         beamshapes.append(beamshape)
     if len(freqs) > 1:
