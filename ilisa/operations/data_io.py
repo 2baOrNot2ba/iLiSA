@@ -18,10 +18,13 @@ import shutil
 import numpy
 import time
 import datetime
-import h5py
 import yaml
-import warnings
 import argparse
+import warnings
+
+# Set ignore FutureWarning (for h5py)
+warnings.filterwarnings(action='ignore', category=FutureWarning) 
+import h5py
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import matplotlib.dates as mdates
