@@ -146,34 +146,44 @@ def obsinfo2filefolder(obsinfo):
     """\
     Convert obsinfo dict to filefolder name
 
-    obsinfo:
-        duration_scan:
-        filenametime:
-        integration:
-        spw:
-        ldat_type or datatype:
-        pointing:
-        subbands:
-        frequencies: Optional
-        station_id:
-        *cal:
-        *model:
-
-    Name format is
-        <station_id>_<filenametime>_spw<rcumodes>_sb<subbands>_int<integration>\
-        _dur<duration_scan>[_dir<pointing>][_cal|_mod]_<ldat_type>
+    Parameters
+    ----------
+    obsinfo: dict
+        Some parameters used for observation. Has the following keys (optional
+        keys marked with '*'):
+            'duration_scan':
+            'filenametime':
+            'integration':
+            'spw':
+            'ldat_type' | 'datatype':
+            'pointing':
+            'subbands':
+            'station_id':
+            *'frequencies':
+            *'antennaset':
+            *'cal':
+            *'model':
 
     Returns
     -------
     filefoldername : str
         Meta-data formatted name of file-folder.
+        Name format is
+            <station_id(6c)>[<ANTSET>]_<filenametime>_spw<rcumodes>_sb<subbands>\
+            _int<integration>_dur<duration_scan>[_dir<pointing>][_cal|_mod]\
+            _<ldat_type>
+            where <ANTSET> := <LBA|HBA%<conf1>[%<conf2>]>
     """
     if obsinfo.get('datatype', None):
         ldat_type = obsinfo['datatype']
     else:
         ldat_type = obsinfo.get('ldat_type')
-    filefoldername = '{}_{}'.format(obsinfo['station_id'],
-                                    obsinfo['filenametime'])
+    filefoldername = obsinfo['station_id']
+    antennaset = obsinfo.get('antennaset')
+    if antennaset:
+        antennaset.replace('_', '%')
+        filefoldername += antennaset
+    filefoldername += '_' + obsinfo['filenametime']
 
     spwstr = ''
     if obsinfo['spw']:
@@ -232,6 +242,7 @@ def filefolder2obsinfo(filefolderpath):
     filefoldername = os.path.basename(filefolderpath)
     # Format:
     # stnid_Ymd_HMS_spwstr_intstr_durstr_dirstr_[cal*]_acc
+    # stnidantset_Ymd_HMS_spwstr_intstr_durstr_dirstr_[cal*]_acc
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_bst
     # stnid?_Ymd_HMS_rcustr_intstr_durstr_sst
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_xst
@@ -256,8 +267,11 @@ def filefolder2obsinfo(filefolderpath):
         else:
             dirstr = filefoldersplit.pop()
         sbstr = 'sb0:511'
-    if len(filefoldersplit[0]) == 5:
-        stnid = filefoldersplit.pop(0)
+    if len(filefoldersplit[0]) >= 5:
+        stnidantset = filefoldersplit.pop(0)
+        stnid = stnidantset[:5]
+        antennaset = stnidantset[5:].replace('%','_')
+        obsinfo['antennaset'] = antennaset
     else:
         stnid = None
     (Ymd, HMS, spwstr, intstr, durstr) = filefoldersplit[:]
