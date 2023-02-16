@@ -471,14 +471,34 @@ class ScanRecInfo(object):
                     raise RuntimeError('Station id not found.')
         return stnid
 
-    def set_scanrecparms(self, datatype, freqspec, duration,
-                         direction="None,None,None", integration=None):
-        """Record parameters used as arguments to record_scan program."""
-        self.scanrecparms['datatype'] = datatype
+    def set_scanrecparms(self, ldat_type, freqspec, duration,
+                         direction="None,None,None", integration=1.0,
+                         antset=''):
+        """
+        Set ScanRecInfo's dict attribute `scanrecparms` parameters
+
+        Parameters
+        ----------
+        ldat_type: str
+            Ldat type.
+        freqspec: str
+            Argument to FreqSetup()
+        duration: float
+            Duration in seconds.
+        direction: str
+            Comma separated direction triplet str.
+        integration: int
+            Integration in seconds.
+        antset: str
+            Antenna-set name.
+        """
+        self.scanrecparms['datatype'] = ldat_type
         self.scanrecparms['freqspec'] = freqspec
         self.scanrecparms['duration'] = duration
         self.scanrecparms['direction'] = direction
         self.scanrecparms['integration'] = integration
+        if antset:
+            self.scanrecparms['antennaset'] = antset
 
     def set_caltabinfos(self, caltabinfos):
         self.caltabinfos = caltabinfos
@@ -502,7 +522,7 @@ class ScanRecInfo(object):
 
     def read_scanrec(self, datapath):
         """
-        Readin scan-rec parameters from nominal file in datapath
+        Read in scan-rec parameters from nominal file in datapath
 
         Parameters
         ----------
@@ -549,7 +569,7 @@ class ScanRecInfo(object):
             freqspec_hi = modeparms.sb2freq(sbs[-1], nqz)
             self.set_scanrecparms(obsinfo['ldat_type'], str(freqspec_hi),
                                   obsinfo['duration_scan'], obsinfo['pointing'],
-                                  obsinfo['integration'])
+                                  obsinfo['integration'], obsinfo['antennaset'])
             self.scanrecparms['rcumode'] = spw
             self.set_stnid(obsinfo['station_id'])
             self.calibrationfile = None
@@ -606,6 +626,12 @@ class ScanRecInfo(object):
     def get_bandarr(self):
         antset = modeparms.rcumode2antset_eu(self.get_rcumode())
         return antset.split('_')[0]
+
+    def get_antset(self):
+        antset  = self.scanrecparms.get('antennaset')
+        if not antset:
+            antset = self.ldatinfos[self.get_obs_ids()[0]].antset
+        return antset
 
     def get_xcsubband(self, filenr=0):
         return int(self.ldatinfos[filenr].rspctl_cmd['xcsubband'])
@@ -1090,21 +1116,20 @@ class CVCfiles(object):
             cvcdim_t = (os.path.getsize(os.path.join(self.filefolder, cvcfile))
                         // self.__get_cvc_dtype().itemsize)
             # Try to get obsfile header
+            (bfilename, _dat) = cvcfile.split('.')
+            hfilename = bfilename + '.h'
+            # Check if xst might have some extra stuff in name
+            #   So first get ldattype
+            ymd, hms, ldattype_full = bfilename.split('_', 2)
+            if '_' in ldattype_full:
+                ldattype, _rest = ldattype_full.split('_', 1)
+            else:
+                ldattype = ldattype_full
+            if ldattype == 'xst':
+                hfilename = ymd + '_' + hms + '_' + ldattype + '.h'
+            hfilepath = os.path.join(self.filefolder, hfilename)
             try:
-                (bfilename, _dat) = cvcfile.split('.')
-                hfilename = bfilename + '.h'
-                # Check if xst might have some extra stuff in name
-                #   So first get ldattype
-                ymd, hms, ldattype_full = bfilename.split('_', 2)
-                if '_' in ldattype_full:
-                    ldattype, _rest = ldattype_full.split('_', 1)
-                else:
-                    ldattype = ldattype_full
-                if ldattype == 'xst':
-                    hfilename = ymd + '_' + hms + '_' + ldattype + '.h'
-                hfilepath = os.path.join(self.filefolder, hfilename)
                 ldatinfo = LDatInfo.read_ldat_header(hfilepath)
-                scanrecinfo.add_obs(ldatinfo)
             except:
                 warnings.warn(
                     "Couldn't find a header file for {}".format(cvcfile))
@@ -1112,7 +1137,7 @@ class CVCfiles(object):
                                                   duration_scan=
                                                   scanrecinfo.scanrecparms[
                                                       'duration'])
-                scanrecinfo.add_obs(ldatinfo)
+            scanrecinfo.add_obs(ldatinfo)
             _datatype, t_begin = self._parse_cvcfile(
                 os.path.join(self.filefolder, cvcfile))
 
@@ -1138,10 +1163,8 @@ class CVCfiles(object):
             freqset.append(freqs)
         (self.scanrecinfo, self.filenames, self.samptimeset, self.freqset
          ) = scanrecinfo, filenames, samptimeset, freqset
-
         # Get/Compute ant positions
-        antset = self.scanrecinfo.ldatinfos[
-            self.scanrecinfo.get_obs_ids()[0]].antset
+        antset = self.scanrecinfo.get_antset()
         self.stn_pos, self.stn_rot, self.stn_antpos, self.stn_intilepos \
             = antennafieldlib.get_antset_params(stnid, antset)
 
@@ -1151,7 +1174,6 @@ class CVCfiles(object):
             elmap = self.scanrecinfo.get_septon_elmap()
             for tile, elem in enumerate(elmap):
                 self.stn_antpos[tile] += self.stn_intilepos[elem]
-
 
     def __getitem__(self, filenr):
         """Get data from a CVC file (in this set of files) by filenr
@@ -1212,7 +1234,6 @@ class CVCfiles(object):
         else:
             filebegindatetime = filenamedatetime
         return datatype, filebegindatetime
-
 
     def _readcvcfile(self, cvcfilepath):
         """Reads in a single acc or xst data file by filepath and creates
