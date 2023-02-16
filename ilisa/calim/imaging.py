@@ -920,7 +920,8 @@ def beampat_cli():
     Beampattern CLI
 
     Plots or prints out the synthesized beam of a specified station, band-array,
-    and frequency.
+    and frequency. It also precomputes beampattern parameters to save in a
+    lookup table .npy file.
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--plot', action="store_true",
@@ -958,7 +959,7 @@ def beampat_cli():
         print(*beamshape)
         beamshapes.append(beamshape)
     if len(freqs) > 1:
-        outfilename = 'beamshape_' + args.stnid + '_LBA.npy'
+        outfilename = 'beamshape_' + args.stnid + '_' + args.antset + '.npy'
         numpy.save(outfilename, beamshapes)
 
 
