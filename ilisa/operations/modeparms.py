@@ -12,8 +12,7 @@ from ilisa.operations import DATETIMESTRFMT
 ANTENNA_SETS = ['LBA_INNER', 'LBA_OUTER',
                 'LBA_SPARSE_EVEN', 'LBA_SPARSE_ODD',
                 'LBA_X', 'LBA_Y',
-                'HBA_DUAL', 'HBA_JOINED',
-                'HBA_ZERO', 'HBA_ONE']
+                'HBA_DUAL', 'HBA_JOINED', 'HBA_ZERO', 'HBA_ONE']
 NQFREQ_NOM = 100.0e6  # Nominal Nyquist frequency in Hz
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
@@ -48,9 +47,26 @@ elemsOn = elOn_Generic_Int_201512  # elOn_same or elOn_step or elOn_gILT or ...
 
 
 def beamctl_args2cmds(beamlets, subbands, band, anadigdir, rcus='all',
-                     beamdurstr=''):
+                      beamdurstr='', antset=''):
     """
     Create a beamctl command string from the given arguments
+
+    Parameters
+    ----------
+    beamlets: str
+        Beamlets CLI argument to beamctl.
+    subbands: str
+        Subbands CLI argument to beamctl.
+    band: str
+        Band CLI argument to beamctl.
+    anadigdir: str
+        Analogue or digital direction CLI argument to beamctl.
+    rcus: str
+        RCU CLI argument to beamctl.
+    beamdurstr: str
+        Beam duration CLI argument to beamctl.
+    antset: str
+        Antset CLI argument to beamctl.
     """
     if rcus == 'all':
         rcus = '0:191'
@@ -64,7 +80,8 @@ def beamctl_args2cmds(beamlets, subbands, band, anadigdir, rcus='all',
         band = rcumode2band(band)
     except ValueError:
         pass  # It's not an rcumode. Assume it's a proper band descriptor
-    antset = band2antset(band)
+    if not antset:
+        antset = band2antset_eu(band)
     beamctl_cmd = ("beamctl --antennaset=" + antset + " --rcus=" + rcus
                    + " --band=" + band + " --beamlets=" + beamlets
                    + " --subbands=" + subbands
@@ -544,12 +561,21 @@ def band2rcumode(band):
     return rcumode
 
 
-def band2antset(band):
+def band2antset_eu(band):
     """
-    Map band to antennaset, which is used in beamctl arguments
+    Map band to antenna-set for EU stations
 
-    Assumption is that one wants to use as many of antennas in field as
-    possible.
+    Parameters
+    ----------
+    band: str
+        Band name (can be: '10_90', '30_90', '110_190', '170_230', '210_250').
+
+    Returns
+    -------
+    antset: str
+        Antenna-set name.
+        For EU stations can be: 'LBA_INNER' or 'HBA_JOINED'
+        (subset of modeparms.ANTENNA_SETS)
     """
     if band == "10_90" or band == "30_90":
         antset = "LBA_INNER"
