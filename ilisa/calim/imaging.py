@@ -183,9 +183,8 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis,
         ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flag_vis)
         major_diam, minor_diam, elltilt, fov_area = beam_pat_shape(ll, mm, bfps)
     else:
-        bandarr = freq2bandarr(freq)
         beamshape_path = pkg_resources.resource_filename(__name__,
-                            'beamshape_' + stnid + '_' + bandarr + '.npy')
+                                'beamshape_' + stnid + '_' + antset + '.npy')
         beamshapes = numpy.load(beamshape_path)
         freqidx = numpy.argmin(numpy.abs(beamshapes[:,0] - freq))
         freq_cntr, major_diam, minor_diam, elltilt, fov_area \
@@ -819,7 +818,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
         if mockdata:
             modality = 'mock'
     stnid = cvcobj.scanrecinfo.get_stnid()
-    antset = cvcobj.scanrecinfo.get_bandarr()
+    antset = cvcobj.scanrecinfo.get_antset()
     freqs =  cvcobj.getfreqs()
     # Create visibility flag mask:
     if use_autocorr:
