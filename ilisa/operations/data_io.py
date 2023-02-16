@@ -402,8 +402,8 @@ def filename2obsparm(filepath):
         (_nrsamps, nrrcus0, nrrcus1) = map(int, rest.split('x'))
     elif datatype == 'xst':
         spwnr, sbnr = rest.split('_')
-        spw = spwnr[3:]
-        sb = sbnr[3:]
+        spw = int(spwnr[3:])
+        sb = str(int(sbnr[2:]))
     filenamedatetime = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                   '%Y%m%dT%H%M%S')
     # NOTE: For ACC, filename is last obstime, while for XST, it is first.
