@@ -370,6 +370,55 @@ def filefolder2obsinfo(filefolderpath):
     return obsinfo
 
 
+def filename2obsparm(filepath):
+    """
+    Convert filename to observation parameters
+
+    Sets the dimensions of the visibility cube, which most generally is:
+    dimtimes * dimrcu0 * dimrcu1.
+
+    The file name should have the format:
+        Ymd_HMS_xst_spw3_sb123_96x96.dat for xst file
+        Ymd_HMS_acc_nrsbsxnrrcus0xnrrcus1.dat for acc file
+
+    Parameters
+    ----------
+    filepath: str
+
+    Returns
+    -------
+    obsparm: dict
+        datatype
+        filebegindatetime
+        cvcdim1
+        cvcdim2
+    """
+    filename = os.path.basename(filepath)
+    (Ymd, HMS, cvcextrest) = filename.split('_', 2)
+    datatype, restdat = cvcextrest[:3], cvcextrest[3:]
+    (rest, _datstr) = restdat.split('.')
+    rest = rest.lstrip('_')
+    if datatype == 'acc':
+        (_nrsamps, nrrcus0, nrrcus1) = map(int, rest.split('x'))
+    elif datatype == 'xst':
+        spwnr, sbnr = rest.split('_')
+        spw = spwnr[3:]
+        sb = sbnr[3:]
+    filenamedatetime = datetime.datetime.strptime(Ymd + 'T' + HMS,
+                                                  '%Y%m%dT%H%M%S')
+    # NOTE: For ACC, filename is last obstime, while for XST, it is first.
+    if datatype == 'acc':
+        filebegindatetime = filenamedatetime - datetime.timedelta(
+            seconds=_nrsamps)
+    else:
+        filebegindatetime = filenamedatetime
+    obsparm = {'ldat_type': datatype,
+               'datetime': filebegindatetime,
+               'spw': spw,
+               'sb': sb}
+    return obsparm
+
+
 class ScanRecInfo(object):
     """This class maintains info on a scan recording (scanrec), which is one
     of the results of an iLiSA scan. One scanrec is a group of one or more
@@ -452,12 +501,23 @@ class ScanRecInfo(object):
                 f.write("mockdata: true")
 
     def read_scanrec(self, datapath):
+        """
+        Readin scan-rec parameters from nominal file in datapath
+
+        Parameters
+        ----------
+        datapath: str
+            Path to data file-folder.
+        """
         try:
             _h_path = os.path.join(datapath, self.scanrecinfo_header)
             with open(_h_path, 'r') as hf:
                 scanrecfiledict = yaml.safe_load(hf)
         except Exception:
-            raise RuntimeError()
+            warnings.warn(
+                "Couldn't find Scanrecinfo file. Will try filefolder name...")
+            self.read_scanrec_from_ff(datapath)
+            return
         self.headerversion = scanrecfiledict['headerversion']
         self.stnid = scanrecfiledict['station']
         self.scanrecparms = scanrecfiledict['scanrecparms']
@@ -466,6 +526,34 @@ class ScanRecInfo(object):
         self.calibrationfile = scanrecfiledict.get('calibrationfile', '')
         self.gs_model = scanrecfiledict.get('gs_model', '')
         self.mockdata = scanrecfiledict.get('mockdata', False)
+
+    def read_scanrec_from_ff(self, datapath):
+        """
+        Read in scan-rec parameters from file-folder name
+
+        Parameters
+        ----------
+        datapath: str
+             Path to data file-folder.
+        """
+        try:
+            obsinfo = filefolder2obsinfo(datapath)
+        except ValueError:
+            print("Could not parse filefolder {}".format(datapath))
+            # Will hope to read LDat header
+            self.scanrecparms = None
+        else:
+            spw = obsinfo['spw'][0]
+            nqz = modeparms.rcumode2nyquistzone(spw)
+            sbs = modeparms.seqarg2list(obsinfo['subbands'][0])
+            freqspec_hi = modeparms.sb2freq(sbs[-1], nqz)
+            self.set_scanrecparms(obsinfo['ldat_type'], str(freqspec_hi),
+                                  obsinfo['duration_scan'], obsinfo['pointing'],
+                                  obsinfo['integration'])
+            self.scanrecparms['rcumode'] = spw
+            self.set_stnid(obsinfo['station_id'])
+            self.calibrationfile = None
+            print("Read in filefolder meta.")
 
     def set_postcalibration(self, caltabpath, scanrecpath):
         """Add the caltab file that was applied to this scanrec (typically CVC
@@ -715,25 +803,44 @@ class LDatInfo(object):
             return None
 
     @classmethod
-    def from_obsinfo(cls, obsfilefolder):
-        """Create an LDatInfo from an obsfilefolder dict"""
-        datatype = obsfilefolder['ldat_type']
-        sb = obsfilefolder['subbands'][0]
+    def from_filename(cls, datfilename, anadigdir=',,', integration=1.0,
+                      duration_scan=1.0):
+        """
+        Create an LDatInfo from an ldat filename
+
+        Parameters
+        ----------
+        datfilename: str
+            Formatted name of ldat file.
+        anadigdir: str
+            Analog-digital direction str.
+        integration: float
+            Integration time.
+        duration_scan: float
+            Duration of scan.
+
+        Returns
+        -------
+        ldatinfo: LDatInfo
+            Corresponding LDatInfo object.
+        """
+        obsparm = filename2obsparm(datfilename)
+        ldat_type = obsparm['ldat_type']
+        sb = obsparm['sb']
         rcusetup_cmds = ''
-        anadigdir = ilisa.operations.directions.normalizebeamctldir(
-            obsfilefolder['pointing'])
+        anadigdir = ilisa.operations.directions.normalizebeamctldir(anadigdir)
         beamlets = modeparms.alloc_beamlets(sb)[0]
+        band = modeparms.rcumode2band(obsparm['spw'])
         beamctl_cmds = modeparms.beamctl_args2cmds(beamlets=beamlets,
                                                    subbands=sb,
-                                                   band=modeparms.rcumode2band(
-                                                       obsfilefolder['spw'][0]),
+                                                   band=band,
                                                    anadigdir=anadigdir)
-        rspctl_cmds = modeparms.rspctl_stats_args2cmds(datatype,
-                                                       obsfilefolder['integration'],
-                                                       obsfilefolder['duration_scan'],
+        rspctl_cmds = modeparms.rspctl_stats_args2cmds(ldat_type,
+                                                       integration,
+                                                       duration_scan,
                                                        sb)
-        ldatinfo = cls(datatype, rcusetup_cmds, beamctl_cmds, rspctl_cmds)
-        ldatinfo.filenametime = obsfilefolder['datetime'].strftime('%Y%m%d_%H%M%S')
+        ldatinfo = cls(ldat_type, rcusetup_cmds, beamctl_cmds, rspctl_cmds)
+        ldatinfo.filenametime = obsparm['datetime'].strftime('%Y%m%d_%H%M%S')
         return ldatinfo
 
     @classmethod
@@ -948,32 +1055,103 @@ class CVCfiles(object):
         self.cvcdim2 = self.NRRCUS_EU
 
         datapath = os.path.abspath(datapath)
-        if os.path.isdir(datapath):
-            obsinfo = filefolder2obsinfo(datapath)
-            stnid = obsinfo['station_id']
-            nrrcus = modeparms.nrrcus_stnid(stnid)
-            self.cvcdim1 = nrrcus
-            self.cvcdim2 = nrrcus
-            self.filefolder = datapath
-            (self.scanrecinfo, self.filenames, self.samptimeset, self.freqset
-             ) = self._readcvcfolder()
-        elif os.path.isfile(datapath):
-            # FIXME:
-            self._readcvcfile(datapath)
-        else:
-            raise ValueError('Path does not exist')
+        if not os.path.isdir(datapath):
+            if os.path.isfile(datapath):
+                # FIXME:
+                self._readcvcfile(datapath)
+            else:
+                raise ValueError('Path does not exist')
+        self.filefolder = datapath
+
+        # Now scan CVC filefolder to determine datafile contents
+        #
+        # The filefolder name may have the format as specified in the
+        # parse_cvcfolder() method. The contents of the data file is stored in
+        # the object attribute:
+        #       data : [(N,192,192), ... , (N,192,192)]
+        # where N is nominally the number of time samples and the len of data is
+        # the number of files in the folder.
+
+        # Initialize
+        scanrecinfo = ScanRecInfo()
+        samptimeset = []
+        freqset = []
+        scanrecinfo.read_scanrec(self.filefolder)
+        stnid = scanrecinfo.get_stnid()
+        nrrcus = modeparms.nrrcus_stnid(stnid)
+        self.cvcdim1 = nrrcus
+        self.cvcdim2 = nrrcus
+        # Select only data files in folder (avoid CalTable*.dat files)
+        ls = os.listdir(self.filefolder)
+        filenames = [filename for filename in ls if filename.endswith('.dat')
+                     and not filename.startswith('CalTable')]
+        filenames.sort()  # This enforces chronological order
+        for cvcfile in filenames:
+            cvcdim_t = (os.path.getsize(os.path.join(self.filefolder, cvcfile))
+                        // self.__get_cvc_dtype().itemsize)
+            # Try to get obsfile header
+            try:
+                (bfilename, _dat) = cvcfile.split('.')
+                hfilename = bfilename + '.h'
+                # Check if xst might have some extra stuff in name
+                #   So first get ldattype
+                ymd, hms, ldattype_full = bfilename.split('_', 2)
+                if '_' in ldattype_full:
+                    ldattype, _rest = ldattype_full.split('_', 1)
+                else:
+                    ldattype = ldattype_full
+                if ldattype == 'xst':
+                    hfilename = ymd + '_' + hms + '_' + ldattype + '.h'
+                hfilepath = os.path.join(self.filefolder, hfilename)
+                ldatinfo = LDatInfo.read_ldat_header(hfilepath)
+                scanrecinfo.add_obs(ldatinfo)
+            except:
+                warnings.warn(
+                    "Couldn't find a header file for {}".format(cvcfile))
+                ldatinfo = LDatInfo.from_filename(cvcfile,
+                                                  duration_scan=
+                                                  scanrecinfo.scanrecparms[
+                                                      'duration'])
+                scanrecinfo.add_obs(ldatinfo)
+            _datatype, t_begin = self._parse_cvcfile(
+                os.path.join(self.filefolder, cvcfile))
+
+            # Compute time of each autocovariance matrix sample per subband
+            integration = scanrecinfo.get_integration()
+            obscvm_datetimes = [None] * cvcdim_t
+            for t_idx in range(cvcdim_t):
+                t_delta = datetime.timedelta(
+                    seconds=t_idx * integration
+                )
+                obscvm_datetimes[t_idx] = t_begin + t_delta
+            samptimeset.append(obscvm_datetimes)
+
+            # Compute frequency of corresponding time sample
+            rcumode = scanrecinfo.get_rcumode()
+            nz = modeparms.rcumode2nyquistzone(rcumode)
+            if scanrecinfo.get_datatype() == 'acc':
+                freqs = modeparms.rcumode2sbfreqs(rcumode)
+            else:
+                sb = ldatinfo.sb
+                freq = modeparms.sb2freq(sb, nz)
+                freqs = [freq] * cvcdim_t
+            freqset.append(freqs)
+        (self.scanrecinfo, self.filenames, self.samptimeset, self.freqset
+         ) = scanrecinfo, filenames, samptimeset, freqset
+
         # Get/Compute ant positions
-        stnid = self.scanrecinfo.get_stnid()
         antset = self.scanrecinfo.ldatinfos[
             self.scanrecinfo.get_obs_ids()[0]].antset
         self.stn_pos, self.stn_rot, self.stn_antpos, self.stn_intilepos \
             = antennafieldlib.get_antset_params(stnid, antset)
+
         # Account for SEPTON antenna positions
         septon = self.scanrecinfo.is_septon()
         if septon:
             elmap = self.scanrecinfo.get_septon_elmap()
             for tile, elem in enumerate(elmap):
                 self.stn_antpos[tile] += self.stn_intilepos[elem]
+
 
     def __getitem__(self, filenr):
         """Get data from a CVC file (in this set of files) by filenr
@@ -1035,98 +1213,6 @@ class CVCfiles(object):
             filebegindatetime = filenamedatetime
         return datatype, filebegindatetime
 
-    def _readcvcfolder(self):
-        """Read in CVC data from the filefolder.
-
-        The filefolder name may have the format as specified in the
-        parse_cvcfolder() method. The contents of the data file is stored in
-        the object attribute:
-           data : [(N,192,192), ... , (N,192,192)]
-        where N is nominally the number of time samples and the len of data is
-        the number of files in the folder.
-        """
-        # Initialize
-        scanrecinfo = ScanRecInfo()
-        samptimeset = []
-        freqset = []
-        try:
-            scanrecinfo.read_scanrec(self.filefolder)
-        except Exception:
-            warnings.warn("Could not read session header."
-                          + " Will try filefolder name...")
-            try:
-                obsinfo = filefolder2obsinfo(self.filefolder)
-            except ValueError:
-                print("Could not parse filefolder {}".format(self.filefolder))
-                # Will hope to read LDat header
-                scanrecinfo.scanrecparms = None
-            else:
-                spw = obsinfo['spw'][0]
-                nqz = modeparms.rcumode2nyquistzone(spw)
-                sbs = modeparms.seqarg2list(obsinfo['subbands'][0])
-                freqspec_hi = modeparms.sb2freq(sbs[-1], nqz)
-                scanrecinfo.set_scanrecparms(obsinfo['ldat_type'],
-                                             str(freqspec_hi),
-                                             obsinfo['duration_scan'],
-                                             obsinfo['pointing'],
-                                             obsinfo['integration'])
-                scanrecinfo.scanrecparms['rcumode'] = spw
-                scanrecinfo.set_stnid(obsinfo['station_id'])
-                scanrecinfo.calibrationfile = None
-                print("Read in filefolder meta.")
-        # Select only data files in folder (avoid CalTable*.dat files)
-        ls = os.listdir(self.filefolder)
-        filenames = [filename for filename in ls if filename.endswith('.dat')
-                     and not filename.startswith('CalTable')]
-        filenames.sort()  # This enforces chronological order
-        for cvcfile in filenames:
-            cvcdim_t = (os.path.getsize(os.path.join(self.filefolder, cvcfile))
-                        // self.__get_cvc_dtype().itemsize)
-            # Try to get obsfile header
-            try:
-                (bfilename, _dat) = cvcfile.split('.')
-                hfilename = bfilename + '.h'
-                # Check if xst might have some extra stuff in name
-                #   So first get ldattype
-                ymd, hms, ldattype_full = bfilename.split('_', 2)
-                if '_' in ldattype_full:
-                    ldattype, _rest = ldattype_full.split('_', 1)
-                else:
-                    ldattype = ldattype_full
-                if ldattype == 'xst':
-                    hfilename = ymd+'_'+hms+'_'+ldattype+'.h'
-                hfilepath = os.path.join(self.filefolder, hfilename)
-                ldatinfo = LDatInfo.read_ldat_header(hfilepath)
-                scanrecinfo.add_obs(ldatinfo)
-            except:
-                warnings.warn(
-                    "Couldn't find a header file for {}".format(cvcfile))
-                ldatinfo = LDatInfo.from_obsinfo(obsinfo)
-                scanrecinfo.add_obs(ldatinfo)
-            _datatype, t_begin = self._parse_cvcfile(
-                os.path.join(self.filefolder, cvcfile))
-
-            # Compute time of each autocovariance matrix sample per subband
-            integration = scanrecinfo.get_integration()
-            obscvm_datetimes = [None] * cvcdim_t
-            for t_idx in range(cvcdim_t):
-                t_delta = datetime.timedelta(
-                    seconds=t_idx * integration
-                )
-                obscvm_datetimes[t_idx] = t_begin + t_delta
-            samptimeset.append(obscvm_datetimes)
-
-            # Compute frequency of corresponding time sample
-            rcumode = scanrecinfo.get_rcumode()
-            nz = modeparms.rcumode2nyquistzone(rcumode)
-            if scanrecinfo.get_datatype() == 'acc':
-                freqs = modeparms.rcumode2sbfreqs(rcumode)
-            else:
-                sb = ldatinfo.sb
-                freq = modeparms.sb2freq(sb, nz)
-                freqs = [freq] * cvcdim_t
-            freqset.append(freqs)
-        return scanrecinfo, filenames, samptimeset, freqset
 
     def _readcvcfile(self, cvcfilepath):
         """Reads in a single acc or xst data file by filepath and creates
