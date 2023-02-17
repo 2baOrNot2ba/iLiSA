@@ -56,22 +56,28 @@ def inspect_arrayconfiguration(view, stnid, bandarr, coordsys='local'):
             print(names[idx], pos[idx, 0], pos[idx, 1], pos[idx, 2])
     else:
         # Plot
-        # #from mpl_toolkits.mplot3d import Axes3D
         fig = plt.figure()
-        ax = fig.gca(projection='3d')
-        ax.set_title("Array configuration of {} {} in coordsys {}".format(stnid,
-                                                                          bandarr,
-                                                                          coordsys))
+        projection = '3d'
+        if coordsys == 'local':
+            projection = None
+        ax = fig.gca(projection=projection)
+        ax.set_title("Array configuration of {} {} in coordsys {}"
+                     .format(stnid, bandarr, coordsys))
         ax.set_xlabel(xlbl)
         ax.set_ylabel(ylbl)
-        ax.set_zlabel(zlbl)
-        # ax.set_aspect('equal')
-        ax.plot(pos[:, 0], pos[:, 1], pos[:, 2], '*')
+        if projection == '3d':
+            ax.set_zlabel(zlbl)
+            ax.plot(pos[:, 0], pos[:, 1], pos[:, 2], '*')
+        else:
+            ax.plot(pos[:, 0], pos[:, 1], '*')
         for idx, name in enumerate(names):
-            ax.text(pos[idx, 0], pos[idx, 1], pos[idx, 2], '   '+name, fontsize=6)
-        if stnid != 'ILT' and coordsys == 'local':
-            # (zmin,zmax) = ax.get_zlim3d()
-            ax.set_zlim(-0.5, 0.5)
+            if projection == '3d':
+                ax.text(pos[idx, 0], pos[idx, 1], pos[idx, 2], '   '+name,
+                        fontsize=6)
+                ax.set_zlim(-0.5, 0.5)
+            else:
+                ax.text(pos[idx, 0], pos[idx, 1], '   ' + name, fontsize=6)
+                ax.axis('equal')
         plt.show()
 
 
