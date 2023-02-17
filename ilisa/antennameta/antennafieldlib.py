@@ -282,8 +282,10 @@ def get_antset_params(stnid, antset):
             stnrelpos = stnrelpos_y
         elif antsettype == 'SPARSE_EVEN':
             stnrelpos = stnrelpos_all[0::2]
+            stnrelpos = stnrelpos.reshape((2,24,3)).swapaxes(0,1).reshape((48,3))
         elif antsettype == 'SPARSE_ODD':
             stnrelpos = stnrelpos_all[1::2]
+            stnrelpos = stnrelpos.reshape((2,24,3)).swapaxes(0,1).reshape((48,3))
     else:
         stnrelpos = stnrelpos_all
     return stnpos, stnrot, stnrelpos, stnintilepos
