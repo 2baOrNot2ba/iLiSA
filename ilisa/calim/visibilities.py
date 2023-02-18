@@ -109,7 +109,7 @@ def select_cov_mask(selections, nr_cov_el):
     """
     _invert = False
     maskmat = np.zeros((nr_cov_el, nr_cov_el), dtype=bool)
-    if selections[0] is None:
+    if len(selections)>0 and selections[0] is None:
         _invert = True
         selections.pop(0)
     for sel in selections:
