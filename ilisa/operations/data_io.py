@@ -451,9 +451,21 @@ class ScanRecInfo(object):
         self.ldatinfos[obs_id] = ldatinfo
 
     def get_obs_ids(self):
-        """Get list of obs_ids.
-        A obs_id is a key to the ldatinfos list."""
-        return sorted(self.ldatinfos.keys())
+        """
+        Get the list of obs_ids
+
+        An obs_id is a key to the ldatinfos list
+        """
+        _obs_ids = self.ldatinfos.keys()
+        return sorted(_obs_ids)
+
+    def list_ldatfiles(self):
+        # Select only data files in folder (avoid CalTable*.dat files)
+        ls = os.listdir(self.scanrecpath)
+        filenames = [filename for filename in ls if filename.endswith('.dat')
+                     and not filename.startswith('CalTable')]
+        filenames.sort()  # This enforces chronological order
+        return filenames
 
     def set_stnid(self, stnid):
         self.stnid = stnid
@@ -541,7 +553,7 @@ class ScanRecInfo(object):
         self.headerversion = scanrecfiledict['headerversion']
         self.stnid = scanrecfiledict['station']
         self.scanrecparms = scanrecfiledict['scanrecparms']
-        self.obs_ids = scanrecfiledict['ldat_ids']
+        self.obs_ids = scanrecfiledict.get('ldat_ids', None)
         # Data modalities:
         self.calibrationfile = scanrecfiledict.get('calibrationfile', '')
         self.gs_model = scanrecfiledict.get('gs_model', '')
@@ -869,6 +881,35 @@ class LDatInfo(object):
         ldatinfo.filenametime = obsparm['datetime'].strftime('%Y%m%d_%H%M%S')
         return ldatinfo
 
+    @staticmethod
+    def headerfromdatfile(datfile):
+        """
+        Determine header name from dat file name
+
+        Pareamters
+        ----------
+        datfile: str
+            Name of ldat file.
+
+        Returns
+        -------
+        hfilename: str
+            Name of header file.
+        """
+        # Try to get obsfile header
+        (bfilename, _dat) = datfile.split('.')
+        hfilename = bfilename + '.h'
+        # Check if xst might have some extra stuff in name
+        #   So first get ldattype
+        ymd, hms, ldattype_full = bfilename.split('_', 2)
+        if '_' in ldattype_full:
+            ldattype, _rest = ldattype_full.split('_', 1)
+        else:
+            ldattype = ldattype_full
+        if ldattype == 'xst':
+            hfilename = ymd + '_' + hms + '_' + ldattype + '.h'
+        return hfilename
+
     @classmethod
     def read_ldat_header(cls, headerpath):
         """Parse a ldat header file and return it as an LDatInfo."""
@@ -1102,31 +1143,18 @@ class CVCfiles(object):
         scanrecinfo = ScanRecInfo()
         samptimeset = []
         freqset = []
+        scanrecinfo.scanrecpath = self.filefolder
         scanrecinfo.read_scanrec(self.filefolder)
         stnid = scanrecinfo.get_stnid()
         nrrcus = modeparms.nrrcus_stnid(stnid)
         self.cvcdim1 = nrrcus
         self.cvcdim2 = nrrcus
-        # Select only data files in folder (avoid CalTable*.dat files)
-        ls = os.listdir(self.filefolder)
-        filenames = [filename for filename in ls if filename.endswith('.dat')
-                     and not filename.startswith('CalTable')]
-        filenames.sort()  # This enforces chronological order
+        filenames = scanrecinfo.list_ldatfiles()
+        # Scan filefolder for ldat file and process
         for cvcfile in filenames:
             cvcdim_t = (os.path.getsize(os.path.join(self.filefolder, cvcfile))
                         // self.__get_cvc_dtype().itemsize)
-            # Try to get obsfile header
-            (bfilename, _dat) = cvcfile.split('.')
-            hfilename = bfilename + '.h'
-            # Check if xst might have some extra stuff in name
-            #   So first get ldattype
-            ymd, hms, ldattype_full = bfilename.split('_', 2)
-            if '_' in ldattype_full:
-                ldattype, _rest = ldattype_full.split('_', 1)
-            else:
-                ldattype = ldattype_full
-            if ldattype == 'xst':
-                hfilename = ymd + '_' + hms + '_' + ldattype + '.h'
+            hfilename = LDatInfo.headerfromdatfile(cvcfile)
             hfilepath = os.path.join(self.filefolder, hfilename)
             try:
                 ldatinfo = LDatInfo.read_ldat_header(hfilepath)
@@ -1715,7 +1743,9 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
 
 
 def plotxst(xstff, filenr0, sampnr0, plottype=None):
-    """Plot XST data."""
+    """
+    Plot XST data
+    """
     if not filenr0:
         filenr0 = 0
     if not sampnr0:
