@@ -184,7 +184,7 @@ def obsinfo2filefolder(obsinfo):
     filefoldername = obsinfo['station_id']
     antennaset = obsinfo.get('antennaset')
     if antennaset:
-        antennaset.replace('_', '%')
+        antennaset = antennaset.replace('_', '%')
         filefoldername += antennaset
     filefoldername += '_' + obsinfo['filenametime']
 
@@ -366,7 +366,6 @@ def filefolder2obsinfo(filefolderpath):
                                                    obsinfo['duration_scan'],
                                                    obsinfo['subbands'])
     obsinfo['rspctl_cmds'] = rspctl_cmds
-
     return obsinfo
 
 
@@ -1127,7 +1126,7 @@ class CVCfiles(object):
                 # FIXME:
                 self._readcvcfile(datapath)
             else:
-                raise ValueError('Path does not exist')
+                raise ValueError('Path {} does not exist'.format(datapath))
         self.filefolder = datapath
 
         # Now scan CVC filefolder to determine datafile contents
