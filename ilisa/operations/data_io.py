@@ -516,7 +516,7 @@ class ScanRecInfo(object):
 
     def write_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), "w") as f:
-            f.write("# Scan_recording_info yaml file:")
+            f.write("# Scan recording header\n")
             f.write("# Created by {} version {}\n".format("iLiSA",
                                                           ilisa.__version__))
             f.write("headerversion: {}\n".format(self.headerversion))
