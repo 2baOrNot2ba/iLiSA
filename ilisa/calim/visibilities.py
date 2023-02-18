@@ -63,7 +63,9 @@ def select_cov_mask(selections, nr_cov_el):
         between all elements in 1st item slot.
         Tuples of length 2, select all covariances with one element from 1st
         list and the other element from 2nd list.
-
+        If first element is None this means the final result is inverted,
+        so rather than being a selection list this argument is interpreted as a
+        deselection list (starting with all selected).
     nr_cov_el: int
         Number of covariance elements.
 
@@ -99,9 +101,17 @@ def select_cov_mask(selections, nr_cov_el):
            [False,  True, False, False],
            [False, False,  True, False],
            [False, False, False,  True]])
-
+    >>> vsb.select_cov_mask([None, 0], 4)
+    array([[ True,  True,  True,  True],
+           [ True, False, False, False],
+           [ True, False, False, False],
+           [ True, False, False, False]])
     """
+    _invert = False
     maskmat = np.zeros((nr_cov_el, nr_cov_el), dtype=bool)
+    if selections[0] is None:
+        _invert = True
+        selections.pop(0)
     for sel in selections:
         if type(sel) is int:
             # Antenna select
@@ -123,6 +133,8 @@ def select_cov_mask(selections, nr_cov_el):
                 else:
                     maskmat[sel[0], sel[1]] = True
                     maskmat[sel[1], sel[0]] = True
+    if _invert:
+        maskmat = np.logical_not(maskmat)
     return maskmat
 
 
