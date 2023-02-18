@@ -381,10 +381,6 @@ def solvegains_cli():
         Gain solutions
     """
     parser = argparse.ArgumentParser()
-    parser.add_argument('-n', '--filenr', type=int, default=0)
-    parser.add_argument('-s', '--sampnr', type=int, default=0)
-    parser.add_argument('-f', '--fluxpersterradian', action="store_true",
-                        help="Normalize flux per sterradian")
     parser.add_argument('dataff',
                         help="""Path to CVC folder""")
     args = parser.parse_args()
