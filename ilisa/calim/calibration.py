@@ -3,7 +3,6 @@ import os
 import shutil
 
 import numpy
-import matplotlib.pyplot as plt
 
 from ilisa.antennameta import calibrationtables as calibrationtables
 from ilisa.operations import data_io as data_io, modeparms as modeparms
@@ -209,8 +208,9 @@ def apply_polgains_cvcfolder(dataff, gainsolfile='gainsolutions.npy'):
     for filestep in range(nrfiles):
         # Get actual covariance cubes:
         cvpol_unc = visibilities.cov_flat2polidx(cvcobj_cal[filestep])
-        # Apply calibration
-        _g = 1/numpy.conjugate(gainsols[filestep])
+        # Apply calibration according to stefcal alt II:
+        # _g = 1/gainsols[filestep]     # Stefcal Alt I
+        _g = gainsols[filestep]         # Stefcal Alt II
         cvcdata_cal = apply_polgains(cvpol_unc, _g)
         # Replace uncalibrated data with calibrated:
         cvcobj_cal[filestep] = visibilities.cov_polidx2flat(cvcdata_cal)
@@ -227,9 +227,17 @@ def stefcal(r, m, niter=100):
     Returns a solution, up to a phase factor, to the equation
     .. math:: g m g^H = r
     where g is a column vector and r, m are Hermitian matrices.
-    To apply gain solutions g (as returned from this function) in order
-    calibrate a measurement r, one should therefore use the formula
-    .. math:: r_cal = (1/g) r (1/g)^H
+
+    This function is used for calibration and can be used in two main ways:
+    Alt I: Take r to be the measured covariance (visibility) matrix,
+           and m to be the model covariance matrix. In this case the function
+           returned gain solutions g can be applied to the measured visibility
+           matrix r to get calibrated matrix by using the formula
+           .. math:: r_cal = (1/g) r (1/g)^H
+    Alt II: Take m to be the measured covariance matrix and r as the desired
+            cov. matrix, and for which the solutions can be applied as
+            .. math:: m_cal = g m g^H
+            This latter method tends to work best.
 
     Parameters
     ----------
@@ -359,8 +367,9 @@ def gainsolve(dataff, gs_model='LFSM'):
             freq = cvcobj_uncal.freqset[fileidx][tidx]
             vis_uncal = cvcpol_uncal[tidx]
             vis_model = cvcpol_model[tidx]
-            g_xx = stefcal(vis_uncal[0, 0, ...], vis_model[0, 0, ...])
-            g_yy = stefcal(vis_uncal[1, 1, ...], vis_model[1, 1, ...])
+            # Use Stafcal with Alt II, so measured as 2nd arg
+            g_xx = stefcal(vis_model[0, 0, ...], vis_uncal[0, 0, ...])
+            g_yy = stefcal(vis_model[1, 1, ...], vis_uncal[1, 1, ...])
             gainsol_t.append([g_xx, g_yy])
         gainsolutions.append(gainsol_t)
     gainsolutions = numpy.asarray(gainsolutions)
