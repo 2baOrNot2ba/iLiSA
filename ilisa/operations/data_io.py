@@ -184,7 +184,7 @@ def obsinfo2filefolder(obsinfo):
     filefoldername = obsinfo['station_id']
     antennaset = obsinfo.get('antennaset')
     if antennaset:
-        antennaset = antennaset.replace('_', '%')
+        antennaset = antennaset.replace('_', '-')
         filefoldername += antennaset
     filefoldername += '_' + obsinfo['filenametime']
 
@@ -273,7 +273,7 @@ def filefolder2obsinfo(filefolderpath):
     if len(filefoldersplit[0]) >= 5:
         stnidantset = filefoldersplit.pop(0)
         stnid = stnidantset[:5]
-        antennaset = stnidantset[5:].replace('%','_')
+        antennaset = stnidantset[5:].replace('-', '_')
         obsinfo['antennaset'] = antennaset
     else:
         stnid = None
