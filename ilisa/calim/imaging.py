@@ -826,17 +826,18 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     flag_bls = vsb.select_cov_mask(flag_bl_sel, cvcobj.cvcdim1 // 2)
     flagged_vis = {'bls': flag_bls, 'pols': None}
     beamparmsf = {}
-    for freq in freqs:
-        majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset, freq,
-                                                       flagged_vis)
-        beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
-                            'elltilt': tlt, 'fov_area': fov_sz}
     for fileidx in range(filenr, cvcobj.getnrfiles()):
         integration = cvcobj.scanrecinfo.get_integration()
         intgs = len(cvcobj.samptimeset[fileidx])
         for tidx in range(sampnr, intgs):
             t = cvcobj.samptimeset[fileidx][tidx]
             freq = cvcobj.freqset[fileidx][tidx]
+            if not beamparmsf.get('freq'):
+                majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset,
+                                                               freq,
+                                                               flagged_vis)
+                beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
+                                    'elltilt': tlt, 'fov_area': fov_sz}
             skyimages, ll, mm, _phaseref_ = \
                 cvc_image(cvcobj, fileidx, tidx, phaseref, polrep=polrep,
                           pbcor=correctpb, fluxperbeam=fluxperbeam,
