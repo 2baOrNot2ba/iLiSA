@@ -160,7 +160,7 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis,
     """
     if  _use_lookuptab is None:
         # Decide whether to use lookup table or not (since it is not set)
-        bl_flags = flagged_vis.get('bl_flags')
+        bl_flags = flagged_vis['bls']
         if bl_flags is None:
             # No flags set so lookup table works
             _use_lookuptab = True
