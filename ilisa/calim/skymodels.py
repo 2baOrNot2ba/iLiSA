@@ -324,9 +324,13 @@ def create_vis_model_ff(cvcpath, gs_model):
 
 def main_cli():
     """
-    Compute a model visibility based on LOFAR visibility datafile
+    Compute a model based on LOFAR visibility datafile
+
+    Resulting model can either be represented as a visibility datafile or as an
+    sky image.
     """
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Compute a model based on LOFAR datafiles.')
     parser.add_argument('rep', type=str,
                         help="Model representation. Choose: 'vis' or 'img'.")
     parser.add_argument('-n', '--filenr', type=int, default=0)
