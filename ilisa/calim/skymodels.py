@@ -222,7 +222,7 @@ def model_visibility(t, stn_pos, freq, stn_antpos, gs_model):
     freq: float
         Frequency of observation in Hz.
     stn_antpos: array [3, N]
-        Positions, 3D cartesian, of antennas in
+        Positions, 3D cartesian, of antennas in array.
     gs_model: str
         Global skymodel name.
 
@@ -326,7 +326,7 @@ def main_cli():
     """
     Compute a model based on LOFAR visibility datafile
 
-    Resulting model can either be represented as a visibility datafile or as an
+    Resulting model can either be represented as a visibility datafile or as a
     sky image.
     """
     parser = argparse.ArgumentParser(

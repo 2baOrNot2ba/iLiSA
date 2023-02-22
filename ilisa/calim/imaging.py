@@ -19,7 +19,7 @@ import ilisa.antennameta.antennafieldlib as antennafieldlib
 from ilisa.operations import data_io as data_io
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
-from ilisa.operations.modeparms import rcumode2sbfreqs, freq2sb, freq2bandarr
+from ilisa.operations.modeparms import rcumode2sbfreqs
 from . import visibilities as vsb
 
 try:
