@@ -112,14 +112,14 @@ def plot_gsm(dattim, stn_pos, freq, gs_model='LFSM', imsize=200,
     l, m = np.linspace(-1, 1, imsize), np.linspace(-1, 1, imsize)
     ll, mm = np.meshgrid(l, m)
     img_zero = np.zeros_like(skyimg_model, dtype=float)
-    calibrated = 'N.A.'
+    modality = 'model:'+gs_model
     _phaseref_ = (0,0,'AZEL')
     integration = 0
     correctpb = True
     fluxperbeam = False
     plotskyimage(ll, mm, (skyimg_model, img_zero, img_zero, img_zero),
                  'stokes', dattim, freq, stnid, integration, _phaseref_,
-                 calibrated, pbcor=correctpb, maskhrz=False,
+                 modality, pbcor=correctpb, maskhrz=False,
                  fluxperbeam=fluxperbeam, plot_title='Model image')
     plt.show()
 
