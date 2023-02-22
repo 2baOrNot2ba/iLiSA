@@ -116,7 +116,7 @@ def plot_gsm(dattim, stn_pos, freq, gs_model='LFSM', imsize=200,
     _phaseref_ = (0,0,'AZEL')
     integration = 0
     correctpb = True
-    fluxperbeam = True
+    fluxperbeam = False
     plotskyimage(ll, mm, (skyimg_model, img_zero, img_zero, img_zero),
                  'stokes', dattim, freq, stnid, integration, _phaseref_,
                  calibrated, pbcor=correctpb, maskhrz=False,
