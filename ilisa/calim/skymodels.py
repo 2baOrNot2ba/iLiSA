@@ -1,4 +1,6 @@
+import sys
 import argparse
+import os.path
 import shutil
 import warnings
 
@@ -270,6 +272,11 @@ def create_vis_model_ff(cvcpath, gs_model):
     -------
     cvcobj_mod: CVCfiles
         The model visibilities as a CVCfiles object
+
+    Raises
+    ------
+    FileExitsError
+        If the model filefolder already exists.
     """
     ldat_type = data_io.datafolder_type(cvcpath)
     if ldat_type != 'acc' and ldat_type != 'xst':
@@ -278,6 +285,8 @@ def create_vis_model_ff(cvcpath, gs_model):
     # right before ldat_type suffix:
     spltpath = cvcpath.split("_")
     cvcmodpath = "_".join(spltpath[:-1]) + "_mod_" + spltpath[-1]
+    if os.path.exists(cvcmodpath):
+        raise FileExistsError('Model folder already exists: '+cvcmodpath)
     shutil.copytree(cvcpath, cvcmodpath)
     # Read in as cvcobj model to be:
     cvcobj_mod = data_io.CVCfiles(cvcmodpath)
@@ -344,7 +353,11 @@ def main_cli():
     args = parser.parse_args()
     cvcobj = data_io.CVCfiles(args.dataff)
     if args.rep == 'vis':
-        create_vis_model_ff(args.dataff, args.gs_model)
+        try:
+            create_vis_model_ff(args.dataff, args.gs_model)
+        except FileExistsError as e:
+            print(e, file=sys.stderr)
+            print('Remove it to create a new vis model!', file=sys.stderr)
     elif args.rep == 'img':
         plot_gsm_for_obsdata(cvcobj, args.filenr, args.sampnr, args.gs_model)
 
