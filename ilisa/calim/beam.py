@@ -44,7 +44,7 @@ def beamformed_pattern(stn2Dcoord, freq, flagged_vis):
     vis_pol = numpy.array([[vis_xx, vis_xy],[vis_yx, vis_yy]])
     vis_pol = vsb.apply_vispol_flags(vis_pol, flagged_vis)
     skyimages, ll, mm \
-        = ilisa.calim.beamformed_image(vis_pol, stn2Dcoord.T, freq, nrpix=201)
+        = ilisa.calim.imaging.beamformed_image(vis_pol, stn2Dcoord.T, freq, nrpix=201)
     return ll, mm, skyimages
 
 
@@ -240,7 +240,7 @@ def main_cli():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--plot', action="store_true",
-                        help="Correct for primary beam")
+                        help="Plot the results")
     parser.add_argument('-s' , '--stnid', type=str, default='')
     parser.add_argument('-a', '--antset', type=str, default='')
     parser.add_argument('-f', '--freq', type=float, default=0.0)
@@ -266,13 +266,15 @@ def main_cli():
     print('Freq Major Minor Tilt FoV')
     for freq in freqs:
         ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flag_vis)
-        if args.plot:
-            ilisa.calim.imaging.plotskyimage(ll, mm, bfps, 'linear', 0, freq, args.stnid, 0)
-            plt.show()
         madi, midi, tlt, fov_area = beam_pat_shape(ll, mm, bfps)
         beamshape = freq, madi, midi, numpy.rad2deg(tlt), fov_area
         print(*beamshape)
+        print("Pixels over hemisphere:", nrpixels_hint(midi, 2))
         beamshapes.append(beamshape)
+        if args.plot and len(freqs)==1:
+            ilisa.calim.imaging.plotskyimage(ll, mm, bfps, 'linear', 0, freq,
+                                             args.stnid, 0)
+            plt.show()
     if len(freqs) > 1:
         outfilename = 'beamshape_' + args.stnid + '_' + args.antset + '.npy'
         numpy.save(outfilename, beamshapes)
