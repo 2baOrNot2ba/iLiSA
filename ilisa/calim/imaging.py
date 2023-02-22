@@ -212,6 +212,26 @@ def area_beamell(major_diam, minor_diam):
     return fov_sz_dlm
 
 
+def nrpixels_hint(minor_diam, lm_extent, pixsperminor=5):
+    """
+    Suggest the number of pixels to use for an image
+
+    minor_diam: float
+        Beam ellipse minor diameter in direction-cosine units.
+    lm_extent: int
+        Extent (length of edge) of image in direction-cosine units.
+    pixsperminor: int
+        Number of pixels desired to fit along beam ellipse minor axis.
+
+    Returns
+    -------
+    nrpixels: int
+        Number of pixels to use along image axis.
+    """
+    nrpixels = int(numpy.ceil(pixsperminor*(lm_extent/minor_diam)))
+    return nrpixels
+
+
 def airydisk_radius(freq, d):
     """
     Radius of Airy disk in direction-cosine units
