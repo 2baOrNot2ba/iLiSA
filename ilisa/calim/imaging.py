@@ -1,5 +1,5 @@
 """
-Provides support direct imaging of LOFAR stand-alone data such as ACC and XST.
+Provides imaging functions for radio interferometric visibilities
 """
 import sys
 import os
@@ -18,7 +18,7 @@ from ilisa.operations import data_io as data_io
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
 from . import SPEED_OF_LIGHT as c
-from .beam import get_beam_shape_parms, airydisk_radius
+from .beam import get_beam_shape_parms, airydisk_radius, nrpixels_hint
 from . import visibilities as vsb
 
 try:
@@ -32,7 +32,19 @@ if CANUSE_DREAMBEAM:
 
 
 def imggrid_res(ll, mm):
-    """Image grid resolution"""
+    """\
+    Image grid resolution
+
+    Parameters
+    ----------
+    ll, mm: array
+        Grid of cartesian components of direction-cosines.
+
+    Returns
+    -------
+    dll, dmm: float
+        Resolution, or cartesian vector distance between grid points.
+    """
     # Assume regular rectangular l,m grid,
     # i.e. pixels are all the same size rectangle with dimensions:
     dll = ll[0,1] - ll[0,0]
@@ -250,7 +262,7 @@ def nearfield_grd_image(cvcobj, filestep, cubeslice, use_autocorr=False):
 
 def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
               fluxperbeam=True, flagged_vis=None, polrep='stokes',
-              fov_area=0.0):
+              lm_extent=2.0, nrpixels=101, fov_area=0.0):
     """
     Image CVC object using beamformed synthesis
 
@@ -272,6 +284,10 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
         Keyed set of visibility flag-matrices.
     polrep : str
         Polarization representation to use for image.
+    lm_extent: float
+        Size of image edge in direction-cosine units.
+    nrpixels: int
+        Number of pixels in image.
     fov_area: float
         Area of FoV.
 
@@ -313,18 +329,17 @@ def cvc_image(cvcobj, filestep, cubeslice, req_calsrc=None, pbcor=False,
 
     # Determine FoV and image lm size
     bandarr = cvcobj.scanrecinfo.get_bandarr()
-    lmsize = 2.0
     if not allsky:
         d = antennafieldlib.ELEMENT_DIAMETER[bandarr]
         fov = 2 * airydisk_radius(freq, d)
-        lmsize = 1.0*fov
+        lm_extent = 1.0*fov
 
     # Apply flag matrix to visibility matrix
     vis = vsb.apply_vispol_flags(cvpu_lin, flagged_vis)
 
     # Make image on phased up visibilities
-    imgs_lin, ll, mm = beamformed_image(vis, UVWxyz.T, freq, lmsize=lmsize,
-                                        nrpix=101, polrep='linear',
+    imgs_lin, ll, mm = beamformed_image(vis, UVWxyz.T, freq, lmsize=lm_extent,
+                                        nrpix=nrpixels, polrep='linear',
                                         fluxperbeam=fluxperbeam,
                                         fov_area=fov_area)
     # Potentially apply primary beam correction 
@@ -441,12 +456,11 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     plot_title : str
         String to place in plot title describing image.
     """
-
+    print('nrpixels:', ll.shape)
     # Compute extent
-    dl = ll[0, 1] - ll[0, 0]
+    dl, dm = imggrid_res(ll, mm)
     lmin = ll[0, 0] - dl / 2.0
     lmax = ll[-1, -1] + dl / 2.0
-    dm = mm[1, 0] - mm[0, 0]
     mmin = mm[0, 0] - dm / 2.0
     mmax = mm[-1, -1] + dm / 2.0
     domaincheck = False
@@ -482,7 +496,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                    interpolation='none', cmap=plt.get_cmap("jet"),
                    vmax=vmax, vmin=vmin)
         if beam_ell and pos == 0:
-            plt.gca().add_patch(Ellipse(xy=(0.9,-0.9),
+            plt.gca().add_patch(Ellipse(xy=(0.9, -0.9),
                                         width=beam_ell['minor_diam'],
                                         height=beam_ell['major_diam'],
                                         angle=beam_ell['elltilt'], fill=None,
@@ -579,9 +593,7 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
 def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
           flag_bl_sel=[], use_autocorr=False):
     """\
-    Image visibility-type data.
-
-    Optionally show corresponding GSM map (requires PyGDSM).
+    Image visibility-type data
 
     Parameters
     ----------
@@ -622,7 +634,6 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
             modality = 'mock'
     stnid = cvcobj.scanrecinfo.get_stnid()
     antset = cvcobj.scanrecinfo.get_antset()
-    freqs =  cvcobj.getfreqs()
     # Create visibility flag mask:
     if use_autocorr:
         flag_bl_sel.append((None,))
@@ -639,13 +650,16 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
                 majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset,
                                                                freq,
                                                                flagged_vis)
+                nrpixels = nrpixels_hint(mind, 2.0)
                 beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
-                                    'elltilt': tlt, 'fov_area': fov_sz}
+                                    'elltilt': tlt, 'fov_area': fov_sz,
+                                    'nrpixels': nrpixels}
             skyimages, ll, mm, _phaseref_ = \
                 cvc_image(cvcobj, fileidx, tidx, phaseref, polrep=polrep,
                           pbcor=correctpb, fluxperbeam=fluxperbeam,
                           flagged_vis=flagged_vis,
-                          fov_area=beamparmsf[freq]['fov_area'])
+                          fov_area=beamparmsf[freq]['fov_area'],
+                          nrpixels=beamparmsf[freq]['nrpixels'])
             plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                          _phaseref_, modality, pbcor=correctpb, maskhrz=False,
                          fluxperbeam=fluxperbeam, beam_ell=beamparmsf[freq],
@@ -655,7 +669,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
 
 def nfimage(dataff, filenr, sampnr):
     """
-    Make near-field image.
+    Make near-field image
     """
     polrep = 'S0'
     lofar_datatype = data_io.datafolder_type(dataff)
