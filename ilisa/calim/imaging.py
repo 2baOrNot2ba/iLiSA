@@ -338,7 +338,6 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     plot_title : str
         String to place in plot title describing image.
     """
-    print('nrpixels:', ll.shape)
     # Compute extent
     dl, dm = imggrid_res(ll, mm)
     lmin = ll[0, 0] - dl / 2.0
@@ -473,7 +472,7 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
 
 
 def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
-          flag_bl_sel=[], use_autocorr=False, lm_extent=2.0,):
+          flag_bl_sel=[], use_autocorr=False, lm_extent=2.0, polrep = 'stokes'):
     """\
     Image visibility-type data
 
@@ -499,22 +498,22 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
         Number of pixels in image.
     polrep : str
         Polarization representation to use for image.
+
+    Returns
+    -------
+    ll : array
+        The l-direction cosine map.
+    mm : array
+        The m-direction cosine map.
+    skyimages : tuple
+        Tuple of polarized image maps.
+    t : datetime
+        Observation time.
+    freq : float
+        Observation frequency.
+    phaseref : tuple
+        Direction of phase reference used for imaging.
     """
-    # Returns
-    # -------
-    # ll : array
-    #     The l-direction cosine map.
-    # mm : array
-    #     The m-direction cosine map.
-    # images : tuple
-    #     Tuple of polarized image maps.
-    # t : datetime
-    #     Observation time.
-    # freq : float
-    #     Observation frequency.
-    # phaseref : tuple
-    #     Direction of phase reference used for imaging.
-    polrep = 'stokes'
     lofar_datatype = data_io.datafolder_type(dataff)
     fluxperbeam = not fluxpersterradian
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
@@ -542,93 +541,95 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     flag_bls = vsb.select_cov_mask(flag_bl_sel, cvcobj.cvcdim1 // 2)
     flagged_vis = {'bls': flag_bls, 'pols': None}
     beamparmsf = {}
-    for fileidx in range(filenr, cvcobj.getnrfiles()):
-        integration = cvcobj.scanrecinfo.get_integration()
-        intgs = len(cvcobj.samptimeset[fileidx])
-        for tidx in range(sampnr, intgs):
-            t = cvcobj.samptimeset[fileidx][tidx]
-            freq = cvcobj.freqset[fileidx][tidx]
-            if not beamparmsf.get('freq'):
-                majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset,
-                                                               freq,
-                                                               flagged_vis)
-                nrpixels = nrpixels_hint(mind, 2.0)
-                beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
-                                    'elltilt': tlt, 'fov_area': fov_sz,
-                                    'nrpixels': nrpixels}
+    #for fileidx in range(filenr, cvcobj.getnrfiles()):
+    fileidx = filenr
+    integration = cvcobj.scanrecinfo.get_integration()
+    intgs = len(cvcobj.samptimeset[fileidx])
+    #for tidx in range(sampnr, intgs):
+    tidx = sampnr
+    t = cvcobj.samptimeset[fileidx][tidx]
+    freq = cvcobj.freqset[fileidx][tidx]
+    if not beamparmsf.get('freq'):
+        majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset, freq,
+                                                       flagged_vis)
+        nrpixels = nrpixels_hint(mind, 2.0)
+        beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
+                            'elltilt': tlt, 'fov_area': fov_sz,
+                            'nrpixels': nrpixels}
 
-            pointingstr = cvcobj.scanrecinfo.get_pointingstr()
-            stn_pos = cvcobj.stn_pos
-            stn_antpos = cvcobj.stn_antpos
+    pointingstr = cvcobj.scanrecinfo.get_pointingstr()
+    stn_pos = cvcobj.stn_pos
+    stn_antpos = cvcobj.stn_antpos
 
-            cvcpol_lin = vsb.cov_flat2polidx(cvcobj[fileidx])
+    cvcpol_lin = vsb.cov_flat2polidx(cvcobj[fileidx])
 
-            allsky = cvcobj.scanrecinfo.get_allsky()
-            phaseref_actual = _req_calsrc_proc(phaseref, allsky, pointingstr)
+    allsky = cvcobj.scanrecinfo.get_allsky()
+    phaseref_actual = _req_calsrc_proc(phaseref, allsky, pointingstr)
 
-            # Select a visibility snapshot
-            cvpol_lin = cvcpol_lin[tidx]
+    # Select a visibility snapshot
+    cvpol_lin = cvcpol_lin[tidx]
 
-            # Calculate UVW coords
-            UVWxyz = vsb.calc_uvw(t, phaseref_actual, stn_pos, stn_antpos)
+    # Calculate UVW coords
+    UVWxyz = vsb.calc_uvw(t, phaseref_actual, stn_pos, stn_antpos)
 
-            # Phase up visibilities
-            cvpu_lin = phaseref_xstpol(cvpol_lin, UVWxyz, freq)
+    # Phase up visibilities
+    cvpu_lin = phaseref_xstpol(cvpol_lin, UVWxyz, freq)
 
-            # Determine FoV and image lm size
-            bandarr = cvcobj.scanrecinfo.get_bandarr()
-            if not allsky:
-                d = antennafieldlib.ELEMENT_DIAMETER[bandarr]
-                fov = 2 * airydisk_radius(freq, d)
-                lm_extent = 1.0 * fov
+    # Determine FoV and image lm size
+    bandarr = cvcobj.scanrecinfo.get_bandarr()
+    if not allsky:
+        d = antennafieldlib.ELEMENT_DIAMETER[bandarr]
+        fov = 2 * airydisk_radius(freq, d)
+        lm_extent = 1.0 * fov
 
-            # Apply flag matrix to visibility matrix
-            vis = vsb.apply_vispol_flags(cvpu_lin, flagged_vis)
+    # Apply flag matrix to visibility matrix
+    vis = vsb.apply_vispol_flags(cvpu_lin, flagged_vis)
 
-            # Make image on phased up visibilities
-            imgs_lin, ll, mm = beamformed_image(vis, UVWxyz.T, freq,
-                                lmsize=lm_extent, nrpix=nrpixels,
-                                polrep='linear', fluxperbeam=fluxperbeam,
-                                fov_area=beamparmsf[freq]['fov_area'])
-            # Potentially apply primary beam correction
-            if correctpb and CANUSE_DREAMBEAM:
-                # Get dreambeam jones:
-                pointing = (float(phaseref_actual[0]),
-                            float(phaseref_actual[1]), 'STN')
-                stnid = cvcobj.scanrecinfo.get_stnid()
-                jonesfld, _stnbasis, _j2000basis = primarybeampat(
-                    'LOFAR', stnid, bandarr, 'Hamaker', freq, pointing=pointing,
-                    obstime=t, lmgrid=(ll, mm))
-                ijones = numpy.linalg.inv(jonesfld)
-                bri_ant = numpy.array([[imgs_lin[0], imgs_lin[1]],
-                                       [imgs_lin[2], imgs_lin[3]]])
+    # Make image on phased up visibilities
+    imgs_lin, ll, mm = beamformed_image(vis, UVWxyz.T, freq,
+                        lmsize=lm_extent, nrpix=nrpixels,
+                        polrep='linear', fluxperbeam=fluxperbeam,
+                        fov_area=beamparmsf[freq]['fov_area'])
+    # Potentially apply primary beam correction
+    if correctpb and CANUSE_DREAMBEAM:
+        # Get dreambeam jones:
+        pointing = (float(phaseref_actual[0]),
+                    float(phaseref_actual[1]), 'STN')
+        stnid = cvcobj.scanrecinfo.get_stnid()
+        jonesfld, _stnbasis, _j2000basis = primarybeampat(
+            'LOFAR', stnid, bandarr, 'Hamaker', freq, pointing=pointing,
+            obstime=t, lmgrid=(ll, mm))
+        ijones = numpy.linalg.inv(jonesfld)
+        bri_ant = numpy.array([[imgs_lin[0], imgs_lin[1]],
+                               [imgs_lin[2], imgs_lin[3]]])
 
-                bri_ant = numpy.moveaxis(numpy.moveaxis(bri_ant, 0, -1), 0, -1)
+        bri_ant = numpy.moveaxis(numpy.moveaxis(bri_ant, 0, -1), 0, -1)
 
-                ijonesH = numpy.conj(numpy.swapaxes(ijones, -1, -2))
-                bri_xy_iau = numpy.matmul(numpy.matmul(ijones, bri_ant), ijonesH)
-                imgs_lin = (bri_xy_iau[:, :, 0, 0], bri_xy_iau[:, :, 0, 1],
-                            bri_xy_iau[:, :, 1, 0], bri_xy_iau[:, :, 1, 1])
+        ijonesH = numpy.conj(numpy.swapaxes(ijones, -1, -2))
+        bri_xy_iau = numpy.matmul(numpy.matmul(ijones, bri_ant), ijonesH)
+        imgs_lin = (bri_xy_iau[:, :, 0, 0], bri_xy_iau[:, :, 0, 1],
+                    bri_xy_iau[:, :, 1, 0], bri_xy_iau[:, :, 1, 1])
 
-            # Convert to requested polarization representation
-            if polrep == 'stokes' and CANUSE_DREAMBEAM:
-                skyimages = convertxy2stokes(imgs_lin[0], imgs_lin[1], imgs_lin[2],
-                                          imgs_lin[3])
-            elif polrep == 'circular' and CANUSE_DREAMBEAM:
-                imgpolmat_lin = numpy.array([[imgs_lin[0], imgs_lin[1]],
-                                             [imgs_lin[2], imgs_lin[3]]])
-                imgpolmat = cov_lin2cir(imgpolmat_lin)
-                skyimages = (imgpolmat[0][0], imgpolmat[0][1], imgpolmat[1][0],
-                          imgpolmat[1][1])
-            else:
-                # polrep == 'linear'
-                skyimages = imgs_lin
+    # Convert to requested polarization representation
+    if polrep == 'stokes' and CANUSE_DREAMBEAM:
+        skyimages = convertxy2stokes(imgs_lin[0], imgs_lin[1], imgs_lin[2],
+                                     imgs_lin[3])
+    elif polrep == 'circular' and CANUSE_DREAMBEAM:
+        imgpolmat_lin = numpy.array([[imgs_lin[0], imgs_lin[1]],
+                                     [imgs_lin[2], imgs_lin[3]]])
+        imgpolmat = cov_lin2cir(imgpolmat_lin)
+        skyimages = (imgpolmat[0][0], imgpolmat[0][1], imgpolmat[1][0],
+                  imgpolmat[1][1])
+    else:
+        # polrep == 'linear'
+        skyimages = imgs_lin
 
-            plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
-                         phaseref_actual, modality, pbcor=correctpb,
-                         maskhrz=False, fluxperbeam=fluxperbeam,
-                         beam_ell=beamparmsf[freq], plot_title='Imaged Sky')
-            plt.show()
+    imagedataset = {'ll': ll, 'mm': mm, 'skyimages': skyimages,
+                    'polrep': polrep, 't': t, 'freq': freq, 'stnid': stnid,
+                    'integration': integration, 'phaseref': phaseref_actual,
+                    'modality': modality, 'pbcor': correctpb,
+                    'fluxperbeam': fluxperbeam, 'beam_ell': beamparmsf[freq]}
+    return imagedataset
 
 
 def nfimage(dataff, filenr, sampnr):
@@ -691,9 +692,13 @@ def main_cli():
     if args.func == nfimage:
         nfimage(args.dataff, args.filenr, args.sampnr)
     else:
-        image(args.dataff, args.filenr, args.sampnr, args.phaseref,
-              args.correctpb, args.fluxpersterradian, args.blflags,
-              args.autocorr)
+        imagedataset = image(args.dataff, args.filenr, args.sampnr,
+                             args.phaseref, args.correctpb,
+                             args.fluxpersterradian, args.blflags,
+                             args.autocorr)
+        #plt.figure()
+        plotskyimage(**imagedataset, maskhrz=False, plot_title='Imaged Sky')
+        plt.show()
 
 
 if __name__ == "__main__":
