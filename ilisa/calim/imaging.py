@@ -536,7 +536,8 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     stnid = cvcobj.scanrecinfo.get_stnid()
     antset = cvcobj.scanrecinfo.get_antset()
     # Create visibility flag mask:
-    if use_autocorr:
+    if not use_autocorr:
+        # Flag autocorrelations:
         flag_bl_sel.append((None,))
     flag_bls = vsb.select_cov_mask(flag_bl_sel, cvcobj.cvcdim1 // 2)
     flagged_vis = {'bls': flag_bls, 'pols': None}
