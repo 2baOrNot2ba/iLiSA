@@ -219,7 +219,7 @@ def apply_polgains_cvcfolder(dataff, gainsolfile='gainsolutions.npy'):
     return cvcobj_cal
 
 
-def stefcal(r, m, niter=100):
+def stefcal(r, m, niter=100, incl_autocor=True):
     """
     Compute solution to the quadratic matrix equation using the StefCal
     algorithm [stefs]_.
@@ -247,6 +247,8 @@ def stefcal(r, m, niter=100):
         The model covariance matrix.
     niter: int, optional
         Number of iterations. Default equal to 100.
+    incl_autocor: bool
+        Whether to include autocorrelations in the calculations.
     
     Returns
     -------
@@ -283,6 +285,12 @@ def stefcal(r, m, niter=100):
        "StefCal vs. Classical antsol: A critique", 2013.
        URL: http://www.aoc.nrao.edu/~sbhatnag/misc/stefcal.pdf
     """
+    if not incl_autocor:
+        # Disassociate input r, m, so autocor can be removed only locally
+        r = r.copy()
+        m = m.copy()
+        numpy.fill_diagonal(r, 0.0)
+        numpy.fill_diagonal(m, 0.0)
     dim = r.shape[0]
     g_prev = numpy.ones((dim,), dtype=complex)
     g_curr = numpy.zeros((dim,), dtype=complex)
@@ -324,7 +332,7 @@ def gain_cal_bs_lin(vis_pol_src):
     return g_bs_lin
 
 
-def gainsolve(dataff, gs_model='LFSM'):
+def gainsolve(dataff, gs_model='LFSM', incl_autocor=True):
     """
     Solve for gains based on uncalibrated and model data
 
@@ -367,9 +375,11 @@ def gainsolve(dataff, gs_model='LFSM'):
             freq = cvcobj_uncal.freqset[fileidx][tidx]
             vis_uncal = cvcpol_uncal[tidx]
             vis_model = cvcpol_model[tidx]
-            # Use Stafcal with Alt II, so measured as 2nd arg
-            g_xx = stefcal(vis_model[0, 0, ...], vis_uncal[0, 0, ...])
-            g_yy = stefcal(vis_model[1, 1, ...], vis_uncal[1, 1, ...])
+            # Use Stefcal with Alt II, so measured as 2nd arg
+            g_xx = stefcal(vis_model[0, 0, ...], vis_uncal[0, 0, ...],
+                           incl_autocor=incl_autocor)
+            g_yy = stefcal(vis_model[1, 1, ...], vis_uncal[1, 1, ...],
+                           incl_autocor=incl_autocor)
             gainsol_t.append([g_xx, g_yy])
         gainsolutions.append(gainsol_t)
     gainsolutions = numpy.asarray(gainsolutions)
