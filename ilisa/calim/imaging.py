@@ -377,11 +377,14 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                    interpolation='none', cmap=plt.get_cmap("jet"),
                    vmax=vmax, vmin=vmin)
         if beam_ell and pos == 0:
+            edgecolor = 'w'
+            if maskhrz:
+                edgecolor = 'k'
             plt.gca().add_patch(Ellipse(xy=(0.9, -0.9),
                                         width=beam_ell['minor_diam'],
                                         height=beam_ell['major_diam'],
                                         angle=beam_ell['elltilt'], fill=None,
-                                        edgecolor='w'))
+                                        edgecolor=edgecolor))
         plt.gca().invert_xaxis()
         if pos == 2 or pos == 3:
             plt.xlabel(xlabel)
