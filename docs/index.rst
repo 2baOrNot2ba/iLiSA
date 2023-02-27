@@ -18,7 +18,9 @@ station.
    :maxdepth: 2
    :caption: Contents:
 
+   installing
    getting_started
+   user_guide/index
 
 
 
