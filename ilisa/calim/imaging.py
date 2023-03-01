@@ -154,6 +154,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
         If True, then the flux is per beam, else the flux is per sterradian.
     fov_area: float
         Field-of-view size. It is used to convert flux to flux per beam.
+        If set to None, then it is not used.
 
     Returns
     -------
@@ -475,7 +476,8 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
 
 
 def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
-          flag_bl_sel=[], use_autocorr=False, lm_extent=2.0, polrep = 'stokes'):
+          flag_bl_sel=[], use_autocorr=False, lm_extent=2.0, nrpixels=100,
+          polrep = 'stokes'):
     """\
     Image visibility-type data
 
@@ -553,38 +555,38 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     tidx = sampnr
     t = cvcobj.samptimeset[fileidx][tidx]
     freq = cvcobj.freqset[fileidx][tidx]
-    if not beamparmsf.get('freq'):
-        majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset, freq,
-                                                       flagged_vis)
-        nrpixels = nrpixels_hint(mind, 2.0)
-        beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
-                            'elltilt': tlt, 'fov_area': fov_sz,
-                            'nrpixels': nrpixels}
-
-    pointingstr = cvcobj.scanrecinfo.get_pointingstr()
-    stn_pos = cvcobj.stn_pos
-    stn_antpos = cvcobj.stn_antpos
-
-    cvcpol_lin = vsb.cov_flat2polidx(cvcobj[fileidx])
-
-    allsky = cvcobj.scanrecinfo.get_allsky()
-    phaseref_actual = _req_calsrc_proc(phaseref, allsky, pointingstr)
-
-    # Select a visibility snapshot
-    cvpol_lin = cvcpol_lin[tidx]
-
-    # Calculate UVW coords
-    UVWxyz = vsb.calc_uvw(t, phaseref_actual, stn_pos, stn_antpos)
-
-    # Phase up visibilities
-    cvpu_lin = phaseref_xstpol(cvpol_lin, UVWxyz, freq)
 
     # Determine FoV and image lm size
+    allsky = cvcobj.scanrecinfo.get_allsky()
     bandarr = cvcobj.scanrecinfo.get_bandarr()
     if not allsky:
         d = antennafieldlib.ELEMENT_DIAMETER[bandarr]
         fov = 2 * airydisk_radius(freq, d)
         lm_extent = 1.0 * fov
+    if not beamparmsf.get('freq'):
+        majd, mind, tlt, fov_sz = get_beam_shape_parms(stnid, antset, freq,
+                                                       flagged_vis)
+        if fov_sz:
+            nrpixels = nrpixels_hint(mind, 2.0)
+        beamparmsf[freq] = {'major_diam': majd, 'minor_diam': mind,
+                            'elltilt': tlt, 'fov_area': fov_sz,
+                            'nrpixels': nrpixels}
+
+    # Get phaseref
+    pointingstr = cvcobj.scanrecinfo.get_pointingstr()
+    phaseref_actual = _req_calsrc_proc(phaseref, allsky, pointingstr)
+
+    # Select a visibility snapshot
+    cvcpol_lin = vsb.cov_flat2polidx(cvcobj[fileidx])
+    cvpol_lin = cvcpol_lin[tidx]
+
+    # Calculate UVW coords
+    stn_pos = cvcobj.stn_pos
+    stn_antpos = cvcobj.stn_antpos
+    UVWxyz = vsb.calc_uvw(t, phaseref_actual, stn_pos, stn_antpos)
+
+    # Phase up visibilities
+    cvpu_lin = phaseref_xstpol(cvpol_lin, UVWxyz, freq)
 
     # Apply flag matrix to visibility matrix
     vis = vsb.apply_vispol_flags(cvpu_lin, flagged_vis)

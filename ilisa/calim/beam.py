@@ -157,10 +157,14 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis, _use_lookuptab=None):
     else:
         beamshape_path = pkg_resources.resource_filename(__name__,
                                 'beamshape_' + stnid + '_' + antset + '.npy')
-        beamshapes = numpy.load(beamshape_path)
-        freqidx = numpy.argmin(numpy.abs(beamshapes[:,0] - freq))
-        freq_cntr, major_diam, minor_diam, elltilt, fov_area \
-            = beamshapes[freqidx, :]
+        try:
+            beamshapes = numpy.load(beamshape_path)
+        except FileNotFoundError:
+            major_diam, minor_diam, elltilt, fov_area = 0., 0., 0., None
+        else:
+            freqidx = numpy.argmin(numpy.abs(beamshapes[:,0] - freq))
+            freq_cntr, major_diam, minor_diam, elltilt, fov_area \
+                = beamshapes[freqidx, :]
     return major_diam, minor_diam, elltilt, fov_area
 
 
@@ -200,6 +204,9 @@ def nrpixels_hint(minor_diam, lm_extent, pixsperminor=5):
     nrpixels: int
         Number of pixels to use along image axis.
     """
+    if minor_diam == 0.0:
+        # Invalid so send back invalid nrpixels for caller to deal with.
+        return 0
     nrpixels = int(numpy.ceil(pixsperminor*(lm_extent/minor_diam)))
     return nrpixels
 
