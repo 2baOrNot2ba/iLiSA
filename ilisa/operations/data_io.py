@@ -1712,15 +1712,15 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     elif show == 'ssmosaic':
         axdim1 = 8
         axdim0 = 192 // axdim1 // 2
+        _fig, axs = plt.subplots(axdim0, axdim1)
         for rcu_nr in range(0, 192, 2):
-            sbplt_nr = rcu_nr // 2 + 1
+            sbplt_nr = rcu_nr // 2
             # Plot X
-            plt.subplot(axdim0, axdim1, sbplt_nr)
-            plt.semilogy(freqs, sstdata[rcu_nr + 0, sample_nr, :])
+            idx_axs = numpy.unravel_index(sbplt_nr, (axdim0, axdim1))
+            axs[idx_axs].semilogy(freqs, sstdata[rcu_nr + 0, sample_nr, :])
             # & Y in same subplot
-            plt.subplot(axdim0, axdim1, sbplt_nr)
-            plt.semilogy(freqs, sstdata[rcu_nr + 1, sample_nr, :])
-            plt.title('{},{}'.format(rcu_nr, rcu_nr + 1))
+            axs[idx_axs].semilogy(freqs, sstdata[rcu_nr + 1, sample_nr, :])
+            axs[idx_axs].set_title('{},{}'.format(rcu_nr, rcu_nr + 1))
         plt.suptitle('RCU spectra @ {} UT, station {}'.format(
             ts[sample_nr], obsinfo['station_id']))
     elif show == 'overlay':
