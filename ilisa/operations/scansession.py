@@ -249,21 +249,35 @@ def lcu_services(scan):
     return None
 
 
-def check_sess_start_passed(sessmeta):
+def stilltime_sess_start(sessmeta):
     """\
     Check if Session can be started in future or if starttime is now in the past
+
+    The return value of this function can be checked as a bool to see if there
+    is time left before starting.
 
     Parameters
     ----------
     sessmeta : dict
         The ScanSession metadata.
+
+    Returns
+    -------
+    time_left : timedelta
+        If there is time left before session, then this variable will be a
+        positive timedelta, else it will be None.
+        If the start time is 'ASAP', then it will return 'ASAP'
     """
-    paststart = False
-    if sessmeta['start'] != 'ASAP':
-        utcnow = datetime.datetime.utcnow()
-        if sessmeta['start'] < utcnow:
-            paststart = True
-    return paststart
+    if sessmeta['start'] == 'ASAP':
+        # For ASAP start, left time is irrelevant, return 'ASAP'
+        return 'ASAP'
+    utcnow = datetime.datetime.utcnow()
+    time_left = sessmeta['start'] - utcnow
+    if time_left < datetime.timedelta(0):
+        # No time left, return None
+        return None
+    # There is time left, return positive timedelta
+    return time_left
 
 
 class ScanSession(object):
@@ -339,7 +353,7 @@ class ScanSession(object):
                         f.write('\n')
 
         sessmeta, scans_iter = process_scansess(sesscans_in)
-        if check_sess_start_passed(sessmeta):
+        if not stilltime_sess_start(sessmeta):
             raise ValueError('Starttime in the past')
         # Starttime handling
         self.session_id = session_id
@@ -535,9 +549,12 @@ def check_scan_sess(scansess_in):
     print('end:', endtime)
     starttime = modeparms.timestr2datetime(sessscans['scans'][0]['starttime_guess'])
     print('duration_total:', endtime - starttime)
-    if check_sess_start_passed(sessmeta):
+    stilltime = stilltime_sess_start(sessmeta)
+    if not stilltime:
         _LOGGER.warning("Session starttime {} is in the past."
                         .format(sessmeta['start']))
+    else:
+        print('# wait_before_start:', stilltime)
 
 
 def obs(scansess_in, sac):
