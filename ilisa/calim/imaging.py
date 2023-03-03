@@ -518,13 +518,25 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
         Observation frequency.
     phaseref : tuple
         Direction of phase reference used for imaging.
+
+    Raises
+    ------
+    ValueError
+        If data filefolder is not a XST or ACC data.
+    IndexError
+        If filenr requested greater than the number of files.
     """
     lofar_datatype = data_io.datafolder_type(dataff)
     fluxperbeam = not fluxpersterradian
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
-        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
-                           .format(dataff))
+        raise ValueError("Datafolder '{}' is not ACC or XST type data."
+                         .format(dataff))
     cvcobj = data_io.CVCfiles(dataff)
+    # Check if filenr is in range:
+    print(cvcobj.getnrfiles())
+    if filenr > cvcobj.getnrfiles()-1:
+        raise IndexError("There only {} files in this scanrec."
+                         .format(cvcobj.getnrfiles()))
     calibrated = False
     if cvcobj.scanrecinfo.calibrationfile:
         calibrated = True
@@ -698,10 +710,14 @@ def main_cli():
     if args.func == nfimage:
         nfimage(args.dataff, args.filenr, args.sampnr)
     else:
-        imagedataset = image(args.dataff, args.filenr, args.sampnr,
-                             args.phaseref, args.correctpb,
-                             args.fluxpersterradian, args.blflags,
-                             args.autocorr)
+        try:
+            imagedataset = image(args.dataff, args.filenr, args.sampnr,
+                                 args.phaseref, args.correctpb,
+                                 args.fluxpersterradian, args.blflags,
+                                 args.autocorr)
+        except (IndexError, ValueError) as err:
+            print("Error:", err)
+            sys.exit()
         #plt.figure()
         plotskyimage(**imagedataset, maskhrz=False, plot_title='Imaged Sky')
         plt.show()
