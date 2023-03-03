@@ -295,6 +295,7 @@ class ScanSession(object):
         # This should be removed when session is finished.
         with open(self.latestdatafile, 'w') as f:
             f.writelines(['ONGOING\n'])
+        self.failed = False
 
     def set_stn_session_id(self, parent_session_id):
         self.stn_sess_id = '{}_{}'.format(parent_session_id, self.stndrv.get_stnid())
@@ -339,6 +340,11 @@ class ScanSession(object):
         Run local session given a stn_ses_schedule dict.
 
         Dispatches to the stationdriver to execute session operations
+
+        Raises
+        ------
+        ValueError
+            If starttime in the past
         """
 
         def _update_latestdatafile(rec_name, rec_state):
@@ -353,8 +359,7 @@ class ScanSession(object):
                         f.write('\n')
 
         sessmeta, scans_iter = process_scansess(sesscans_in)
-        if not stilltime_sess_start(sessmeta):
-            raise ValueError('Starttime in the past')
+
         # Starttime handling
         self.session_id = session_id
         if not self.session_id:
@@ -366,6 +371,9 @@ class ScanSession(object):
         bfdsesdumpdir = self._sesssubpath()
         # Sess start delta time handling (=boot time plus beam)
         sesstart_dt = datetime.timedelta(minutes=1)
+        if not stilltime_sess_start(sessmeta):
+            self.failed = True
+            raise ValueError('Starttime in the past')
         # Wait until it is time to bootup
         waituntil(sessmeta['start'], sesstart_dt)
         self.stndrv.goto_observingstate()
@@ -565,6 +573,16 @@ def obs(scansess_in, sac):
     ----------
     scansess_in : dict
         The ScanSession specification.
+
+    Returns
+    -------
+    scnsess: ScanSession
+        The ScanSession object that was run.
+
+    Raises
+    ------
+    RuntimeError
+        If station driver could not be started.
     """
     cli_start = scansess_in['cli_start']
     mockrun = scansess_in['mockrun']
@@ -578,20 +596,25 @@ def obs(scansess_in, sac):
         _LOGGER.error("Cannot setup {}'s LCU correctly"
                       .format(sac['LCU']['stnid']))
         _LOGGER.error(err)
-        sys.exit(1)
-    scansess_in['station'] = stndrv.get_stnid()
+        raise RuntimeError('Could not start station driver')
     scnsess = ScanSession(stndrv)
+    scansess_in['station'] = stndrv.get_stnid()
     stndrv._lcu_interface._fake_slow_conn = 0  # Fake a slower connection
     if stndrv._lcu_interface._fake_slow_conn != 0:
         _LOGGER.warning('Faking slow connection. Delay {}s.'.format(
             stndrv._lcu_interface._fake_slow_conn))
-    scnsess.run_scansess(scansess_in)
+    try:
+        scnsess.run_scansess(scansess_in)
+    except ValueError as err:
+        _LOGGER.error(err)
     cmd = 'obs:' + file
     with open(OBSLOGFILE, 'a') as lgf:
         if mockrun:
             priority_fld = 'M'
         else:
             priority_fld = '0'
+        if scnsess.failed:
+            lgf.write('FAILED ')
         lgf.write("{} {} {} {}".format(issued_at, cli_start, priority_fld,
                                        projectid)
                   + " {} {} {} '{}'\n".format(stndrv.get_stnid(), cmd,
@@ -664,8 +687,10 @@ def main_cli():
         the_scansess = obs(scansess_in, sac)
     except ValueError as err:
         _LOGGER.error(err)
+        sys.exit(1)
     _LOGGER.info('Ending scansession {}'.format(the_scansess.session_id))
-    shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
+    if not the_scansess.failed:
+        shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
 
 
 if __name__ == "__main__":
