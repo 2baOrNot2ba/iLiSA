@@ -448,6 +448,49 @@ def filename2obsparm(filepath):
     return obsparm
 
 
+def dataff_raw_model_cal(dataff):
+    """
+    Return nominal names of raw, model and calibrated data file-folders.
+
+    Parameters
+    dataff: str
+        Path to a data file-folder.
+
+    Returns
+    -------
+    dataff_raw: str
+        Path to raw data file-folder.
+    dataff_mod: str
+        Path to model data file-folder.
+    dataff_cal: str
+        Path to calibrated data file-folder.
+    """
+    dataff = os.path.normpath(dataff)
+    dataff_dir, dataff = os.path.split(dataff)
+    lofar_datatype = datafolder_type(dataff)
+    if lofar_datatype != 'acc' and lofar_datatype != 'xst':
+        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
+                           .format(dataff))
+    obsinfo_raw = filefolder2obsinfo(dataff)
+
+    # Determine 'raw', 'mod', and 'cal' dataffs,
+    obsinfo_raw.pop('cal', None)
+    obsinfo_raw.pop('model', None)
+    dataff_raw = obsinfo2filefolder(obsinfo_raw)
+    dataff_raw = os.path.join(dataff_dir, dataff_raw)
+
+    obsinfo_mod = dict(obsinfo_raw)
+    obsinfo_mod['model'] = True
+    dataff_mod = obsinfo2filefolder(obsinfo_mod)
+    dataff_mod = os.path.join(dataff_dir, dataff_mod)
+
+    obsinfo_cal = dict(obsinfo_raw)
+    dataff_cal = obsinfo2filefolder(obsinfo_cal)
+    dataff_cal = os.path.join(dataff_dir, dataff_cal)
+
+    return dataff_raw, dataff_mod, dataff_cal
+
+
 class ScanRecInfo(object):
     """This class maintains info on a scan recording (scanrec), which is one
     of the results of an iLiSA scan. One scanrec is a group of one or more
