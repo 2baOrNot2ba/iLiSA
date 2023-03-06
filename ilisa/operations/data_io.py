@@ -314,7 +314,7 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                      '%Y%m%dT%H%M%S')
     obsinfo['spw'] = spwstr[3:]
-    obsinfo['subbands'] = sbstr[2:]
+    obsinfo['subbands'] = slicestr2seqlists(sbstr[2:])
     obsinfo['integration'] = int(intstr[3:])
     obsinfo['duration_scan'] = int(durstr[3:])
     obsinfo['pointing'] = dirstr[3:]
