@@ -144,6 +144,36 @@ def seqlists2slicestr(seqlists):
         slicestr = seqlist2slice(seqlists)
     return slicestr
 
+def slicestr2seqlists(slicestr):
+    """
+    Convert slicestr to seqlists
+
+    Inverse of seqlists2slicestr().
+
+    Parameters
+    ----------
+    slicestr: str
+        A slice str e.g. '1:2:5+12:3:18'.
+
+    Returns
+    -------
+    seqlists: list
+        A list of sequence lists e.g. ['1,3,5','12,15,18'].
+    """
+    seqlists = []
+    slicelist = slicestr.split(_RCU_SB_SEP)
+    for sl in slicelist:
+        sliceargs = [int(s) for s in sl.split(':')]
+        slice_inc = 1
+        if len(sliceargs)>2:
+            slice_inc = sliceargs[1]
+            sliceargs[-1] += slice_inc
+        else:
+            sliceargs[-1] += 1
+        seqstr = ','.join([str(s) for s in range(sliceargs[0], sliceargs[-1], slice_inc)])
+        seqlists.append(seqstr)
+    return seqlists
+
 
 def obsinfo2filefolder(obsinfo):
     """\
