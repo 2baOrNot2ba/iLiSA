@@ -144,6 +144,7 @@ def seqlists2slicestr(seqlists):
         slicestr = seqlist2slice(seqlists)
     return slicestr
 
+
 def slicestr2seqlists(slicestr):
     """
     Convert slicestr to seqlists
@@ -314,7 +315,7 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                      '%Y%m%dT%H%M%S')
     obsinfo['spw'] = spwstr[3:]
-    obsinfo['subbands'] = slicestr2seqlists(sbstr[2:])
+    obsinfo['subbands'] = sbstr[2:]  # slicestr2seqlists(sbstr[2:])
     obsinfo['integration'] = int(intstr[3:])
     obsinfo['duration_scan'] = int(durstr[3:])
     obsinfo['pointing'] = dirstr[3:]
@@ -485,6 +486,7 @@ def dataff_raw_model_cal(dataff):
     dataff_mod = os.path.join(dataff_dir, dataff_mod)
 
     obsinfo_cal = dict(obsinfo_raw)
+    obsinfo_cal['cal'] = True
     dataff_cal = obsinfo2filefolder(obsinfo_cal)
     dataff_cal = os.path.join(dataff_dir, dataff_cal)
 
