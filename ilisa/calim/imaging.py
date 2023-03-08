@@ -533,7 +533,6 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
                          .format(dataff))
     cvcobj = data_io.CVCfiles(dataff)
     # Check if filenr is in range:
-    print(cvcobj.getnrfiles())
     if filenr > cvcobj.getnrfiles()-1:
         raise IndexError("There only {} files in this scanrec."
                          .format(cvcobj.getnrfiles()))
