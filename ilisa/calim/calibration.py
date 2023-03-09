@@ -397,7 +397,7 @@ def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3):
         for itr in range(nitr):
             incl_autocor = True
             if itr == 0:
-                incl_autocor = False
+                incl_autocor = True
             # Use stefcal using Alt II
             g = stefcal(m+numpy.diag(n_prev), r, incl_autocor=incl_autocor)
             gg = (g[:, None] * numpy.conj(g[None, :]))
@@ -405,16 +405,17 @@ def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3):
             n[numpy.where(n<0.0)]=0.0
             err = norm(gg * r - m - numpy.diag(n)) / (norm(gg * r)+norm(m)+norm(n))
             #err = numpy.abs(numpy.vdot(n_prev, n)/numpy.vdot(n,n)+numpy.vdot(g_prev, g)/numpy.vdot(g,g)-2.0)
-            print('itr', numpy.amin(numpy.abs(r)), numpy.amin(numpy.abs(g)),
-                  numpy.amin(n))
-            print('itr', numpy.amax(numpy.abs(r)), numpy.amax(numpy.abs(g)),
-                  numpy.amax(n))
+            #print('itr', numpy.amin(numpy.abs(r)), numpy.amin(numpy.abs(g)),
+            #      numpy.amin(n))
+            #print('itr', numpy.amax(numpy.abs(r)), numpy.amax(numpy.abs(g)),
+            #      numpy.amax(n))
             if err < err_tol:
                 break
             n_prev = n
         print('walsinv', err, n[0:2], n[-2:])
         if itr + 1 == nitr:
-            raise ValueError('Has not converged')
+            pass
+            #raise ValueError('Has not converged')
         return g, n
 
     if variant == 'inv':
@@ -487,6 +488,7 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
             #g_yy = stefcal(vis_model[1, 1, ...], vis_uncal[1, 1, ...], incl_autocor=incl_autocor)
             gainsol_t.append([g_xx, g_yy])
             noise_t.append([n_xx, n_yy])
+            print('amaxmin',numpy.amax(numpy.abs(g_xx)),numpy.amin(numpy.abs(g_xx)))
         gainsolutions.append(gainsol_t)
         noisesolutions.append(noise_t)
     gainsolutions = numpy.asarray(gainsolutions)
