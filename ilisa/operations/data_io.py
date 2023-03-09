@@ -228,7 +228,7 @@ def obsinfo2filefolder(obsinfo):
     if (ldat_type != 'sst' and obsinfo['subbands'] != []
             and obsinfo['subbands'] != ''):
         filefoldername += "_sb"
-        filefoldername += seqlists2slicestr(obsinfo['subbands'])
+        filefoldername += modeparms.list2seqarg(obsinfo['subbands'])
     if 'integration' in obsinfo and obsinfo['integration']:
         filefoldername += '_int' + str(int(obsinfo['integration']))
     if 'duration_scan' in obsinfo:
