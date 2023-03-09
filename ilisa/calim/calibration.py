@@ -3,10 +3,29 @@ import os
 import shutil
 
 import numpy
+from numpy.linalg import norm
 
 from ilisa.antennameta import calibrationtables as calibrationtables
 from ilisa.operations import data_io as data_io, modeparms as modeparms
 from . import visibilities
+
+
+def reldiffnorm(x, y):
+    """
+    Calculate the relative difference norm between arguments
+
+    Parameters
+    ----------
+    x, y: array
+        Two arrays
+
+    Returns
+    -------
+    reldif: float
+        Relative difference norm
+    """
+    reldif = 2*norm(x - y)/norm(x + y)
+    return reldif
 
 
 def applycaltab_cvc(cvcunc, caltab, sb=None):
@@ -102,7 +121,7 @@ def applycal_cvcfolder(cvcpath, caltabpath):
     cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
 
 
-def apply_polgains(vispol, gainspol):
+def apply_gains_noises(vispol, gainspol, noises=None, variant='legacy'):
     """
     Apply polarized biscalar gains to polarized visibility
 
@@ -113,6 +132,11 @@ def apply_polgains(vispol, gainspol):
     gainspol : array_like
         Polarized biscalar gains. g_pq has shape (2,N) where N is number of
         dual-polarized elements.
+    noises: array_like
+        Antenna noise powers. This vector represents diagonl of noise power
+        matrix.
+    variant: str
+        Which gain solution variant to use. Can be either: 'legacy' or 'inv'.
 
     Returns
     -------
@@ -123,7 +147,7 @@ def apply_polgains(vispol, gainspol):
     
     Examples
     --------
-    >>> from ilisa.calim.calibration import apply_polgains
+    >>> from ilisa.calim.calibration import apply_gains_noises
     >>> import numpy
     >>> n=3
     >>> vispqtrue = numpy.ones((2,2,n,n))
@@ -133,7 +157,7 @@ def apply_polgains(vispol, gainspol):
     >>> gpq[0,:]=2.0
     >>> gpq[1,:]=0.0
     Apply this to visibiities
-    >>> vis=apply_polgains(gpq, vispqtrue)
+    >>> vis=apply_gains_noises(gpq, vispqtrue)
     >>> vis
     array([[[[4., 4., 4.],
              [4., 4., 4.],
@@ -152,14 +176,26 @@ def apply_polgains(vispol, gainspol):
              [0., 0., 0.],
              [0., 0., 0.]]]])
     """
+    if variant=='legacy':
+        gainspol = 1.0 / gainspol
     #    (T,2,N),conj(T,2,N) => (T,2,1,N,1)*conj(T,1,2,1,N) => (T,2,2,N,N)
     gg = (gainspol[...,    :, None,    :, None] * numpy.conj(
           gainspol[..., None,    :, None,    :]))
     vispol_gapp = gg * vispol
+    if noises is not None:
+        # Update vis estimate `V^{est}` by removing noise estimate `n` from
+        # measured vis `r`, i.e.
+        #    V^{est}=(1/g)*(r-n)*(1/g)^H  'legacy'
+        #    V^{est}=g*r*g^H-n            'inv'
+        if variant=='legacy':
+            noises *= numpy.abs(gainspol)**2
+        # noises.shape == (T,2,N) so apply diag on axis 1 AND -1:
+        vispol_gapp -= numpy.apply_along_axis(numpy.diag, 1,
+            numpy.apply_along_axis(numpy.diag, -1, noises))
     return vispol_gapp
 
 
-def apply_polgains_cvcfolder(dataff, gainsolfile='gainsolutions.npy'):
+def apply_polgains_cvcfolder(dataff, variant='legacy'):
     """
     Apply polarimetric gains to CVC data
 
@@ -167,51 +203,37 @@ def apply_polgains_cvcfolder(dataff, gainsolfile='gainsolutions.npy'):
     ----------
     dataff_mod: str
         Name of file-folder
-    gainsolfile: str
-        Name of gain solutions in model vis directory
+    variant: str
+        Which gain solution variant to use. Can be either: 'legacy' or 'inv'.
 
     Returns
     -------
     cvcobj_cal: CVCfiles
         The calibrated CVCfiles object
     """
-    ldat_type = data_io.datafolder_type(dataff)
-    if ldat_type != "acc" and ldat_type != "xst":
-        raise ValueError("Not CVC data.")
-    dataff = os.path.normpath(dataff)
-    dataff_dir, dataff = os.path.split(dataff)
-    obsinfo_raw = data_io.filefolder2obsinfo(dataff)
-    # Determine 'raw' and 'mod' dataffs,
-    obsinfo_raw.pop('cal', None)
-    obsinfo_raw.pop('model', None)
-    dataff_raw = data_io.obsinfo2filefolder(obsinfo_raw)
-    dataff_raw = os.path.join(dataff_dir, dataff_raw)
-    # Model
-    obsinfo_mod = dict(obsinfo_raw)
-    obsinfo_mod['model'] = True
-    dataff_mod = data_io.obsinfo2filefolder(obsinfo_mod)
-    dataff_mod = os.path.join(dataff_dir, dataff_mod)
-    # Cal
-    obsinfo_cal = dict(obsinfo_raw)
-    obsinfo_cal['cal'] = gainsolfile
-    dataff_cal = data_io.obsinfo2filefolder(obsinfo_cal)
-    dataff_cal = os.path.join(dataff_dir, dataff_cal)
+    dataff_raw, dataff_mod, dataff_cal = data_io.dataff_raw_model_cal(dataff)
     # Copy raw into cal
     shutil.copytree(dataff_raw, dataff_cal)
     # Read in cvcobj:
     cvcobj_cal = data_io.CVCfiles(dataff_cal)
     # Read in gain solutions
+    gainsolfile = 'gain_solutions.npy'
+    noisesolfile = 'noises_raw.npy'
+    if variant=='inv':
+        gainsolfile = 'gain_inv_solutions.npy'
+        noisesolfile = 'noises_model.npy'
     gainsolpath = os.path.join(dataff_mod, gainsolfile)
     gainsols = numpy.load(gainsolpath)
+    noisesols = numpy.load(os.path.join(dataff_mod, noisesolfile))
     nrfiles = cvcobj_cal.getnrfiles()
     # Loop over files in CVC folder:
     for filestep in range(nrfiles):
         # Get actual covariance cubes:
         cvpol_unc = visibilities.cov_flat2polidx(cvcobj_cal[filestep])
-        # Apply calibration according to stefcal alt II:
-        # _g = 1/gainsols[filestep]     # Stefcal Alt I
-        _g = gainsols[filestep]         # Stefcal Alt II
-        cvcdata_cal = apply_polgains(cvpol_unc, _g)
+        # Apply gains to uncal vis:
+        cvcdata_cal = apply_gains_noises(cvpol_unc, gainsols[filestep],
+                                         noisesols[filestep],
+                                         variant=variant)
         # Replace uncalibrated data with calibrated:
         cvcobj_cal[filestep] = visibilities.cov_polidx2flat(cvcdata_cal)
     # Note in ScanRecInfo about calibrating this dataset:
@@ -272,6 +294,8 @@ def stefcal(r, m, niter=100, incl_autocor=True):
 
     Notes
     -----
+    For stefcal to work, m matrix needs to have nondegenerate singular values.
+
     As pointed out in [Bhatnagar]_, StefCal is essentially equivalent to the
     'antsol' algorithm used in CASA and APES.
     
@@ -305,6 +329,97 @@ def stefcal(r, m, niter=100, incl_autocor=True):
     g = g_curr
     return g
 
+def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3):
+    """
+    Weighted alternating least-square solver
+
+    Solves argmin_{g,n}(||g*r*g^H-m-n||).
+
+    Parameters
+    ----------
+    r: array
+        Covariance matrix
+    m: array
+        Covariance matrix
+    variant: str
+        What variant of WALS to use: 'legacy' for legacy variant, 'inv' for
+        inverse variant.
+    nitr: int
+        Max number of iterations
+    err_tol: float
+        Relative error tolerance
+
+    Returns
+    -------
+    g: vec
+        Gains solution
+    n: vec
+        Noise diagonal
+
+    Rasies
+    ------
+    ValueError
+        If algorithm does not converge.
+    """
+    def wals_legacy(r, m, nitr, err_tol):
+        """WALS legacy version
+
+        Solves: argmin_{g,n}(||r-g*m*g^H-n||)
+
+        """
+        def n_est(r, m, g):
+            gg = (g[:, None]*numpy.conj(g[None, :]))
+            n = numpy.diag(r-gg*m).copy()
+            return n
+
+        g_prev = stefcal(r, m, incl_autocor=False)
+        n_prev = n_est(r, m, g_prev)
+        for itr in range(nitr):
+            # Use stefcal using Alt I
+            g = stefcal(r-numpy.diag(n_prev), m, incl_autocor=True)
+            n = n_est(r, m, g)
+            #n[numpy.where(n<0.0)]=0.0
+            gg = (g[:, None] * numpy.conj(g[None, :]))
+            err = norm(r - gg*m - numpy.diag(n)) / (norm(r)+norm(gg*m)+norm(n))
+            if err < err_tol:
+                break
+            n_prev = n
+        print('walsleg', err, n[0:3], n[-2:])
+        if itr+1 == nitr:
+            raise ValueError('Has not converged')
+        return g, n
+
+    def wals_inv(r, m, nitr, err_tol):
+        """WALS inverse version
+        Solves: argmin_{g,n}(||g*r*g^H-m-n||)
+        """
+        n_prev = numpy.zeros(r.shape[0], dtype=float)
+        for itr in range(nitr):
+            incl_autocor = True
+            if itr == 0:
+                incl_autocor = False
+            # Use stefcal using Alt II
+            g = stefcal(m+numpy.diag(n_prev), r, incl_autocor=incl_autocor)
+            gg = (g[:, None] * numpy.conj(g[None, :]))
+            n = numpy.real(numpy.diag(gg*r - m)).copy()
+            n[numpy.where(n<0.0)]=0.0
+            err = norm(gg * r - m - numpy.diag(n)) / (norm(gg * r)+norm(m)+norm(n))
+            #err = numpy.abs(numpy.vdot(n_prev, n)/numpy.vdot(n,n)+numpy.vdot(g_prev, g)/numpy.vdot(g,g)-2.0)
+            print('itr', numpy.amin(numpy.abs(r)), numpy.amin(numpy.abs(g)),
+                  numpy.amin(n))
+            print('itr', numpy.amax(numpy.abs(r)), numpy.amax(numpy.abs(g)),
+                  numpy.amax(n))
+            if err < err_tol:
+                break
+            n_prev = n
+        print('walsinv', err, n[0:2], n[-2:])
+        if itr + 1 == nitr:
+            raise ValueError('Has not converged')
+        return g, n
+
+    if variant == 'inv':
+        return wals_inv(r, m, nitr=nitr, err_tol=err_tol)
+    return wals_legacy(r, m, nitr=nitr, err_tol=err_tol)
 
 def gain_cal_bs_lin(vis_pol_src):
     """
@@ -332,7 +447,7 @@ def gain_cal_bs_lin(vis_pol_src):
     return g_bs_lin
 
 
-def gainsolve(dataff, gs_model='LFSM', incl_autocor=True):
+def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
     """
     Solve for gains based on uncalibrated and model data
 
@@ -342,32 +457,20 @@ def gainsolve(dataff, gs_model='LFSM', incl_autocor=True):
         Path to CVC filefolder.
     gs_model:  str
         Name Global skymodel. Choose 'LFSM', 'GSM'.
+
+    Returns
+    -------
+    gainsolutions: array
+        The gain solutions.
     """
-    dataff = os.path.normpath(dataff)
-    dataff_dir, dataff = os.path.split(dataff)
-    lofar_datatype = data_io.datafolder_type(dataff)
-    if lofar_datatype != 'acc' and lofar_datatype != 'xst':
-        raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
-                           .format(dataff))
-    obsinfo_raw = data_io.filefolder2obsinfo(dataff)
-    # Determine 'raw' and 'mod' dataffs,
-    obsinfo_raw.pop('cal', None)
-    obsinfo_raw.pop('model', None)
-    dataff_raw = data_io.obsinfo2filefolder(obsinfo_raw)
-    dataff_raw = os.path.join(dataff_dir, dataff_raw)
-    obsinfo_mod = dict(obsinfo_raw)
-    obsinfo_mod['model'] = gs_model
-    dataff_mod = data_io.obsinfo2filefolder(obsinfo_mod)
-    dataff_mod = os.path.join(dataff_dir, dataff_mod)
-    # Direct output to '_mod' data file-folder
-    cvcobj_uncal = data_io.CVCfiles(dataff_raw)
-    cvcobj_model = data_io.CVCfiles(dataff_mod)
     gainsolutions = []
+    noisesolutions = []
     nrfiles = cvcobj_uncal.getnrfiles()
     for fileidx in range(nrfiles):
         print('Solving for file {}/{}'.format(fileidx, nrfiles))
         intgs = len(cvcobj_uncal.samptimeset[fileidx])
         gainsol_t = []
+        noise_t = []
         cvcpol_uncal = visibilities.cov_flat2polidx(cvcobj_uncal[fileidx])
         cvcpol_model = visibilities.cov_flat2polidx(cvcobj_model[fileidx])
         for tidx in range(intgs):
@@ -375,16 +478,20 @@ def gainsolve(dataff, gs_model='LFSM', incl_autocor=True):
             freq = cvcobj_uncal.freqset[fileidx][tidx]
             vis_uncal = cvcpol_uncal[tidx]
             vis_model = cvcpol_model[tidx]
+            print('loop', fileidx, tidx, 'xx')
+            g_xx, n_xx = wals(vis_uncal[0, 0, ...], vis_model[0, 0, ...], variant=wals_variant, err_tol=7e-1)
+            print('loop', fileidx, tidx, 'yy')
+            g_yy, n_yy = wals(vis_uncal[1, 1, ...], vis_model[1, 1, ...], variant=wals_variant, err_tol=7e-1)
             # Use Stefcal with Alt II, so measured as 2nd arg
-            g_xx = stefcal(vis_model[0, 0, ...], vis_uncal[0, 0, ...],
-                           incl_autocor=incl_autocor)
-            g_yy = stefcal(vis_model[1, 1, ...], vis_uncal[1, 1, ...],
-                           incl_autocor=incl_autocor)
+            #g_xx = stefcal(vis_model[0, 0, ...], vis_uncal[0, 0, ...], incl_autocor=incl_autocor)
+            #g_yy = stefcal(vis_model[1, 1, ...], vis_uncal[1, 1, ...], incl_autocor=incl_autocor)
             gainsol_t.append([g_xx, g_yy])
+            noise_t.append([n_xx, n_yy])
         gainsolutions.append(gainsol_t)
+        noisesolutions.append(noise_t)
     gainsolutions = numpy.asarray(gainsolutions)
-    gsol_file = os.path.join(dataff_mod, 'gainsolutions')
-    numpy.save(gsol_file, gainsolutions)
+    noisesolutions = numpy.asarray(noisesolutions)
+    return gainsolutions, noisesolutions
 
 
 import argparse
@@ -394,17 +501,47 @@ def solvegains_cli():
     """
     Compute gain solutions for CVC files
 
+    Parameters
+    ----------
+    variant: str
+        Variant of WALS to use. Can be 'legacy' or 'inv'.
+
     Returns
     -------
-    gains : array
+    gainsolutions : array
         Gain solutions
+    noises: array
+        Noise solutions
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('-l', '--legacy_variant', action="store_true",
+                        help="""If raised, use legacy cal variant, rather than\
+                                inverse 'inv' variant.""")
     parser.add_argument('dataff',
                         help="""Path to CVC folder""")
     args = parser.parse_args()
-    gains = gainsolve(args.dataff)
-    return gains
+    variant = 'inv'
+    if args.legacy_variant:
+        variant = 'legacy'
+    dataff_raw, dataff_mod, _dataff_cal = \
+        data_io.dataff_raw_model_cal(args.dataff)
+    if not os.path.isdir(dataff_mod):
+        raise IsADirectoryError('No model file-folder {} found.'.format(dataff_mod))
+    # Direct output to '_mod' data file-folder
+    cvcobj_raw = data_io.CVCfiles(dataff_raw)
+    cvcobj_model = data_io.CVCfiles(dataff_mod)
+    gainsolutions, noises = gainsolve(cvcobj_raw, cvcobj_model,
+                                      wals_variant=variant)
+    gsol_filename = 'gain_solutions'
+    noise_filename = 'noises_raw'
+    if variant == 'inv':
+        gsol_filename = 'gain_inv_solutions'
+        noise_filename = 'noises_model'
+    gsol_file = os.path.join(dataff_mod, gsol_filename)
+    noise_file = os.path.join(dataff_mod, noise_filename)
+    numpy.save(gsol_file, gainsolutions)
+    numpy.save(noise_file, noises)
+    return gainsolutions, noises
 
 
 def applygains_cli():
@@ -417,14 +554,21 @@ def applygains_cli():
         Calibrated CVCfiles.
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('-l', '--legacy_variant', action="store_true",
+                        help="""If raised, use legacy cal variant, rather than\
+                                inverse 'inv' variant.""")
     parser.add_argument('cvcpath', help="Path to CVC folder")
     parser.add_argument('caltabpath', nargs='?', default='',
                         help="Path to caltab file")
+
     args = parser.parse_args()
+    variant = 'inv'
+    if args.legacy_variant:
+        variant = 'legacy'
     if args.caltabpath:
         applycal_cvcfolder(args.cvcpath, args.caltabpath)
     else:
-        cvcobj_cal = apply_polgains_cvcfolder(args.cvcpath)
+        cvcobj_cal = apply_polgains_cvcfolder(args.cvcpath, variant=variant)
     return cvcobj_cal
 
 
@@ -434,7 +578,12 @@ if __name__ == "__main__":
     ran_app = False
     if cmd.startswith('sol'):
         print("Solving for gains...")
-        solvegains_cli()
+        try:
+            solvegains_cli()
+        except IsADirectoryError as err:
+            print(err)
+            print('Please generate model first.')
+            sys.exit(1)
         ran_sol = True
     if cmd.endswith('app'):
         print("Applying solutions...")
