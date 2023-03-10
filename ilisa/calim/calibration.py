@@ -393,6 +393,7 @@ def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3):
         """WALS inverse version
         Solves: argmin_{g,n}(||g*r*g^H-m-n||)
         """
+        g_prev = numpy.ones(r.shape[0], dtype=complex)
         n_prev = numpy.zeros(r.shape[0], dtype=float)
         for itr in range(nitr):
             incl_autocor = True
@@ -402,17 +403,18 @@ def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3):
             g = stefcal(m+numpy.diag(n_prev), r, incl_autocor=incl_autocor)
             gg = (g[:, None] * numpy.conj(g[None, :]))
             n = numpy.real(numpy.diag(gg*r - m)).copy()
-            n[numpy.where(n<0.0)]=0.0
+            #n[numpy.where(n<0.0)]=numpy.mean(n)
+
             err = norm(gg * r - m - numpy.diag(n)) / (norm(gg * r)+norm(m)+norm(n))
-            #err = numpy.abs(numpy.vdot(n_prev, n)/numpy.vdot(n,n)+numpy.vdot(g_prev, g)/numpy.vdot(g,g)-2.0)
-            #print('itr', numpy.amin(numpy.abs(r)), numpy.amin(numpy.abs(g)),
-            #      numpy.amin(n))
-            #print('itr', numpy.amax(numpy.abs(r)), numpy.amax(numpy.abs(g)),
-            #      numpy.amax(n))
+            serr = numpy.vdot( g_prev, g) / numpy.linalg.norm(g) ** 2
+            if not numpy.all(n==0.0):
+                serr += numpy.vdot(n_prev, n)/numpy.linalg.norm(n)**2
+            serr = numpy.abs(serr)
             if err < err_tol:
-                break
+                pass
+            g_prev = g
             n_prev = n
-        print('walsinv', err, n[0:2], n[-2:])
+            print('walsinv', itr, serr, err, numpy.amax(n),numpy.amin(n), numpy.amax(numpy.abs(g)), numpy.amin(numpy.abs(g)))
         if itr + 1 == nitr:
             pass
             #raise ValueError('Has not converged')
@@ -480,15 +482,16 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
             vis_uncal = cvcpol_uncal[tidx]
             vis_model = cvcpol_model[tidx]
             print('loop', fileidx, tidx, 'xx')
-            g_xx, n_xx = wals(vis_uncal[0, 0, ...], vis_model[0, 0, ...], variant=wals_variant, err_tol=7e-1)
+            g_xx, n_xx = wals(vis_uncal[0, 0, ...], vis_model[0, 0, ...],
+                              variant=wals_variant,  nitr=20, err_tol=1e-2)
             print('loop', fileidx, tidx, 'yy')
-            g_yy, n_yy = wals(vis_uncal[1, 1, ...], vis_model[1, 1, ...], variant=wals_variant, err_tol=7e-1)
+            g_yy, n_yy = wals(vis_uncal[1, 1, ...], vis_model[1, 1, ...],
+                              variant=wals_variant,  nitr=20, err_tol=1e-2)
             # Use Stefcal with Alt II, so measured as 2nd arg
             #g_xx = stefcal(vis_model[0, 0, ...], vis_uncal[0, 0, ...], incl_autocor=incl_autocor)
             #g_yy = stefcal(vis_model[1, 1, ...], vis_uncal[1, 1, ...], incl_autocor=incl_autocor)
             gainsol_t.append([g_xx, g_yy])
             noise_t.append([n_xx, n_yy])
-            print('amaxmin',numpy.amax(numpy.abs(g_xx)),numpy.amin(numpy.abs(g_xx)))
         gainsolutions.append(gainsol_t)
         noisesolutions.append(noise_t)
     gainsolutions = numpy.asarray(gainsolutions)
