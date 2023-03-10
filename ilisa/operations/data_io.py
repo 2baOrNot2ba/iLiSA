@@ -224,7 +224,6 @@ def obsinfo2filefolder(obsinfo):
         spwstr = \
             ''.join([str(spw) for spw in obsinfo['spw']])
     filefoldername += '_spw' + spwstr
-
     if (ldat_type != 'sst' and obsinfo['subbands'] != []
             and obsinfo['subbands'] != ''):
         filefoldername += "_sb"
@@ -323,9 +322,7 @@ def filefolder2obsinfo(filefolderpath):
 
     if len(obsinfo['spw']) > 1:
         obsinfo['spw'] = list(obsinfo['spw'])
-    if _RCU_SB_SEP in obsinfo['subbands']:
-        obsinfo['subbands'] = obsinfo['subbands'].split(
-            _RCU_SB_SEP)
+    obsinfo['subbands'] = slicestr2seqlists(obsinfo['subbands'])
 
     if type(obsinfo['spw']) is not list:
         obsinfo['spw'] = [obsinfo['spw']]
