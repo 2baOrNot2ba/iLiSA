@@ -597,11 +597,11 @@ class ScanRecInfo(object):
             f.write("ldat_ids: {!r}\n".format(list(self.ldatinfos.keys())))
             # Data modalities:
             if self.caltabinfos != []:
-                f.write("caltabinfos: {}".format(self.caltabinfos))
+                f.write("caltabinfos: {}\n".format(self.caltabinfos))
             if self.gs_model:
-                f.write("gs_model: {}".format(self.gs_model))
+                f.write("gs_model: {}\n".format(self.gs_model))
             if self.mockdata:
-                f.write("mockdata: true")
+                f.write("mockdata: true\n")
 
     def read_scanrec(self, datapath):
         """
