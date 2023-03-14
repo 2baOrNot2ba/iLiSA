@@ -224,10 +224,10 @@ def obsinfo2filefolder(obsinfo):
         spwstr = \
             ''.join([str(spw) for spw in obsinfo['spw']])
     filefoldername += '_spw' + spwstr
-    if (ldat_type != 'sst' and obsinfo['subbands'] != []
-            and obsinfo['subbands'] != ''):
-        filefoldername += "_sb"
-        filefoldername += seqlists2slicestr(obsinfo['subbands'])
+    if ldat_type != 'sst' and ldat_type != 'acc':
+        if obsinfo['subbands'] != [] and obsinfo['subbands'] != '':
+            filefoldername += "_sb"
+            filefoldername += seqlists2slicestr(obsinfo['subbands'])
     if 'integration' in obsinfo and obsinfo['integration']:
         filefoldername += '_int' + str(int(obsinfo['integration']))
     if 'duration_scan' in obsinfo:
