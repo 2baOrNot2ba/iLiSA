@@ -323,7 +323,6 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo['duration_scan'] = int(durstr[3:])
     obsinfo['pointing'] = dirstr[3:]
     obsinfo['ldat_type'] = ldat_type
-    print(type(obsinfo['subbands']))
 
     if len(obsinfo['spw']) > 1:
         obsinfo['spw'] = list(obsinfo['spw'])
