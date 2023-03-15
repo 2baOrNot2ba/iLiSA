@@ -166,12 +166,16 @@ def slicestr2seqlists(slicestr):
     for sl in slicelist:
         sliceargs = [int(s) for s in sl.split(':')]
         slice_inc = 1
-        if len(sliceargs)>2:
-            slice_inc = sliceargs[1]
-            sliceargs[-1] += slice_inc
+        if len(sliceargs) == 1:
+            seqstr = str(sliceargs[0])
         else:
-            sliceargs[-1] += 1
-        seqstr = ','.join([str(s) for s in range(sliceargs[0], sliceargs[-1], slice_inc)])
+            if len(sliceargs)>2:
+                slice_inc = sliceargs[1]
+                sliceargs[-1] += slice_inc
+            else:
+                sliceargs[-1] += 1
+            seqstr = ','.join(
+                [str(s) for s in range(sliceargs[0], sliceargs[-1], slice_inc)])
         seqlists.append(seqstr)
     return seqlists
 
@@ -319,6 +323,7 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo['duration_scan'] = int(durstr[3:])
     obsinfo['pointing'] = dirstr[3:]
     obsinfo['ldat_type'] = ldat_type
+    print(type(obsinfo['subbands']))
 
     if len(obsinfo['spw']) > 1:
         obsinfo['spw'] = list(obsinfo['spw'])
