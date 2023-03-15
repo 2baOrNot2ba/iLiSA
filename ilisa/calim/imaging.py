@@ -14,6 +14,7 @@ import casacore.measures
 import casacore.quanta.quantity
 
 import ilisa.antennameta.antennafieldlib as antennafieldlib
+from ilisa.calim.flagging import Flags
 from ilisa.operations import data_io as data_io
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
                                           directionterm2tuple
@@ -555,8 +556,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     if not use_autocorr:
         # Flag autocorrelations:
         flag_bl_sel.append((None,))
-    flag_bls = vsb.select_cov_mask(flag_bl_sel, cvcobj.cvcdim1 // 2)
-    flagged_vis = {'bls': flag_bls, 'pols': None}
+    flagged_vis = Flags(nrelems=cvcobj.cvcdim1 // 2).select_cov_mask(flag_bl_sel)
     beamparmsf = {}
     #for fileidx in range(filenr, cvcobj.getnrfiles()):
     fileidx = filenr
@@ -600,7 +600,8 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     cvpu_lin = phaseref_xstpol(cvpol_lin, UVWxyz, freq)
 
     # Apply flag matrix to visibility matrix
-    vis = vsb.apply_vispol_flags(cvpu_lin, flagged_vis)
+    flagged_vis.vis = cvpu_lin
+    vis = flagged_vis.apply_vispol_flags()
 
     # Make image on phased up visibilities
     imgs_lin, ll, mm = beamformed_image(vis, UVWxyz.T, freq,

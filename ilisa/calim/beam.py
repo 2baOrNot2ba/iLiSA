@@ -9,6 +9,8 @@ import numpy
 import pkg_resources
 from matplotlib import pyplot as plt
 
+import ilisa.calim.flagging
+from ilisa.calim.flagging import Flags
 from ilisa.antennameta import antennafieldlib as antennafieldlib
 from ilisa.operations.modeparms import rcumode2sbfreqs
 from . import SPEED_OF_LIGHT as c
@@ -16,7 +18,7 @@ from . import visibilities as vsb
 import ilisa.calim.imaging
 
 
-def beamformed_pattern(stn2Dcoord, freq, flagged_vis):
+def beamformed_pattern(stn2Dcoord, freq, vis_flags):
     """
     Compute beamformed beam flux pattern
 
@@ -42,7 +44,8 @@ def beamformed_pattern(stn2Dcoord, freq, flagged_vis):
     vis_xy = numpy.zeros_like(vis_xx)
     vis_yx = vis_xy
     vis_pol = numpy.array([[vis_xx, vis_xy],[vis_yx, vis_yy]])
-    vis_pol = vsb.apply_vispol_flags(vis_pol, flagged_vis)
+    vis_flags.vis = vis_pol
+    vis_pol = vis_flags.apply_vispol_flags()
     skyimages, ll, mm \
         = ilisa.calim.imaging.beamformed_image(vis_pol, stn2Dcoord.T, freq, nrpix=201)
     return ll, mm, skyimages
@@ -114,8 +117,8 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis, _use_lookuptab=None):
         Band ID.
     freq: float
         Frequency.
-    flagged_vis: dict of bool matrices
-        Keyed set of visibility flag-matrices.
+    flagged_vis: Flags
+        Flagged visibilities.
     _use_lookuptab : bool
         Use lookup table instead of calculating FoV size.
 
@@ -132,7 +135,7 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis, _use_lookuptab=None):
     """
     if  _use_lookuptab is None:
         # Decide whether to use lookup table or not (since it is not set)
-        bl_flags = flagged_vis['bls']
+        bl_flags = flagged_vis.bl_mask
         if bl_flags is None:
             # No flags set so lookup table works
             _use_lookuptab = True
@@ -151,8 +154,7 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis, _use_lookuptab=None):
         stn_pos, stn_rot, stn_antpos, stn_intilepos \
             = antennafieldlib.get_antset_params(stnid, antset)
         antpos_uv = vsb.rot2uv(stn_antpos, stn_rot)
-        flag_vis = {'bls': bl_flags, 'pols': None}
-        ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flag_vis)
+        ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flagged_vis)
         major_diam, minor_diam, elltilt, fov_area = beam_pat_shape(ll, mm, bfps)
     else:
         beamshape_path = pkg_resources.resource_filename(__name__,
@@ -267,12 +269,12 @@ def main_cli():
     stn_pos, stn_rot, stn_antpos, stn_intilepos \
         = antennafieldlib.get_antset_params(args.stnid, args.antset)
     antpos_uv = vsb.rot2uv(stn_antpos, stn_rot)
-    flg_bls = vsb.select_cov_mask(eval(args.blflags), stn_antpos.shape[0])
-    flag_vis = {'bls': flg_bls, 'pols': None}
+
     beamshapes = []
     print('Freq Major Minor Tilt FoV')
     for freq in freqs:
-        ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flag_vis)
+        flagged_bls = Flags(nrelems=antpos_uv.shape[0]).set_blflagargs(args.blflags)
+        ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flagged_bls)
         madi, midi, tlt, fov_area = beam_pat_shape(ll, mm, bfps)
         beamshape = freq, madi, midi, numpy.rad2deg(tlt), fov_area
         print(*beamshape)

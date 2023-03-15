@@ -1,7 +1,8 @@
 import casacore.measures
 import numpy
 import numpy as np
-import numpy.ma as ma
+
+from . import SPEED_OF_LIGHT as c
 
 try:
     import dreambeam
@@ -12,130 +13,15 @@ if canuse_dreambeam:
     from dreambeam.polarimetry import cov_lin2cir, convertxy2stokes
 
 
-def apply_vispol_flags(vispol, flags):
-    """
-    Flag visibilities
-
-    Parameters
-    ----------
-    vispol: array
-        Polarized visibility matrix.
-    flag: dict
-        Dict of flags.
-
-    Returns
-    -------
-    vispol_flagged: array
-        Flagged polarized visibilities.
-    """
-    flagbls = flags.get('bls')
-    flagpols = flags.get('pol')
-    if flagbls is None and flagpols is None:
-        vispol_flagged = ma.array(vispol)
-        return vispol_flagged
-    if flagpols is None:
-        polshape = vispol.shape[:-2]
-        flagpols = numpy.zeros(polshape, dtype=bool)
-    else:
-        # flagbls is None, so set to unselected
-        blshape = vispol.shape[-2:]
-        flagbls = numpy.zeros(blshape, dtype=bool)
-    flagpolmat = numpy.expand_dims(flagpols, axis=(-1, -2))
-    flagblspolmat = flagbls + flagpolmat
-    vispol_flagged = ma.array(vispol, mask=flagblspolmat)
-    return vispol_flagged
+def baseline_distances(uvw_xyz):
+    dist = numpy.linalg.norm(uvw_xyz[None, :, :] - uvw_xyz[:, None, :], axis=-1)
+    return dist
 
 
-def select_cov_mask(selections, nr_cov_el):
-    """
-    From a covariance selection specification, make a mask matrix
-
-    This function can be used for covariances such as baselines or
-    polarizations.
-
-    Parameters
-    ----------
-    selections: list
-        Covariance selection specification.
-        Integeters in list select corresponding elements.
-        Tuples of length 1 select auto-correlation elements.
-        Tuples of length 2, where 2nd item is None, select all covariance
-        between all elements in 1st item slot.
-        Tuples of length 2, select all covariances with one element from 1st
-        list and the other element from 2nd list.
-        If first element is None this means the final result is inverted,
-        so rather than being a selection list this argument is interpreted as a
-        deselection list (starting with all selected).
-    nr_cov_el: int
-        Number of covariance elements.
-
-    Returns
-    -------
-    maskmat: array
-        Matrix to use as mask with correlation matrix to effect selections.
-
-    Examples
-    --------
-    >>> import ilisa.calim.visibilities as vsb
-    Select antenna 2 and 3:
-    >>> vsb.select_cov_mask([2,3], 4)
-    array([[False, False,  True,  True],
-       [False, False,  True,  True],
-       [ True,  True,  True,  True],
-       [ True,  True,  True,  True]])
-    Select auto-correlation of antenna 1:
-    >>> vsb.select_cov_mask([(1,)], 4)
-    array([[False, False, False, False],
-       [False,  True, False, False],
-       [False, False, False, False],
-       [False, False, False, False]])
-    Select baseline 0-3:
-    >>> vsb.select_cov_mask([(0,3)], 4)
-    array([[False, False, False,  True],
-       [False, False, False, False],
-       [False, False, False, False],
-       [ True, False, False, False]])
-    Select all auto-correlations:
-    >>> vsb.select_cov_mask([(None,)], 4)
-    array([[ True, False, False, False],
-           [False,  True, False, False],
-           [False, False,  True, False],
-           [False, False, False,  True]])
-    >>> vsb.select_cov_mask([None, 0], 4)
-    array([[ True,  True,  True,  True],
-           [ True, False, False, False],
-           [ True, False, False, False],
-           [ True, False, False, False]])
-    """
-    _invert = False
-    maskmat = np.zeros((nr_cov_el, nr_cov_el), dtype=bool)
-    if len(selections)>0 and selections[0] is None:
-        _invert = True
-        selections.pop(0)
-    for sel in selections:
-        if type(sel) is int:
-            # Antenna select
-            maskmat[sel, :] = True
-            maskmat[:, sel] = True
-        elif type(sel) is tuple:
-            if len(sel) == 1:
-                if sel[0] is None:
-                    sel =  (range(nr_cov_el),)
-                # Autocorrelations
-                maskmat[sel[0], sel[0]] = True
-            elif len(sel) == 2:
-                if sel[1] is None:
-                    if sel[0] is not None:
-                        _sel = tuple(numpy.meshgrid(sel[0], sel[0]))
-                        maskmat[_sel] = True
-                    else:
-                        maskmat[:, :] = True
-                else:
-                    maskmat[sel[0], sel[1]] = True
-                    maskmat[sel[1], sel[0]] = True
-    if _invert:
-        maskmat = np.logical_not(maskmat)
-    return maskmat
+def select_baselines_by_dist(uvw_xyz, freq, crit):
+    dist_uvw = baseline_distances(uvw_xyz) /(c / freq)
+    sel_mat = eval('dist_uvw'+crit)
+    return sel_mat
 
 
 def cov_polidx2flat(cvcpol, parity_ord=True):

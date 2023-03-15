@@ -7,6 +7,7 @@ from numpy.linalg import norm
 
 from ilisa.antennameta import calibrationtables as calibrationtables
 from ilisa.operations import data_io as data_io, modeparms as modeparms
+from ilisa.operations.directions import directionterm2tuple
 from . import visibilities
 
 
@@ -329,7 +330,7 @@ def stefcal(r, m, niter=100, incl_autocor=True):
     g = g_curr
     return g
 
-def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3):
+def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3, mask=None):
     """
     Weighted alternating least-square solver
 
@@ -403,23 +404,25 @@ def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3):
             g = stefcal(m+numpy.diag(n_prev), r, incl_autocor=incl_autocor)
             gg = (g[:, None] * numpy.conj(g[None, :]))
             n = numpy.real(numpy.diag(gg*r - m)).copy()
-            #n[numpy.where(n<0.0)]=numpy.mean(n)
-
-            err = norm(gg * r - m - numpy.diag(n)) / (norm(gg * r)+norm(m)+norm(n))
-            serr = numpy.vdot( g_prev, g) / numpy.linalg.norm(g) ** 2
-            if not numpy.all(n==0.0):
-                serr += numpy.vdot(n_prev, n)/numpy.linalg.norm(n)**2
-            serr = numpy.abs(serr)
-            if err < err_tol:
+            #err = norm(gg * r - m - numpy.diag(n)) / (norm(gg * r)+norm(m)+norm(n))
+            #rerr = reldiffnorm(n, n_prev)+reldiffnorm(g, g_prev)
+            serr = numpy.abs(numpy.vdot(numpy.linalg.pinv(g_prev[None,:]), g) - 1)
+            #if not numpy.all(n==0.0):
+            #    serr += numpy.vdot(n_prev, n)/numpy.linalg.norm(n)**2
+            #serr = numpy.abs(serr)
+            if serr < err_tol:
                 pass
             g_prev = g
             n_prev = n
-            print('walsinv', itr, serr, err, numpy.amax(n),numpy.amin(n), numpy.amax(numpy.abs(g)), numpy.amin(numpy.abs(g)))
+            print('walsinv', itr, serr, numpy.amax(n),numpy.amin(n), numpy.amax(numpy.abs(g)), numpy.amin(numpy.abs(g)))
         if itr + 1 == nitr:
             pass
             #raise ValueError('Has not converged')
         return g, n
 
+    if mask is not None:
+        r = numpy.ma.array(r, mask=mask).filled(0.0)
+        m = numpy.ma.array(m, mask=mask).filled(0.0)
     if variant == 'inv':
         return wals_inv(r, m, nitr=nitr, err_tol=err_tol)
     return wals_legacy(r, m, nitr=nitr, err_tol=err_tol)
@@ -476,6 +479,13 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
         noise_t = []
         cvcpol_uncal = visibilities.cov_flat2polidx(cvcobj_uncal[fileidx])
         cvcpol_model = visibilities.cov_flat2polidx(cvcobj_model[fileidx])
+        t0 = cvcobj_uncal.samptimeset[fileidx][0]
+        refdir = directionterm2tuple(cvcobj_uncal.scanrecinfo.get_pointingstr())
+        uvw_xyz = visibilities.calc_uvw(t0, refdir, cvcobj_uncal.stn_pos, cvcobj_uncal.stn_antpos)
+        mask = visibilities.select_baselines_by_dist(uvw_xyz, cvcobj_uncal.freqset[fileidx][250], '<3.0')
+        # Put back autocorrelations
+        numpy.fill_diagonal(mask, False)
+        print(mask)
         for tidx in range(intgs):
             t = cvcobj_uncal.samptimeset[fileidx][tidx]
             freq = cvcobj_uncal.freqset[fileidx][tidx]
@@ -483,10 +493,12 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
             vis_model = cvcpol_model[tidx]
             print('loop', fileidx, tidx, 'xx')
             g_xx, n_xx = wals(vis_uncal[0, 0, ...], vis_model[0, 0, ...],
-                              variant=wals_variant,  nitr=20, err_tol=1e-2)
+                              variant=wals_variant,  nitr=20, err_tol=1e-2,
+                              mask=mask)
             print('loop', fileidx, tidx, 'yy')
             g_yy, n_yy = wals(vis_uncal[1, 1, ...], vis_model[1, 1, ...],
-                              variant=wals_variant,  nitr=20, err_tol=1e-2)
+                              variant=wals_variant,  nitr=20, err_tol=1e-2,
+                              mask=mask)
             # Use Stefcal with Alt II, so measured as 2nd arg
             #g_xx = stefcal(vis_model[0, 0, ...], vis_uncal[0, 0, ...], incl_autocor=incl_autocor)
             #g_yy = stefcal(vis_model[1, 1, ...], vis_uncal[1, 1, ...], incl_autocor=incl_autocor)
@@ -595,4 +607,5 @@ if __name__ == "__main__":
         applygains_cli()
         ran_app = True
     if not ran_sol and not ran_app:
-        print("Nothing was done.")
+        print("Nothing chosen.\n"
+              "Choose: 'sol' to solve, 'app' to apply solutions.")
