@@ -481,11 +481,11 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
         cvcpol_model = visibilities.cov_flat2polidx(cvcobj_model[fileidx])
         t0 = cvcobj_uncal.samptimeset[fileidx][0]
         refdir = directionterm2tuple(cvcobj_uncal.scanrecinfo.get_pointingstr())
-        uvw_xyz = visibilities.calc_uvw(t0, refdir, cvcobj_uncal.stn_pos, cvcobj_uncal.stn_antpos)
+        uvw_xyz = visibilities.calc_uvw(t0, refdir, cvcobj_uncal.stn_pos,
+                                        cvcobj_uncal.stn_antpos)
         mask = visibilities.select_baselines_by_dist(uvw_xyz, cvcobj_uncal.freqset[fileidx][250], '<3.0')
         # Put back autocorrelations
         numpy.fill_diagonal(mask, False)
-        print(mask)
         for tidx in range(intgs):
             t = cvcobj_uncal.samptimeset[fileidx][tidx]
             freq = cvcobj_uncal.freqset[fileidx][tidx]

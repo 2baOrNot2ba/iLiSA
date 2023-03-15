@@ -477,7 +477,7 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
 
 
 def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
-          flag_bl_sel=[], use_autocorr=False, lm_extent=2.0, nrpixels=100,
+          flag_bl_file=None, lm_extent=2.0, nrpixels=100,
           polrep = 'stokes'):
     """\
     Image visibility-type data
@@ -494,10 +494,8 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
         Should primary beam correction be applied?
     fluxpersterradian : bool
         Should returned data be in physical dimension of flux per sterradian?
-    flag_bl_sel : list
-        Select baselines to flag.
-    use_autocorr : bool
-        Whether to include autocorrelations or not.
+    flag_bl_file : str
+        Flag file
     lm_extent: float
         Size of image edge in direction-cosine units.
     nrpixels: int
@@ -553,10 +551,10 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     stnid = cvcobj.scanrecinfo.get_stnid()
     antset = cvcobj.scanrecinfo.get_antset()
     # Create visibility flag mask:
-    if not use_autocorr:
-        # Flag autocorrelations:
-        flag_bl_sel.append((None,))
-    flagged_vis = Flags(nrelems=cvcobj.cvcdim1 // 2).select_cov_mask(flag_bl_sel)
+    if flag_bl_file:
+        flagged_vis = Flags().load(dataff +'/flags_{}.txt'.format(flag_bl_file))
+    else:
+        flagged_vis = Flags(nrelems=cvcobj.cvcdim1 // 2).select_cov_mask([])
     beamparmsf = {}
     #for fileidx in range(filenr, cvcobj.getnrfiles()):
     fileidx = filenr
@@ -693,12 +691,9 @@ def main_cli():
     parser_image.add_argument('-f', '--fluxpersterradian',
                               help="Normalize flux per sterradian",
                               action="store_true")
-    parser_image.add_argument('-b', '--blflags', type=str,
-                              default='[]',
-                              help="Baseline flag select")
-    parser_image.add_argument('-a', '--autocorr',
-                              help="Include autocorrelations",
-                              action="store_true")
+    parser_image.add_argument('-b', '--blflagfile', type=str,
+                              default=None,
+                              help="Baseline flag file")
 
     parser_image = subparsers.add_parser('nf', help='nearfield image')
     parser_image.set_defaults(func=nfimage)
@@ -706,19 +701,16 @@ def main_cli():
 
     args = parser.parse_args()
     args.dataff = os.path.normpath(args.dataff)
-    args.blflags = eval(args.blflags)
     if args.func == nfimage:
         nfimage(args.dataff, args.filenr, args.sampnr)
     else:
         try:
             imagedataset = image(args.dataff, args.filenr, args.sampnr,
                                  args.phaseref, args.correctpb,
-                                 args.fluxpersterradian, args.blflags,
-                                 args.autocorr)
+                                 args.fluxpersterradian, args.blflagfile)
         except (IndexError, ValueError) as err:
             print("Error:", err)
             sys.exit()
-        #plt.figure()
         plotskyimage(**imagedataset, maskhrz=False, plot_title='Imaged Sky')
         plt.show()
 

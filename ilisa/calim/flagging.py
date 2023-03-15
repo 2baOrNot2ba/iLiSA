@@ -1,8 +1,9 @@
-"""Provides flagging functionality"""
-import numpy
+"""Provides flagging functionality for visibilities"""
+import sys
 import numpy as np
 from numpy import ma as ma
-
+import ilisa.operations.data_io as data_io
+from ilisa.calim.visibilities import baseline_distances, rot2uv
 
 class Flags:
     def __init__(self, vis=None, nrelems=None):
@@ -94,7 +95,7 @@ class Flags:
                 elif len(sel) == 2:
                     if sel[1] is None:
                         if sel[0] is not None:
-                            _sel = tuple(numpy.meshgrid(sel[0], sel[0]))
+                            _sel = tuple(np.meshgrid(sel[0], sel[0]))
                             maskmat[_sel] = True
                         else:
                             maskmat[:, :] = True
@@ -122,12 +123,12 @@ class Flags:
             return vispol_flagged
         if flagpols is None:
             polshape = self.vis.shape[:-2]
-            flagpols = numpy.zeros(polshape, dtype=bool)
+            flagpols = np.zeros(polshape, dtype=bool)
         else:
             # flagbls is None, so set to unselected
             blshape = self.vis.shape[-2:]
-            flagbls = numpy.zeros(blshape, dtype=bool)
-        flagpolmat = numpy.expand_dims(flagpols, axis=(-1, -2))
+            flagbls = np.zeros(blshape, dtype=bool)
+        flagpolmat = np.expand_dims(flagpols, axis=(-1, -2))
         flagblspolmat = flagbls + flagpolmat
         vispol_flagged = ma.array(self.vis, mask=flagblspolmat)
         return vispol_flagged
@@ -135,9 +136,42 @@ class Flags:
     def set_blflagargs(self, blflagargs):
         if type(blflagargs) == str:
             blflagargs = eval(blflagargs)
-        return self.select_cov_mask(blflagargs)
+        self.select_cov_mask(blflagargs)
+        return self
 
     def apply_blflagargs(self, blflagargs):
         self.set_blflagargs(blflagargs)
         vis_pol = self.apply_vispol_flags()
         return vis_pol
+
+    def save(self, filename='flags_bl.txt'):
+        np.savetxt(filename, self.bl_mask, fmt='%i')
+
+    def load(self, filename='flags_bl.txt'):
+        self.bl_mask = np.loadtxt(filename, dtype=bool)
+        self.shape = self.bl_mask.shape
+        return self
+
+
+def main_cli():
+    flagtype = sys.argv[1]
+    dataff = sys.argv[3]
+    cvcobj = data_io.CVCfiles(dataff)
+    fv = Flags(nrelems=cvcobj.cvcdim1//2)
+    if flagtype == 'manual':
+        sel = eval(sys.argv[2])
+        fv.set_blflagargs(sel)
+    elif flagtype == 'shortbl':
+        distance = float(sys.argv[2])
+        uv_m = rot2uv(cvcobj.stn_antpos, cvcobj.stn_rot)
+        bl_dist = baseline_distances(uv_m)
+        short_bls = bl_dist < distance
+        fv.bl_mask = short_bls
+    else:
+        print("flagtype {} not recognized".format(flagtype))
+        sys.exit()
+    fv.save(dataff+'/flags_{}.txt'.format(flagtype))
+
+
+if __name__ == "__main__":
+    main_cli()

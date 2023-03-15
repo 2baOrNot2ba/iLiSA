@@ -118,7 +118,7 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis, _use_lookuptab=None):
     freq: float
         Frequency.
     flagged_vis: Flags
-        Flagged visibilities.
+        Visibility flags
     _use_lookuptab : bool
         Use lookup table instead of calculating FoV size.
 
@@ -135,11 +135,11 @@ def get_beam_shape_parms(stnid, antset, freq, flagged_vis, _use_lookuptab=None):
     """
     if  _use_lookuptab is None:
         # Decide whether to use lookup table or not (since it is not set)
-        bl_flags = flagged_vis.bl_mask
-        if bl_flags is None:
+        if flagged_vis is None:
             # No flags set so lookup table works
             _use_lookuptab = True
         else:
+            bl_flags = flagged_vis.bl_mask
             # Check if vis_flag is not just autocorrelation flags
             ac_mask = numpy.ones_like(bl_flags, dtype=bool)
             numpy.fill_diagonal(ac_mask, False)
