@@ -36,36 +36,31 @@ class Flags:
             so rather than being a selection list this argument is interpreted as a
             deselection list (starting with all selected).
         nr_cov_el: int
-            Number of covariance elements.
-
-        Returns
-        -------
-        maskmat: array
-            Matrix to use as mask with correlation matrix to effect selections.
+            Number of covariance elements
 
         Examples
         --------
         >>> from ilisa.calim.flagging import Flags
         Select antenna 2 and 3:
-        >>> Flags(nrelems=4).select_cov_mask([2,3])
+        >>> Flags(nrelems=4).select_cov_mask([2,3]).bl_mask
         array([[False, False,  True,  True],
            [False, False,  True,  True],
            [ True,  True,  True,  True],
            [ True,  True,  True,  True]])
         Select auto-correlation of antenna 1:
-        >>> Flags(nrelems=4).select_cov_mask([(1,)])
+        >>> Flags(nrelems=4).select_cov_mask([(1,)]).bl_mask
         array([[False, False, False, False],
            [False,  True, False, False],
            [False, False, False, False],
            [False, False, False, False]])
         Select baseline 0-3:
-        >>> Flags(nrelems=4).select_cov_mask([(0,3)])
+        >>> Flags(nrelems=4).select_cov_mask([(0,3)]).bl_mask
         array([[False, False, False,  True],
            [False, False, False, False],
            [False, False, False, False],
            [ True, False, False, False]])
         Select all auto-correlations:
-        >>> Flags(nrelems=4).select_cov_mask([(None,)])
+        >>> Flags(nrelems=4).select_cov_mask([(None,)]).bl_mask
         array([[ True, False, False, False],
                [False,  True, False, False],
                [False, False,  True, False],
