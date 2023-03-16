@@ -7,7 +7,7 @@ from numpy.linalg import norm
 
 from ilisa.antennameta import calibrationtables as calibrationtables
 from ilisa.operations import data_io as data_io, modeparms as modeparms
-from ilisa.operations.directions import directionterm2tuple
+from ilisa.operations.directions import _req_calsrc_proc
 from . import visibilities
 
 
@@ -366,28 +366,32 @@ def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3, mask=None):
         """WALS legacy version
 
         Solves: argmin_{g,n}(||r-g*m*g^H-n||)
-
         """
-        def n_est(r, m, g):
-            gg = (g[:, None]*numpy.conj(g[None, :]))
-            n = numpy.diag(r-gg*m).copy()
-            return n
-
-        g_prev = stefcal(r, m, incl_autocor=False)
-        n_prev = n_est(r, m, g_prev)
+        g_prev = numpy.ones(r.shape[0], dtype=complex)
+        n_prev = numpy.zeros(r.shape[0], dtype=float)
         for itr in range(nitr):
+            incl_autocor = True
+            if itr == 0:
+                incl_autocor = True
             # Use stefcal using Alt I
-            g = stefcal(r-numpy.diag(n_prev), m, incl_autocor=True)
-            n = n_est(r, m, g)
-            #n[numpy.where(n<0.0)]=0.0
+            g = stefcal(r-numpy.diag(n_prev), m, incl_autocor=incl_autocor)
             gg = (g[:, None] * numpy.conj(g[None, :]))
-            err = norm(r - gg*m - numpy.diag(n)) / (norm(r)+norm(gg*m)+norm(n))
-            if err < err_tol:
-                break
+            n = numpy.real(numpy.diag(r-gg*m).copy())
+            #n_med = numpy.median(n)
+            #n[numpy.argmax(n)]=n_med
+            #n[numpy.argmin(n)]=n_med
+            serr = numpy.abs(  numpy.vdot(numpy.linalg.pinv(g_prev[None,:]), g)
+                             + numpy.vdot(numpy.linalg.pinv(n_prev[None,:]), n)
+                             - 1)
+            if serr < err_tol:
+                pass
+            g_prev = g
             n_prev = n
-        print('walsleg', err, n[0:3], n[-2:])
+            print('walsleg', itr, serr, numpy.amax(n)/numpy.amin(n),
+                  numpy.amax(numpy.abs(g))/numpy.amin(numpy.abs(g)))
         if itr+1 == nitr:
-            raise ValueError('Has not converged')
+            pass
+            #raise ValueError('Has not converged')
         return g, n
 
     def wals_inv(r, m, nitr, err_tol):
@@ -404,17 +408,20 @@ def wals(r, m, variant='legacy', nitr=100, err_tol=1e-3, mask=None):
             g = stefcal(m+numpy.diag(n_prev), r, incl_autocor=incl_autocor)
             gg = (g[:, None] * numpy.conj(g[None, :]))
             n = numpy.real(numpy.diag(gg*r - m)).copy()
+            #n_med = numpy.median(n)
+            #n[numpy.argmax(n)]=n_med
+            #n[numpy.argmin(n)]=n_med
             #err = norm(gg * r - m - numpy.diag(n)) / (norm(gg * r)+norm(m)+norm(n))
             #rerr = reldiffnorm(n, n_prev)+reldiffnorm(g, g_prev)
-            serr = numpy.abs(numpy.vdot(numpy.linalg.pinv(g_prev[None,:]), g) - 1)
-            #if not numpy.all(n==0.0):
-            #    serr += numpy.vdot(n_prev, n)/numpy.linalg.norm(n)**2
-            #serr = numpy.abs(serr)
+            serr = numpy.abs(  numpy.vdot(numpy.linalg.pinv(g_prev[None,:]), g)
+                             + numpy.vdot(numpy.linalg.pinv(n_prev[None,:]), n)
+                             - 1)
             if serr < err_tol:
                 pass
             g_prev = g
             n_prev = n
-            print('walsinv', itr, serr, numpy.amax(n),numpy.amin(n), numpy.amax(numpy.abs(g)), numpy.amin(numpy.abs(g)))
+            print('walsinv', itr, serr, numpy.amax(n)/numpy.amin(n),
+                  numpy.amax(numpy.abs(g))/numpy.amin(numpy.abs(g)))
         if itr + 1 == nitr:
             pass
             #raise ValueError('Has not converged')
@@ -453,7 +460,7 @@ def gain_cal_bs_lin(vis_pol_src):
     return g_bs_lin
 
 
-def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
+def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy', nitr=100):
     """
     Solve for gains based on uncalibrated and model data
 
@@ -480,12 +487,13 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
         cvcpol_uncal = visibilities.cov_flat2polidx(cvcobj_uncal[fileidx])
         cvcpol_model = visibilities.cov_flat2polidx(cvcobj_model[fileidx])
         t0 = cvcobj_uncal.samptimeset[fileidx][0]
-        refdir = directionterm2tuple(cvcobj_uncal.scanrecinfo.get_pointingstr())
-        uvw_xyz = visibilities.calc_uvw(t0, refdir, cvcobj_uncal.stn_pos,
-                                        cvcobj_uncal.stn_antpos)
-        mask = visibilities.select_baselines_by_dist(uvw_xyz, cvcobj_uncal.freqset[fileidx][250], '<3.0')
+        refdir = _req_calsrc_proc(None, cvcobj_uncal.scanrecinfo.get_allsky(),
+                                  cvcobj_uncal.scanrecinfo.get_pointingstr())
+        #uvw_xyz = visibilities.calc_uvw(t0, refdir, cvcobj_uncal.stn_pos,
+        #                                cvcobj_uncal.stn_antpos)
+        mask = None
         # Put back autocorrelations
-        numpy.fill_diagonal(mask, False)
+        #numpy.fill_diagonal(mask, False)
         for tidx in range(intgs):
             t = cvcobj_uncal.samptimeset[fileidx][tidx]
             freq = cvcobj_uncal.freqset[fileidx][tidx]
@@ -493,11 +501,11 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy'):
             vis_model = cvcpol_model[tidx]
             print('loop', fileidx, tidx, 'xx')
             g_xx, n_xx = wals(vis_uncal[0, 0, ...], vis_model[0, 0, ...],
-                              variant=wals_variant,  nitr=20, err_tol=1e-2,
+                              variant=wals_variant,  nitr=nitr, err_tol=1e-2,
                               mask=mask)
             print('loop', fileidx, tidx, 'yy')
             g_yy, n_yy = wals(vis_uncal[1, 1, ...], vis_model[1, 1, ...],
-                              variant=wals_variant,  nitr=20, err_tol=1e-2,
+                              variant=wals_variant,  nitr=nitr, err_tol=1e-2,
                               mask=mask)
             # Use Stefcal with Alt II, so measured as 2nd arg
             #g_xx = stefcal(vis_model[0, 0, ...], vis_uncal[0, 0, ...], incl_autocor=incl_autocor)
