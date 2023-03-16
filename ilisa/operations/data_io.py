@@ -597,7 +597,8 @@ class ScanRecInfo(object):
                                                           ilisa.__version__))
             f.write("headerversion: {}\n".format(self.headerversion))
             f.write("station: {}\n".format(self.stnid))
-            f.write("scanrecparms: {!r}\n".format(self.scanrecparms))
+            f.write("scanrecparms: {!r}\n".format(self.scanrecparms)
+                    .replace('None', 'null'))
             f.write("ldat_ids: {!r}\n".format(list(self.ldatinfos.keys())))
             # Data modalities:
             if self.caltabinfos != []:
