@@ -202,7 +202,8 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
                   / nrm)
     if not fluxperbeam:
         ll2mm2 = ll**2+mm**2
-        beyond_horizon = ll2mm2 >= 1.0
+        beyond_horizon = ll2mm2 > 1.0
+        #ll2mm2[beyond_horizon] = 1.0  # Avoids warning for complex nn
         nn = numpy.sqrt(1-ll2mm2)
         # Weight values beyond horizon to one
         nn[beyond_horizon] = 1.0
