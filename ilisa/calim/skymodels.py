@@ -20,8 +20,9 @@ from casacore.measures import measures
 from ilisa.antennameta.export import ITRF2lonlat
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
-from .imaging import plotskyimage, imggrid_res
-from .visibilities import cov_polidx2flat, calc_uvw, rot2uv
+from .imaging import plotskyimage, imggrid_res, fiducial_image
+from .visibilities import cov_polidx2flat, calc_uvw, rot2uv,\
+    fiducial_visibility, point_source_vis2d
 from .im_process import n_from_lm
 
 
@@ -50,8 +51,25 @@ class CommonGSMObs(BaseObserver):
 
 def globaldiffuseskymodel(dattim, geopos, freq, gs_model='LFSM', imsize=200):
     """\
-    Generate hemisphere of global diffuse sky model (GDSM) over a position and for
-    given datetime and freq.
+    Generate hemisphere sky model image based on GSM, epoch & geolocation
+
+    Parameters
+    ----------
+    dattim: datetime
+        Epoch for model sky
+    geopos: tuple
+        Longitude, latitude, elevation tuple of geographic position for model
+    freq: float
+        Frequency for which model should be generated
+    gs_model: str
+        ID of global sky model
+    imsize: int
+        Number of pixels along one dimension of image
+
+    Returns
+    -------
+    img: array_like
+        The generated sky model image
     """
     if freq < 10e6:
         warnings.warn('Freq =< 10 MHz, will use model for 10.1 MHz instead.')
@@ -138,8 +156,10 @@ def vcz(ll, mm, skyimage, freq, ant_pos, imag_is_fd=False):
         Direction cosine, y-aligned image coordinate.
     skyimage : array_like
         Total flux image of sky.
-    uv: array_like
-        U,V vectors corresponding to 2D array configuration.
+    freq: float
+        Center frequency in Hz
+    ant_pos: array_like
+        Position vectors of array elements
     imag_is_fd : bool
         Input image is flux distribution map (fd) rather than flux density
         distribution (fdd) map.
@@ -178,42 +198,9 @@ def vcz(ll, mm, skyimage, freq, ant_pos, imag_is_fd=False):
     return vis
 
 
-def fiducial_visibility(stn_antpos_lambda, background=1.0):
+def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model):
     """
-    Generate a fiducial visibility
-
-    Parameters
-    ----------
-    stn_antpos: array
-        Positions of antennas in station.
-    background: float
-        Background flux density level.
-
-    Returns
-    -------
-    vis: array
-        The fiducial visibility.
-    """
-    imsize = 100  #21, 43
-    l = np.linspace(-1, 1, imsize)
-    m = np.linspace(-1, 1, imsize)
-    ll, mm = np.meshgrid(l, m)
-    img = background*np.ones_like(ll)
-    make_sq_reg = True
-    if make_sq_reg:
-        sqregion = np.zeros_like(ll)
-        sqregion[(-0.0<ll) & (ll<0.2) & (-0.9<mm) & (mm<-0.7)] = 2.0
-        img += sqregion
-    # Zero beyond horizon
-    img[ll**2+mm**2>=1.0] = 0.0
-    # N.B. freq=c/(2*np.pi) => k=1
-    vis_mod = vcz(ll, mm, img, c/(2*np.pi), stn_antpos_lambda, imag_is_fd=True)
-    return vis_mod
-
-
-def model_visibility(t, stn_pos, freq, stn_antpos, gs_model):
-    """
-    Create visibility model
+    Create sky-model visibilities
 
     Parameters
     ----------
@@ -230,8 +217,8 @@ def model_visibility(t, stn_pos, freq, stn_antpos, gs_model):
 
     Returns
     -------
-    model_visibility: array
-        Complex array of visibilities.
+    skymod_vis: array
+        Complex array of visibilities
     """
     nr_ants = stn_pos.shape[1]
     imsize = 100  # ToDo: improve this expression?
@@ -253,8 +240,8 @@ def model_visibility(t, stn_pos, freq, stn_antpos, gs_model):
     phaseref = (phaseref_ccm['m0']['value'], phaseref_ccm['m1']['value'],
                 phaseref_ccm['refer'])
     uvw_sl = calc_uvw(t, phaseref, stn_pos, stn_antpos)
-    vis_mod = vcz(ll, mm, img, freq, uvw_sl, imag_is_fd=False)
-    return vis_mod
+    skymod_vis = vcz(ll, mm, img, freq, uvw_sl, imag_is_fd=False)
+    return skymod_vis
 
 
 def create_vis_model_ff(cvcpath, gs_model):
@@ -308,13 +295,22 @@ def create_vis_model_ff(cvcpath, gs_model):
             freq = freqs[sampstep]
             t = ts[sampstep]
             if not gs_model.startswith('fid:'):
-                vis_I_mod = model_visibility(t, cvcobj_mod.stn_pos, freq,
-                                             cvcobj_mod.stn_antpos, gs_model)
+                vis_I_mod = skymodel_visibility(t, cvcobj_mod.stn_pos, freq,
+                                                cvcobj_mod.stn_antpos, gs_model)
             else:
-                _fid, fid_mod = gs_model.split(':', 1)
+                _fid, fid_typ = gs_model.split(':', 1)
                 lam = c/freq
-                vis_I_mod = fiducial_visibility(antpos_uv/lam*2*np.pi,
-                                                background=0.)
+                stn_antpos_lambda = antpos_uv / lam
+                if fid_typ == 'map':
+                    img_I, ll, mm = fiducial_image(background=0.0)
+                    # N.B. freq=c => k=2*np.pi since antpos in lambda units
+                    # (nominally freq=c/lam)
+                    vis_I_mod = vcz(ll, mm, img_I, c, stn_antpos_lambda,
+                                    imag_is_fd=False)
+                elif fid_typ == 'vis':
+                    #vis_I_mod = fiducial_visibility(cvcobj_mod.cvcdim1//2)
+                    vis_I_mod = point_source_vis2d(stn_antpos_lambda, l0=0.0,
+                                                   m0=0.0, amp=1.0)
             vis_XX_mod = vis_I_mod / 2.0
             vis_YY_mod = vis_I_mod / 2.0
             vis_XY_mod = np.zeros_like(vis_I_mod)

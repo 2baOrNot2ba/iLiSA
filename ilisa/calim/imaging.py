@@ -6,6 +6,7 @@ import os
 import argparse
 
 import numpy
+import numpy as np
 import numpy.ma as ma
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
@@ -15,9 +16,9 @@ import casacore.quanta.quantity
 
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 from ilisa.calim.flagging import Flags
+from ilisa.calim.visibilities import phaseref_xstpol
 from ilisa.operations import data_io as data_io
-from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str,\
-                                          directionterm2tuple
+from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str
 from . import SPEED_OF_LIGHT as c
 from .beam import get_beam_shape_parms, airydisk_radius, nrpixels_hint
 from . import visibilities as vsb
@@ -51,21 +52,6 @@ def imggrid_res(ll, mm):
     dll = ll[0,1] - ll[0,0]
     dmm = mm[1,0] - mm[0,0]
     return dll, dmm
-
-
-def phaseref_xstpol(xstpol, UVWxyz, freq):
-    """
-    Phase up polarized visibilities stack to U,V-align them at frequency 
-    """
-    lambda0 = sys.float_info.max
-    if freq != 0.0:
-        lambda0 = c / freq
-    phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
-    PP = numpy.einsum('i,k->ik', phasefactors, numpy.conj(phasefactors))
-    xstpupol = numpy.array(
-           [[PP*xstpol[0, 0, ...].squeeze(), PP*xstpol[0, 1, ...].squeeze()],
-            [PP*xstpol[1, 0, ...].squeeze(), PP*xstpol[1, 1, ...].squeeze()]])
-    return xstpupol
 
 
 def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
@@ -114,17 +100,6 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
     return accphasedup
 
 
-def phasedup_vis(vis, srcname, t, freq, polrep, stn_pos, stn_antpos):
-    """
-    Phase up visibiliies
-    """
-    # Phase center on src
-    dir_src = directionterm2tuple(srcname)
-    uvw_src = vsb.calc_uvw(t, dir_src, stn_pos, stn_antpos)
-    vis_pu = phaseref_xstpol(vis, uvw_src, freq)
-    return vis_pu
-
-
 def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
                      polrep='linear', fluxperbeam=True, fov_area=0.0):
     """
@@ -141,8 +116,6 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
         The 2D array configuration matrix.
     freq : float
         The frequency of the data in Hz.
-    use_autocorr : bool
-        Whether or not to include the autocorrelations.
     lmsize : float
         Size of image in (lm) direction-cosine units. Default 2.0 means allsky.
     nrpix : int
@@ -177,6 +150,14 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
     nrbls = xstpol.count()/(2*2)
     # Fill flagged values with 0.0:
     xstpol = ma.filled(xstpol_flagged, 0.0)
+
+    # Weighting
+    nrelems = xstpol.shape[-1]
+    w = np.ones_like(xstpol)  #
+    dg = np.arange(nrelems)
+    # Weight autocorrelations such that there sum becomes the mean autocorr:
+    w[..., dg, dg] = 1.0/nrelems
+
     posU, posV = stn2Dcoord[0, :].squeeze(), stn2Dcoord[1, :].squeeze()
     lambda0 = sys.float_info.max
     if freq != 0.0:
@@ -192,14 +173,14 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
     nrm = nrbls
     if fov_area:
         nrm *= fov_area
-    skyimag_xx = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 0, ...].squeeze())
-                  / nrm)
-    skyimag_xy = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[0, 1, ...].squeeze())
-                  / nrm)
-    skyimag_yx = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 0, ...].squeeze())
-                  / nrm)
-    skyimag_yy = (numpy.einsum('ijkl,kl->ij', bfbf, xstpol[1, 1, ...].squeeze())
-                  / nrm)
+    skyimag_xx = (numpy.einsum('ijkl,kl->ij', bfbf,
+                               w[0, 0, ...]*xstpol[0, 0, ...].squeeze()) / nrm)
+    skyimag_xy = (numpy.einsum('ijkl,kl->ij', bfbf,
+                               w[0, 1, ...]*xstpol[0, 1, ...].squeeze()) / nrm)
+    skyimag_yx = (numpy.einsum('ijkl,kl->ij', bfbf,
+                               w[1, 0, ...]*xstpol[1, 0, ...].squeeze()) / nrm)
+    skyimag_yy = (numpy.einsum('ijkl,kl->ij', bfbf,
+                               w[0, 1, ...]*xstpol[1, 1, ...].squeeze()) / nrm)
     if not fluxperbeam:
         ll2mm2 = ll**2+mm**2
         beyond_horizon = ll2mm2 > 1.0
@@ -714,6 +695,36 @@ def main_cli():
             sys.exit()
         plotskyimage(**imagedataset, maskhrz=False, plot_title='Imaged Sky')
         plt.show()
+
+
+def fiducial_image(background=1.0):
+    """
+    Generate a fiducial visibility
+
+    Parameters
+    ----------
+    background: float
+        Background flux density level.
+
+    Returns
+    -------
+    img: array
+        Fiducial image
+    """
+    imsize = 100
+    l = np.linspace(-1, 1, imsize)
+    m = np.linspace(-1, 1, imsize)
+    ll, mm = np.meshgrid(l, m)
+    img = background*np.ones_like(ll)
+    make_sq_reg = True
+    if make_sq_reg:
+        sqregion = np.zeros_like(ll)
+        #sqregion[(-0.0<ll) & (ll<0.2) & (-0.9<mm) & (mm<-0.7)] = 2.0
+        sqregion[(-0.7<ll) & (ll<0.7) & (-0.7<mm) & (mm<0.7)] = 2.0
+        img += sqregion
+    # Zero beyond horizon
+    img[ll**2+mm**2>1.0] = 0.0
+    return img, ll, mm
 
 
 if __name__ == "__main__":

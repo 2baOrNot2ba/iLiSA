@@ -1,8 +1,11 @@
+import sys
+
 import casacore.measures
 import numpy
 import numpy as np
 
 from . import SPEED_OF_LIGHT as c
+from ..operations.directions import directionterm2tuple
 
 try:
     import dreambeam
@@ -11,6 +14,23 @@ except ImportError:
     canuse_dreambeam = False
 if canuse_dreambeam:
     from dreambeam.polarimetry import cov_lin2cir, convertxy2stokes
+
+
+def fiducial_visibility(nrelems=2):
+    off_diag_val = 0.5
+    vis = np.ones((nrelems, nrelems), dtype=complex)
+    vis = off_diag_val * vis
+    np.fill_diagonal(vis, 1.0)
+    return vis
+
+
+def point_source_vis2d(uv_lam, l0=0.0, m0=0.0, amp=1.0):
+    # For point src at l0,m0
+    # Vis(U,V)=exp(i*(U*l0+V*m0))
+    arrayvec = np.exp(-1j*2*np.pi*(uv_lam[:, 0]*l0+uv_lam[:, 1]*m0))
+    n0 = np.sqrt(1-l0**2-m0**2)
+    vis = amp*np.einsum('i,k->ik', arrayvec, np.conj(arrayvec))/n0
+    return vis
 
 
 def baseline_distances(uvw_xyz):
@@ -317,3 +337,33 @@ def rm_redundant_bls(cvc, rmconjbl=True, use_autocorr=False):
             cvc[..., idx, idx] = 0.0
         nrbaselinestot -= nrelems
     return cvc, nrbaselinestot
+
+
+def phaseref_xstpol(xstpol, UVWxyz, freq):
+    """
+    Phase up polarized visibilities stack to U,V-align them at frequency
+    """
+    lambda0 = sys.float_info.max
+    if freq != 0.0:
+        lambda0 = c / freq
+    # Phase-factor corresponds to exp(-i*2*pi*W/lambda),
+    # this is so that B(l,m)*exp(i*2*pi*(U*l+V*m+W*n)/lambda)*phasefactor=
+    #   B(l,m)*exp(i*2*pi*(U*l+V*m+W*(n-1))/lambda) which
+    phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
+    PP = numpy.einsum('i,k->ik', phasefactors, numpy.conj(phasefactors))
+    #xstpupol = numpy.array(
+    #       [[PP*xstpol[0, 0, ...].squeeze(), PP*xstpol[0, 1, ...].squeeze()],
+    #        [PP*xstpol[1, 0, ...].squeeze(), PP*xstpol[1, 1, ...].squeeze()]])
+    xstpupol = PP*xstpol
+    return xstpupol
+
+
+def phasedup_vis(vis, srcname, t, freq, stn_pos, stn_antpos):
+    """
+    Phase up visibiliies
+    """
+    # Phase center on src
+    dir_src = directionterm2tuple(srcname)
+    uvw_src = calc_uvw(t, dir_src, stn_pos, stn_antpos)
+    vis_pu = phaseref_xstpol(vis, uvw_src, freq)
+    return vis_pu
