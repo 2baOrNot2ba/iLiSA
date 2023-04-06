@@ -242,6 +242,17 @@ def apply_polgains_cvcfolder(dataff, variant='legacy'):
     return cvcobj_cal
 
 
+def scale_lin(r, m):
+    r_f = numpy.ravel(r)
+    m_f = numpy.ravel(m)
+    o_f = numpy.ravel(numpy.eye(r.shape[0]))
+    a = numpy.column_stack((r_f, o_f))
+    gc = numpy.matmul(numpy.linalg.pinv(a), m_f)
+    g = gc[0]
+    c = gc[1]
+    return g, c
+
+
 def stefcal(r, m, niter=100, incl_autocor=True):
     """
     Compute solution to the quadratic matrix equation using the StefCal
@@ -500,11 +511,17 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy', nitr=100):
             vis_uncal = cvcpol_uncal[tidx]
             vis_model = cvcpol_model[tidx]
             print('loop', fileidx, tidx, 'xx')
-            g_xx, n_xx = wals(vis_uncal[0, 0, ...], vis_model[0, 0, ...],
+            g, c = scale_lin(vis_uncal[0, 0, ...], vis_model[0, 0, ...])
+            cd = c*numpy.eye(vis_uncal[0, 0, ...].shape[-1])
+            # print('scal',g,c)
+            g_xx, n_xx = wals(g*vis_uncal[0, 0, ...]+cd, vis_model[0, 0, ...],
                               variant=wals_variant,  nitr=nitr, err_tol=1e-2,
                               mask=mask)
             print('loop', fileidx, tidx, 'yy')
-            g_yy, n_yy = wals(vis_uncal[1, 1, ...], vis_model[1, 1, ...],
+            g, c = scale_lin(vis_uncal[0, 0, ...], vis_model[0, 0, ...])
+            cd = c*numpy.eye(vis_uncal[0, 0, ...].shape[-1])
+            #print('scal',g,c)
+            g_yy, n_yy = wals(g*vis_uncal[1, 1, ...]+cd, vis_model[1, 1, ...],
                               variant=wals_variant,  nitr=nitr, err_tol=1e-2,
                               mask=mask)
             # Use Stefcal with Alt II, so measured as 2nd arg
