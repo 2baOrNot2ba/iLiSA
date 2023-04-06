@@ -6,6 +6,7 @@ Beams here is in the most general sense, and could be synthesized or primary.
 import argparse
 
 import numpy
+import numpy as np
 import pkg_resources
 from matplotlib import pyplot as plt
 
@@ -237,6 +238,40 @@ def airydisk_radius(freq, d):
     if sintheta > 1.0:
         sintheta = 1.0
     return sintheta
+
+
+def dualdipole45_cov_patt(ll, mm):
+    """
+    Compute covariance pattern of dual-dipole rotated 45 deg.
+
+    Parameters
+    ----------
+    ll: 2D array
+        East-west direction cosines grid.
+    mm: 2D array
+        North-south direction cosines grid.
+
+    Returns
+    -------
+    cov_xx, cov_xy, cov_yx, cov_yy: tuple of 2D arrays
+        Transverse electric field covariance matrix. x,y are w.r.t antennas
+        X,Y.
+    """
+    nn = np.sqrt(1-ll**2-mm**2)
+    nn[ll**2+mm**2>1.0]=0.0
+    ll45 = 1/np.sqrt(2)*(ll-mm)
+    mm45 = 1/np.sqrt(2)*(ll+mm)
+    _jones_patt = (1/(1-nn**2)
+                  *np.array([[ll45**2*nn+mm45**2, -ll45*mm45*(1-nn)],
+                             [-ll45*mm45*(1-nn), ll45**2+mm45**2*nn]]))
+    _jones_l = np.moveaxis(_jones_patt, [0, 1], [-2, -1])
+    _jones2 = np.matmul(_jones_l, _jones_l)
+    _jones2 = np.moveaxis(_jones2, [-2, -1], [0, 1])
+    cov_xx = _jones2[0, 0]
+    cov_xy = _jones2[0, 1]
+    cov_yx = _jones2[1, 0]
+    cov_yy = _jones2[1, 1]
+    return cov_xx, cov_xy, cov_yx, cov_yy
 
 
 def main_cli():
