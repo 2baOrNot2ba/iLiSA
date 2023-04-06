@@ -21,8 +21,8 @@ from ilisa.antennameta.export import ITRF2lonlat
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
 from .imaging import plotskyimage, imggrid_res, fiducial_image
-from .visibilities import cov_polidx2flat, calc_uvw, rot2uv,\
-    fiducial_visibility, point_source_vis2d
+from .visibilities import cov_polidx2flat, calc_uvw, rot2uv, point_source_vis2d
+from .beam import dualdipole45_cov_patt
 from .im_process import n_from_lm
 
 
@@ -198,7 +198,7 @@ def vcz(ll, mm, skyimage, freq, ant_pos, imag_is_fd=False):
     return vis
 
 
-def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model):
+def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model, ant_model=''):
     """
     Create sky-model visibilities
 
@@ -214,6 +214,9 @@ def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model):
         Positions, 3D cartesian, of antennas in array.
     gs_model: str
         Global skymodel name.
+    ant_model:
+        Name of antenna model. '' for no antenna, or 'dual_dipole45' for dual
+        dipoles tilted 45 deg.
 
     Returns
     -------
@@ -231,7 +234,7 @@ def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model):
     ccm.doframe(ccm.position('ITRF', str(stn_pos_x) + 'm', str(stn_pos_y) + 'm',
                              str(stn_pos_z) + 'm'))
     lon, lat, h = ITRF2lonlat(stn_pos_x, stn_pos_y, stn_pos_z)
-    img = globaldiffuseskymodel(t, (lon, lat, h), freq,
+    img_S0 = globaldiffuseskymodel(t, (lon, lat, h), freq,
                                 gs_model=gs_model,
                                 imsize=imsize)
     ccm.doframe(ccm.epoch('UTC', t.isoformat('T')))
@@ -240,11 +243,27 @@ def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model):
     phaseref = (phaseref_ccm['m0']['value'], phaseref_ccm['m1']['value'],
                 phaseref_ccm['refer'])
     uvw_sl = calc_uvw(t, phaseref, stn_pos, stn_antpos)
-    skymod_vis = vcz(ll, mm, img, freq, uvw_sl, imag_is_fd=False)
-    return skymod_vis
+    if ant_model == 'dual_dipole45':
+        (cov_xx, cov_xy, cov_yx, cov_yy), _, _ = dualdipole45_cov_patt(ll, mm)
+        imag_xx = cov_xx * img_S0 / 2.0
+        imag_xy = cov_xy * img_S0 / 2.0
+        imag_yx = cov_yx * img_S0 / 2.0
+        imag_yy = cov_yy * img_S0 / 2.0
+        vis_xx = vcz(ll, mm, imag_xx, freq, uvw_sl, imag_is_fd=False)
+        vis_xy = vcz(ll, mm, imag_xy, freq, uvw_sl, imag_is_fd=False)
+        vis_yx = vcz(ll, mm, imag_yx, freq, uvw_sl, imag_is_fd=False)
+        vis_yy = vcz(ll, mm, imag_yy, freq, uvw_sl, imag_is_fd=False)
+    else:
+        imag_xx = img_S0 / 2.0
+        imag_yy = imag_xx
+        vis_xx = vcz(ll, mm, imag_xx, freq, uvw_sl, imag_is_fd=False)
+        vis_yy = vis_xx
+        vis_xy = np.zeros_like(vis_xx)
+        vis_yx = np.zeros_like(vis_xx)
+    return vis_xx, vis_xy, vis_yx, vis_yy
 
 
-def create_vis_model_ff(cvcpath, gs_model):
+def create_vis_model_ff(cvcpath, gs_model, ant_model=''):
     """
     Create visibility model file-folder based on measured data file-folder
 
@@ -254,6 +273,9 @@ def create_vis_model_ff(cvcpath, gs_model):
         Path to measured visibilities
     gs_model: str
         Name of global sky model to use
+    ant_model: str
+        Name of antenna model to use. Could be '' or 'dual_dipole45'. If empty
+        str then no antenna model will be applied.
 
     Returns
     -------
@@ -295,8 +317,10 @@ def create_vis_model_ff(cvcpath, gs_model):
             freq = freqs[sampstep]
             t = ts[sampstep]
             if not gs_model.startswith('fid:'):
-                vis_I_mod = skymodel_visibility(t, cvcobj_mod.stn_pos, freq,
-                                                cvcobj_mod.stn_antpos, gs_model)
+                vis_XX_mod, vis_XY_mod, vis_YX_mod, vis_YY_mod \
+                    = skymodel_visibility(t, cvcobj_mod.stn_pos, freq,
+                                          cvcobj_mod.stn_antpos, gs_model,
+                                          ant_model=ant_model)
             else:
                 _fid, fid_typ = gs_model.split(':', 1)
                 lam = c/freq
@@ -308,13 +332,12 @@ def create_vis_model_ff(cvcpath, gs_model):
                     vis_I_mod = vcz(ll, mm, img_I, c, stn_antpos_lambda,
                                     imag_is_fd=False)
                 elif fid_typ == 'vis':
-                    #vis_I_mod = fiducial_visibility(cvcobj_mod.cvcdim1//2)
                     vis_I_mod = point_source_vis2d(stn_antpos_lambda, l0=0.0,
                                                    m0=0.0, amp=1.0)
-            vis_XX_mod = vis_I_mod / 2.0
-            vis_YY_mod = vis_I_mod / 2.0
-            vis_XY_mod = np.zeros_like(vis_I_mod)
-            vis_YX_mod = np.zeros_like(vis_I_mod)
+                vis_XX_mod = vis_I_mod / 2.0
+                vis_YY_mod = vis_I_mod / 2.0
+                vis_XY_mod = np.zeros_like(vis_I_mod)
+                vis_YX_mod = np.zeros_like(vis_I_mod)
             vis_flat_mod = cov_polidx2flat(np.asarray(
                                            [[vis_XX_mod, vis_XY_mod],
                                             [vis_YX_mod, vis_YY_mod]]))
@@ -323,7 +346,7 @@ def create_vis_model_ff(cvcpath, gs_model):
         cvcobj_mod[filestep] = cvc_infile
     # Note in ScanRecInfo about model for this dataset:
     cvcobj_mod.scanrecinfo.scanrecpath = cvcmodpath
-    cvcobj_mod.scanrecinfo.set_model(gs_model)
+    cvcobj_mod.scanrecinfo.set_model(gs_model+'+'+ant_model)
     return cvcobj_mod
 
 
@@ -344,13 +367,15 @@ def main_cli():
                         help="Normalize flux per sterradian")
     parser.add_argument('-g', '--gs_model', type=str, default='LFSM',
                         help="Name of global sky model")
+    parser.add_argument('-a', '--ant_model', type=str, default='',
+                        help="Name of antenna model")
     parser.add_argument('dataff',
                         help="""Path to CVC folder""")
     args = parser.parse_args()
     cvcobj = data_io.CVCfiles(args.dataff)
     if args.rep == 'vis':
         try:
-            create_vis_model_ff(args.dataff, args.gs_model)
+            create_vis_model_ff(args.dataff, args.gs_model, args.ant_model)
         except FileExistsError as e:
             print(e, file=sys.stderr)
             print('Remove it to create a new vis model!', file=sys.stderr)
