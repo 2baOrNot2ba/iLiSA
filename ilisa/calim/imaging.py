@@ -460,7 +460,7 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
 
 def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
           flag_bl_file=None, lm_extent=2.0, nrpixels=100,
-          polrep = 'stokes'):
+          polrep='stokes'):
     """\
     Image visibility-type data
 
@@ -689,7 +689,8 @@ def main_cli():
         try:
             imagedataset = image(args.dataff, args.filenr, args.sampnr,
                                  args.phaseref, args.correctpb,
-                                 args.fluxpersterradian, args.blflagfile)
+                                 args.fluxpersterradian, args.blflagfile,
+                                 polrep='linear')
         except (IndexError, ValueError) as err:
             print("Error:", err)
             sys.exit()
