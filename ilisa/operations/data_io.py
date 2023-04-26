@@ -1632,7 +1632,8 @@ def viewbst(bstff, pol_stokes=True, printout=False):
                       + ' pointing: {}'.format(pointing))
         plt.suptitle(supertitle)
         plt.draw()
-        plt.pause(file_dur)
+        print("Waiting for data update (press any key to unblock)")
+        plt.waitforbuttonpress(file_dur)
         plt.close()
     else:
         # CSV style:
