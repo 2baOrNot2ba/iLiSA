@@ -1,21 +1,21 @@
 /*
 
-gcc -Wall -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread
+gcc -Wall -O -o dump_udp_ow_17 dump_udp_ow_17.c -lpthread
 
 or more pedantic:
 
-gcc -Wall -std=c11 -pedantic -Werror -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread
+gcc -Wall -std=c11 -pedantic -Werror -O -o dump_udp_ow_17 dump_udp_ow_17.c -lpthread
 
 even more (too much for the current code):
 
-gcc -Wall -ansi -pedantic -Werror -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread
+gcc -Wall -ansi -pedantic -Werror -O -o dump_udp_ow_17 dump_udp_ow_17.c -lpthread
 
 
 
 
 
 static (may not work):
-gcc -static -Wall -O -o dump_udp_ow_14 dump_udp_ow_14.c -lpthread
+gcc -static -Wall -O -o dump_udp_ow_17 dump_udp_ow_17.c -lpthread
 
 
 maintained by Olaf Wucknitz <wucknitz@mpifr-bonn.mpg.de>
@@ -33,13 +33,25 @@ for tests on instantmix.mpifr-bonn.mpg.de:
 
 dd if=/media/storage_1/wucknitz/TEMP/B1133+16_udp/B1133+16_band110_190_lanes4_sb12-499_lofarc4.16033.start.2018-11-28T06:00:31.000 bs=7824 | ~/astro_mpi/SOFT/MIRACULIX2/bin/throttle -w 1 -M 100 -s 7824 | ~/astro_mpi/SOFT/MIRACULIX2/bin/socat -b 7824 -u STDIN UDP-DATAGRAM:localhost:16011
 
-./dump_udp_ow_14 --ports 16011 --out /media/storage_1/wucknitz/TEST/test --duration 1 --check
+./dump_udp_ow_17 --ports 16011 --out /media/storage_1/wucknitz/TEST/test --duration 1 --check
 
+
+
+on lofar1:
+
+lofar1:/.../BEAMFORMED $ ~/astro_mpi/GLOW_VLBI_RECORDING_TOOLS/dump_udp_ow_17 --skip 0 --out temp00 --check --ports 16000 --timeout -1
+
+lofar1:~/.../GLOW_VLBI_RECORDING_TOOLS $ ~/astro_mpi/SOFT/MIRACULIX2/bin/throttle -w 1 -M 100 -s 7824 < /data/2022-08-12_PERSEIDS/BEAMFORMED/temp.udp | socat -b 7824 -u STDIN UDP-DATAGRAM:localhost:16000
 
 
 
 version 12 tests a number of options for zstd
 
+version 15  can select IP and/or device, and can write source IP and port
+
+version 16  allows compiling at KAIRA (SO_BINDTODEVICE missing there)
+
+version 17  can skip first n packets for each new stream (after timeout etc.)
 
 */
 
@@ -61,6 +73,7 @@ version 12 tests a number of options for zstd
 
 #include  <sys/types.h>
 #include  <sys/socket.h>
+#include  <netdb.h>
 #include  <assert.h>
 #include  <string.h>
 #include  <stdio.h>
@@ -100,7 +113,7 @@ version 12 tests a number of options for zstd
 
 
 /* additional debugging, e.g. for "stopped" ? */
-#define  MYDEBUG  1
+#define  MYDEBUG  2
 
 
 
@@ -128,6 +141,10 @@ pthread_mutex_t mydebug_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 
 
+/* new link about virtual ring buffer:
+https://abhinavag.medium.com/a-fast-circular-ring-buffer-4d102ef4d4a3
+*/
+
 /* virtual ring buffer adapted from this:
    https://en.wikipedia.org/w/index.php?title=Circular_buffer&oldid=588930355#Optimization
    virtual ringbuffer with two virtual copies so that all access
@@ -148,8 +165,8 @@ struct vrb {
 void  init_vrb (struct vrb  *vrb, long  minsize)
 {
   int  i, fd;
-  static char  path1[]= "/dev/shm/dump_udp_ow_14_vrb-XXXXXX";
-  static char  path2[]= "/tmp/dump_udp_ow_14_vrb-XXXXXX";
+  static char  path1[]= "/dev/shm/dump_udp_ow_17_vrb-XXXXXX";
+  static char  path2[]= "/tmp/dump_udp_ow_17_vrb-XXXXXX";
   char  *addr, *path;
   
   /* promote to the next full page size: */
@@ -351,19 +368,20 @@ struct timespec  timeout;
 
 fd_set  allsocks;
 
-char  thisfilename[1000], filename[500], hostname[100];
+char  thisfilename[2000], filename[500], hostname[100];
 
 char  *portlist;
 
 
 
 int  compress;
-//char  *compcommand;
 char  compcommand[1000];
 
 
 double  maxfilesize;
-int  filenumber, stat_per_splitfile;
+int  filenumber, stat_per_splitfile,
+  nskip,       /* how many first packets to skip, 0 for none */
+  this_nskip[MAXNSOCK];  /* how many packets still to skip this round (per socket) */
 
 
 /* return timestamp for either timestamp as string or yyyy-mm-ddThh:mm:ss 
@@ -449,10 +467,7 @@ void  count_dropped_kernel ()
 
   /* initialise with 0 */
   for (i= 0; i<nsock; i++)
-    {
-      //      last_dropped_kernel[i]= dropped_kernel[i];
-      dropped_kernel[i]= -1;
-    }
+    dropped_kernel[i]= -1;
   
   f= fopen ("/proc/net/udp", "r");
   if (f==NULL)
@@ -553,7 +568,7 @@ void  final_statistics ()
 		    (packs_seen[i]-packs_dropped[i])*100./ntot);
 	}
       if (check_dropped_kernel)
-	printf (      "             dropped by kernel %9ld   %10.6f %% of (seen+dropped by kernel)\n", dropped_kernel[i], dropped_kernel[i]*100./(packs_seen[i]+dropped_kernel[i]));
+	printf (    "         dropped by kernel %9ld   %10.6f %% of (seen+dropped by kernel)\n", dropped_kernel[i], dropped_kernel[i]*100./(packs_seen[i]+dropped_kernel[i]));
       printf ("                   volume    %7.3f GB\n",
 	      bytes_written[i]/pow (1024,3));
 
@@ -788,6 +803,8 @@ void *producer ()
   char  *newpoi;
   char  *buff2;
 
+  static struct sockaddr_in  addr_src_old;
+  static int  addr_src_n= 0;
 
 
 
@@ -828,16 +845,26 @@ void *producer ()
 	      pthread_mutex_unlock(&region_mutex);
 	      /* printf ("after    available: %ld\n", ringbuffer.totsize-ringbuffer.fillsize); */
 	      
+
+	      /* read one packet, first skip this_nskip if necessary */
+#if MYDEBUG>=2
+	      if (this_nskip[0]>0)
+fprintf (stderr, "SKIP: skipping %d packets\n", this_nskip[0]);
+#endif
 	      
-	      thissize= fread (buff2, 1, packlen, stdin);
-	      if (ferror (stdin))
-		perror ("reading from stdin in producer()");
-	      
-	      if (thissize==0)  /* treat as timeout */
+	      for (int iskip= 0; iskip<this_nskip[0]+1; iskip++)
 		{
-		  signal_handler (-1);
-		  /*stopped= 2; */
+		  thissize= fread (buff2, 1, packlen, stdin);
+		  if (ferror (stdin))
+		    perror ("reading from stdin in producer()");
+		  
+		  if (thissize==0)  /* treat as timeout */
+		    {
+		      signal_handler (-1);
+		      /*stopped= 2; */
+		    }
 		}
+	      this_nskip[0]= 0;
 	    }
 	  /* here we already have read the packet (or thissize==0) */
 	}
@@ -904,10 +931,50 @@ void *producer ()
 	    {
 	      if (FD_ISSET (sock[i], &myallsocks))
 		{
-		  thissize= recvfrom (sock[i], buff2, MMAXLEN-1, /* play safe */
-				      0,
-				      (struct sockaddr *)&addr_src,
-				      &slen);
+		  if (verbose)
+		    {
+		      thissize= recvfrom (sock[i], buff2,
+					  MMAXLEN-1, /* play safe */
+					  0,
+					  (struct sockaddr *)&addr_src,
+					  &slen);
+		      if (addr_src_n==0 ||
+		  ((
+		    addr_src.sin_port!=addr_src_old.sin_port ||
+		    addr_src.sin_addr.s_addr!=addr_src_old.sin_addr.s_addr )
+		      && addr_src_n<100))
+			{
+			  char  host[20], serv[10];
+			  int  i;
+			  
+			  i= getnameinfo ((struct sockaddr*)&addr_src, slen,
+					  host, sizeof (host),
+					  serv, sizeof (serv),
+					  NI_NUMERICHOST | NI_NUMERICSERV);
+			  if (i)
+			    printf ("getnameinfo() error %d\n", i);
+			  else
+			    {
+			      if (addr_src_n==0)
+				printf ("first packet received from source %s:%s\n",
+					host, serv);
+			      else
+				printf (
+				  "packet received from different (%d) source %s:%s\n",
+				  addr_src_n, host, serv);
+			    }
+			  addr_src_n++;
+			  addr_src_old= addr_src;;
+			}
+				
+		    }
+		  else
+		    thissize= recvfrom (sock[i], buff2,
+					MMAXLEN-1, /* play safe */
+					0,
+					NULL, 0);
+
+		  
 		  if (thissize==-1)
 		    {
 		      perror ("recvfrom() in producer()");
@@ -942,6 +1009,7 @@ void *producer ()
 	      {
 		/* now we have a packet either from socket or from stdin */
 		  if (packlen==0 || thissize==packlen)
+		    /* good size, or size does not matter */
 		    
 		    {
 
@@ -955,59 +1023,78 @@ void *producer ()
 		      
 		      if (do_blocklen)/* add the blocklen if wanted (two bytes) */
 			thissize+= 2;
-		      
-		      
-		      if (beamformed_check)
+
+
+		      if (this_nskip[i]>0) /* skip this packet */
 			{
-			  beamformed_last_packno[i]= beamformed_packno (
-					(struct header_lofar*)buff2);
-			  if (beamformed_first_packno[i]==-1)
-			    beamformed_first_packno[i]= 
-			      beamformed_last_packno[i];
-			  if (beamformed_checkpack ((struct 
-						     header_lofar*)buff2))
-			    beamformed_good_packs[i]++;
+
+
+#if MYDEBUG>=2
+	      if (this_nskip[i]>0)
+fprintf (stderr, "SKIP: still to skip %d packets in socket %d\n",
+	 this_nskip[i], i);
+#endif
+			  
+			this_nskip[i]--;
 			}
 		      
-		      packs_seen[i]++;
-		      
-		      /* (no conflicts for rear and allbuffs) */
+		      else  /* use this packet */
 
-		      /* locking is probably not necessary here, but anyway */
-		      pthread_mutex_lock(&region_mutex);
-		      newpoi= vrb_poi_new (&ringbuffer, thissize);
-		      sum_filllevel+= ringbuffer.fillsize
-			        /(double)ringbuffer.totsize;
-		      n_filllevel++;
-		      pthread_mutex_unlock(&region_mutex);
-
-		      
-		      if (newpoi==NULL)   /* not enough space */
-			/* this should not happen for read from stdin */
 			{
-			  /* simply drop this packet */
-			  packs_dropped[i]++;
-			}
-		      else /* enough space */
-			
-			{
-			  memcpy (newpoi, buff, thissize);
-
-			  /* ... and then lock again here  */
+			  
+			  if (beamformed_check)
+			    {
+			      beamformed_last_packno[i]= beamformed_packno (
+					    (struct header_lofar*)buff2);
+			      if (beamformed_first_packno[i]==-1)
+				beamformed_first_packno[i]= 
+				  beamformed_last_packno[i];
+			      if (beamformed_checkpack ((struct 
+							 header_lofar*)buff2))
+				beamformed_good_packs[i]++;
+			    }
+			  
+			  packs_seen[i]++;
+			  
+			  /* (no conflicts for rear and allbuffs) */
+			  
+		  /* locking is probably not necessary here, but anyway */
 			  pthread_mutex_lock(&region_mutex);
-
-			  vrb_advance_new (&ringbuffer, thissize);
-
-			  if (ringbuffer.fillsize>maxsize)
-			      maxsize= ringbuffer.fillsize;
-
-			  pthread_cond_signal(&data_available);
+			  newpoi= vrb_poi_new (&ringbuffer, thissize);
+			  sum_filllevel+= ringbuffer.fillsize
+			    /(double)ringbuffer.totsize;
+			  n_filllevel++;
 			  pthread_mutex_unlock(&region_mutex);
 			  
-			  totlen+= thissize;
 			  
-			  bytes_written[i]+= thissize;
-			}
+			  if (newpoi==NULL)   /* not enough space */
+			    /* this should not happen for read from stdin */
+			    {
+			      /* simply drop this packet */
+			      packs_dropped[i]++;
+			    }
+			  else /* enough space */
+			    
+			    {
+			      memcpy (newpoi, buff, thissize);
+			      
+			      /* ... and then lock again here  */
+			      pthread_mutex_lock(&region_mutex);
+			      
+			      vrb_advance_new (&ringbuffer, thissize);
+			      
+			      if (ringbuffer.fillsize>maxsize)
+				maxsize= ringbuffer.fillsize;
+			      
+			      pthread_cond_signal(&data_available);
+			      pthread_mutex_unlock(&region_mutex);
+			      
+			      totlen+= thissize;
+			      
+			      bytes_written[i]+= thissize;
+			    }
+			  
+			} /* use this packet */
 		      
 		    }  /* packlen==0 || ... */
 		  else
@@ -1070,14 +1157,17 @@ void  start_file (double  timestamp)
 	/*	sprintf (thisfilename, "%s_%s.%s.%s.%s%s", filename, portlist, */
 	/*hostname, comment, buff, compress ? ".zst" : ""); */
 	{
-	  sprintf (thisfilename, "%s_%s.%s.%s_%04d%s", filename, portlist,
+	  snprintf (thisfilename, sizeof (thisfilename), "%s_%s.%s.%s_%04d%s",
+		   filename, portlist,
 		   hostname, buff, filenumber, compress ? ".zst" : "");
 	  filenumber++;
 	}
       else
-	sprintf (thisfilename, "%s_%s.%s.%s%s", filename, portlist, hostname,
+	snprintf (thisfilename, sizeof (thisfilename), "%s_%s.%s.%s%s",
+		  filename, portlist, hostname,
 		 buff, compress ? ".zst" : "");
       printf ("\ncreating %s\n", thisfilename);
+
     }
 
   bytes_written_thisfile= 0;
@@ -1167,6 +1257,16 @@ void *consumer ()
 	      final_statistics ();
 	      init_thisfilestat ();
 	    }
+
+	  if (my_stopped!=-1)
+	    {
+#if MYDEBUG>=2
+	      fprintf (stderr, "SKIP: init 2: %d for nsock=%d\n", nskip, nsock);
+#endif
+	    for (int i= 0; i<nsock; i++)
+	      this_nskip[i]= nskip;  /* start new receive round */
+	    }
+
 	  printf ("closing %s%s\n", thisfilename,
 		  my_stopped==-1 ? "  (split file)" : "" );
 	  if (compress)
@@ -1379,7 +1479,7 @@ int  main (int  argc, char  **argv)
 
   struct option long_options[] =
     {
-      {"verbose",  no_argument, &verbose, 1},  // short: v
+      {"verbose",  no_argument, &verbose, 1},  /* short: v */
       {"len",      required_argument, 0, 'l'},
       {"ports",    required_argument, 0, 'p'},
       {"out",      required_argument, 0, 'o'},
@@ -1398,11 +1498,18 @@ int  main (int  argc, char  **argv)
       {"maxwrite", required_argument, 0, 'm'},
       {"compress", no_argument,       0, 'z'},
       {"compcommand", required_argument, 0, 'Z'},
-      {"path", required_argument, 0, 'P'},
-      {"nowrite", no_argument, &dowrite, 0},  // short: n
+      {"path",     required_argument, 0, 'P'},
+      {"nowrite",  no_argument, &dowrite, 0},  /* short: n */
+#ifdef  SO_BINDTODEVICE
+      {"device",   required_argument, 0, 'D'},
+#endif
+      {"ip",       required_argument, 0, 'I'},
+      {"skip",     required_argument, 0, 'K'},
       {0, 0, 0, 0}
     };
-  char  *short_options= "hHvl:p:o:sb:B:m:t:S:E:d:M:ckzZ:P:n", *cp, *cp2, *cp3, *cp4,
+  char  /* *short_options= "hHvl:p:o:sb:B:m:t:S:E:d:M:ckzZ:P:n",*/
+    short_options[1000],
+    *cp, *cp2, *cp3, *cp4,
     stdportlist[]= "4346", *start_time= NULL, *end_time= NULL;
   /*    *compcommand_std= "zstd -1 --zstd='strategy=0,wlog=13,hlog=7,slog=1,slen=7' -q -f -T2 -o %s"; */
   int  i, j, c, option_index= 0;
@@ -1410,6 +1517,42 @@ int  main (int  argc, char  **argv)
   long bufsize;
   int  sock_bufsize;
 
+#ifdef  SO_BINDTODEVICE
+  char  *dest_device_str= NULL;
+#endif
+  
+  char  *dest_ip_str;
+  /*uint32_t  dest_ip;*/
+  struct in_addr  dest_ip;
+
+
+
+  j= 0;
+  for (i= 0; i<sizeof (long_options)/sizeof (long_options[0])-1; i++)
+    {
+      short_options[j]= long_options[i].val;
+      j++;
+      if (long_options[i].has_arg)
+	{
+	  short_options[j]= ':';
+	  j++;
+	}
+      if (long_options[i].has_arg==optional_argument)
+	{
+	  short_options[j]= ':';
+	  j++;
+	}
+    }
+  short_options[j]= 0;
+  
+#if 0
+  fprintf (stderr, "short_options:   %s\n", short_options);
+  exit (1);
+#endif
+
+
+  
+  dest_ip_str= NULL;
   
   maxfilesize= 0.;
   compress= 0;
@@ -1439,6 +1582,8 @@ int  main (int  argc, char  **argv)
   packlen= 0;  /* arbitrary */
 
   stat_per_splitfile= 1;
+
+  nskip= 0;
   
   while (1)
     {
@@ -1625,6 +1770,23 @@ int  main (int  argc, char  **argv)
 	      exit (1);
 	    }
 	  break;
+#ifdef  SO_BINDTODEVICE
+	case 'D':
+	  dest_device_str= optarg;
+	  break;
+#endif
+	case 'I':
+	  dest_ip_str= optarg;
+	  break;
+	case 'K':
+	  if (sscanf (optarg, "%d", &nskip)!=1 ||
+                nskip<0)
+              {
+                fprintf (stderr,
+                         "problem with skip\n");
+                c= '?';
+              }
+	    break;
 	case 'H':
 	  break;  /* is treated below */
 	default:  /* incl '?' */
@@ -1648,8 +1810,8 @@ int  main (int  argc, char  **argv)
                    "    [--verbose/-v] \n"
                    "    [--len/-l packet_len]    current: %d, 0=arbitrary\n"
                    "    [--sizehead/-s]          write packet lengths as headers\n"
-		   "                             (not well tested)\n"
-                   "    [--timeout/-t sec]       current: %f, negative: exit after first timeout\n"
+		   "                             (not well tested, not recommended)\n"
+                   "    [--timeout/-t sec]       current: %f, negative: use abs and exit after first timeout\n"
                    /*		   "    [--out/-o filename]\n" */
 		   "    [--Start/-S time]        default: now\n"
 		   "    [--End/-E time]          default: never\n"
@@ -1670,11 +1832,18 @@ int  main (int  argc, char  **argv)
                    "    [--sock_bufsize/-B size]  socket buffer size, 0 for default, current: %d  (float will be converted)\n"
 		   "    [--maxwrite/-m size]     max. write block, current: %ld\n"
 		   "    [--nowrite/-n]           do not write data to file, only open (for debugging purposes)\n"
+#ifdef  SO_BINDTODEVICE
+		   "    [--device/-D name]       receive only via this device (root only)\n"
+#else
+		   "    not available on this system:  [--device/-D name]\n"
+#endif
+		   "    [--ip/-I name]           receive only via this destination IP\n"
+		   "    [--skip/-K n]            skip this many packets in each new receive round (not per split-file)\n"
                    "    [--help/-h]              brief help\n"
                    "    [--Help/-H]              extended help\n",
 		   argv[0], portlist, filename, packlen,
 		   timeout_sec, compcommand, bufsize, sock_bufsize, maxwrite);
-	  printf ("\n\n\n%c\n\n", c);
+	  /*printf ("\n\n\n%c\n\n", c);*/
 	  if (c=='H')
 	    fprintf (stderr,
 "\nWe can work in different modes. If --Start is given, start at that time,\n"
@@ -1684,27 +1853,33 @@ int  main (int  argc, char  **argv)
 "with no packets. If --Start used, timeout can also happen before first\n"
 "packet, otherwise only once data have arrived. After timeout the programme\n"
 "stops this recording but then waits for next packet and potentially starts\n"
-"new file(s). After --duration or at --End, the programme stops.\n"
+"new file(s). After --duration or at --End, or if timeout<0, the programme\n"
+"stops.\n"
 "We can listen to several ports, but all data will go to one file.\n"
 "--ports 0 reads from stdin. It requires --len but cannot use --Start, --End\n"
 "or --duration. End of file is treated as timeout.\n"
 "Filename is built from --out parameter plus portlist plus\n"
-"plus hostname '%s' plus 'start' or 'packet' (depending on whether we start at\n"
-"certain time or with first packet) plus UTC timestamp.\n"
+"hostname '%s' plus UTC timestamp and maybe plus number.\n"
 "Filename '/dev/null' (this exact spelling) is used directly.\n"
 "Packets can be any length, unless --len is given, then only that length is\n"
 "accepted (others discarded). For variable packet length we can write the\n"
 "lengths as headers (--sizehead). The internal ring buffer size can be set\n"
 "with --bufsize. --verbose produces more output.\n"
-"The socket buffer can be set with --sock_bufsize. This is used for setsockopt(), the value reported with getsockopt () will be twice this (if successful). Note that kernel limits apply, in particular sysctl net.core.rmem_max.\n"
+"The socket buffer can be set with --sock_bufsize. This is used for\n"
+"setsockopt(), the value reported with getsockopt () will be twice this\n"
+"(if successful). Note that kernel limits apply, in particular\n"
+"sysctl net.core.rmem_max.\n"
 "Reading and writing have their own threads, data are written in maximum\n"
 "blocks given by --maxwrite. (Should be << bufsize, because each block\n"
 "is only released after complete write.)\n"
 "With --check we compare the number of packets (received and written) with\n"
 "the number expected from the packet numbers and determine a completeness.\n"
 "With --compress we compress on the fly, using zstd (must be in PATH).\n"
-"The compression command must include a %%s that will be replaced by the output filename.\n"
-"The standard options depend on the zstd version that is available.\n",
+"The compression command must include a %%s that will be replaced by the\n"
+"output filename. The standard options depend on the zstd version that\n"
+"is available.\n"
+"Skipping packets is in each new file (but not split-file), and per socket.\n"
+"Skipped packets are not counted in statistics.\n",
 hostname
 );
 
@@ -1712,8 +1887,6 @@ hostname
         }
 
     }  /* while (1) */
-
-
 
 
   if (compress && compcommand[0]==0)  /* no command set explicitly */
@@ -1766,6 +1939,25 @@ hostname
   printf ("starting %s\n", __FILE__);
 #endif
 
+
+  if (dest_ip_str)
+    {
+      if (inet_aton (dest_ip_str, &dest_ip)!=1)
+	{
+	  fprintf (stderr, "no valid ip addr: %s\n", dest_ip_str);
+	  exit (1);
+	}
+      if (verbose)
+	printf ("receive only via destination IP %s\n", dest_ip_str);
+    }
+  else
+    dest_ip.s_addr= htonl (INADDR_ANY);
+
+  if (dest_device_str && verbose)
+    printf ("receive only via destination device %s\n", dest_device_str);
+    
+
+  
   if (verbose)
     {
       char  buff[100];
@@ -1859,6 +2051,12 @@ hostname
         printf ("port %d  %d\n", i, portnos[i]);
       printf ("own buffer size: %ld\n", bufsize);
     }
+
+#if MYDEBUG>=2
+  fprintf (stderr, "SKIP: init 1: %d for nsock=%d\n", nskip, nsock);
+#endif
+  for (int i= 0; i<nsock; i++)
+    this_nskip[i]= nskip;  /* start new receive round */
 
 
   if (nsock==1 && portnos[0]==0)   /* then read stdin */
@@ -1978,7 +2176,7 @@ hostname
 	  if (sock_bufsize>0 &&
 	      (setsockopt (sock[i], SOL_SOCKET, SO_RCVBUF, &sock_bufsize,
 			   sizeof (sock_bufsize)) < 0))
-	    perror ("setsockopt");
+	    perror ("setsockopt(SO_RCVBUF)");
 	  if (verbose)
 	    {
 	      int siz;
@@ -1994,12 +2192,20 @@ hostname
 		}
 	      assert (optlen==sizeof (siz));
 	  }
-	  
-	  
+#ifdef  SO_BINDTODEVICE
+	  if (dest_device_str &&
+	      (setsockopt (sock[i], SOL_SOCKET, SO_BINDTODEVICE,
+			   dest_device_str, strlen (dest_device_str))<0))
+	    {
+	      perror ("setsockopt(SO_BINDTODEVICE)");
+	      exit (1);
+	    }
+#endif
 	  memset(&addr[i], 0, sizeof(addr[i]));
 	  addr[i].sin_family= AF_INET;
 	  addr[i].sin_port= htons (portnos[i]);
-	  addr[i].sin_addr.s_addr= htonl (INADDR_ANY);
+      /* addr[i].sin_addr.s_addr= htonl (INADDR_ANY); */
+	  addr[i].sin_addr= dest_ip;
 	  
 	  j= bind (sock[i], (struct sockaddr *)&addr[i], sizeof (addr[i]));
 	  if (j==-1)
@@ -2014,7 +2220,7 @@ hostname
 
 
   if (check_dropped_kernel)
-    count_dropped_kernel ();  // init (may be 0 or -1)
+    count_dropped_kernel ();  /* init (may be 0 or -1) */
 
 
   
