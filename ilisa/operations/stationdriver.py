@@ -31,7 +31,7 @@ class StationDriver(object):
 
     def is_observingallowed(self):
         """
-        Check whether operations are allowed.
+        Check whether a new observation is allowed
 
         Observing is not allowed if someone else is using the station,
         or if station is not in local mode, or if a beamctl is running.
@@ -187,9 +187,15 @@ class StationDriver(object):
                 datetime.datetime.utcnow()))
 
     def halt_observingstate(self):
-        """Halt observing state on station."""
+        """
+        Halt observing state on station
+
+        Stop running beams (if owned by user) and goto swlevel 0.
+        """
+        # Don't check if observing is allowed to stop beam since if beam
+        # is running it counts as observing NOT allowed.
+        self.stop_beam()
         if self.is_observingallowed():
-            self.stop_beam()
             self._lcu_interface.set_swlevel(0)
             # Cleanup any data left on LCU.
             self._lcu_interface.cleanup()
