@@ -189,6 +189,7 @@ class StationDriver(object):
     def halt_observingstate(self):
         """Halt observing state on station."""
         if self.is_observingallowed():
+            self.stop_beam()
             self._lcu_interface.set_swlevel(0)
             # Cleanup any data left on LCU.
             self._lcu_interface.cleanup()
@@ -202,7 +203,6 @@ class StationDriver(object):
         if self._lcu_interface:
             # If LCU is connected, do the following:
             # Stop any hanging beams running (can happen if an Exception occurs)
-            self.stop_beam()
             if self.halt_observingstate_when_finished:
                 self.halt_observingstate()
             elif self.exit_check:
