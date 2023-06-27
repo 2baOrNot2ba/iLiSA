@@ -112,12 +112,12 @@ class StationDriver(object):
         # Initialize field, name of field station pointing at
         self.field = ''
 
-    def is_observingallowed(self):
+    def is_operationsallowed(self):
         """
-        Check whether a new observation is allowed
+        Check whether operations are allowed
 
-        Observing is not allowed if someone else is using the station,
-        or if station is not in local mode, or if a beamctl is running.
+        Operations are not allowed if someone else is using the station,
+        or if station is not in local mode.
         Note that if mockrun then this method will return True.
 
         Returns
@@ -129,9 +129,7 @@ class StationDriver(object):
         if serviceuser is None or serviceuser == self._lcu_interface.user:
             stationswitchmode = self._lcu_interface.getstationswitchmode()
             if stationswitchmode == 'local':
-                if not self._lcu_interface.is_beam_on():
-                    return True
-                return False
+                return True
             else:
                 _LOGGER.warning("Station is not in stand-alone mode.")
                 return False
@@ -141,12 +139,11 @@ class StationDriver(object):
                 .format(serviceuser, self._lcu_interface.user))
             return False
 
-
     def is_inobservingstate(self):
         """Check if station is in main observing state for user.
         Returns True if it is, else False.
         """
-        if not self.is_observingallowed():
+        if not self.is_operationsallowed():
             return False
         swlevel = self._lcu_interface.get_swlevel()
         if swlevel == 3:
@@ -169,7 +166,7 @@ class StationDriver(object):
         warmup: bool, optional
                 Do a beam warmup after reaching swlevel 3.
         """
-        if not self.is_observingallowed():
+        if not self.is_operationsallowed():
             raise RuntimeError('Observations not allowed')
         self._lcu_interface.cleanup()  # Could be leftovers from previous runs
 
@@ -195,7 +192,7 @@ class StationDriver(object):
         # Don't check if observing is allowed to stop beam since if beam
         # is running it counts as observing NOT allowed.
         self.stop_beam()
-        if self.is_observingallowed():
+        if self.is_operationsallowed():
             self._lcu_interface.set_swlevel(0)
             # Cleanup any data left on LCU.
             self._lcu_interface.cleanup()
@@ -212,7 +209,7 @@ class StationDriver(object):
             if self.halt_observingstate_when_finished:
                 self.halt_observingstate()
             elif self.exit_check:
-                if self.is_observingallowed():
+                if self.is_operationsallowed():
                     swlevel = self._lcu_interface.get_swlevel()
                     if swlevel != 0:
                         _LOGGER.warning(
@@ -1112,17 +1109,26 @@ def handback(stndrv):
 
 
 def checkobs(stndrv):
-    """Check if user can observe on LCU."""
-    is_inobsstate = stndrv.is_inobservingstate()
-    print("User can observe on station {} now: {}".format(stndrv.get_stnid(),
-          is_inobsstate))
-    if not is_inobsstate:
-        obs_allowed = stndrv.is_observingallowed()
-        if obs_allowed:
-            reason = "swlevel not 3"
+    """Check if user can observe on LCU"""
+    print("For station {}:".format(stndrv.get_stnid()), end=" ")
+    if stndrv.is_operationsallowed():
+        print("operations are allowed")
+        is_inobsstate = stndrv.is_inobservingstate()
+        is_beam_on = stndrv._lcu_interface.is_beam_on()
+        if is_inobsstate and not is_beam_on:
+            print("... and station is ready to observe")
+        elif is_inobsstate:
+            print("...but a beam is running")
         else:
-            reason = "Observing not allowed now"
-        print("Reason: {}.".format(reason))
+            print("...but station is not at swlevel 3")
+    else:
+        print("operations not allowed")
+        if stndrv._lcu_interface.getstationswitchmode() != 'local':
+            print("...station is not in local mode")
+        serviceuser = stndrv._lcu_interface.who_servicebroker()
+        if serviceuser != stndrv._lcu_interface.user:
+            print("...another user ({}) is operating station"
+                  .format(serviceuser))
 
 
 def main_cli():
