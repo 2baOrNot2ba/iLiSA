@@ -17,6 +17,7 @@ DEFAULT_PROJ = 0
 # Margin of time before starttime 'at' command issued
 BEFORE_AT_MARGIN = datetime.timedelta(seconds=8)
 
+
 def sched2at(schedfile):
     with open(schedfile, 'rb') as file:
         schedtab = yaml.safe_load(file)
@@ -26,7 +27,12 @@ def sched2at(schedfile):
     if mockrun:
         mockflag = '-m'
     station = schedtab.get('station')
-    proj = schedtab.get('project', DEFAULT_PROJ)
+    proj_def = schedtab.get('project', DEFAULT_PROJ)
+    bootbefore = schedtab.get('bootbefore', None)
+    duration = schedtab.get('duration', None)
+    idleafter = schedtab.get('idleafter', None)
+
+    first_start_ut = None
 
     schedlines = schedtab['schedule']
     # Check start times
@@ -44,6 +50,20 @@ def sched2at(schedfile):
             raise RuntimeError('Starttime {} is in the past.'.format(start_ut))
         else:
             schedline['start'] = start_ut
+            if not first_start_ut or first_start_ut > start_ut:
+                first_start_ut = start_ut
+    # Compute start times for boot and idle, and add them to schedule
+    if bootbefore:
+        boot_start_ut = first_start_ut - modeparms.hmsstr2deltatime(bootbefore)
+        bootschedline ={'start': boot_start_ut, 'cmd': 'boot'}
+        schedlines.append(bootschedline)
+    if duration:
+        duration_dt = modeparms.hmsstr2deltatime(duration)
+        end_ut = first_start_ut + duration_dt
+        if idleafter:
+            idle_start_ut = end_ut + modeparms.hmsstr2deltatime(idleafter)
+            idleschedline = {'start': idle_start_ut, 'cmd': 'idle'}
+            schedlines.append(idleschedline)
     # Now do it for real
     for schedline in schedlines:
         start_ut = schedline['start']
@@ -58,8 +78,9 @@ def sched2at(schedfile):
         atcmdv = ['at', '-t']
         atcmdv.append(startat_lt.strftime('%Y%m%d%H%M'))
         # Setup project:
-        proj = schedline.get('project') if schedline.get('project') else proj
-        proj = str(proj)
+        proj = proj_def
+        if schedline.get('project',None) and schedline.get('project') > -1:
+            proj = schedline.get('project')
         # Setup station:
         try:
             station = schedline['station']
@@ -68,11 +89,11 @@ def sched2at(schedfile):
                 raise RuntimeError('No station specified')
         # Setup commands for ilisa_cmd
         cli_name = 'ilisa_cmd'  # Deprecated original monolithic ilisa command
-        cli_argv = ['-t',  modeparms.astimestr(schedline['start']),
+        cli_argv = ['-t', modeparms.astimestr(schedline['start']),
                     '-s', station, mockflag]
         if schedline['cmd'] == 'obs':
             cli_name = 'ilisa_obs'
-            cli_argv += ['-p', proj, schedline.get('session')]
+            cli_argv += ['-p', str(proj), schedline.get('session')]
         else:
             cli_name = 'ilisa_adm'
             cli_argv += [schedline['cmd']]
@@ -80,6 +101,7 @@ def sched2at(schedfile):
         cmdline = ' '.join(cmdline)
 
         # Send shell commands to setup at call
+        # print(atcmdv)
         p = subprocess.Popen(atcmdv, stdin=subprocess.PIPE)
         # First send sleep before ilisa command (at only does down to minutes)
         sleepcmd = ''
@@ -88,7 +110,7 @@ def sched2at(schedfile):
         # Send ilisa_cmd to pipe
         cmdline_wlog = '{} {} >> err_{}.log\n'.format(sleepcmd, cmdline,
                                                       station)
-        #print(cmdline_wlog)
+        # print(cmdline_wlog)
         p.communicate(input=cmdline_wlog.encode())
 
 
