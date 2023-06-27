@@ -29,35 +29,6 @@ class StationDriver(object):
     """StationDriver is a client type class that allows one to observe with LCU
     and record data and metadata from these operations on a DRU."""
 
-    def is_observingallowed(self):
-        """
-        Check whether a new observation is allowed
-
-        Observing is not allowed if someone else is using the station,
-        or if station is not in local mode, or if a beamctl is running.
-        Note that if mockrun then this method will return True.
-
-        Returns
-        -------
-        bool
-        """
-        serviceuser = self._lcu_interface.who_servicebroker()
-
-        if serviceuser is None or serviceuser == self._lcu_interface.user:
-            stationswitchmode = self._lcu_interface.getstationswitchmode()
-            if stationswitchmode == 'local':
-                if not self._lcu_interface.is_beam_on():
-                    return True
-                return False
-            else:
-                _LOGGER.warning("Station is not in stand-alone mode.")
-                return False
-        else:
-            _LOGGER.warning(
-                """Someone else ({}) is using LCU (You are running as {})"""
-                .format(serviceuser, self._lcu_interface.user))
-            return False
-
     def __init__(self, accessconf_lcu=None, accessconf_dru=None, mockrun=False):
         """\
         Initialize a StationDriver object, which has access to a station via
@@ -79,7 +50,6 @@ class StationDriver(object):
         ConnectionError
             If LCU could not be accessed.
         """
-
         self.mockrun = mockrun
         if not accessconf_lcu or not accessconf_dru:
             accessconf = ilisa.operations.default_access_lclstn_conf()
@@ -141,6 +111,36 @@ class StationDriver(object):
         self.beamstart = None
         # Initialize field, name of field station pointing at
         self.field = ''
+
+    def is_observingallowed(self):
+        """
+        Check whether a new observation is allowed
+
+        Observing is not allowed if someone else is using the station,
+        or if station is not in local mode, or if a beamctl is running.
+        Note that if mockrun then this method will return True.
+
+        Returns
+        -------
+        bool
+        """
+        serviceuser = self._lcu_interface.who_servicebroker()
+
+        if serviceuser is None or serviceuser == self._lcu_interface.user:
+            stationswitchmode = self._lcu_interface.getstationswitchmode()
+            if stationswitchmode == 'local':
+                if not self._lcu_interface.is_beam_on():
+                    return True
+                return False
+            else:
+                _LOGGER.warning("Station is not in stand-alone mode.")
+                return False
+        else:
+            _LOGGER.warning(
+                """Someone else ({}) is using LCU (You are running as {})"""
+                .format(serviceuser, self._lcu_interface.user))
+            return False
+
 
     def is_inobservingstate(self):
         """Check if station is in main observing state for user.
