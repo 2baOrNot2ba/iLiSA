@@ -1555,7 +1555,7 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
     return acc2bstbase + "." + saveformat
 
 
-def viewbst(bstff, pol_stokes=True, printout=False):
+def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
     """\
     View BST data
 
@@ -1582,7 +1582,7 @@ def viewbst(bstff, pol_stokes=True, printout=False):
     dur_cur = (ts[-1]-ts[0]).total_seconds()
     t_left = dur_tot - dur_cur
     if t_left > 0:
-        print("Recording not finished yet ()".format(t_left))
+        print("Recording not finished yet {}".format(t_left))
     bst_data_x = numpy.stack(bst_datas_x).reshape(-1, max_nr_bls).T
     bst_data_y = numpy.stack(bst_datas_y).reshape(-1, max_nr_bls).T
 
@@ -1631,10 +1631,13 @@ def viewbst(bstff, pol_stokes=True, printout=False):
         supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur_cur)
                       + ' pointing: {}'.format(pointing))
         plt.suptitle(supertitle)
-        plt.draw()
-        print("Waiting for data update (press any key to unblock)")
-        plt.waitforbuttonpress(file_dur)
-        plt.close()
+        if update_wait:
+            plt.draw()
+            print("Waiting for data update (press any key to unblock)")
+            plt.waitforbuttonpress(file_dur)
+            plt.close()
+        else:
+            plt.show()
     else:
         # CSV style:
         #   Header
