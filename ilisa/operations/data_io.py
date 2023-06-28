@@ -71,6 +71,8 @@ def datafolder_type(datafolderpath):
         datatype = 'bfs'
     elif suf == 'bst':
         datatype = 'bst'
+    elif suf == 'bstc':
+        datatype = 'bstc'
     elif suf == 'sst':
         datatype = 'sst'
     elif suf == 'xst':
@@ -319,7 +321,7 @@ def filefolder2obsinfo(filefolderpath):
                                                      '%Y%m%dT%H%M%S')
     obsinfo['spw'] = spwstr[3:]
     obsinfo['subbands'] = sbstr[2:]  # slicestr2seqlists(sbstr[2:])
-    obsinfo['integration'] = int(intstr[3:])
+    obsinfo['integration'] = float(intstr[3:])
     obsinfo['duration_scan'] = int(durstr[3:])
     obsinfo['pointing'] = dirstr[3:]
     obsinfo['ldat_type'] = ldat_type
@@ -352,7 +354,7 @@ def filefolder2obsinfo(filefolderpath):
         totnrsbs += nrsbs
     bits = 16
 
-    if ldat_type == 'bst':
+    if ldat_type == 'bst' or ldat_type == 'bstc':
         # When the beamlets allocated is less than the maximum (given by bit
         # depth) the RSPs fill the remaining ones regardless. Hence we have to
         # account for them:
@@ -1074,6 +1076,8 @@ def readbstfolder(bst_filefolder):
         Data array from X antenna of power per beamlet over time.
     bst_data_y : array
         Data array from Y antenna of power per beamlet over time.
+    bst_data_xy : array
+        Complex cross-correlation of antenna's X & Y per beamlet over time.
     ts : array
         Sample epoch times.
     freqs : array
@@ -1090,28 +1094,36 @@ def readbstfolder(bst_filefolder):
 
     # Now read the BST pol data
     bst_dtype = numpy.dtype(('f8', (maxnrsbs,)))
-    bst_data_x, bst_data_y = [], []
+    bstc_dtype = numpy.dtype(('c16', (maxnrsbs,)))
+    bst_data_xx, bst_data_yy, bst_data_xy = [], [], []
     ts = []
 
     for bst_polfile in bst_files:
-        pol = bst_polfile[-5]
+        pol = bst_polfile.rstrip('.dat').split('_')[-1].lstrip('0')
         with open(os.path.join(bst_filefolder, bst_polfile), 'rb') as fin:
-            filedata = numpy.fromfile(fin, dtype=bst_dtype)
-        if pol == 'X':
-            bst_data_x.append(filedata)
+            if pol != 'XY':
+                _bst_dtype = bst_dtype
+            else:
+                _bst_dtype = bstc_dtype
+            filedata = numpy.fromfile(fin, dtype=_bst_dtype)
+        if pol == 'X' or pol == 'XX':
+            bst_data_xx.append(filedata)
             Ymd, HMS, _ = bst_polfile.split('_', 2)
             file_start_dt = datetime.datetime.strptime(Ymd + '_' + HMS,
                                                        '%Y%m%d_%H%M%S')
-            file_dur = filedata.shape[0]
+            file_dur = filedata.shape[0]*intg
             ts_rel = numpy.arange(0., file_dur, intg)
             file_ts =\
-                [file_start_dt + datetime.timedelta(seconds=t) for t in ts_rel]
+                [file_start_dt + datetime.timedelta(microseconds=t*1000000)
+                 for t in ts_rel]
             ts.append(file_ts)
-        elif pol == 'Y':
-            bst_data_y.append(filedata)
+        elif pol == 'Y' or pol == 'YY':
+            bst_data_yy.append(filedata)
             # Assumes 'Y' identical to 'X'
+        elif pol == 'XY' or pol == 'YX':
+            bst_data_xy.append(filedata)
 
-    return bst_data_x, bst_data_y, ts, freqs, obsinfo
+    return bst_data_xx, bst_data_yy, bst_data_xy, ts, freqs, obsinfo
 
 
 def readsstfolder(sstfolder):
@@ -1568,7 +1580,8 @@ def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
     printout : bool
         Just print-out data rather than plot it?
     """
-    bst_datas_x, bst_datas_y, ts_list, freqs, obsinfo = readbstfolder(bstff)
+    (bst_datas_x, bst_datas_y, bst_datas_xy, ts_list, freqs, obsinfo
+            ) = readbstfolder(bstff)
     stnid = obsinfo['station_id']
     starttime = obsinfo['datetime']
     intg = obsinfo['integration']
@@ -2035,7 +2048,8 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
             freq = float(freq)
         if lofar_datatype == 'acc':
             plotacc(dataff, freq)
-        if lofar_datatype == 'bst' or lofar_datatype == 'bst-357':
+        if (lofar_datatype == 'bst' or lofar_datatype == 'bst-357'
+                or lofar_datatype == 'bstc'):
             viewbst(dataff, pol_stokes=not linear,
                     printout=printout)
         elif lofar_datatype == 'sst':
