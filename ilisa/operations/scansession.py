@@ -366,6 +366,7 @@ class ScanSession(object):
             self.session_id = self.make_session_id(sessmeta['start'])
         self.projectmeta, _, _, _ = projid2meta(sessmeta['projectid'])
         self.set_stn_session_id(self.session_id)
+        sessmeta['session_id'] = self.session_id
         # Set where ldata should be put after recording on LCU
         sesspath = self.get_sesspath()
         bfdsesdumpdir = self._sesssubpath()
