@@ -643,6 +643,8 @@ def main_cli():
                             help="Mockrun")
     cmdln_prsr.add_argument('-c', '--check', action='store_true',
                             help="Check scansession sanity.")
+    cmdln_prsr.add_argument('-P', '--postprocess', type=str, default=None,
+                            help="Post process observation data")
     cmdln_prsr.add_argument('file', help='ScanSession file')
     args = cmdln_prsr.parse_args(sys.argv[1:])
 
@@ -690,8 +692,21 @@ def main_cli():
         _LOGGER.error(err)
         sys.exit(1)
     _LOGGER.info('Ending scansession {}'.format(the_scansess.session_id))
-    if not the_scansess.failed:
-        shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
+    if the_scansess.failed:
+        return
+    shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
+    if args.postprocess:
+        pp = args.postprocess.split()
+        pp[0] = os.path.join(ilisa.operations.USER_CONF_DIR, 'postprocessing',
+                              pp[0])
+        pp.append(the_scansess.get_sesspath())
+        pp.append('&')  # Put in backgroud
+        pp.insert(0, 'nohup')  # Run as daemon
+        ppstr = ' '.join(pp)
+        _LOGGER.info('Starting postprocessing, executing: {}'.format(
+            ppstr))
+        os.system(ppstr)
+        _LOGGER.info('Finished postprocessing.')
 
 
 if __name__ == "__main__":
