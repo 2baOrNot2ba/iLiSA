@@ -669,9 +669,9 @@ def main_cli():
     _LOGGER_ROOT.addHandler(__FH)
     _LOGGER = logging.getLogger(__name__)
 
-    _LOGGER.info('ilisa_obs -t{} -p{} -m{} -s{} -c{} {}'.format(
+    _LOGGER.info('ilisa_obs -t{} -p{} -m{} -s{} -c{} -P{} {}'.format(
         args.time, args.project, args.mockrun, args.station, args.check,
-        args.file)
+        args.postprocess, args.file)
     )
 
     with open(args.file, 'r') as f:
@@ -703,8 +703,7 @@ def main_cli():
         pp.append('&')  # Put in backgroud
         pp.insert(0, 'nohup')  # Run as daemon
         ppstr = ' '.join(pp)
-        _LOGGER.info('Starting postprocessing, executing: {}'.format(
-            ppstr))
+        _LOGGER.info('Starting postprocessing, executing: {}'.format(ppstr))
         os.system(ppstr)
         _LOGGER.info('Finished postprocessing.')
 
