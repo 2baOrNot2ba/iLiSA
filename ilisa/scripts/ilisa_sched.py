@@ -18,7 +18,7 @@ DEFAULT_PROJ = 0
 BEFORE_AT_MARGIN = datetime.timedelta(seconds=8)
 
 
-def sched2at(schedfile):
+def sched2at(schedfile, check=False):
     with open(schedfile, 'rb') as file:
         schedtab = yaml.safe_load(file)
     # Setup possible global schedule variables
@@ -79,7 +79,7 @@ def sched2at(schedfile):
         atcmdv.append(startat_lt.strftime('%Y%m%d%H%M'))
         # Setup project:
         proj = proj_def
-        if schedline.get('project',None) and schedline.get('project') > -1:
+        if schedline.get('project', None) and schedline.get('project') > -1:
             proj = schedline.get('project')
         # Setup station:
         try:
@@ -93,16 +93,25 @@ def sched2at(schedfile):
                     '-s', station, mockflag]
         if schedline['cmd'] == 'obs':
             cli_name = 'ilisa_obs'
+            postprocess = schedline.get('postprocess')
+            if postprocess:
+                cli_argv.extend(['-P', "'{}'".format(postprocess)])
+            note = schedline.get('note')
+            if note:
+                cli_argv.extend(['-n', "'{}'".format(note)])
             cli_argv += ['-p', str(proj), schedline.get('session')]
         else:
             cli_name = 'ilisa_adm'
             cli_argv += [schedline['cmd']]
+
         cmdline = [cli_name] + cli_argv
         cmdline = ' '.join(cmdline)
 
         # Send shell commands to setup at call
-        # print(atcmdv)
-        p = subprocess.Popen(atcmdv, stdin=subprocess.PIPE)
+        if check:
+            print(' '.join(atcmdv))
+        else:
+            p = subprocess.Popen(atcmdv, stdin=subprocess.PIPE)
         # First send sleep before ilisa command (at only does down to minutes)
         sleepcmd = ''
         if sleep_before_at_secs:
@@ -110,16 +119,19 @@ def sched2at(schedfile):
         # Send ilisa_cmd to pipe
         cmdline_wlog = '{} {} >> err_{}.log\n'.format(sleepcmd, cmdline,
                                                       station)
-        # print(cmdline_wlog)
-        p.communicate(input=cmdline_wlog.encode())
+        if check:
+            print(cmdline_wlog)
+        else:
+            p.communicate(input=cmdline_wlog.encode())
 
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-c','--check', action='store_true')
     parser.add_argument('schedfile', help="Schedule file")
     args = parser.parse_args()
     try:
-        sched2at(args.schedfile)
+        sched2at(args.schedfile, args.check)
     except (RuntimeError, ValueError) as err:
         logging.error(err)
 
