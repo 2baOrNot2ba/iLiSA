@@ -285,6 +285,7 @@ def filefolder2obsinfo(filefolderpath):
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_bst
     # stnid?_Ymd_HMS_rcustr_intstr_durstr_sst
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_xst
+    # stnid_Ymd_HMS_rcustr_sbstr_durstr_dirstr_bfs
     filefoldersplit = filefoldername.split('_')
     # Take care of possible "cal*" or "mod" tag just before ldattype:
     if filefoldersplit[-2].startswith('cal')\
@@ -295,6 +296,9 @@ def filefolder2obsinfo(filefolderpath):
         modality = filefoldersplit.pop(-2)
         obsinfo[modality] = True
     ldat_type = filefoldersplit.pop()
+    if ldat_type == 'bfs':
+        # Does not have int<int> field so insert int 0:
+        filefoldersplit.insert(-2, 'int0')
     if ldat_type != 'sst' and ldat_type != 'acc':
         # Have a sb<str> field:
         dirstr = filefoldersplit.pop()
