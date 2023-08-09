@@ -909,7 +909,8 @@ class StationDriver(object):
         # Work out where station-correlated data should be stored:
         if scanroot:
             self.scanpath = scanroot
-        self.scanpath_scdat = os.path.join(self.scanpath, scan_id)
+        scan_dir_name = "scan_{}".format(scan_id)
+        self.scanpath_scdat = os.path.join(self.scanpath, scan_dir_name)
         # and create the directory: (may not have ldat if no rec but will have
         # info files)
         os.makedirs(self.scanpath_scdat)

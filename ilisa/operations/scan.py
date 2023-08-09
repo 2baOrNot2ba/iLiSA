@@ -344,7 +344,7 @@ class LScan:
         """
         scan_dt = modeparms.timestr2datetime(scan_started)
         scan_mjd_id = modeparms.dt2mjd(scan_dt)
-        scan_id = "scan_{}".format(scan_mjd_id)
+        scan_id = str(scan_mjd_id)
         return scan_id
 
     def _write_scanrecs(self):
