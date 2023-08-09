@@ -476,9 +476,14 @@ class StationDriver(object):
         self.rcusetup_cmds = []
         self.beamctl_cmds = []
 
-    def start_acc_scan(self):
+    def start_acc_scan(self, duration_tot):
         """\
         Start recording ACC
+
+        Parameters
+        ----------
+        duration_tot: float
+            Total duration in seconds of scan. Used only to label file-folder.
 
         See also
         --------
@@ -524,7 +529,7 @@ class StationDriver(object):
             ldatinfo_acc.filenametime = filetimestamps[0]
             if firstacc:
                 obsinfo = {
-                    'duration_scan': dur1acc,
+                    'duration_scan': duration_tot,
                     'filenametime': ldatinfo_acc.filenametime,
                     'integration': integration,
                     'spw': ldatinfo_acc.get_spw(),

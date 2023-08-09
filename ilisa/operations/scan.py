@@ -149,7 +149,7 @@ class LScan:
                 if self.acc:
                     # ACC needs to be enabled before beam
                     # so initialize the subscan generator...
-                    acc_subscan = stndrv.start_acc_scan()
+                    acc_subscan = stndrv.start_acc_scan(duration_tot)
                     # actually start the subscan...
                     _ = next(acc_subscan)
                 stndrv.streambeams(freqsetup, self.dir_bmctl)
