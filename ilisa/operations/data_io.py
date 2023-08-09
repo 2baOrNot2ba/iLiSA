@@ -511,20 +511,20 @@ class ScanRecInfo(object):
     """
     scanrecinfo_header = "SCANREC_INFO.yml"
 
-    def __init__(self):
+    def __init__(self, stnid='', caltabinfos=[], mockdata=''):
         self.headerversion = 5
         self.ldatinfos = {}
         self._pointing = ''
         self.sourcename = ''
-        self.caltabinfos = []
+        self.caltabinfos = caltabinfos
         self.scanrecpath = None
         self.scanrecparms = {}
         self.obs_ids = []
-        self.stnid = ''
+        self.stnid = stnid
         # Data modalities (if none are set, then normal observed data):
         self.calibrationfile = ''
         self.gs_model = ''
-        self.mockdata = ''
+        self.mockdata = mockdata
 
     def add_obs(self, ldatinfo):
         """Add an LDatInfo object to this ScanRecInfo."""
