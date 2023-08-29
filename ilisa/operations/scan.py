@@ -80,10 +80,19 @@ class LScan:
         self.dir_bmctl = pointing_spec['direction']  # ilisa.operations.directions.normalizebeamctldir(pointing)
         if self.dir_bmctl:
             if not ilisa.operations.directions.check_directionstr(self.dir_bmctl):
-                raise ValueError("Invalid pointing syntax: {}".format(self.dir_bmctl))
-        beam_needed = bfs or rec_type == 'bst'
+                raise ValueError("Invalid pointing syntax: {}"
+                                 .format(self.dir_bmctl))
+        beam_needed = False
+        if self.bfs or self.rec_type == 'bst':
+            # Also ACC needs beam but not included here since it only leads
+            # to blank ACC data and conceptually ought not to need a beam
+            beam_needed = True
         if beam_needed and not self.dir_bmctl:
             raise ValueError("No pointing, but beam needed")
+        if not self.dir_bmctl and self.acc:
+            # If ACC set but no beam defined, start a dummy beam
+            _LOGGER.info("Setting dummy beam for ACC data.")
+            self.dir_bmctl = "0,0,AZELGEO"
 
         self.stndrv.goto_observingstate()
         # Initialize scanresult
@@ -142,16 +151,19 @@ class LScan:
         file_dur = self.file_dur
 
         bsx_type = modeparms._xtract_bsx(rec_type)
+        stndrv.field = self.pointing_spec.get('source')
 
         if rec_type != 'tbb' and rec_type != 'dmp':
+            if self.acc:
+                # ACC needs to be enabled before beam
+                # so initialize the subscan generator...
+                acc_subscan = stndrv.start_acc_scan(duration_tot)
+                # actually start the subscan...
+                _ = next(acc_subscan)
+                if not self.dir_bmctl:
+                    _LOGGER.warning("ACC set but no beam run"
+                                    " (ACC data will be blank)")
             if self.dir_bmctl:
-                stndrv.field = self.pointing_spec['source']
-                if self.acc:
-                    # ACC needs to be enabled before beam
-                    # so initialize the subscan generator...
-                    acc_subscan = stndrv.start_acc_scan(duration_tot)
-                    # actually start the subscan...
-                    _ = next(acc_subscan)
                 stndrv.streambeams(freqsetup, self.dir_bmctl)
             else:
                 stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup.rcumodes[0])
@@ -265,14 +277,14 @@ class LScan:
         if rec_type != 'tbb' and rec_type != 'dmp':
             if self.dir_bmctl:
                 stndrv.stop_beam()
-                if acc:
-                    self.scanresult['acc'].sourcename = pointing_spec['source']
-                    self.scanresult['acc']._pointing = pointing_spec['pointing']
-                    self._stop_acc_scan()
                 del(self.dir_bmctl)
             elif stndrv.septonconf:
                 # No pointing and tiles-off mode, so stop tiles-off mode
                 stndrv.stop_tof()
+            if acc:
+                self.scanresult['acc'].sourcename = pointing_spec['source']
+                self.scanresult['acc']._pointing = pointing_spec['pointing']
+                self._stop_acc_scan()
             if bsx_type:
                 self.scanresult['bsx'].sourcename = pointing_spec['source']
                 self.scanresult['bsx']._pointing = pointing_spec['pointing']
