@@ -93,10 +93,10 @@ def phaseref_accpol(accpol, sbobstimes, freqs, stnPos, antpos, pointing):
         # Compute phase factors. w-direction (component 2) is towards pointing
         phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:, 2]/lambda0)
         PP = numpy.einsum('i,j->ij', phasefactors, numpy.conj(phasefactors))
-        accphasedup[0, 0, sb, :, :] = PP*accpol[0, 0, sb, :, :]
-        accphasedup[0, 1, sb, :, :] = PP*accpol[0, 1, sb, :, :]
-        accphasedup[1, 0, sb, :, :] = PP*accpol[1, 0, sb, :, :]
-        accphasedup[1, 1, sb, :, :] = PP*accpol[1, 1, sb, :, :]
+        accphasedup[sb, 0, 0, :, :] = PP*accpol[sb, 0, 0, :, :]
+        accphasedup[sb, 0, 1, :, :] = PP*accpol[sb, 0, 1, :, :]
+        accphasedup[sb, 1, 0, :, :] = PP*accpol[sb, 1, 0, :, :]
+        accphasedup[sb, 1, 1, :, :] = PP*accpol[sb, 1, 1, :, :]
     return accphasedup
 
 
@@ -270,10 +270,10 @@ def accpol2bst(accpol, sbobstimes, freqs, stn_pos, stn_antpos, pointing,
     # Sum up phased up ACCs per pol component over all baselines (Previously
     #  average)
     # Note that this sum is also over conjugate baselines, so factor 2 more
-    bstXX = numpy.sum(numpy.real(accpu[0, 0, ...].squeeze()), axis=(1, 2)
+    bstXX = numpy.sum(numpy.real(accpu[:, 0, 0, ...].squeeze()), axis=(1, 2)
                       )/nrbaselinestot
-    bstXY = numpy.sum(accpu[0, 1, ...].squeeze(), axis=(1, 2))/nrbaselinestot
-    bstYY = numpy.sum(numpy.real(accpu[1, 1, ...].squeeze()), axis=(1, 2)
+    bstXY = numpy.sum(accpu[:, 0, 1, ...].squeeze(), axis=(1, 2))/nrbaselinestot
+    bstYY = numpy.sum(numpy.real(accpu[:, 1, 1, ...].squeeze()), axis=(1, 2)
                       )/nrbaselinestot
     return bstXX, bstXY, bstYY
 
@@ -690,7 +690,7 @@ def main_cli():
             imagedataset = image(args.dataff, args.filenr, args.sampnr,
                                  args.phaseref, args.correctpb,
                                  args.fluxpersterradian, args.blflagfile,
-                                 polrep='linear')
+                                 polrep='stokes')
         except (IndexError, ValueError) as err:
             print("Error:", err)
             sys.exit()
