@@ -2046,7 +2046,9 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
         lofar_datatype = datafolder_type(dataff)
         print('Viewing datafile:', dataff)
         if not freq:
-            if lofar_datatype == 'acc' or lofar_datatype == 'sst':
+            if sampnr:
+                freq = modeparms.sb2freq(sampnr, 0)
+            elif lofar_datatype == 'acc' or lofar_datatype == 'sst':
                 freq = 0.0
         else:
             freq = float(freq)
