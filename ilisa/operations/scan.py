@@ -305,6 +305,22 @@ class LScan:
         Stop ACC scan recording
         """
         self.stndrv.stop_acc_scan()
+        # Check if there are left over ACCs on LCU that were missed
+        # now that acc scan stopped.
+        leftacc_filtims = self.stndrv.get_datafiletimes(acc=True)
+        flush_acc = False
+        if len(leftacc_filtims):
+            flush_acc = True
+        if flush_acc:
+            # Move left-over ACCs to DRU
+            _LOGGER.info("Flushing leftover ACCs")
+            _scanrecpath = self.scanresult['acc'].scanrecpath
+            self.stndrv.flush_acc(_scanrecpath)
+            # Add their ldatinfos and write them to file
+            for filtim in leftacc_filtims:
+                self.ldatinfos_acc.append(self.ldatinfos_acc[0])
+                self.ldatinfos_acc[-1].filenametime = filtim
+                self.ldatinfos_acc[-1].write_ldat_header(_scanrecpath)
         # Create obsinfo each ACC file
         for ldatinfo in self.ldatinfos_acc:
             self.scanresult['acc'].add_obs(ldatinfo)
