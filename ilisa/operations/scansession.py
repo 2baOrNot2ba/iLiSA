@@ -543,6 +543,8 @@ def check_scan_sess(scansess_in):
         The ScanSession metadata.
     """
     sessmeta, scans_obsargs = process_scansess(scansess_in)
+    projectmeta, _, _, _ = projid2meta(sessmeta['projectid'])
+    sessmeta['projectid_name'] = projectmeta['name']
     print(yaml.dump(sessmeta, default_flow_style=False), end='')
     sessscans = {'scans': []}
     try:
