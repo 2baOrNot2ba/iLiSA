@@ -257,6 +257,23 @@ class StationDriver(object):
         filetimenames = sorted(list(_filetimenames))
         return filetimenames
 
+    def flush_acc(self, dest_path):
+        """\
+        Move all ACCs on LCU to dest_path on DRU
+
+        May be needed when running BSX rec together with ACC mode.
+        Since BSX rec blocks, if its duration is longer than one ACC file
+        duration, then there may be ACC files not accounted for yet.
+        Using this method after ACC mode is stopped will assure left over files
+        will be saved on DRU.
+
+        Parameters
+        ----------
+        dest_path: str
+            Destination path on DRU.
+        """
+        self.movefromlcu(self._lcu_interface.ACCsrcDir + '/*.dat', dest_path)
+
     def get_ccu2dru(self):
         """Get path to DRU root from CCU"""
         return self._dru_root
