@@ -358,7 +358,7 @@ def filefolder2obsinfo(filefolderpath):
         totnrsbs += nrsbs
     bits = 16
 
-    if ldat_type == 'bst' or ldat_type == 'bstc':
+    if ldat_type == 'bst' or ldat_type == 'bfs' or ldat_type == 'bstc':
         # When the beamlets allocated is less than the maximum (given by bit
         # depth) the RSPs fill the remaining ones regardless. Hence we have to
         # account for them:
