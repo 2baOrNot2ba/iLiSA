@@ -1621,7 +1621,7 @@ def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
         if stokes_norm:
             data2view_q = data2view_q / data2view_p
             data2view_q_name = '(antenna) Stokes q'
-            data2view_q_unit = 'Signed relative flux [%]'
+            data2view_q_unit = 'Signed relative flux []'
             norm_q = colors.SymLogNorm(linthresh=1e-3)
     if not printout:
         fig, (ax_p, ax_q) = plt.subplots(2, 1, sharex=True, sharey=True)
