@@ -915,7 +915,7 @@ def nrrcus_stnid(stnid):
         Number of RCUs
     """
     location_id = stnid[:2]
-    if location_id == 'CS' or location_id == 'RS':
+    if location_id == 'CS' or location_id == 'RS' or location_id == 'FI':
         nrrcus = 96
     else:
         # EU station
