@@ -113,7 +113,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
         polport2 are the two polarization ports, e.g. X and Y, and elemnr1 and
         elemnr2 are two elements of the interferometer array configuration.
     stn2Dcoord : array
-        The 2D array configuration matrix.
+        The 3xN array UVW configuration matrix.
     freq : float
         The frequency of the data in Hz.
     lmsize : float
@@ -466,6 +466,8 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
 
     Parameters
     ----------
+    dataff : str
+        Name of data file folder containing covariances.
     filenr :  int
         File number.
     sampnr : int
