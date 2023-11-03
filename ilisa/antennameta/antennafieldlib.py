@@ -11,7 +11,7 @@ import numpy as np
 import os
 from os.path import dirname
 
-__version__ = 0.2
+__version__ = 0.3
 
 STATICMETADATA = os.path.join(dirname(__file__),'share/StaticMetaData/')
 ANTENNAFIELDDIR = STATICMETADATA
@@ -24,7 +24,8 @@ AFfileNameType = 3
 # LOFAR band array's elements diameter or 1D extent (approximately) 
 ELEMENT_DIAMETER = {'LBA': 2.0,
                     'HBA': 5.0}  # meters
-
+BANDARRS = ['LBA', 'HBA']
+HBASUBARRS = ['HBA0', 'HBA1']
 
 def _getAntennaFieldFile(stationName):
     antenna_field_dir = ANTENNAFIELDDIR
@@ -54,12 +55,12 @@ def parseAntennaFieldFile(filename, AFfileNameType=3):
     """
     # All bandarrays and hba-sub-bandarrays will have attributes
     _all_ba_min = ['POSITION' , 'NORMAL_VECTOR', 'ROTATION_MATRIX']
-    # All bandarrays but not hba-sub-bandarrays will have attribute
-    _all_ba_xtr = 'REL_POS'
     antflddata = {}
     for antband in BANDARRS:
         antflddata[antband] = {k: [] for k in _all_ba_min}
-        antflddata[antband][_all_ba_xtr] = []
+        # All bandarrays but not hba-sub-bandarrays will have attribute
+        antflddata[antband]['REL_POS_X'] = []
+        antflddata[antband]['REL_POS_Y'] = []
     try:
         f = open(filename)
     except IOError:
@@ -107,10 +108,11 @@ def parseAntennaFieldFile(filename, AFfileNameType=3):
                     vals = line.split()
                     posxpol = [float(v) for v in vals[0:3]]
                     posypol = [float(v) for v in vals[3:6]]
-                    antflddata[antband]['REL_POS'].append(posxpol)
+                    antflddata[antband]['REL_POS_X'].append(posxpol)
+                    antflddata[antband]['REL_POS_Y'].append(posypol)
                     # Note: Skip ypol as it is identical to xpol
                 # Read ending ']' line
-                line = f.readline()
+                _ = f.readline()
         elif where == 'NORMAL_VECTOR':
             line = f.readline()
             elementposshape, elementposLine = line.split(' ',1)
@@ -118,19 +120,19 @@ def parseAntennaFieldFile(filename, AFfileNameType=3):
             nrmv = [float(v) for v in elementposLine]
             antflddata[antband][where] = nrmv
         elif where == 'ROTATION_MATRIX':
+            line = f.readline()
+            elementposshape, elementposLine = line.split(' ',1)
+            elementposLine = elementposLine.strip('[] \n').split()
+            elementposLine = line.split()
+            dimstr, rest = line.split('[',1)
+            shp = dimstr.split('x')
+            for xyz in range(3):
               line = f.readline()
-              elementposshape, elementposLine = line.split(' ',1)
-              elementposLine = elementposLine.strip('[] \n').split()
-              elementposLine = line.split()
-              dimstr, rest = line.split('[',1)
-              shp = dimstr.split('x')
-              for xyz in range(3):
-                  line = f.readline()
-                  rowstr = line.split()
-                  row = [float(v) for v in rowstr]
-                  antflddata[antband][where].append(row)
-              # Read ending ']' line
-              line = f.readline()
+              rowstr = line.split()
+              row = [float(v) for v in rowstr]
+              antflddata[antband][where].append(row)
+            # Read ending ']' line
+            _ = f.readline()
         line = f.readline()
     return antflddata
 
@@ -222,7 +224,7 @@ def getArrayBandParams(stnid, arrband):
     # axis=0
     stnpos = np.matrix(antfld[arrband]['POSITION']).T
     stnrot = np.matrix(antfld[subarr]['ROTATION_MATRIX'])
-    stnrelpos = np.matrix(antfld[arrband]['REL_POS'])
+    stnrelpos = np.matrix(antfld[arrband]['REL_POS_X'])
     stnintilepos = np.matrix(hbadeltas)
     return stnpos, stnrot, stnrelpos, stnintilepos
 
@@ -260,20 +262,19 @@ def get_antset_params(stnid, antset):
         hbadeltas = parseiHBADeltasfile(stnid)
     stnpos = np.atleast_2d(antfld[arrband]['POSITION']).T
     stnrot = np.array(antfld[arrband]['ROTATION_MATRIX'])
-    stnrelpos_all = np.array(antfld[arrband]['REL_POS'])
+    stnrelpos_x = np.array(antfld[arrband]['REL_POS_X'])
+    stnrelpos_y = np.array(antfld[arrband]['REL_POS_Y'])
     stnintilepos = np.array(hbadeltas)
-    nrhbaelems = len(antfld['HBA']['REL_POS'])
+    nrhbaelems = len(antfld['HBA']['REL_POS_X'])
     if arrband == 'LBA' and nrhbaelems < 96:
         if '_' in antset:
             _LBA, antsettype = antset.split('_', 1)
         else:
             raise RuntimeError('Need to specify antset_type')
         if antsettype == 'INNER':
-            stnrelpos = stnrelpos_all[:48]
+            stnrelpos = stnrelpos_x[:48]
         elif antsettype == 'OUTER':
-            stnrelpos = stnrelpos_all[48:]
-        stnrelpos_x = stnrelpos_all
-        stnrelpos_y = stnrelpos_all
+            stnrelpos = stnrelpos_x[48:]
         if antsettype == 'X':
             # FIXME:
             stnrelpos = stnrelpos_x
@@ -281,13 +282,13 @@ def get_antset_params(stnid, antset):
             # FIXME:
             stnrelpos = stnrelpos_y
         elif antsettype == 'SPARSE_EVEN':
-            stnrelpos = stnrelpos_all[0::2]
+            stnrelpos = stnrelpos_x[0::2]
             stnrelpos = stnrelpos.reshape((2,24,3)).swapaxes(0,1).reshape((48,3))
         elif antsettype == 'SPARSE_ODD':
-            stnrelpos = stnrelpos_all[1::2]
+            stnrelpos = stnrelpos_x[1::2]
             stnrelpos = stnrelpos.reshape((2,24,3)).swapaxes(0,1).reshape((48,3))
     else:
-        stnrelpos = stnrelpos_all
+        stnrelpos = stnrelpos_x
     return stnpos, stnrot, stnrelpos, stnintilepos
 
 
@@ -302,7 +303,3 @@ def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
             stnId = splitres[0]
             stnId_list.append(stnId)
     return stnId_list
-
-
-BANDARRS = ['LBA', 'HBA']
-HBASUBARRS = ['HBA0', 'HBA1']
