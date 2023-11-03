@@ -13,6 +13,8 @@ import datetime
 import argparse
 
 # BF data/header format constants:
+import numpy as np
+
 NRTIMS_PACKET = 16  # Number of sample times in packet
 FFTSIZE = 1024
 NRPOLS = 2  # Number of polarization channels
@@ -29,6 +31,15 @@ BytesPcapHeader = 42  # 42
 BytesPcapFooter = 16
 BytesPcapFileHeader = 40  # 40
 BytesPerPcapPacket = BytesPcapHeader + BytesBFPacket + BytesPcapFooter
+
+
+def get_samprate(is200mhz):
+    """Get samprate"""
+    if is200mhz == 1:
+        samprate = 200.0e6  # sample rate per second
+    else:
+        samprate = 160.0e6  # sample rate per second
+    return samprate
 
 
 def bffmtparams(header):
@@ -106,8 +117,17 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
     _microsecflt = (blocksequencenumber * 0.005 * FFTSIZE if is200mhz
                     else blocksequencenumber * 0.00625 * FFTSIZE)
     _microsecfrac, microsecs = math.modf(_microsecflt)
-    header['datetime'] = header['datetime']+datetime.timedelta(microseconds=int(microsecs))
-    header['nanosecs'] = round(_microsecfrac * 1000)
+    _nanoseconds = _microsecfrac * 1000
+    header['datetime'] = (header['datetime']
+                          + datetime.timedelta(microseconds=int(microsecs)))
+    # Since 0.2 samp/ns doesn't go out evenly for packets with 16*FFTSIZE
+    # samples on full second timestamps, I add half an FFTSIZE sample time
+    # to the nanosecs calculate for odd timestamps: (Not sure about this)
+    header['nanosecs'] = (_nanoseconds
+                          + (timestamps % 2)*0.5*FFTSIZE/(0.16+is200mhz*0.04))
+    header['datetime64'] = (np.datetime64(header['datetime'])
+                            + np.timedelta64(round(header['nanosecs']), 'ns'))
+    #header['packno'] = ((timestamps*1000000*(160 + is200mhz*40) +oe*512)/1024+blocksequencenumber)/16
     # Get packet format parameters:
     packetData_dtype, cint_smp = bffmtparams(header)
 
@@ -147,7 +167,7 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
 #    plt.show()
 
 
-def next_bfpacket(bfs_filename, keepstruct=True):
+def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
     if bfs_filename.endswith('.pcap'):
         pcapfile = True
         bytesperpacket = BytesPerPcapPacket
@@ -162,7 +182,7 @@ def next_bfpacket(bfs_filename, keepstruct=True):
     # nrPackets = float(os.stat(bfs_filename).st_size - startskip + endpad) / bytesperpacket
     fin = open(bfs_filename, "rb")
     EOF = False
-    packetNr = 0
+    packetnr = 0
     fin.seek(startskip)
     while not EOF:
         # print(str(packetNr)+" / "+str(nrPackets))
@@ -170,9 +190,67 @@ def next_bfpacket(bfs_filename, keepstruct=True):
         if header == '':
             EOF = True
             break
-        packetNr += 1
+        if padmissing:
+            if packetnr == 0:
+                seqprev = header['_blocksequencenumber']
+                seqdif = 16
+            else:
+                seqdif = header['_blocksequencenumber'] - seqprev
+                seqprev = header['_blocksequencenumber']
+            if seqdif != 16 and seqdif != -195297 and seqdif != -195296:
+                missingpackets = seqdif//16 - 1
+                for blkpktidx in range(missingpackets):
+                    print("Missed packet")
+                    _header_ = dict(header)  # Todo: update header
+                    _x = numpy.zeros_like(x)
+                    _y = numpy.zeros_like(y)
+                    yield _header_, _x, _y
+        packetnr += 1
         yield header, x, y
     fin.close()
+
+
+def readbfsfile(bfs_filename, skip=0, savenpy=True):
+    """Read BFS file"""
+    # Lookup first non-skipped packet in file to set things up:
+    with open(bfs_filename, "rb") as fin:
+        fin.seek(skip*BytesBFPacket, os.SEEK_SET)
+        header0, x, y = read_bf_packet(fin, False)
+        fin.seek(0, os.SEEK_END)
+        nrpkts = fin.tell()//BytesBFPacket - skip
+    start_dattim64 = header0['datetime64']
+    samprate = get_samprate(header0['is200mhz'])
+    _paylodshp = (header0['nrbeamlets'], NRTIMS_PACKET * nrpkts)
+    if savenpy:
+        x_strm = np.lib.format.open_memmap(bfs_filename + '_X.npy',
+                                           dtype='complex', mode='w+',
+                                           shape=_paylodshp)
+        y_strm = np.lib.format.open_memmap(bfs_filename + '_Y.npy',
+                                           dtype='complex', mode='w+',
+                                           shape=_paylodshp)
+    else:
+        x_strm = np.empty(shape=_paylodshp, dtype=complex)
+        y_strm = np.empty_like(x_strm)
+    pkt_abs_nrs = []
+    # Now read in all the packets
+    pktnr = 0
+    with open(bfs_filename, "rb") as fin:
+        fin.seek(skip*BytesBFPacket, os.SEEK_SET)
+        while True:
+            header, x, y = read_bf_packet(fin, False)
+            if header == '':
+                break
+            pkt_abs_nr = round((header['datetime64'] - start_dattim64).item()
+                               / (NRTIMS_PACKET * FFTSIZE / samprate * 1e9))
+            pktnr_pe = pktnr*NRTIMS_PACKET + NRTIMS_PACKET
+            x_strm[:, NRTIMS_PACKET*pktnr:pktnr_pe] = x
+            y_strm[:, NRTIMS_PACKET*pktnr:pktnr_pe] = y
+            if datetime.datetime.utcfromtimestamp(
+                    header['datetime64'].tolist()/1e9).microsecond < 1000:
+                print(nrpkts - pktnr, pkt_abs_nr, pkt_abs_nr-pktnr)
+            pkt_abs_nrs.append(pkt_abs_nr)
+            pktnr += 1
+    return x_strm, y_strm, start_dattim64, pkt_abs_nrs
 
 
 def convert2binary(bfs_filepath):
@@ -218,10 +296,7 @@ def convert2bst(bfs_filepath, integration_req=1.0):
         if initialize:
             # Set packet format parameters using first packet
             #    Get samprate
-            if header['is200mhz'] == 1:
-                samprate = 200.0e6  # sample rate per second
-            else:
-                samprate = 160.0e6  # sample rate per second
+            samprate = get_samprate(header['is200mhz'])
             #    Normalize to Volts^2/second/channel
             nrbeamlets = header['nrbeamlets']
             xx = numpy.zeros((nrbeamlets,), dtype=float)
