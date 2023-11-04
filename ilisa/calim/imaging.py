@@ -615,9 +615,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     # Apply flag matrix to visibility matrix
     flagged_vis.vis = cvpu_lin
     vis = flagged_vis.apply_vispol_flags()
-    y_offset = np.zeros_like(UVWxyz)
-    y_offset[:,1] = -5e-1
-    UVWxyz_y = UVWxyz + y_offset
+    UVWxyz_y = UVWxyz  # Set Y positions same as X
     # Make image on phased up visibilities
     imgs_lin, ll, mm = beamformed_image(vis, (UVWxyz.T, UVWxyz_y.T), freq,
                         lmsize=lm_extent, nrpix=nrpixels,
