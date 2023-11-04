@@ -889,9 +889,23 @@ class LDatInfo(object):
             f.write('# Header version'+' '+self.headerversion+'\n')
             yaml.dump(contents, f, default_flow_style=False, width=1000)
 
-    def get_recfreq(self):
-        """Return data recording frequency in Hz."""
-        sb = self.sb
+    def get_recfreq(self, sampnr=0):
+        """Return data recording frequency in Hz
+
+        Parameters
+        ----------
+        sampnr : int
+            Sample number from start of file
+
+        Returns
+        -------
+        freq : float
+            Frequency for this covariance sample
+        """
+        if self.ldat_type == 'acc':
+            sb = sampnr
+        else:
+            sb = self.sb
         if self.ldat_type != "xst-SEPTON" and not self.septonconf:
             rcumode = self.rcumode[0]
         else:
