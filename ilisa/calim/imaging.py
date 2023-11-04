@@ -713,7 +713,8 @@ def main_cli():
             print("Error:", err)
             sys.exit()
         plotskyimage(**imagedataset, maskhrz=False, plot_title='Imaged Sky')
-        plt.show()
+        plt.savefig('skyimage.png')
+        #plt.show()
 
 
 def fiducial_image(background=1.0):
