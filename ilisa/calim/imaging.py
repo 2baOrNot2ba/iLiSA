@@ -168,21 +168,38 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
     l, m = numpy.linspace(-lmext, lmext, nrpix), numpy.linspace(-lmext, lmext,
                                                                 nrpix)
     ll, mm = numpy.meshgrid(l, m)
+
+    # Handle X and Y positions
+    _XYcoord_same = True
     stn2Dcoord_X = stn2Dcoord
     stn2Dcoord_Y = stn2Dcoord_X
     if type(stn2Dcoord) is tuple:
+        _XYcoord_same = False
         stn2Dcoord_X = stn2Dcoord[0]
         stn2Dcoord_Y = stn2Dcoord[1]
+        if stn2Dcoord[0] is stn2Dcoord[1]:
+            _XYcoord_same = True
+        elif np.allclose(stn2Dcoord_X, stn2Dcoord_Y):
+            _XYcoord_same = True
     posU_X, posV_X = stn2Dcoord_X[0, :].squeeze(), stn2Dcoord_X[1, :].squeeze()
-    posU_Y, posV_Y = stn2Dcoord_Y[0, :].squeeze(), stn2Dcoord_Y[1, :].squeeze()
     bf_X = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU_X)
                            + numpy.einsum('ij,k->ijk', mm, posV_X)))
-    bf_Y = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU_Y)
-                           + numpy.einsum('ij,k->ijk', mm, posV_Y)))
+    bf_Y = bf_X  # Default: make Y beamform matrix same as X
+    if not _XYcoord_same:
+        # Add separate beamform matrix for Y
+        posU_Y, posV_Y = stn2Dcoord_Y[0, :].squeeze(), stn2Dcoord_Y[1, :].squeeze()
+        bf_Y = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU_Y)
+                               + numpy.einsum('ij,k->ijk', mm, posV_Y)))
     bfXbfX = numpy.einsum('ijk,ijl->ijkl', bf_X, numpy.conj(bf_X))
-    bfXbfY = numpy.einsum('ijk,ijl->ijkl', bf_X, numpy.conj(bf_Y))
-    bfYbfX = numpy.einsum('ijk,ijl->ijkl', bf_Y, numpy.conj(bf_X))
-    bfYbfY = numpy.einsum('ijk,ijl->ijkl', bf_Y, numpy.conj(bf_Y))
+    # Default: set image matrix with combinations containing Y to XX image matrx
+    bfXbfY = bfXbfX
+    bfYbfX = bfXbfX
+    bfYbfY = bfXbfX
+    if not _XYcoord_same:
+        # Add separate imaging matrix for combinations with Y
+        bfXbfY = numpy.einsum('ijk,ijl->ijkl', bf_X, numpy.conj(bf_Y))
+        bfYbfX = numpy.einsum('ijk,ijl->ijkl', bf_Y, numpy.conj(bf_X))
+        bfYbfY = numpy.einsum('ijk,ijl->ijkl', bf_Y, numpy.conj(bf_Y))
 
     nrm = nrbls
     if fov_area:
