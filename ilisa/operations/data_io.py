@@ -1939,32 +1939,6 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
             plt.show()
 
 
-def plotacc(accff, freqreq=None):
-    """Plot of ACC folder files."""
-    dataobj = CVCfiles(accff)
-    if freqreq is None:
-        freqreq = 0.0
-    sb, _nqzone = modeparms.freq2sb(freqreq)
-    for fileidx in range(0, dataobj.getnrfiles()):
-        filecvc = dataobj[fileidx]
-        while sb < 512:
-            fig, (ax1, ax2) = plt.subplots(2, 1, sharex=True, sharey=True)
-            absdatplt = ax1.pcolormesh(numpy.abs(filecvc[sb]))
-            ax1.set_title('Abs value')
-            ax1.set_ylabel('RCU [#]')
-            fig.colorbar(absdatplt, ax=ax1)
-            angdatplt = ax2.pcolormesh(numpy.angle(filecvc[sb]),
-                                       cmap=plt.get_cmap('hsv'))
-            ax2.set_title('Phase value')
-            ax2.set_xlabel('RCU [#]')
-            ax2.set_ylabel('RCU [#]')
-            fig.colorbar(angdatplt, ax=ax2)
-            plt.suptitle('Station element covariance. Time: {}UT, SB: {}'
-                         .format(dataobj.samptimeset[fileidx][sb], sb))
-            plt.show()
-            sb += 1
-
-
 def latest_scanrec_path():
     """\
     Yield latest scanrec path
@@ -2066,8 +2040,6 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
                 freq = 0.0
         else:
             freq = float(freq)
-        if lofar_datatype == 'acc':
-            plotacc(dataff, freq)
         if (lofar_datatype == 'bst' or lofar_datatype == 'bst-357'
                 or lofar_datatype == 'bstc'):
             viewbst(dataff, pol_stokes=not linear,
