@@ -1874,15 +1874,14 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
         ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
         intg = ldatinfo.integration
         dur = ldatinfo.duration_subscan
-        freq = ldatinfo.get_recfreq()
         ts = numpy.arange(0., dur, intg)
         xstfiledata = xstobj[filenr]
         cvcpol = cov_flat2polidx(xstfiledata)
         for tidx, samptime in enumerate(times_in_filetimes):
             if sampnr0 > tidx:
                 continue
-            print("Kill plot window for next plot...")
-            if plottype:
+            freq = ldatinfo.get_recfreq(tidx)
+            if plottype == 'sto':
                 cvpol = cvcpol[tidx]
                 xstdata = numpy.asarray(
                     convertxy2stokes(cvpol[0][0], cvpol[0][1], cvpol[1][0],
@@ -1912,6 +1911,35 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
                            interpolation='none', cmap='seismic')
                 plt.colorbar()
                 plt.title('Stokes V')
+            elif plottype == 'lin':
+                cvpol = cvcpol[tidx]
+                xstdata = numpy.asarray((cvpol[0][0], cvpol[0][1], cvpol[1][0],
+                                        cvpol[1][1]))
+                plt.clf()
+
+                plt.subplot(2, 2, 1)
+                plt.imshow(numpy.real(xstdata[0, ...]), norm=normcolor,
+                           interpolation='none')
+                plt.colorbar()
+                plt.title('Re(XX)')
+
+                plt.subplot(2, 2, 2)
+                plt.imshow(numpy.real(xstdata[1, ...]), norm=normcolor,
+                           interpolation='none', cmap='seismic')
+                plt.colorbar()
+                plt.title('Re(XY)')
+
+                plt.subplot(2, 2, 3)
+                plt.imshow(numpy.imag(xstdata[2, ...]), norm=normcolor,
+                           interpolation='none', cmap='seismic')
+                plt.colorbar()
+                plt.title('Im(YX)')
+
+                plt.subplot(2, 2, 4)
+                plt.imshow(numpy.real(xstdata[3, ...]), norm=normcolor,
+                           interpolation='none')
+                plt.colorbar()
+                plt.title('YY')
             else:
                 xstdata = xstfiledata[tidx]
                 plt.clf()
@@ -1935,7 +1963,7 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
                          Time (from start {}) {}s
                          @ freq={} MHz""".format(ldatinfo.get_starttime(),
                          ts[tidx], freq/1e6))
-
+            print("Kill plot window for next plot...")
             plt.show()
 
 
@@ -1986,7 +2014,7 @@ def latest_scanrec_path():
             yield scanrecpath
 
 
-def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
+def view_bsxst(dataff, freq, sampnr, poltype, printout, filenr):
     """\
     View BST, SST, XST statistics data files
 
@@ -2014,8 +2042,8 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
         Frequency selection.
     sampnr : int
         Sample number selection.
-    linear : bool
-        Use linear representation for polarization?
+    poltype : str
+        Format for polarization: 'sto', 'lin' or None.
     printout : bool
         Print out data rather than plot.
     filenr : int
@@ -2042,13 +2070,16 @@ def view_bsxst(dataff, freq, sampnr, linear, printout, filenr):
             freq = float(freq)
         if (lofar_datatype == 'bst' or lofar_datatype == 'bst-357'
                 or lofar_datatype == 'bstc'):
-            viewbst(dataff, pol_stokes=not linear,
+            _pol_stokes = False
+            if poltype == 'sto':
+                _pol_stokes = True
+            viewbst(dataff, pol_stokes=_pol_stokes,
                     printout=printout)
         elif lofar_datatype == 'sst':
             viewsst(dataff, freq, sampnr, filenr, printout)
-        elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON':
-            plottype = 'lin' if linear else 'sto'
-            plotxst(dataff, filenr, sampnr, plottype)
+        elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON' \
+                or lofar_datatype=='acc':
+            plotxst(dataff, filenr, sampnr, poltype)
         else:
             raise RuntimeError("Not a bst, sst, or xst filefolder")
 
@@ -2062,14 +2093,14 @@ def main():
                         help='Sample #')
     parser.add_argument('-f', '--freq', type=float, default=None,
                         help='Frequency in Hz')
-    parser.add_argument('-l', '--linear', action="store_true",
-                        help='Use linear X,Y polarization rather than Stokes')
-    parser.add_argument('-p', '--printout', action="store_true",
+    parser.add_argument('-p', '--pol', type=str, default=None,
+                        help='Set pol. format: "lin", "sto", def: "None"')
+    parser.add_argument('-o', '--printout', action="store_true",
                         help='Print out data to stdout, else plot')
     parser.add_argument('dataff', nargs='?', default=None,
                         help="acc, bst, sst or xst filefolder")
     args = parser.parse_args()
-    view_bsxst(args.dataff, args.freq, args.sampnr, args.linear, args.printout,
+    view_bsxst(args.dataff, args.freq, args.sampnr, args.pol, args.printout,
                args.filenr)
 
 
