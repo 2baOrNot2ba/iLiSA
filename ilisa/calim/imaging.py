@@ -112,8 +112,10 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
         xstpol[polport1, polport2, elemnr1, elemnr2] where polport1 and
         polport2 are the two polarization ports, e.g. X and Y, and elemnr1 and
         elemnr2 are two elements of the interferometer array configuration.
-    stn2Dcoord : array
-        The 3xN array UVW configuration matrix.
+    stn2Dcoord : array or tuple of 2 arrays
+        The 3xN array UVW configuration matrix (same used for both
+        polarizations) or a tuple of len 2 where 1st is X coords and 2nd is
+        Y coords.
     freq : float
         The frequency of the data in Hz.
     lmsize : float
@@ -158,7 +160,6 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
     # Weight autocorrelations such that there sum becomes the mean autocorr:
     w[..., dg, dg] = 1.0/nrelems
 
-    posU, posV = stn2Dcoord[0, :].squeeze(), stn2Dcoord[1, :].squeeze()
     lambda0 = sys.float_info.max
     if freq != 0.0:
         lambda0 = c / freq
@@ -167,19 +168,32 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
     l, m = numpy.linspace(-lmext, lmext, nrpix), numpy.linspace(-lmext, lmext,
                                                                 nrpix)
     ll, mm = numpy.meshgrid(l, m)
-    bf = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU)
-                           + numpy.einsum('ij,k->ijk', mm, posV)))
-    bfbf = numpy.einsum('ijk,ijl->ijkl', bf, numpy.conj(bf))
+    stn2Dcoord_X = stn2Dcoord
+    stn2Dcoord_Y = stn2Dcoord_X
+    if type(stn2Dcoord) is tuple:
+        stn2Dcoord_X = stn2Dcoord[0]
+        stn2Dcoord_Y = stn2Dcoord[1]
+    posU_X, posV_X = stn2Dcoord_X[0, :].squeeze(), stn2Dcoord_X[1, :].squeeze()
+    posU_Y, posV_Y = stn2Dcoord_Y[0, :].squeeze(), stn2Dcoord_Y[1, :].squeeze()
+    bf_X = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU_X)
+                           + numpy.einsum('ij,k->ijk', mm, posV_X)))
+    bf_Y = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU_Y)
+                           + numpy.einsum('ij,k->ijk', mm, posV_Y)))
+    bfXbfX = numpy.einsum('ijk,ijl->ijkl', bf_X, numpy.conj(bf_X))
+    bfXbfY = numpy.einsum('ijk,ijl->ijkl', bf_X, numpy.conj(bf_Y))
+    bfYbfX = numpy.einsum('ijk,ijl->ijkl', bf_Y, numpy.conj(bf_X))
+    bfYbfY = numpy.einsum('ijk,ijl->ijkl', bf_Y, numpy.conj(bf_Y))
+
     nrm = nrbls
     if fov_area:
         nrm *= fov_area
-    skyimag_xx = (numpy.einsum('ijkl,kl->ij', bfbf,
+    skyimag_xx = (numpy.einsum('ijkl,kl->ij', bfXbfX,
                                w[0, 0, ...]*xstpol[0, 0, ...].squeeze()) / nrm)
-    skyimag_xy = (numpy.einsum('ijkl,kl->ij', bfbf,
+    skyimag_xy = (numpy.einsum('ijkl,kl->ij', bfXbfY,
                                w[0, 1, ...]*xstpol[0, 1, ...].squeeze()) / nrm)
-    skyimag_yx = (numpy.einsum('ijkl,kl->ij', bfbf,
+    skyimag_yx = (numpy.einsum('ijkl,kl->ij', bfYbfX,
                                w[1, 0, ...]*xstpol[1, 0, ...].squeeze()) / nrm)
-    skyimag_yy = (numpy.einsum('ijkl,kl->ij', bfbf,
+    skyimag_yy = (numpy.einsum('ijkl,kl->ij', bfYbfY,
                                w[0, 1, ...]*xstpol[1, 1, ...].squeeze()) / nrm)
     if not fluxperbeam:
         ll2mm2 = ll**2+mm**2
