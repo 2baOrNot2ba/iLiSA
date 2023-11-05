@@ -1853,10 +1853,41 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     plt.show()
 
 
+def plotcmplxmat(cm, cmplxrep='ReIm', xylabels='', title='Complex matrix'):
+    """\
+    Plot a complex matrix
+
+    Parameters
+    ----------
+    cm : 2D array
+        Complex matrix to plot
+    cmplxrep : str
+        Representation to use for complex matrix. Default is 'ReIm' which
+        uses real & imaginary parts, else absolute & argument is used.
+    xylabels : str
+        Labels to use for axes.
+    """
+    mats = (numpy.real(cm), numpy.imag(cm))
+    ptit = ('Re', 'Im')
+    if cmplxrep != 'ReIm':
+        # Use AbsArg
+        mats = (numpy.abs(cm), numpy.angle(cm))
+        ptit = ('Abs', 'Arg')
+    fig, axs = plt.subplots(1, 2, sharey=True)
+    for _p in range(2):
+        spi = axs[_p].matshow(mats[_p])
+        axs[_p].set_xlabel(xylabels)
+        axs[_p].set_ylabel(xylabels)
+        axs[_p].set_title(ptit[_p])
+        plt.colorbar(spi, ax=axs[_p])
+    fig.suptitle(title)
+
+
 def plotxst(xstff, filenr0, sampnr0, plottype=None):
     """
     Plot XST data
     """
+
     if not filenr0:
         filenr0 = 0
     if not sampnr0:
@@ -1875,12 +1906,15 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
         intg = ldatinfo.integration
         dur = ldatinfo.duration_subscan
         ts = numpy.arange(0., dur, intg)
+
         xstfiledata = xstobj[filenr]
         cvcpol = cov_flat2polidx(xstfiledata)
         for tidx, samptime in enumerate(times_in_filetimes):
             if sampnr0 > tidx:
                 continue
             freq = ldatinfo.get_recfreq(tidx)
+            title = """freq={} MHz @ {} UT""".format(round(freq / 1e6, 2),
+                        ldatinfo.get_starttime()+datetime.timedelta(ts[tidx]))
             if plottype == 'sto':
                 cvpol = cvcpol[tidx]
                 xstdata = numpy.asarray(
@@ -1911,58 +1945,20 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
                            interpolation='none', cmap='seismic')
                 plt.colorbar()
                 plt.title('Stokes V')
+                plt.suptitle(title)
             elif plottype == 'lin':
                 cvpol = cvcpol[tidx]
-                xstdata = numpy.asarray((cvpol[0][0], cvpol[0][1], cvpol[1][0],
-                                        cvpol[1][1]))
-                plt.clf()
-
-                plt.subplot(2, 2, 1)
-                plt.imshow(numpy.real(xstdata[0, ...]), norm=normcolor,
-                           interpolation='none')
-                plt.colorbar()
-                plt.title('Re(XX)')
-
-                plt.subplot(2, 2, 2)
-                plt.imshow(numpy.real(xstdata[1, ...]), norm=normcolor,
-                           interpolation='none', cmap='seismic')
-                plt.colorbar()
-                plt.title('Re(XY)')
-
-                plt.subplot(2, 2, 3)
-                plt.imshow(numpy.imag(xstdata[2, ...]), norm=normcolor,
-                           interpolation='none', cmap='seismic')
-                plt.colorbar()
-                plt.title('Im(YX)')
-
-                plt.subplot(2, 2, 4)
-                plt.imshow(numpy.real(xstdata[3, ...]), norm=normcolor,
-                           interpolation='none')
-                plt.colorbar()
-                plt.title('YY')
+                plotcmplxmat(cvpol[0][0], title="XX'\n"+title,
+                             xylabels='RCU [#]')
+                plotcmplxmat(cvpol[0][1], title="XY'\n"+title,
+                             xylabels='RCU [#]')
+                plotcmplxmat(cvpol[1][0], title="YX'\n"+title,
+                             xylabels='RCU [#]')
+                plotcmplxmat(cvpol[1][1], title="YY'\n"+title,
+                             xylabels='RCU [#]')
             else:
-                xstdata = xstfiledata[tidx]
-                plt.clf()
-                plt.subplot(1, 2, 1)
-                plt.imshow(numpy.abs(xstdata[...]), norm=normcolor,
-                           interpolation='none')
-                plt.title('abs(Visibility)')
-                plt.xlabel('RCU [#]')
-                plt.ylabel('RCU [#]')
-                plt.colorbar()
-
-                plt.subplot(1, 2, 2)
-                plt.imshow(numpy.angle(xstdata[...]), norm=normcolor,
-                           interpolation='none', cmap='hsv')
-                plt.title('arg(Visibility)')
-                plt.xlabel('RCU [#]')
-                plt.ylabel('RCU [#]')
-                plt.colorbar()
-            plt.suptitle("""\
-                         Visibilities
-                         Time (from start {}) {}s
-                         @ freq={} MHz""".format(ldatinfo.get_starttime(),
-                         ts[tidx], freq/1e6))
+                plotcmplxmat(xstfiledata[tidx], cmplxrep='ReIm',
+                             xylabels='RCU [#]')
             print("Kill plot window for next plot...")
             plt.show()
 
