@@ -235,7 +235,7 @@ def obsinfo2filefolder(obsinfo):
             filefoldername += "_sb"
             filefoldername += seqlists2slicestr(obsinfo['subbands'])
     if 'integration' in obsinfo and obsinfo['integration']:
-        filefoldername += '_int' + str(int(obsinfo['integration']))
+        filefoldername += '_int' + str(obsinfo['integration'])
     if 'duration_scan' in obsinfo:
         filefoldername += '_dur' + str(int(obsinfo['duration_scan']))
     if ldat_type != 'sst':
