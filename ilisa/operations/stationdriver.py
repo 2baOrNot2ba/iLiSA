@@ -165,6 +165,11 @@ class StationDriver(object):
 
         warmup: bool, optional
                 Do a beam warmup after reaching swlevel 3.
+
+        Raises
+        ------
+        RuntimeError
+            If observations are not allowed
         """
         if not self.is_operationsallowed():
             raise RuntimeError('Observations not allowed')
@@ -1114,7 +1119,10 @@ def boot(stndrv):
 
     Note: This typically takes 77 s.
     """
-    stndrv.goto_observingstate()
+    try:
+        stndrv.goto_observingstate()
+    except RuntimeError as err:
+        print("**", "Could not boot station since:", err, "**")
 
 
 def idle(stndrv):
