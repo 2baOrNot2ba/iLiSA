@@ -2058,10 +2058,10 @@ def view_bsxst(dataff, freq, sampnr, poltype, printout, filenr):
         lofar_datatype = datafolder_type(dataff)
         print('Viewing datafile:', dataff)
         if not freq:
-            if sampnr:
-                freq = modeparms.sb2freq(sampnr, 0)
-            elif lofar_datatype == 'acc' or lofar_datatype == 'sst':
+            if lofar_datatype == 'acc':
                 freq = 0.0
+                if sampnr:
+                    freq = modeparms.sb2freq(sampnr, 0)  # Assume LBA band
         else:
             freq = float(freq)
         if (lofar_datatype == 'bst' or lofar_datatype == 'bst-357'
