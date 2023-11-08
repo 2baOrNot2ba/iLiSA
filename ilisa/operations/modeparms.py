@@ -586,6 +586,105 @@ def band2antset_eu(band):
     return antset
 
 
+def _pol_label2nr(pol_label):
+    """\
+    Return id number of polarization label
+
+    Parameters
+    ----------
+    pol_nr : int
+        Polarization channel id number: 0 or 1
+
+    Returns
+    -------
+    pol_label : str
+        Polarization channel label: 'X' or 'Y'
+
+    Raises
+    ------
+    ValueError
+        If pol_label is not 'X' or 'Y'
+    """
+    if pol_label == 'X':
+        pol_nr = 0
+    elif pol_label == 'Y':
+        pol_nr = 1
+    else:
+        raise ValueError("Polarization label {} is neither 'X' nor 'Y'"
+                         .format(pol_label))
+    return pol_nr
+
+
+def _pol_nr2label(pol_nr):
+    """\
+    Return name of pol number
+
+    Parameters
+    ----------
+    pol_nr : int
+        Polarization channel id: 0 or 1
+
+    Returns
+    -------
+    pol_label : str
+
+    Raises
+    ------
+    ValueError
+        If pol_nr is not 0 or 1
+    """
+    if pol_nr == 0:
+        pol_label = 'X'
+    elif pol_nr == 1:
+        pol_label = 'Y'
+    else:
+        raise ValueError("Polarization number {} is neither 0 nor 1"
+                         .format(pol_nr))
+    return pol_label
+
+
+def antpol2rcu(antnr, pol_label):
+    """\
+    Determine RCU# from antenna number and polarization channel
+
+    Parameters
+    ----------
+    antnr : int
+        Antenna number
+    pol_label : str
+        Polarization channel label: 'X' or 'Y'
+
+    Returns
+    -------
+    rcunr : int
+        RCU number
+    """
+    pol_nr = _pol_label2nr(pol_label)
+    rcunr = 2 * antnr + pol_nr
+    return rcunr
+
+
+def rcu2antpol(rcunr):
+    """\
+    Convert RCU# to antenna # and polarization channel
+
+    Parameters
+    ----------
+    rcunr : int
+        RCU number
+
+    Returns
+    -------
+    antnr : int
+        Antenna number
+    polchan : str
+        Polarization channel: 'X' or 'Y'
+    """
+    antnr, pol_nr = divmod(rcunr, 2)
+    pol_label = _pol_nr2label(pol_nr)
+    return antnr, pol_label
+
+
 def rcumode2sbfreqs(rcumode):
     """
     Get the frequencies (in Hz) of the subbands for the given rcumode
