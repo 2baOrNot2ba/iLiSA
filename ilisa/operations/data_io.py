@@ -1829,10 +1829,15 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
             sbplt_nr = rcu_nr // 2
             # Plot X
             idx_axs = numpy.unravel_index(sbplt_nr, (axdim0, axdim1))
-            axs[idx_axs].semilogy(freqs, sstdata[rcu_nr + 0, sample_nr, :])
+            axs[idx_axs].semilogy(freqs, sstdata[rcu_nr + 0, sample_nr, :],
+                                  label='X')
             # & Y in same subplot
-            axs[idx_axs].semilogy(freqs, sstdata[rcu_nr + 1, sample_nr, :])
-            axs[idx_axs].set_title('{},{}'.format(rcu_nr, rcu_nr + 1))
+            axs[idx_axs].semilogy(freqs, sstdata[rcu_nr + 1, sample_nr, :],
+                                  label='Y')
+            axs[idx_axs].set_title('{},{} (Ant{})'.format(rcu_nr, rcu_nr + 1,
+                                   modeparms.rcu2antpol(rcu_nr)[0]), y=0.65,
+                                   fontsize=8)
+            axs[idx_axs].legend(fontsize=5)  # prop={'size': 6})
         plt.suptitle('RCU spectra @ {} UT, station {}'.format(
             ts[sample_nr], obsinfo['station_id']))
     elif show == 'overlay':
