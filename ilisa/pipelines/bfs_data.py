@@ -14,17 +14,18 @@ import argparse
 
 # BF data/header format constants:
 import numpy as np
+import ilisa.operations.data_io as dio
 
 NRTIMS_PACKET = 16  # Number of sample times in packet
 FFTSIZE = 1024
 NRPOLS = 2  # Number of polarization channels
 NRCMPLX = 2  # Every data sample is complex i.e. real & imag so size is doubled
 PACKETHDRSZ = 16  # Size of packet header in bytes
-BytesBFPacket = NRCMPLX * NRPOLS * 2 * NRTIMS_PACKET * 61 + PACKETHDRSZ
+BytesBFPacket = NRCMPLX * NRPOLS * 2 * NRTIMS_PACKET * 61 + PACKETHDRSZ  # =7824
 PacketH_struct_fmt = 'BBHHBBII'
 PacketH_struct_len = struct.calcsize(PacketH_struct_fmt)
-cint16 = numpy.dtype([('r', '<i2'), ('i', '<i2')])
-cint8 = numpy.dtype([('r', '<i1'), ('i', '<i1')])
+cint16 = numpy.dtype([('re', '<i2'), ('im', '<i2')])
+cint8 = numpy.dtype([('re', '<i1'), ('im', '<i1')])
 
 # PCAP file format data:
 BytesPcapHeader = 42  # 42
@@ -147,10 +148,10 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
         # Keep packet as integer values
         x = numpy.zeros((nrbeamlets, NRTIMS_PACKET), dtype=cint_smp)
         y = numpy.zeros((nrbeamlets, NRTIMS_PACKET), dtype=cint_smp)
-        x[:, :]['r'] = xr
-        x[:, :]['i'] = xi
-        y[:, :]['r'] = yr
-        y[:, :]['i'] = yi
+        x[:, :]['re'] = xr
+        x[:, :]['im'] = xi
+        y[:, :]['re'] = yr
+        y[:, :]['im'] = yi
     else:
         x = xr + 1j * xi
         y = yr + 1j * yi
@@ -160,11 +161,6 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
         pcapfooter = filepointer.read(BytesPcapFooter)
 
     return header, x, y
-
-
-# def plotPacket(sbdata):
-#    im = plt.imshow(numpy.abs(sbdata))
-#    plt.show()
 
 
 def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
@@ -183,6 +179,7 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
     fin = open(bfs_filename, "rb")
     EOF = False
     packetnr = 0
+    missed_pkts_tot = 0
     fin.seek(startskip)
     while not EOF:
         # print(str(packetNr)+" / "+str(nrPackets))
@@ -199,34 +196,60 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
                 seqprev = header['_blocksequencenumber']
             if seqdif != 16 and seqdif != -195297 and seqdif != -195296:
                 missingpackets = seqdif//16 - 1
+                missed_pkts_tot += missingpackets
                 for blkpktidx in range(missingpackets):
-                    print("Missed packet")
                     _header_ = dict(header)  # Todo: update header
                     _x = numpy.zeros_like(x)
                     _y = numpy.zeros_like(y)
                     yield _header_, _x, _y
         packetnr += 1
         yield header, x, y
+    if padmissing:
+        print('Missed packets total:', missed_pkts_tot, packetnr)
     fin.close()
 
 
-def readbfsfile(bfs_filename, skip=0, savenpy=True):
+class BFSmeta:
+    def __init__(self, bfs_filename, sb=0):
+        # Lookup first and last packet in file to set things up:
+        with open(bfs_filename, "rb") as fin:
+            fin.seek(0, os.SEEK_SET)
+            header_first, _x, _y = read_bf_packet(fin)
+            fin.seek(0, os.SEEK_END)
+            self.nrpkts_actual = fin.tell()//BytesBFPacket
+            fin.seek(-BytesBFPacket, os.SEEK_END)
+            header_last, _x, _y = read_bf_packet(fin, keepstruct=True)
+        self.nrbeamlets = header_first['nrbeamlets']
+        self.start_time = header_first['datetime64']
+        self.stop_time = header_last['datetime64']
+        self.samprate = get_samprate(header_first['is200mhz'])
+        self.dur = (self.stop_time - self.start_time).item() /1e9
+        self.nrpkts_nominal = round(self.dur * self.samprate
+                                    / (NRTIMS_PACKET * FFTSIZE)) + 1
+        self.xy_dtype = _x.dtype
+        self.lane = header_first['lanenr']
+
+    def __str__(self):
+        ret = (f"start: {self.start_time}\n"
+               f"stop : {self.stop_time}\n"
+               f"dur: {self.dur}\n"
+               f"pkts_act: {self.nrpkts_actual}\n"
+               f"pkts_nom: {self.nrpkts_nominal}\n"
+               f"lane: {self.lane}")
+        return ret
+
+def readbfsfile(bfs_filename, savenpy=True):
     """Read BFS file"""
-    # Lookup first non-skipped packet in file to set things up:
-    with open(bfs_filename, "rb") as fin:
-        fin.seek(skip*BytesBFPacket, os.SEEK_SET)
-        header0, x, y = read_bf_packet(fin, False)
-        fin.seek(0, os.SEEK_END)
-        nrpkts = fin.tell()//BytesBFPacket - skip
-    start_dattim64 = header0['datetime64']
-    samprate = get_samprate(header0['is200mhz'])
-    _paylodshp = (header0['nrbeamlets'], NRTIMS_PACKET * nrpkts)
+    bfsmeta = BFSmeta(bfs_filename)
+    _paylodshp = (bfsmeta.nrbeamlets, NRTIMS_PACKET * (bfsmeta.nrpkts_nominal))
     if savenpy:
         x_strm = np.lib.format.open_memmap(bfs_filename + '_X.npy',
-                                           dtype='complex', mode='w+',
+                                           dtype=bfsmeta.xy_dtype,
+                                           mode='w+',
                                            shape=_paylodshp)
         y_strm = np.lib.format.open_memmap(bfs_filename + '_Y.npy',
-                                           dtype='complex', mode='w+',
+                                           dtype=bfsmeta.xy_dtype,
+                                           mode='w+',
                                            shape=_paylodshp)
     else:
         x_strm = np.empty(shape=_paylodshp, dtype=complex)
@@ -234,23 +257,24 @@ def readbfsfile(bfs_filename, skip=0, savenpy=True):
     pkt_abs_nrs = []
     # Now read in all the packets
     pktnr = 0
-    with open(bfs_filename, "rb") as fin:
-        fin.seek(skip*BytesBFPacket, os.SEEK_SET)
-        while True:
-            header, x, y = read_bf_packet(fin, False)
-            if header == '':
-                break
-            pkt_abs_nr = round((header['datetime64'] - start_dattim64).item()
-                               / (NRTIMS_PACKET * FFTSIZE / samprate * 1e9))
-            pktnr_pe = pktnr*NRTIMS_PACKET + NRTIMS_PACKET
-            x_strm[:, NRTIMS_PACKET*pktnr:pktnr_pe] = x
-            y_strm[:, NRTIMS_PACKET*pktnr:pktnr_pe] = y
-            if datetime.datetime.utcfromtimestamp(
-                    header['datetime64'].tolist()/1e9).microsecond < 1000:
-                print(nrpkts - pktnr, pkt_abs_nr, pkt_abs_nr-pktnr)
-            pkt_abs_nrs.append(pkt_abs_nr)
-            pktnr += 1
-    return x_strm, y_strm, start_dattim64, pkt_abs_nrs
+    _leftpc_prev = 0
+    for header, x, y in next_bfpacket(bfs_filename, True, True):
+        if header == '':
+            break
+        pkt_abs_nr = \
+            round((header['datetime64'] - bfsmeta.start_time).item()
+                  / (NRTIMS_PACKET * FFTSIZE / bfsmeta.samprate * 1e9))
+        pktnr_pe = pktnr*NRTIMS_PACKET + NRTIMS_PACKET
+        x_strm[:, NRTIMS_PACKET*pktnr:pktnr_pe] = x
+        y_strm[:, NRTIMS_PACKET*pktnr:pktnr_pe] = y
+        leftpc = (pkt_abs_nr+1)/bfsmeta.nrpkts_nominal * 100
+        if leftpc - _leftpc_prev > 1.0:
+            _leftpc_prev = leftpc
+            print('\r'+str(round(leftpc))+'% completed', end='')
+        pkt_abs_nrs.append(pkt_abs_nr)
+        pktnr += 1
+    print()
+    return x_strm, y_strm, bfsmeta.start_time, pkt_abs_nrs
 
 
 def convert2binary(bfs_filepath):
@@ -284,12 +308,24 @@ def convert2bst(bfs_filepath, integration_req=1.0):
 
     It also adds the novel combination of X*Y data.
     """
-    bfs_filenamebase = os.path.basename(bfs_filepath)
-    nrpackets = os.path.getsize(bfs_filepath)/BytesBFPacket
-    foutXX = open(bfs_filenamebase + ".XX.bst", "wb")
-    foutYY = open(bfs_filenamebase + ".YY.bst", "wb")
-    foutXY = open(bfs_filenamebase + ".XY.bst", "wb")
+    (bfs_ff, bfs_filenamebase) = os.path.split(os.path.abspath(bfs_filepath))
+    if bfs_ff.endswith('_bfs'):
+        (bfs_path, bfs_ff_name) = os.path.split(bfs_ff)
+        obsinfo_bsf = dio.filefolder2obsinfo(bfs_ff_name)
+        obsinfo_bst = dict(obsinfo_bsf)
+        obsinfo_bst['ldat_type'] = 'bst'
+        obsinfo_bst['integration'] = integration_req
+        bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
+        bst_abspath = os.path.join(bfs_path, bst_ff_name)
+        print(obsinfo_bst['max_nr_bls']//4)
+        exit()
+        os.mkdir(bst_abspath)
+    bfs_pathbase = os.path.join(bst_abspath, bfs_filenamebase)
+    foutXX = open(bfs_pathbase + "_bst_XX.dat", "wb")
+    foutYY = open(bfs_pathbase + "_bst_YY.dat", "wb")
+    foutXY = open(bfs_pathbase + "_bst_XY.dat", "wb")
 
+    nrpackets = os.path.getsize(bfs_filepath)/BytesBFPacket
     totnrtimsamp = 0
     initialize = True
     for header, x, y in next_bfpacket(bfs_filepath, False):
@@ -334,6 +370,13 @@ def convert2bst(bfs_filepath, integration_req=1.0):
     foutXX.close()
     foutYY.close()
     foutXY.close()
+
+
+def convert2npy(bfs_filepath):
+    """\
+    Convert BFS file to numpy npy file
+    """
+    readbfsfile(bfs_filepath, savenpy=True)
 
 
 def get_packet_h_x_y_fromfile(bfs_filename, packetnr=0):
@@ -425,7 +468,8 @@ def check_packets(bfs_filename):
     """
     packetnr = 0
     missedpackets = 0
-    for header, x, y in next_bfpacket(bfs_filename, False):
+    prev_dt =None
+    for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
         seq = header['_blocksequencenumber']
         if header['error'] == 1:
             print("Error in packet")
@@ -434,11 +478,15 @@ def check_packets(bfs_filename):
         else:
             seqdif = 16
         if seqdif != 16 and seqdif != -195297 and seqdif != -195296:
-            missedpackets += 1
+            missedpackets += seqdif//16-1
             if False:
                 print(seqdif)
         seqprev = seq
         packetnr += 1
+        if prev_dt:
+            print(header['datetime64'] -prev_dt)
+        prev_dt = header['datetime64']
+
     print("Missed packets: ", missedpackets, "/", packetnr, " ",
           100 * missedpackets / float(packetnr), '%')
 
@@ -469,6 +517,14 @@ def main_cli():
     parser_bst.add_argument('integration', type=float,
                             help="Integration in float seconds")
 
+    parser_npy = subparsers.add_parser('npy', help='Convert BFS to numpy npy')
+    parser_npy.set_defaults(func=convert2npy)
+    parser_npy.add_argument('bfs_filename', help="BFS filename")
+
+    parser_meta = subparsers.add_parser('meta', help='BFS metadata')
+    parser_meta.set_defaults(func=BFSmeta)
+    parser_meta.add_argument('bfs_filename', help="BFS filename")
+
     args = cmdln_prsr.parse_args()
 
     if args.bfs_filename.endswith('zst'):
@@ -494,6 +550,10 @@ def main_cli():
     elif args.func == convert2bst:
         integration = 1.0
         convert2bst(args.bfs_filename, args.integration)
+    elif args.func == convert2npy:
+        convert2npy(args.bfs_filename)
+    elif args.func == BFSmeta:
+        print(BFSmeta(args.bfs_filename))
 
 
 if __name__ == "__main__":
