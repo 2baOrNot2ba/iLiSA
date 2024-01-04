@@ -536,6 +536,9 @@ def main_cli():
         while True:
             header, x, y = get_packet_h_x_y_fromfile(args.bfs_filename,
                                                      packetnr)
+            if not header:
+                print("Passed end of datafile, nothing to show")
+                break
             print("packetnr:", packetnr)
             if args.plot:
                 plot_packet(header, x, y)
