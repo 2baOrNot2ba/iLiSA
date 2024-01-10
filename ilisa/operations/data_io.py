@@ -1716,8 +1716,8 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
         Requested frequency in Hz.
     sample_nr : int
         Sample number.
-    rcu_sel : int
-        RCU number.
+    rcu_sel : str
+        RCU number or range of numbers.
     printout : bool
         Print out data instead of plotting it.
     """
@@ -2088,8 +2088,8 @@ def view_bsxst(dataff, freq, sampnr, poltype, printout, filenr):
 def main():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-n', '--filenr', type=int, default=None,
-                        help='Can be file # or RCU #')
+    parser.add_argument('-n', '--filenr', type=str, default=None,
+                        help="Can be file # or RCU #, or also a range '#:#' ")
     parser.add_argument('-s', '--sampnr', type=int, default=None,
                         help='Sample #')
     parser.add_argument('-f', '--freq', type=float, default=None,
