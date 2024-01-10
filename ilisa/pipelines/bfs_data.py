@@ -210,9 +210,10 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
 
 
 class BFSmeta:
-    def __init__(self, bfs_filename, sb=0):
+    def __init__(self, bfs_filename, sb=None):
+        self.bfs_filename =  bfs_filename
         # Lookup first and last packet in file to set things up:
-        with open(bfs_filename, "rb") as fin:
+        with open(self.bfs_filename, "rb") as fin:
             fin.seek(0, os.SEEK_SET)
             header_first, _x, _y = read_bf_packet(fin)
             fin.seek(0, os.SEEK_END)
@@ -220,14 +221,39 @@ class BFSmeta:
             fin.seek(-BytesBFPacket, os.SEEK_END)
             header_last, _x, _y = read_bf_packet(fin, keepstruct=True)
         self.nrbeamlets = header_first['nrbeamlets']
-        self.start_time = header_first['datetime64']
-        self.stop_time = header_last['datetime64']
         self.samprate = get_samprate(header_first['is200mhz'])
-        self.dur = (self.stop_time - self.start_time).item() /1e9
+        _pkt_dur = np.timedelta64(round(
+            NRTIMS_PACKET * FFTSIZE / self.samprate * 1e9), 'ns')
+        self.start_time = header_first['datetime64']
+        self.stop_time = header_last['datetime64'] + _pkt_dur
+        self.dur = (self.stop_time - self.start_time).item() / 1e9
         self.nrpkts_nominal = round(self.dur * self.samprate
-                                    / (NRTIMS_PACKET * FFTSIZE)) + 1
+                                    / (NRTIMS_PACKET * FFTSIZE))
         self.xy_dtype = _x.dtype
         self.lane = header_first['lanenr']
+        obsinfo = dio.filefolder2obsinfo(os.path.dirname(self.bfs_filename))
+        beamlet_0 = self.lane*self.nrbeamlets
+        beamlet_n = beamlet_0 + self.nrbeamlets
+        self.freqs = obsinfo['frequencies'][beamlet_0:beamlet_n]
+        self.stnid = obsinfo['station_id']
+        bffmtparams(header_first)
+        self.bits = bffmtparams.drbits
+
+
+    def timeaxis(self):
+        sampperiod = np.timedelta64(round(
+            NRTIMS_PACKET*FFTSIZE/self.samprate * 1e9), 'ns')
+        #return np.arange(self.start_time, self.stop_time, sampperiod)
+        return np.arange(np.timedelta64(0,'ns'),
+                         np.timedelta64(round(self.dur*1e9), 'ns'), sampperiod)
+
+    def freqaxis(self):
+        return self.freqs
+
+    def save(self):
+        np.savez(self.bfs_filename+'_meta', times=self.timeaxis(),
+                 freqs=self.freqaxis(), start_datetime=self.start_time,
+                 stnid=self.stnid, bits=self.bits)
 
     def __str__(self):
         ret = (f"start: {self.start_time}\n"
@@ -235,12 +261,13 @@ class BFSmeta:
                f"dur: {self.dur}\n"
                f"pkts_act: {self.nrpkts_actual}\n"
                f"pkts_nom: {self.nrpkts_nominal}\n"
-               f"lane: {self.lane}")
+               f"lane: {self.lane}\n"
+               f"bits: {self.bits}")
         return ret
 
-def readbfsfile(bfs_filename, savenpy=True):
+
+def readbfsfile(bfs_filename, bfsmeta, savenpy=True):
     """Read BFS file"""
-    bfsmeta = BFSmeta(bfs_filename)
     _paylodshp = (bfsmeta.nrbeamlets, NRTIMS_PACKET * (bfsmeta.nrpkts_nominal))
     if savenpy:
         x_strm = np.lib.format.open_memmap(bfs_filename + '_X.npy',
@@ -254,27 +281,22 @@ def readbfsfile(bfs_filename, savenpy=True):
     else:
         x_strm = np.empty(shape=_paylodshp, dtype=complex)
         y_strm = np.empty_like(x_strm)
-    pkt_abs_nrs = []
     # Now read in all the packets
     pktnr = 0
     _leftpc_prev = 0
     for header, x, y in next_bfpacket(bfs_filename, True, True):
         if header == '':
             break
-        pkt_abs_nr = \
-            round((header['datetime64'] - bfsmeta.start_time).item()
-                  / (NRTIMS_PACKET * FFTSIZE / bfsmeta.samprate * 1e9))
         pktnr_pe = pktnr*NRTIMS_PACKET + NRTIMS_PACKET
         x_strm[:, NRTIMS_PACKET*pktnr:pktnr_pe] = x
         y_strm[:, NRTIMS_PACKET*pktnr:pktnr_pe] = y
-        leftpc = (pkt_abs_nr+1)/bfsmeta.nrpkts_nominal * 100
+        leftpc = (pktnr+1)/bfsmeta.nrpkts_actual * 100
         if leftpc - _leftpc_prev > 1.0:
             _leftpc_prev = leftpc
             print('\r'+str(round(leftpc))+'% completed', end='')
-        pkt_abs_nrs.append(pkt_abs_nr)
         pktnr += 1
     print()
-    return x_strm, y_strm, bfsmeta.start_time, pkt_abs_nrs
+    return x_strm, y_strm
 
 
 def convert2binary(bfs_filepath):
@@ -376,7 +398,9 @@ def convert2npy(bfs_filepath):
     """\
     Convert BFS file to numpy npy file
     """
-    readbfsfile(bfs_filepath, savenpy=True)
+    bfsmeta = BFSmeta(bfs_filepath)
+    readbfsfile(bfs_filepath, bfsmeta, savenpy=True)
+    bfsmeta.save()
 
 
 def get_packet_h_x_y_fromfile(bfs_filename, packetnr=0):
