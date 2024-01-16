@@ -270,18 +270,27 @@ class FreqSetup(object):
     nrffts = 1024
     _max_nrlanes = 4
 
-    def __init__(self, freq_arg=None, chan_arg=None):
+    def __init__(self, freq_arg=None, chan_arg={}):
         self.freq_arg = freq_arg
         if not freq_arg: return
-        if '_' in freq_arg:
-            # freq_arg has rcuband format 'rcubandlo_rcubandhi'
-            freqbins = self._band2freqbins(freq_arg)
+        if type(freq_arg) == dict:
+            chan_arg = freq_arg
+        if not chan_arg:
+            if '_' in freq_arg:
+                # freq_arg has rcuband format 'rcubandlo_rcubandhi'
+                freqbins = self._band2freqbins(freq_arg)
+            else:
+                # Normal arg spec
+                freqbins = self._freqslice2freqbins(freq_arg)
+            self._rcumodes, self.subbands_spw = self._subband_hint(*freqbins)
         else:
-            # Normal arg spec
-            freqbins = self._freqslice2freqbins(freq_arg)
-        self._rcumodes, self.subbands_spw = self._subband_hint(*freqbins)
+            self._rcumodes = [chan_arg['rcumode']]
+            self.subbands_spw = [chan_arg['sbs']]
         _beamlets, _bmltpntr, nrbeamlets = alloc_beamlets(self.subbands_spw)
-        self.bits = bits_support_nrbeamlets(nrbeamlets)
+        if chan_arg.get('bits'):
+            self.bits = chan_arg.get('bits')
+        else:
+            self.bits = bits_support_nrbeamlets(nrbeamlets)
         self.rcubands = []
         self.antsets = []
         for rcumode in self._rcumodes:
