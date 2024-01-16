@@ -705,8 +705,7 @@ class ScanRecInfo(object):
 
     def get_rcumode(self, filenr=0):
         try:
-            rcumode = modeparms.FreqSetup(self.scanrecparms['freqspec']
-                                          ).rcumodes[0]
+            rcumode = modeparms.FreqSetup(self.scanrecparms['freqspec']).rcumodes[0]
         except:
             try:
                 rcumode = self.ldatinfos[filenr].beamctl_cmd['rcumode']

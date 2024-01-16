@@ -191,7 +191,7 @@ def record_obsprog(stationdriver, scan):
         datatype = 'sop:' + scan['obsprog']
         scanrec = data_io.ScanRecInfo()
         scanrec.set_stnid(stationdriver.get_stnid())
-        scanrec.set_scanrecparms(datatype, freqbndobj.arg,
+        scanrec.set_scanrecparms(datatype, freqbndobj.freq_arg,
                                  scan['duration'], scan['beam']['pointing'])
         beamstarted = datetime.datetime.strptime(obsinfolist[0].filenametime,
                                                  "%Y%m%d_%H%M%S")

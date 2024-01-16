@@ -120,21 +120,21 @@ class LScan:
                         self.stndrv.get_stnid(), caltabinfos, stndrv.mockrun)
                 self.scanresult['acc'].set_caltabinfos([])
                 self.scanresult['acc'].set_scanrecparms(
-                    'acc', freqsetup.arg, duration_tot,
+                    'acc', freqsetup.freq_arg, duration_tot,
                     self.pointing_spec['direction'], 1.0)
             if bsx_stat:
                 self.scanresult['rec'].append('bsx')
                 self.scanresult['bsx'] = data_io.ScanRecInfo(
                         self.stndrv.get_stnid(), caltabinfos, stndrv.mockrun)
                 self.scanresult['bsx'].set_scanrecparms(
-                    bsx_stat, freqsetup.arg, duration_tot,
+                    bsx_stat, freqsetup.freq_arg, duration_tot,
                     self.pointing_spec['direction'], integration)
             if bfs:
                 self.scanresult['rec'].append('bfs')
                 self.scanresult['bfs'] = data_io.ScanRecInfo(
                         self.stndrv.get_stnid(), caltabinfos, stndrv.mockrun)
                 self.scanresult['bfs'].set_scanrecparms(
-                    'bfs', freqsetup.arg, duration_tot,
+                    'bfs', freqsetup.freq_arg, duration_tot,
                     self.pointing_spec['direction'], None)
 
         self.ldatinfos = []
@@ -396,7 +396,7 @@ class LScan:
             pnting = self.pointing_spec.get('pointing')
             if not pnting:
                 pnting = self.pointing_spec.get('direction')
-        freqarg = self.freqsetup.arg
+        freqarg = self.freqsetup.freq_arg
         descriptor = "id: {}, rec: {}, pnting: {}, freq: {}"\
                      .format(id, rec, pnting, freqarg)
         return descriptor

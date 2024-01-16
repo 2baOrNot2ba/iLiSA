@@ -270,15 +270,15 @@ class FreqSetup(object):
     nrffts = 1024
     _max_nrlanes = 4
 
-    def __init__(self, arg=None):
-        self.arg = arg
-        if not arg: return
-        if '_' in arg:
-            # arg has rcuband format 'rcubandlo_rcubandhi'
-            freqbins = self._band2freqbins(arg)
+    def __init__(self, freq_arg=None, chan_arg=None):
+        self.freq_arg = freq_arg
+        if not freq_arg: return
+        if '_' in freq_arg:
+            # freq_arg has rcuband format 'rcubandlo_rcubandhi'
+            freqbins = self._band2freqbins(freq_arg)
         else:
             # Normal arg spec
-            freqbins = self._freqslice2freqbins(arg)
+            freqbins = self._freqslice2freqbins(freq_arg)
         self.rcumodes, self.subbands_spw = self._subband_hint(*freqbins)
         _beamlets, _bmltpntr, nrbeamlets = alloc_beamlets(self.subbands_spw)
         self.bits = bits_support_nrbeamlets(nrbeamlets)
