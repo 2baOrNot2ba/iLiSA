@@ -244,7 +244,7 @@ def lcu_services(scan):
     if beam.get('pointing'):
         return 'beam'
     elif beam.get('freqspec') and \
-            modeparms.FreqSetup(beam['freqspec']).rcumodes[0] > 4:
+            modeparms.FreqSetup(beam['freqspec'])._rcumodes[0] > 4:
         return 'tof'
     return None
 

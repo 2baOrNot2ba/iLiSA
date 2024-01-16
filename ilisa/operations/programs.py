@@ -36,9 +36,9 @@ class ObsPrograms(object):
         if DUMMYWARMUP:
             print("Warning warnup not currently implemented")
         beamctl_cmds = []
-        for bandbeamidx in range(len(freqbndobj.rcumodes)):
+        for bandbeamidx in range(len(freqbndobj._rcumodes)):
             _antset = freqbndobj.antsets[bandbeamidx]
-            rcumode = freqbndobj.rcumodes[bandbeamidx]
+            rcumode = freqbndobj._rcumodes[bandbeamidx]
             beamlets = freqbndobj.beamlets[bandbeamidx]
             subbands = freqbndobj.subbands_spw[bandbeamidx]
             rcusel = freqbndobj.rcusel[bandbeamidx]
@@ -198,7 +198,7 @@ def record_obsprog(stationdriver, scan):
         scan_id = stationdriver.get_scanid(beamstarted)
         scanpath_scdat = os.path.join(stationdriver.scanpath, scan_id)
         # Add caltables used
-        caltabinfos = stationdriver.get_caltableinfos(freqbndobj.rcumodes)
+        caltabinfos = stationdriver.get_caltableinfos(freqbndobj._rcumodes)
         # Add obsinfos to scanrecs
         for obsinfo in obsinfolist:
             # obsinfo.caltabinfos = caltabinfos

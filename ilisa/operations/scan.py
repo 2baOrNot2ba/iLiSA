@@ -102,7 +102,7 @@ class LScan:
         bsx_stat = modeparms._xtract_bsx(rec_type)
         caltabinfos = []
         if bsx_stat == 'bst' or bfs:
-            caltabinfos = self.stndrv.get_caltableinfos(freqsetup.rcumodes)
+            caltabinfos = self.stndrv.get_caltableinfos(freqsetup._rcumodes)
         self.scanpath = self.destpath
         self.scan_id = scan_id if scan_id else self._gen_scan_id(self.starttime)
         self.scanresult['scan_id'] = self.scan_id
@@ -166,8 +166,8 @@ class LScan:
             if self.dir_bmctl:
                 stndrv.streambeams(freqsetup, self.dir_bmctl)
             else:
-                stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup.rcumodes[0])
-                if freqsetup.rcumodes[0] > 4:
+                stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup._rcumodes[0])
+                if freqsetup._rcumodes[0] > 4:
                     # No pointing for HBA implies tiles-off mode
                    stndrv.setup_tof()
             if self.bfs:

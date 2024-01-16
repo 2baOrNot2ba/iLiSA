@@ -279,15 +279,15 @@ class FreqSetup(object):
         else:
             # Normal arg spec
             freqbins = self._freqslice2freqbins(freq_arg)
-        self.rcumodes, self.subbands_spw = self._subband_hint(*freqbins)
+        self._rcumodes, self.subbands_spw = self._subband_hint(*freqbins)
         _beamlets, _bmltpntr, nrbeamlets = alloc_beamlets(self.subbands_spw)
         self.bits = bits_support_nrbeamlets(nrbeamlets)
         self.rcubands = []
         self.antsets = []
-        for rcumode in self.rcumodes:
+        for rcumode in self._rcumodes:
             self.rcubands.append(self.rcumode_bandnames[rcumode])
             self.antsets.append(self.rcumode_antsets[rcumode])
-        self.rcusel = self.subarr_rcusel[len(self.rcumodes)-1]
+        self.rcusel = self.subarr_rcusel[len(self._rcumodes) - 1]
         self.nrlanes = math.ceil(
             nrbeamlets/NRBEAMLETSBYBITS[self.bits]*self._max_nrlanes
         )
@@ -467,8 +467,8 @@ class FreqSetup(object):
         Return a tuple of lowest and highest frequency in frequency band of spw
         """
         sbs = seqarg2list(self.subbands_spw[spw])
-        freqlo = self.rcumode_sb2freq(self.rcumodes[spw], sbs[0])
-        freqhi = self.rcumode_sb2freq(self.rcumodes[spw], sbs[-1])
+        freqlo = self.rcumode_sb2freq(self._rcumodes[spw], sbs[0])
+        freqhi = self.rcumode_sb2freq(self._rcumodes[spw], sbs[-1])
         return freqlo, freqhi
 
     def nrsubbands(self):
