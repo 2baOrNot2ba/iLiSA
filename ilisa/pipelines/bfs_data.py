@@ -2,20 +2,18 @@
 """A python module to process beamformed LOFAR data."""
 # TobiaC 2022-12-04 (2015-04-14)
 import os
-import os.path
 import sys
 import struct
 import math
 
-import matplotlib.pyplot as plt
-import numpy
 import datetime
 import argparse
-
-# BF data/header format constants:
 import numpy as np
+import matplotlib.pyplot as plt
+
 import ilisa.operations.data_io as dio
 
+# BF data/header format constants:
 NRTIMS_PACKET = 16  # Number of sample times in packet
 FFTSIZE = 1024
 NRPOLS = 2  # Number of polarization channels
@@ -24,8 +22,8 @@ PACKETHDRSZ = 16  # Size of packet header in bytes
 BytesBFPacket = NRCMPLX * NRPOLS * 2 * NRTIMS_PACKET * 61 + PACKETHDRSZ  # =7824
 PacketH_struct_fmt = 'BBHHBBII'
 PacketH_struct_len = struct.calcsize(PacketH_struct_fmt)
-cint16 = numpy.dtype([('re', '<i2'), ('im', '<i2')])
-cint8 = numpy.dtype([('re', '<i1'), ('im', '<i1')])
+cint16 = np.dtype([('re', '<i2'), ('im', '<i2')])
+cint8 = np.dtype([('re', '<i1'), ('im', '<i1')])
 
 # PCAP file format data:
 BytesPcapHeader = 42  # 42
@@ -56,9 +54,9 @@ def bffmtparams(header):
             bffmtparams.drbits = 8
         else:
             raise RuntimeError("Only 8 and 16 bit mode supported")
-        xrxiyryi16_dtype = numpy.dtype([('xr', '<i2'), ('xi', '<i2'),
+        xrxiyryi16_dtype = np.dtype([('xr', '<i2'), ('xi', '<i2'),
                                         ('yr', '<i2'), ('yi', '<i2')])
-        xrxiyryi8_dtype = numpy.dtype([('xr', '<i1'), ('xi', '<i1'),
+        xrxiyryi8_dtype = np.dtype([('xr', '<i1'), ('xi', '<i1'),
                                        ('yr', '<i1'), ('yi', '<i1')])
 
         if bffmtparams.drbits == 16:
@@ -73,7 +71,7 @@ def bffmtparams(header):
             # PacketD_struct_fmt = str(2 * 4 * nrdatasampsBFpacket) + 's'
             bffmtparams.cint_smp = cint8
             xrxiyryi_dtype = xrxiyryi8_dtype
-        bffmtparams.packetData_dtype = numpy.dtype((xrxiyryi_dtype,
+        bffmtparams.packetData_dtype = np.dtype((xrxiyryi_dtype,
                                                     (nrbeamletsperlane,
                                                      NRTIMS_PACKET)))
     return bffmtparams.packetData_dtype, bffmtparams.cint_smp
@@ -128,26 +126,27 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
                           + (timestamps % 2)*0.5*FFTSIZE/(0.16+is200mhz*0.04))
     header['datetime64'] = (np.datetime64(header['datetime'])
                             + np.timedelta64(round(header['nanosecs']), 'ns'))
-    #header['packno'] = ((timestamps*1000000*(160 + is200mhz*40) +oe*512)/1024+blocksequencenumber)/16
+    #header['packno'] =
+    # ((timestamps*1000000*(160+is200mhz*40)+oe*512)/1024+blocksequencenumber)/16
     # Get packet format parameters:
     packetData_dtype, cint_smp = bffmtparams(header)
 
     # Unpack BL data
     alt = 2
     if alt == 1:
-        LofarElemSamps = numpy.fromfile(filepointer, dtype=packetData_dtype,
-                                        count=1)
+        LofarElemSamps = np.fromfile(filepointer, dtype=packetData_dtype,
+                                     count=1)
     else:
         buf = filepointer.read(packetData_dtype.itemsize)
-        LofarElemSamps = numpy.frombuffer(buf, dtype=packetData_dtype)
+        LofarElemSamps = np.frombuffer(buf, dtype=packetData_dtype)
     xr = (LofarElemSamps[0, :, ]['xr']).squeeze()
     xi = (LofarElemSamps[0, :, ]['xi']).squeeze()
     yr = (LofarElemSamps[0, :, ]['yr']).squeeze()
     yi = (LofarElemSamps[0, :, ]['yi']).squeeze()
     if keepstruct:
         # Keep packet as integer values
-        x = numpy.zeros((nrbeamlets, NRTIMS_PACKET), dtype=cint_smp)
-        y = numpy.zeros((nrbeamlets, NRTIMS_PACKET), dtype=cint_smp)
+        x = np.zeros((nrbeamlets, NRTIMS_PACKET), dtype=cint_smp)
+        y = np.zeros((nrbeamlets, NRTIMS_PACKET), dtype=cint_smp)
         x[:, :]['re'] = xr
         x[:, :]['im'] = xi
         y[:, :]['re'] = yr
@@ -175,7 +174,8 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
         startskip = 0
         endpad = 0
 
-    # nrPackets = float(os.stat(bfs_filename).st_size - startskip + endpad) / bytesperpacket
+    # nrPackets =
+    # float(os.stat(bfs_filename).st_size - startskip + endpad) / bytesperpacket
     fin = open(bfs_filename, "rb")
     EOF = False
     packetnr = 0
@@ -199,8 +199,8 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
                 missed_pkts_tot += missingpackets
                 for blkpktidx in range(missingpackets):
                     _header_ = dict(header)  # Todo: update header
-                    _x = numpy.zeros_like(x)
-                    _y = numpy.zeros_like(y)
+                    _x = np.zeros_like(x)
+                    _y = np.zeros_like(y)
                     yield _header_, _x, _y
         packetnr += 1
         yield header, x, y
@@ -210,7 +210,11 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
 
 
 class BFSmeta:
-    def __init__(self, bfs_filename, sb=None):
+    lcufftlen = 1024
+    lcusampfreq = 200e6
+    sbsampprd = lcufftlen / lcusampfreq
+
+    def __init__(self, bfs_filename, skip=0):
         self.bfs_filename =  bfs_filename
         # Lookup first and last packet in file to set things up:
         with open(self.bfs_filename, "rb") as fin:
@@ -317,7 +321,7 @@ def convert2binary(bfs_filepath):
     for header, x, y in next_bfpacket(bfs_filepath, True):
         if xy is None:
             packetData_dtype, cint_smp = bffmtparams(header)
-            xy = numpy.zeros((2, header['nrbeamlets'], NRTIMS_PACKET),
+            xy = np.zeros((2, header['nrbeamlets'], NRTIMS_PACKET),
                              dtype=cint_smp)
         xy[0, :, :] = x
         xy[1, :, :] = y
@@ -357,9 +361,9 @@ def convert2bst(bfs_filepath, integration_req=1.0):
             samprate = get_samprate(header['is200mhz'])
             #    Normalize to Volts^2/second/channel
             nrbeamlets = header['nrbeamlets']
-            xx = numpy.zeros((nrbeamlets,), dtype=float)
-            yy = numpy.zeros((nrbeamlets,), dtype=float)
-            xy = numpy.zeros((nrbeamlets,), dtype=complex)
+            xx = np.zeros((nrbeamlets,), dtype=float)
+            yy = np.zeros((nrbeamlets,), dtype=float)
+            xy = np.zeros((nrbeamlets,), dtype=complex)
             integrate_samps = (math.floor(integration_req * samprate
                                           / (FFTSIZE * NRTIMS_PACKET))
                                * NRTIMS_PACKET)
@@ -369,10 +373,10 @@ def convert2bst(bfs_filepath, integration_req=1.0):
             normfac = 1.0 / integrate_samps * (samprate / FFTSIZE)
             initialize = False
         for bi in range(nrbeamlets):
-            xx[bi] += numpy.real(numpy.vdot(x[bi, :], x[bi, :]))
-            yy[bi] += numpy.real(numpy.vdot(y[bi, :], y[bi, :]))
-            xy[bi] += numpy.vdot(x[bi, :], y[bi, :])
-            # yx[bi]=numpy.vdot(y[bi,:],x[bi,:])
+            xx[bi] += np.real(np.vdot(x[bi, :], x[bi, :]))
+            yy[bi] += np.real(np.vdot(y[bi, :], y[bi, :]))
+            xy[bi] += np.vdot(x[bi, :], y[bi, :])
+            # yx[bi]=np.vdot(y[bi,:],x[bi,:])
         totnrtimsamp += NRTIMS_PACKET
         if (totnrtimsamp % integrate_samps) == 0:
             print("Integrated {}/{} time samples".format(
@@ -386,9 +390,9 @@ def convert2bst(bfs_filepath, integration_req=1.0):
             (xx.flatten('F')).tofile(foutXX)
             (yy.flatten('F')).tofile(foutYY)
             (xy.flatten('F')).tofile(foutXY)
-            xx = numpy.zeros((nrbeamlets,), dtype=float)
-            yy = numpy.zeros((nrbeamlets,), dtype=float)
-            xy = numpy.zeros((nrbeamlets,), dtype=complex)
+            xx = np.zeros((nrbeamlets,), dtype=float)
+            yy = np.zeros((nrbeamlets,), dtype=float)
+            xy = np.zeros((nrbeamlets,), dtype=complex)
     foutXX.close()
     foutYY.close()
     foutXY.close()
@@ -396,7 +400,7 @@ def convert2bst(bfs_filepath, integration_req=1.0):
 
 def convert2npy(bfs_filepath):
     """\
-    Convert BFS file to numpy npy file
+    Convert BFS file to np npy file
     """
     bfsmeta = BFSmeta(bfs_filepath)
     readbfsfile(bfs_filepath, bfsmeta, savenpy=True)
@@ -458,31 +462,31 @@ def plot_packet(header, x, y, print_names=True):
     """
     # print X, Y beamlet data
     plt.subplot(2,2,1)
-    plt.pcolormesh(numpy.abs(x))
+    plt.pcolormesh(np.abs(x))
     plt.ylabel('Beamlet [#]')
     plt.colorbar()
     plt.title('abs(X)')
 
     plt.subplot(2,2,2)
-    plt.pcolormesh(numpy.angle(x))
+    plt.pcolormesh(np.angle(x))
     plt.colorbar()
     plt.title('arg(X)')
 
     plt.subplot(2,2,3)
-    plt.pcolormesh(numpy.abs(y))
+    plt.pcolormesh(np.abs(y))
     plt.colorbar()
     plt.xlabel('Time bin [#]')
     plt.ylabel('Beamlet [#]')
     plt.title('abs(Y)')
 
     plt.subplot(2,2,4)
-    plt.pcolormesh(numpy.angle(y))
+    plt.pcolormesh(np.angle(y))
     plt.colorbar()
     plt.xlabel('Time bin [#]')
     plt.title('arg(Y)')
 
-    plt.suptitle('BFS packet lane {} @ {}'.format(header['lanenr'],
-                                                  header['datetime'].isoformat()))
+    plt.suptitle('BFS packet lane {} @ {}'.format(
+        header['lanenr'], header['datetime'].isoformat()))
     plt.show()
 
 
@@ -515,6 +519,107 @@ def check_packets(bfs_filename):
           100 * missedpackets / float(packetnr), '%')
 
 
+class BFS_dataset:
+
+    def __init__(self, bfs_ff):
+        """Load bfs dataset
+
+        Format: x[<chanbins>, <t_segment_maj>, <t_segment_min>]
+        """
+        bfsfiles = self._rawfilesinfolder(bfs_ff)
+        self.attrs_ln = []
+        for bfsfile in bfsfiles:
+            if bfsfile:
+                self.attrs_ln.append(np.load(bfsfile + '_meta.npz'))
+        nrbeamlets = len(self.attrs_ln[0]['freqs'])
+        self.xs = []
+        self.ys = []
+        for bfsfile in bfsfiles:
+            self.xs.append(np.lib.format.open_memmap(bfsfile+'_X.npy',
+                                                     mode='r',
+                                                     shape=(nrbeamlets, )))
+            self.ys.append(np.lib.format.open_memmap(bfsfile+'_Y.npy',
+                                                     mode='r',
+                                                     shape=(nrbeamlets, )))
+
+    def segment(self, segdur=None):
+        self.seglen = 1
+        if segdur:
+            if type(segdur) == float:
+                self.seglen = int(segdur / BFSmeta.sbsampprd)
+            elif type(segdur) == int:
+                self.seglen = segdur
+        return self
+
+    def sel(self, freq_cntr, ts=(0.0, None)):
+        freqs = np.array(
+            [self.attrs_ln[_lane]['freqs']
+             for _lane in range(len(self.attrs_ln))])
+        lane_fr, self.fftbin = np.unravel_index(
+            np.argmin((freqs - freq_cntr) ** 2), freqs.shape)
+        x = self.xs[lane_fr]
+        y = self.ys[lane_fr]
+        ### Time start
+        t_smp0, dur = ts
+        if not dur:
+            dur  = x.shape[1] * BFSmeta.sbsampprd
+        seg0 = int(t_smp0 / BFSmeta.sbsampprd) // self.seglen
+        segN = int((t_smp0 + dur) / BFSmeta.sbsampprd) // self.seglen
+        ### Time end
+        nrsbs = x.shape[0]
+        ofs = x.shape[1] % self.seglen
+        endofs = -ofs if ofs > 0 else None
+        _xseg = x[:, :endofs].reshape((nrsbs, -1, self.seglen))
+        _yseg = y[:, :endofs].reshape((nrsbs, -1, self.seglen))
+        del x, y
+        xseg = _xseg[:, seg0:segN, :].squeeze()
+        yseg = _yseg[:, seg0:segN, :].squeeze()
+        del _xseg, _yseg
+        nrsegs = xseg.shape[1]
+        segdur = self.seglen * BFSmeta.lcufftlen / BFSmeta.lcusampfreq
+        self.ts = np.arange(nrsegs) * segdur + t_smp0
+        toffset = seg0 * segdur
+        self.attrs = self.attrs_ln[lane_fr]
+        self.fftfreqs = np.fft.fftshift(np.fft.fftfreq(self.seglen,
+                                                       d=BFSmeta.sbsampprd))
+        start_dt = datetime.datetime.utcfromtimestamp(
+            (self.attrs['start_datetime'] - np.datetime64(0, 's')) / np.timedelta64(1, 's'))
+        # tstart = obsinfo['start_datetime']+datetime.timedelta(seconds=toffset)
+        if self.attrs['bits'] == 8:
+            xsegbin = xseg[self.fftbin, ...].view(np.int8).astype(np.float32).view(
+                np.complex64)
+            ysegbin = yseg[self.fftbin, ...].view(np.int8).astype(np.float32).view(
+                np.complex64)
+        else:
+            xsegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
+                np.complex64)
+            ysegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
+                np.complex64)
+        return xsegbin, ysegbin
+
+    def _rawfilesinfolder(self, bfsff):
+        """Get raw BFS files in a file-folder
+
+        Parameters
+        ----------
+        bfsff : str
+            Path to a BFS data file-folder
+
+        Returns
+        -------
+        udpfps : list
+            Raw BFS file name with file-folder path prepended
+        """
+        udpfps = []
+        _ls = sorted(os.listdir(bfsff))
+        for f in _ls:
+            if f.startswith('udp_') and f.endswith('.000.zst'):
+                #_lane = int(f.split('.', 1)[0][-1])
+                f_uncmp =f.rstrip('.zst')
+                udpfps.append(os.path.join(bfsff, f_uncmp))
+        return udpfps
+
+
 def main_cli():
     cmdln_prsr = argparse.ArgumentParser()
     subparsers = cmdln_prsr.add_subparsers(help='sub-command help')
@@ -541,7 +646,7 @@ def main_cli():
     parser_bst.add_argument('integration', type=float,
                             help="Integration in float seconds")
 
-    parser_npy = subparsers.add_parser('npy', help='Convert BFS to numpy npy')
+    parser_npy = subparsers.add_parser('npy', help='Convert BFS to np npy')
     parser_npy.set_defaults(func=convert2npy)
     parser_npy.add_argument('bfs_filename', help="BFS filename")
 
