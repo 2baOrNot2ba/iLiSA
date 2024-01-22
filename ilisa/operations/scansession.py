@@ -533,39 +533,44 @@ def get_proj_stn_access_conf(projid, stnid=None):
     return ac
 
 
-def check_scan_sess(scansess_in):
+def check_scan_sess(scansess_in, print_out=True):
     """\
     Check scan session syntax
 
     Parameters
     ----------
     sessmeta : dict
-        The ScanSession metadata.
+        The ScanSession metadata
+    print_out : bool
+        Should scan sess parameters be printed out
+
+    Returns
+    -------
+    obs_check_meta : dict
+        Metadata on scan session, project and duration_total.
     """
     sessmeta, scans_obsargs = process_scansess(scansess_in)
     projectmeta, _, _, _ = projid2meta(sessmeta['projectid'])
     sessmeta['projectid_name'] = projectmeta['name']
-    print(yaml.dump(sessmeta, default_flow_style=False), end='')
     sessscans = {'scans': []}
-    try:
-        for scan_obsargs in scans_obsargs:
-            sessscans['scans'].append(scan_obsargs)
-    except ValueError as ve:
-        print("ValueError:", ve)
-    else:
-        print(yaml.dump(sessscans, default_flow_style=False), end='')
+    for scan_obsargs in scans_obsargs:
+        sessscans['scans'].append(scan_obsargs)
     lastscan = sessscans['scans'][-1]
     endtime = modeparms.timestr2datetime(lastscan['starttime_guess']) \
               + datetime.timedelta(seconds=lastscan['duration'])
-    print('end:', endtime)
     starttime = modeparms.timestr2datetime(sessscans['scans'][0]['starttime_guess'])
-    print('duration_total:', endtime - starttime)
+    duration_total = endtime - starttime
     stilltime = stilltime_sess_start(sessmeta)
     if not stilltime:
         _LOGGER.warning("Session starttime {} is in the past."
                         .format(sessmeta['start']))
-    else:
+    if print_out:
+        print(yaml.dump(sessmeta, default_flow_style=False), end='')
+        print(yaml.dump(sessscans, default_flow_style=False), end='')
+        print('duration_total:', duration_total)
+        print('end:', endtime)
         print('# wait_before_start:', stilltime)
+    return sessmeta, projectmeta, duration_total
 
 
 def obs(scansess_in, sac):
