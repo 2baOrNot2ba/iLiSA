@@ -80,13 +80,14 @@ def process_scansess(sesscans_in):
     note = sesscans_in.get('note')
     stnid = sesscans_in.get('station')
 
-    # Initialize processed station session schedule
+    # Initialize meta data of station session schedule
     sessmeta = {'session_id': session_id,
                 'projectid': projectid,
                 'station': stnid,
                 'note': note,
                 'mockrun': mockrun,
-                'cli_start': sesscans_in['cli_start'],
+                'file': sesscans_in.get('file'),
+                'cli_start': sesscans_in.get('cli_start'),
                 'start': sesscans_in.get('start')
                 # ,'scans': []
                 }
@@ -212,9 +213,11 @@ def process_scansess(sesscans_in):
                           'integration': integration,
                           'duration': duration_tot,
                           'file_dur': file_dur,
-                          'starttime': modeparms.astimestr(scanstarttime),
-                          'starttime_guess': \
-                              modeparms.astimestr(scanstarttime_guess),
+                          #'starttime': modeparms.astimestr(scanstarttime),
+                          #'starttime_guess': \
+                          #    modeparms.astimestr(scanstarttime_guess),
+                          'starttime': scanstarttime,
+                          'starttime_guess': scanstarttime_guess,
                           'id': scan_id
                           }
             obsargs_in.update({'obsprog': obsprog})
@@ -533,44 +536,49 @@ def get_proj_stn_access_conf(projid, stnid=None):
     return ac
 
 
-def check_scan_sess(scansess_in, print_out=True):
+def check_scansess(sesmeta_in):
     """\
-    Check scan session syntax
+    Check observational settings
+
+    Check that scan
 
     Parameters
     ----------
-    sessmeta : dict
-        The ScanSession metadata
-    print_out : bool
-        Should scan sess parameters be printed out
+    sesmeta_in : dict
+        Input session metadata
 
     Returns
     -------
-    obs_check_meta : dict
-        Metadata on scan session, project and duration_total.
+    scansess : dict
+        Scan-session metadata
     """
-    sessmeta, scans_obsargs = process_scansess(scansess_in)
-    projectmeta, _, _, _ = projid2meta(sessmeta['projectid'])
-    sessmeta['projectid_name'] = projectmeta['name']
-    sessscans = {'scans': []}
+    scnses_file = sesmeta_in['file']
+    with open(scnses_file) as f:
+        scanses_fin = yaml.safe_load(f)
+    sesmeta, scans_obsargs = process_scansess({**sesmeta_in, **scanses_fin})
+    projectmeta, _, _, _ = projid2meta(sesmeta['projectid'])
+    sesmeta['projectid_name'] = projectmeta['name']
+    sesscans = {'scans': []}
     for scan_obsargs in scans_obsargs:
-        sessscans['scans'].append(scan_obsargs)
-    lastscan = sessscans['scans'][-1]
+        sesscans['scans'].append(scan_obsargs)
+    lastscan = sesscans['scans'][-1]
     endtime = modeparms.timestr2datetime(lastscan['starttime_guess']) \
               + datetime.timedelta(seconds=lastscan['duration'])
-    starttime = modeparms.timestr2datetime(sessscans['scans'][0]['starttime_guess'])
+    starttime = modeparms.timestr2datetime(sesscans['scans'][0]['starttime_guess'])
+    sesmeta['endtime'] = endtime
     duration_total = endtime - starttime
-    stilltime = stilltime_sess_start(sessmeta)
+    sesmeta['duration_total'] = duration_total
+    stilltime = stilltime_sess_start(sesmeta)
     if not stilltime:
         _LOGGER.warning("Session starttime {} is in the past."
-                        .format(sessmeta['start']))
-    if print_out:
-        print(yaml.dump(sessmeta, default_flow_style=False), end='')
-        print(yaml.dump(sessscans, default_flow_style=False), end='')
-        print('duration_total:', duration_total)
-        print('end:', endtime)
-        print('# wait_before_start:', stilltime)
-    return sessmeta, projectmeta, duration_total
+                        .format(sesmeta['start']))
+    scansess = {**sesmeta, **sesscans}
+    return scansess
+
+
+def print_scansess(scansess):
+    print(yaml.dump(scansess, default_flow_style=False), end='')
+    print('# wait_before_start:', stilltime_sess_start(scansess))
 
 
 def obs(scansess_in, sac):
@@ -681,20 +689,24 @@ def main_cli():
         args.postprocess, args.file)
     )
 
-    with open(args.file, 'r') as f:
-        scansess_in = yaml.safe_load(f)
-    scansess_in['cli_start'] = args.time
-    scansess_in['mockrun'] = args.mockrun
-    scansess_in['projectid'] = args.project
-    scansess_in['file'] = args.file
+    sesmeta_in = {}
+    sesmeta_in['cli_start'] = args.time
+    sesmeta_in['mockrun'] = args.mockrun
+    sesmeta_in['projectid'] = args.project
+    sesmeta_in['file'] = args.file
     if args.note:
-        scansess_in['note'] = args.note
-    scansess_in['station'] = stnid
+        sesmeta_in['note'] = args.note
+    sesmeta_in['station'] = stnid
+    try:
+        scansess_chk = check_scansess(sesmeta_in)
+    except FileNotFoundError:
+        print("Error! Couldn't find ScanSes file: {}".format(args.file))
+        sys.exit()
     if args.check:
-        check_scan_sess(scansess_in)
+        print_scansess(scansess_chk)
         return
     try:
-        the_scansess = obs(scansess_in, sac)
+        the_scansess = obs(scansess_chk, sac)
     except ValueError as err:
         _LOGGER.error(err)
         sys.exit(1)
