@@ -133,8 +133,8 @@ def sched2at(schedfile, check=False):
             print(cmdline_wlog)
         else:
             p.communicate(input=cmdline_wlog.encode())
-        # Provide info on scheduled start and end times in UT:
-        print(f"Scheduled observations start {start_ut} and end {end_ut}")
+    # Provide info on scheduled start and end times in UT:
+    print(f"Scheduled observations start {first_start_ut} and end {end_ut}")
 
 
 def main():
