@@ -8,6 +8,7 @@ import yaml
 
 import ilisa.operations  # Sets up logging
 import ilisa.operations.modeparms as modeparms
+import ilisa.operations.scansession as ssss
 
 __now_timestamp = time.time()
 ut2lt_offset = datetime.datetime.fromtimestamp(__now_timestamp) \
@@ -33,6 +34,7 @@ def sched2at(schedfile, check=False):
     idleafter = schedtab.get('idleafter', None)
 
     first_start_ut = None
+    last_start_ut = None
 
     schedlines = schedtab['schedule']
     # Check start times
@@ -52,6 +54,12 @@ def sched2at(schedfile, check=False):
             schedline['start'] = start_ut
             if not first_start_ut or first_start_ut > start_ut:
                 first_start_ut = start_ut
+            if not last_start_ut or last_start_ut < start_ut:
+                last_start_ut = start_ut
+                last_sess_file = schedline.get('session', None)
+                if last_sess_file:
+                    dur_last_sess = ssss.check_scansess(
+                        {'file': last_sess_file})['duration_total']
     # Compute start times for boot and idle, and add them to schedule
     if bootbefore:
         boot_start_ut = first_start_ut - modeparms.hmsstr2deltatime(bootbefore)
@@ -60,10 +68,12 @@ def sched2at(schedfile, check=False):
     if duration:
         duration_dt = modeparms.hmsstr2deltatime(duration)
         end_ut = first_start_ut + duration_dt
-        if idleafter:
-            idle_start_ut = end_ut + modeparms.hmsstr2deltatime(idleafter)
-            idleschedline = {'start': idle_start_ut, 'cmd': 'idle'}
-            schedlines.append(idleschedline)
+    else:
+        end_ut = last_start_ut + dur_last_sess
+    if idleafter:
+        idle_start_ut = end_ut + modeparms.hmsstr2deltatime(idleafter)
+        idleschedline = {'start': idle_start_ut, 'cmd': 'idle'}
+        schedlines.append(idleschedline)
     # Now do it for real
     for schedline in schedlines:
         start_ut = schedline['start']
@@ -123,6 +133,8 @@ def sched2at(schedfile, check=False):
             print(cmdline_wlog)
         else:
             p.communicate(input=cmdline_wlog.encode())
+        # Provide info on scheduled start and end times in UT:
+        print(f"Scheduled observations start {start_ut} and end {end_ut}")
 
 
 def main():
