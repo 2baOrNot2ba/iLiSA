@@ -1608,13 +1608,13 @@ def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
 
     # Squash list of data arrays (no padding between files)
     file_dur = (ts_list[0][-1]-ts_list[0][0]).total_seconds()
-    ts = numpy.ravel(ts_list)
+    ts = numpy.concatenate(ts_list)
     dur_cur = (ts[-1]-ts[0]).total_seconds()
     t_left = dur_tot - dur_cur
     if t_left > 0:
         print("Recording not finished yet {}".format(t_left))
-    bst_data_x = numpy.stack(bst_datas_x).reshape(-1, max_nr_bls).T
-    bst_data_y = numpy.stack(bst_datas_y).reshape(-1, max_nr_bls).T
+    bst_data_x = numpy.concatenate(bst_datas_x).reshape(-1, max_nr_bls).T
+    bst_data_y = numpy.concatenate(bst_datas_y).reshape(-1, max_nr_bls).T
 
     data2view_p_name, data2view_p = 'X-pol', bst_data_x
     data2view_q_name, data2view_q = 'Y-pol', bst_data_x
