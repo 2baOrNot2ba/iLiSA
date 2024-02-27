@@ -17,7 +17,8 @@ NQFREQ_NOM = 100.0e6  # Nominal Nyquist frequency in Hz
 TotNrOfsb = 512  # Total number of subbands. (Subbands numbered 0:511)
 nrofrcus = 192  # Number of RCUs
 MIN_STATS_INTG = 1.0  # Minimum integration for statistics data in seconds.
-BASE_NR_BEAMLETS = 244
+MAX_NRLANES = 4
+BASE_NR_BEAMLETS = 244  # Base number of total beamlets available
 NRBEAMLETSBYBITS = {16:   BASE_NR_BEAMLETS,
                     8:  2*BASE_NR_BEAMLETS,
                     4:  4*BASE_NR_BEAMLETS}
@@ -268,7 +269,6 @@ class FreqSetup(object):
 
     combos = [[4],[3],[5],[7],[6],[4,5],[3,5],[5,7],[4,5,7],[3,5,7]]
     nrffts = 1024
-    _max_nrlanes = 4
 
     def __init__(self, freq_arg=None, chan_arg={}):
         self.freq_arg = freq_arg
@@ -298,7 +298,7 @@ class FreqSetup(object):
             self.antsets.append(self.rcumode_antsets[rcumode])
         self.rcusel = self.subarr_rcusel[len(self._rcumodes) - 1]
         self.nrlanes = math.ceil(
-            nrbeamlets/NRBEAMLETSBYBITS[self.bits]*self._max_nrlanes
+            nrbeamlets/NRBEAMLETSBYBITS[self.bits]*MAX_NRLANES
         )
 
     def _band2freqbins(self, bandarg):
@@ -961,22 +961,22 @@ def getlanes(subbands_spw, bits, nrlanes):
     """\
     Return a dict keyed on lanenr whose value is the beamlets allocated
     """
-    bmlts_per_lane = NRBEAMLETSBYBITS[bits]/nrlanes
-    lanesplitblmt = iter([(lanenr, (lanenr+1)*bmlts_per_lane-1)
+    max_bmlts_per_lane = round(NRBEAMLETSBYBITS[bits]/MAX_NRLANES)
+    lanesplitbmlt = iter([(lanenr, (lanenr+1)*max_bmlts_per_lane-1)
                           for lanenr in range(nrlanes)])
     bmlts = []
     beamlets, _lstbmlt, _nrbmlts = alloc_beamlets(subbands_spw)
     for bmltarg in beamlets:
         bmlts.extend(seqarg2list(bmltarg))
     lanealloc = {0:[]}
-    (lanenr, bmlt_hi) = next(lanesplitblmt)
+    (lanenr, bmlt_hi) = next(lanesplitbmlt)
     for bmlt in bmlts:
         if bmlt <= bmlt_hi:
             lanealloc[lanenr].append(bmlt)
         else:
             lanealloc[lanenr+1] = []
             lanealloc[lanenr+1].append(bmlt)
-            (lanenr, bmlt_hi) = next(lanesplitblmt)
+            (lanenr, bmlt_hi) = next(lanesplitbmlt)
     return lanealloc
 
 
