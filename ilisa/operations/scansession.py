@@ -561,6 +561,13 @@ def check_scansess(sesmeta_in):
     sesscans = {'scans': []}
     for scan_obsargs in scans_obsargs:
         sesscans['scans'].append(scan_obsargs)
+    # Check freqspecs
+    for scan in sesscans['scans']:
+        _freqspecarg = scan.get('beam').get('freqspec')
+        try:
+            _freqspec_d = modeparms.FreqSetup(_freqspecarg).__dict__
+        except KeyError:
+            raise ValueError("'freqspec' is set incorrectly.")
     lastscan = sesscans['scans'][-1]
     endtime = modeparms.timestr2datetime(lastscan['starttime_guess']) \
               + datetime.timedelta(seconds=lastscan['duration'])
