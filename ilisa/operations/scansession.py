@@ -585,6 +585,11 @@ def check_scansess(sesmeta_in):
 
 def print_scansess(scansess):
     print(yaml.dump(scansess, default_flow_style=False), end='')
+    nrlaneslst = []
+    for scan in scansess['scans']:
+        nrlaneslst.append(
+            modeparms.FreqSetup(scan.get('beam').get('freqspec')).nrlanes)
+    print('# Lanes max:', max(nrlaneslst), 'min:', min(nrlaneslst))
     print('# wait_before_start:', stilltime_sess_start(scansess))
 
 
