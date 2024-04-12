@@ -414,9 +414,9 @@ class ScanSession(object):
                 if scan['starttime'] == 'ASAP':
                     _lag_delta = datetime.timedelta(0.0)
                 if _lag_delta > datetime.timedelta(0.0):
-                    _LOGGER.warning("Scan start is lagging by {}"
-                                    .format(_lag_delta))
                     _dur_corr = _lag_delta.total_seconds()
+                    _LOGGER.warning("Scan start is lagging by {}"
+                                    .format(_dur_corr))
                     # Prioritize start of next scan over this scan's duration
                     # by correcting `scan_dur` by lag:
                     _LOGGER.info("Correcting duration by {}s for lag"
@@ -443,9 +443,9 @@ class ScanSession(object):
                 scanrecpath = {'acc': None, 'bfs': None, 'bsx': None}
                 next(subscan)
 
-                # Compute stop time as now + scan_dur
+                # Compute stop time as now + scan_dur + margin_scan_start
                 stoptime = datetime.datetime.utcnow() + datetime.timedelta(
-                    seconds=scan_dur)
+                    seconds=scan_dur) + margin_scan_start
                 _LOGGER.info('Will stop @ {}'.format(stoptime))
                 stop_cond = still_time_fun(stoptime)
                 stop_scan_cond = stop_cond()
