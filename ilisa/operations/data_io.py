@@ -1887,15 +1887,10 @@ def plotcmplxmat(cm, cmplxrep='ReIm', xylabels='', title='Complex matrix'):
     fig.suptitle(title)
 
 
-def plotxst(xstff, filenr0, sampnr0, plottype=None):
+def plotxst(xstff, filenr_req, sampnr_req, plottype=None):
     """
     Plot XST data
     """
-
-    if not filenr0:
-        filenr0 = 0
-    if not sampnr0:
-        sampnr0 = 0
     colorscale = None  # Colorscale for xst data plot (default None)
     if colorscale == 'log':
         normcolor = colors.LogNorm()
@@ -1903,68 +1898,65 @@ def plotxst(xstff, filenr0, sampnr0, plottype=None):
         normcolor = None
     xstobj = CVCfiles(xstff)
     obs_ids = xstobj.scanrecinfo.get_obs_ids()
-    for filenr, times_in_filetimes in enumerate(xstobj.samptimeset):
-        if filenr0 > filenr:
-            continue
-        ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
-        intg = ldatinfo.integration
-        dur = ldatinfo.duration_subscan
-        ts = numpy.arange(0., dur, intg)
+    filenr = filenr_req
+    times_in_filetimes = xstobj.samptimeset[filenr_req]
+    ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
+    # intg = ldatinfo.integration
+    # dur = ldatinfo.duration_subscan
 
-        xstfiledata = xstobj[filenr]
-        cvcpol = cov_flat2polidx(xstfiledata)
-        for tidx, samptime in enumerate(times_in_filetimes):
-            if sampnr0 > tidx:
-                continue
-            freq = ldatinfo.get_recfreq(tidx)
-            title = """freq={} MHz @ {} UT""".format(round(freq / 1e6, 2),
-                        ldatinfo.get_starttime()+datetime.timedelta(ts[tidx]))
-            if plottype == 'sto':
-                cvpol = cvcpol[tidx]
-                xstdata = numpy.asarray(
-                    convertxy2stokes(cvpol[0][0], cvpol[0][1], cvpol[1][0],
-                                     cvpol[1][1]))
-                plt.clf()
+    xstfiledata = xstobj[filenr]
+    cvcpol = cov_flat2polidx(xstfiledata)
+    tidx = sampnr_req
+    samptime = times_in_filetimes[sampnr_req]
+    freq = ldatinfo.get_recfreq(tidx)
+    title = """freq={} MHz @ {} UT""".format(round(freq / 1e6, 2), samptime)
+    if plottype == 'sto':
+        cvpol = cvcpol[tidx]
+        xstdata = numpy.asarray(
+            convertxy2stokes(cvpol[0][0], cvpol[0][1], cvpol[1][0],
+                             cvpol[1][1]))
+        plt.clf()
 
-                plt.subplot(2, 2, 1)
-                plt.imshow(xstdata[0, ...], norm=normcolor,
-                           interpolation='none')
-                plt.colorbar()
-                plt.title('Stokes I')
+        plt.subplot(2, 2, 1)
+        plt.imshow(xstdata[0, ...], norm=normcolor,
+                   interpolation='none')
+        plt.colorbar()
+        plt.title('Stokes I')
 
-                plt.subplot(2, 2, 2)
-                plt.imshow(xstdata[1, ...], norm=normcolor,
-                           interpolation='none', cmap='seismic')
-                plt.colorbar()
-                plt.title('Stokes Q')
+        plt.subplot(2, 2, 2)
+        plt.imshow(xstdata[1, ...], norm=normcolor,
+                   interpolation='none', cmap='seismic')
+        plt.colorbar()
+        plt.title('Stokes Q')
 
-                plt.subplot(2, 2, 3)
-                plt.imshow(xstdata[2, ...], norm=normcolor,
-                           interpolation='none', cmap='seismic')
-                plt.colorbar()
-                plt.title('Stokes U')
+        plt.subplot(2, 2, 3)
+        plt.imshow(xstdata[2, ...], norm=normcolor,
+                   interpolation='none', cmap='seismic')
+        plt.colorbar()
+        plt.title('Stokes U')
 
-                plt.subplot(2, 2, 4)
-                plt.imshow(xstdata[3, ...], norm=normcolor,
-                           interpolation='none', cmap='seismic')
-                plt.colorbar()
-                plt.title('Stokes V')
-                plt.suptitle(title)
-            elif plottype == 'lin':
-                cvpol = cvcpol[tidx]
-                plotcmplxmat(cvpol[0][0], title="XX'\n"+title,
-                             xylabels='RCU [#]')
-                plotcmplxmat(cvpol[0][1], title="XY'\n"+title,
-                             xylabels='RCU [#]')
-                plotcmplxmat(cvpol[1][0], title="YX'\n"+title,
-                             xylabels='RCU [#]')
-                plotcmplxmat(cvpol[1][1], title="YY'\n"+title,
-                             xylabels='RCU [#]')
-            else:
-                plotcmplxmat(xstfiledata[tidx], cmplxrep='ReIm',
-                             xylabels='RCU [#]')
-            print("Kill plot window for next plot...")
-            plt.show()
+        plt.subplot(2, 2, 4)
+        plt.imshow(xstdata[3, ...], norm=normcolor,
+                   interpolation='none', cmap='seismic')
+        plt.colorbar()
+        plt.title('Stokes V')
+        plt.suptitle(title)
+    elif plottype == 'lin':
+        cvpol = cvcpol[tidx]
+        plotcmplxmat(cvpol[0][0], title="XX'\n"+title,
+                     xylabels='RCU [#]')
+        plotcmplxmat(cvpol[0][1], title="XY'\n"+title,
+                     xylabels='RCU [#]')
+        plotcmplxmat(cvpol[1][0], title="YX'\n"+title,
+                     xylabels='RCU [#]')
+        plotcmplxmat(cvpol[1][1], title="YY'\n"+title,
+                     xylabels='RCU [#]')
+    else:
+        plotcmplxmat(xstfiledata[tidx], cmplxrep='ReIm',
+                     title="Visibilities\n"+title,
+                     xylabels='RCU [#]')
+    print("Kill plot window for next plot...")
+    plt.show()
 
 
 def latest_scanrec_path():
@@ -2088,9 +2080,9 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-n', '--filenr', type=str, default=None,
-                        help="Can be file # or RCU #, or also a range '#:#' ")
-    parser.add_argument('-s', '--sampnr', type=int, default=None,
-                        help='Sample #')
+                        help="Can be file # or RCU #, or also a range #:#")
+    parser.add_argument('-s', '--sampnr', type=str, default=None,
+                        help="Sample # or a range #:#")
     parser.add_argument('-f', '--freq', type=float, default=None,
                         help='Frequency in Hz')
     parser.add_argument('-p', '--pol', type=str, default=None,
@@ -2100,8 +2092,25 @@ def main():
     parser.add_argument('dataff', nargs='?', default=None,
                         help="acc, bst, sst or xst filefolder")
     args = parser.parse_args()
-    view_bsxst(args.dataff, args.freq, args.sampnr, args.pol, args.printout,
-               args.filenr)
+
+    filenrs = [0]
+    if args.filenr is not None:
+        if ':' in args.filenr:
+            filenrs = range(*map(int, args.filenr.split(':')))
+        elif args.filenr.isdigit():
+            filenrs = [int(args.filenr)]
+
+    sampnrs = [0]
+    if args.sampnr is not None:
+        if ':' in args.sampnr:
+            sampnrs = range(*map(int, args.sampnr.split(':')))
+        elif args.sampnr.isdigit():
+            sampnrs = [int(args.sampnr)]
+
+    for filenr in filenrs:
+        for sampnr in sampnrs:
+            view_bsxst(args.dataff, args.freq, sampnr, args.pol, args.printout,
+                       filenr)
 
 
 if __name__ == "__main__":
