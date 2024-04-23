@@ -554,7 +554,11 @@ def check_scansess(sesmeta_in):
     """
     scnses_file = sesmeta_in['file']
     with open(scnses_file) as f:
-        scanses_fin = yaml.safe_load(f)
+        try:
+            scanses_fin = yaml.safe_load(f)
+        except Exception as e:
+            raise ValueError(
+                f"Couldn't read yaml file {scnses_file} (error: {e})")
     sesmeta, scans_obsargs = process_scansess({**sesmeta_in, **scanses_fin})
     projectmeta, _, _, _ = projid2meta(sesmeta['projectid'])
     sesmeta['projectid_name'] = projectmeta['name']
@@ -713,6 +717,9 @@ def main_cli():
         scansess_chk = check_scansess(sesmeta_in)
     except FileNotFoundError:
         print("Error! Couldn't find ScanSes file: {}".format(args.file))
+        sys.exit()
+    except ValueError as ve:
+        print(ve)
         sys.exit()
     if args.check:
         print_scansess(scansess_chk)
