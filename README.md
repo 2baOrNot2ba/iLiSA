@@ -10,7 +10,7 @@ LOFAR is a low-frequency radio telescope array located in Europe.
 iLiSA is of interest to people that have access to a LOFAR station or if you
 wish to process data taken with a LOFAR station in stand-alone mode.
 
-The `observations` subpackage allows you to make and record standard stand-alone
+The `operations` subpackage allows you to make and record standard stand-alone
 observations such as:
 
 * BST - Beamlet statics (Temporal power of beamlets)
@@ -42,6 +42,17 @@ metadata concerning antennas. This metadata includes:
 
 This metadata is useful for postprocessing stand-alone data, e.g. imaging XST
 data, handling TBB data or calibration.
+
+The `monitor` subpackage provides tools for collecting information on the state
+of a station so that operators can easily monitor the health of the telescopes.
+
+The `pipelines` subpackage enables the setting up of pipelines that process
+data recorded during station operations.
+
+`scripts` contain some high level scripts such as a scheduling tool etc.
+
+Finally, the `calim` subpackage provides algorithms and processing tool to do
+calibration and imaging of observational data.
 
 ### How do I get set up? ###
 
