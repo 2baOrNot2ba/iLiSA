@@ -614,7 +614,7 @@ def applygains_cli():
     return cvcobj_cal
 
 
-if __name__ == "__main__":
+def main_cli():
     cmd = sys.argv.pop(1)
     ran_sol = False
     ran_app = False
@@ -634,3 +634,7 @@ if __name__ == "__main__":
     if not ran_sol and not ran_app:
         print("Nothing chosen.\n"
               "Choose: 'sol' to solve, 'app' to apply solutions.")
+
+
+if __name__ == "__main__":
+    main_cli()
