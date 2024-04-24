@@ -1873,13 +1873,15 @@ def plotcmplxmat(cm, cmplxrep='ReIm', xylabels='', title='Complex matrix'):
     """
     mats = (numpy.real(cm), numpy.imag(cm))
     ptit = ('Re', 'Im')
+    cmaps = ('coolwarm', 'coolwarm')
     if cmplxrep != 'ReIm':
         # Use AbsArg
         mats = (numpy.abs(cm), numpy.angle(cm))
         ptit = ('Abs', 'Arg')
+        cmaps = ('viridis', 'hsv')
     fig, axs = plt.subplots(1, 2, sharey=True)
     for _p in range(2):
-        spi = axs[_p].matshow(mats[_p])
+        spi = axs[_p].matshow(mats[_p], cmap=cmaps[_p])
         axs[_p].set_xlabel(xylabels)
         axs[_p].set_ylabel(xylabels)
         axs[_p].set_title(ptit[_p])
@@ -1887,76 +1889,78 @@ def plotcmplxmat(cm, cmplxrep='ReIm', xylabels='', title='Complex matrix'):
     fig.suptitle(title)
 
 
-def plotxst(xstff, filenr_req, sampnr_req, plottype=None):
+def viewxst(xstff, filenr, sampnr, printout=False, poltype=None,
+            cmplxrep='ReIm'):
     """
-    Plot XST data
+    View XST data
+
+    Parameters
+    ----------
+    xstff : str
+        Path to a CVC data filefolder.
+    filenr : int
+        Selects data file based on its ordinal number during recording.
+    sampnr : int
+        Ordinal number of the record sample within the filenr-th file.
+    printout : bool
+        Should the selected data be printed out, otherwise it will be plotted.
+    poltype : str
+        Specifies how polarized data should be represented. Choices are:
+        'sto' for Stokes I,Q,U,V; 'lin' for XX,XY,YY; 'mix' for one matrix
+        with both X,Y mixed in alternating indices.
+    cmplxrep :  str
+        Specifies how complex data should be represented. Choices are:
+        'ReIm' for cartesian; 'AbsArg' for polar representation.
     """
-    colorscale = None  # Colorscale for xst data plot (default None)
-    if colorscale == 'log':
-        normcolor = colors.LogNorm()
-    else:
-        normcolor = None
+    # Get selected data
     xstobj = CVCfiles(xstff)
-    obs_ids = xstobj.scanrecinfo.get_obs_ids()
-    filenr = filenr_req
-    times_in_filetimes = xstobj.samptimeset[filenr_req]
-    ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
-    # intg = ldatinfo.integration
-    # dur = ldatinfo.duration_subscan
-
     xstfiledata = xstobj[filenr]
-    cvcpol = cov_flat2polidx(xstfiledata)
-    tidx = sampnr_req
-    samptime = times_in_filetimes[sampnr_req]
-    freq = ldatinfo.get_recfreq(tidx)
+    xstsampdata = xstfiledata[sampnr]
+    cvpol = cov_flat2polidx(xstsampdata)
+
+    # Get metadata
+    obs_ids = xstobj.scanrecinfo.get_obs_ids()
+    times_in_filetimes = xstobj.samptimeset[filenr]
+    ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
+    samptime = times_in_filetimes[sampnr]
+    freq = ldatinfo.get_recfreq(sampnr)
+
     title = """freq={} MHz @ {} UT""".format(round(freq / 1e6, 2), samptime)
-    if plottype == 'sto':
-        cvpol = cvcpol[tidx]
-        xstdata = numpy.asarray(
-            convertxy2stokes(cvpol[0][0], cvpol[0][1], cvpol[1][0],
-                             cvpol[1][1]))
-        plt.clf()
 
-        plt.subplot(2, 2, 1)
-        plt.imshow(xstdata[0, ...], norm=normcolor,
-                   interpolation='none')
-        plt.colorbar()
-        plt.title('Stokes I')
-
-        plt.subplot(2, 2, 2)
-        plt.imshow(xstdata[1, ...], norm=normcolor,
-                   interpolation='none', cmap='seismic')
-        plt.colorbar()
-        plt.title('Stokes Q')
-
-        plt.subplot(2, 2, 3)
-        plt.imshow(xstdata[2, ...], norm=normcolor,
-                   interpolation='none', cmap='seismic')
-        plt.colorbar()
-        plt.title('Stokes U')
-
-        plt.subplot(2, 2, 4)
-        plt.imshow(xstdata[3, ...], norm=normcolor,
-                   interpolation='none', cmap='seismic')
-        plt.colorbar()
-        plt.title('Stokes V')
-        plt.suptitle(title)
-    elif plottype == 'lin':
-        cvpol = cvcpol[tidx]
-        plotcmplxmat(cvpol[0][0], title="XX'\n"+title,
-                     xylabels='RCU [#]')
-        plotcmplxmat(cvpol[0][1], title="XY'\n"+title,
-                     xylabels='RCU [#]')
-        plotcmplxmat(cvpol[1][0], title="YX'\n"+title,
-                     xylabels='RCU [#]')
-        plotcmplxmat(cvpol[1][1], title="YY'\n"+title,
-                     xylabels='RCU [#]')
+    if not printout:
+        colorscale = None  # Colorscale for xst data plot (default None)
+        if colorscale == 'log':
+            normcolor = colors.LogNorm()
+        else:
+            normcolor = None
     else:
-        plotcmplxmat(xstfiledata[tidx], cmplxrep='ReIm',
-                     title="Visibilities\n"+title,
-                     xylabels='RCU [#]')
-    print("Kill plot window for next plot...")
-    plt.show()
+        import sys
+
+    if poltype == 'sto':
+        # Avoiding dependence on dreambeam's convertxy2stokes():
+        cv_serial = {'I': +1* (cvpol[0, 0] + cvpol[1, 1]),
+                     'Q': +1* (cvpol[0, 0] - cvpol[1, 1]),
+                     'U': +1* (cvpol[0, 1] + cvpol[1, 0]),
+                     'V': -1j*(cvpol[0, 1] - cvpol[1, 0])}
+    elif poltype == 'lin':
+        cv_serial = {"XX'": cvpol[0][0],
+                     "XY'": cvpol[0][1],
+                     "YX'": cvpol[1][0],
+                     "YY'": cvpol[1][1]}
+    else:
+        cv_serial = {'Cov': xstsampdata}
+    if printout: print("# " + title)
+    for polk in cv_serial:
+        if printout:
+            print(polk)
+            numpy.savetxt(sys.stdout, cv_serial[polk], fmt='%.6e')
+        else:
+            plotcmplxmat(xstfiledata[sampnr], cmplxrep=cmplxrep,
+                         title=polk+"\n"+title, xylabels='RCU [#]')
+    if not printout:
+        print("Kill plot window for next plot...")
+        plt.show()
+    return cv_serial
 
 
 def latest_scanrec_path():
@@ -2006,7 +2010,8 @@ def latest_scanrec_path():
             yield scanrecpath
 
 
-def view_bsxst(dataff, freq, sampnr, poltype, printout, filenr):
+def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
+               cmplxrep=None):
     """\
     View BST, SST, XST statistics data files
 
@@ -2030,16 +2035,20 @@ def view_bsxst(dataff, freq, sampnr, poltype, printout, filenr):
     ----------
     dataff : str
         Data file-folder containing the bst, sst or xst.
-    freq : float
-        Frequency selection.
-    sampnr : int
-        Sample number selection.
-    poltype : str
-        Format for polarization: 'sto', 'lin' or None.
-    printout : bool
-        Print out data rather than plot.
     filenr : int
         File number selection.
+    sampnr : int
+        Sample number selection.
+    freq : float
+        Frequency selection.
+    printout : bool
+        Print out data rather than plot.
+    poltype : str
+        Format for polarization: 'sto', 'lin' or 'mix'.
+    cmplxrep : str
+        Complex representation of complex values: 'ReIm' or 'AbsArg',
+        for real-imaginary (cartesian) or absolute-argument (polar)
+        representation.
     """
     if dataff:
         dataffs = [dataff]
@@ -2071,7 +2080,8 @@ def view_bsxst(dataff, freq, sampnr, poltype, printout, filenr):
             viewsst(dataff, freq, sampnr, filenr, printout)
         elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON' \
                 or lofar_datatype=='acc':
-            plotxst(dataff, filenr, sampnr, poltype)
+            xstdata = viewxst(dataff, filenr, sampnr, printout, poltype,
+                              cmplxrep)
         else:
             raise RuntimeError("Not a bst, sst, or xst filefolder")
 
@@ -2087,6 +2097,8 @@ def main():
                         help='Frequency in Hz')
     parser.add_argument('-p', '--pol', type=str, default=None,
                         help='Set pol. format: "lin", "sto", def: "None"')
+    parser.add_argument('-c', '--cmplx', type=str, default='ReIm',
+                        help='Complex format: "ReIm" or "AbsArg", def: "ReIm"')
     parser.add_argument('-o', '--printout', action="store_true",
                         help='Print out data to stdout, else plot')
     parser.add_argument('dataff', nargs='?', default=None,
@@ -2109,8 +2121,8 @@ def main():
 
     for filenr in filenrs:
         for sampnr in sampnrs:
-            view_bsxst(args.dataff, args.freq, sampnr, args.pol, args.printout,
-                       filenr)
+            view_bsxst(args.dataff, filenr, sampnr, args.freq, args.printout,
+                       args.pol, args.cmplx)
 
 
 if __name__ == "__main__":
