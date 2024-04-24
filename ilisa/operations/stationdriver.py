@@ -89,7 +89,7 @@ class StationDriver(object):
             self._dru_root = os.path.join(ilisa.operations.USER_CACHE_DIR,
                                           'DRU', self._dru_interface.hostname)
             # Mount it using sshfs
-            subprocess.run(['sshfs', self._dru_interface.hostname + ':/',
+            subprocess.run(['sshfs', self._dru_interface.url + ':/',
                             self._dru_root])
         # Set the root path to where the lofar data should be stored
         self.dru_data_root = os.path.join(self._dru_root, _lofardatadir)
