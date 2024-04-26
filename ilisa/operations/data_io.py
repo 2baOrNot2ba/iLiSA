@@ -1867,25 +1867,37 @@ def plotcmplxmat(cm, cmplxrep='ReIm', xylabels='', title='Complex matrix'):
         Complex matrix to plot
     cmplxrep : str
         Representation to use for complex matrix. Default is 'ReIm' which
-        uses real & imaginary parts, else absolute & argument is used.
+        uses real & imaginary parts, 'AbsArg' or  'polar' plots absolute and
+        arguments, and 'HermSD' is useful to check the hermitianity of the
+        matrix by plotting the real and imaginary parts of the sum and difference
+        of the matrix with its hermitian transpose.
     xylabels : str
         Labels to use for axes.
     """
+    cm = numpy.asmatrix(cm)
     mats = (numpy.real(cm), numpy.imag(cm))
     ptit = ('Re', 'Im')
     cmaps = ('coolwarm', 'coolwarm')
-    if cmplxrep != 'ReIm':
+    nrcomps = 2
+    if cmplxrep == 'AbsArg' or cmplxrep == 'polar':
         # Use AbsArg
         mats = (numpy.abs(cm), numpy.angle(cm))
         ptit = ('Abs', 'Arg')
         cmaps = ('viridis', 'hsv')
-    fig, axs = plt.subplots(1, 2, sharey=True)
-    for _p in range(2):
-        spi = axs[_p].matshow(mats[_p], cmap=cmaps[_p])
-        axs[_p].set_xlabel(xylabels)
-        axs[_p].set_ylabel(xylabels)
-        axs[_p].set_title(ptit[_p])
-        plt.colorbar(spi, ax=axs[_p])
+    elif cmplxrep == 'HermSD':
+        nrcomps = 4
+        mats = (numpy.real(cm+cm.H), numpy.imag(cm+cm.H),
+                numpy.real(cm-cm.H), numpy.imag(cm-cm.H))
+        ptit = ('Re(mat+mat.H)','Im(mat+mat.H)', 'Re(mat-mat.H)', 'Im(mat-mat.H)')
+        cmaps = ('viridis', 'viridis', 'viridis', 'viridis')
+    fig, axs = plt.subplots(nrcomps//2, 2, sharey=True)
+    ar_is = range(nrcomps) if nrcomps//2 == 1 else numpy.ndindex(nrcomps//2, 2)
+    for cmp_i, ar_i in enumerate(ar_is):
+        spi = axs[ar_i].matshow(mats[cmp_i], cmap=cmaps[cmp_i])
+        axs[ar_i].set_xlabel(xylabels)
+        axs[ar_i].set_ylabel(xylabels)
+        axs[ar_i].set_title(ptit[cmp_i])
+        plt.colorbar(spi, ax=axs[ar_i])
     fig.suptitle(title)
 
 
@@ -1924,8 +1936,10 @@ def viewxst(xstff, filenr, sampnr, printout=False, poltype=None,
     ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
     samptime = times_in_filetimes[sampnr]
     freq = ldatinfo.get_recfreq(sampnr)
+    stnid = xstobj.scanrecinfo.stnid
 
-    title = """freq={} MHz @ {} UT""".format(round(freq / 1e6, 2), samptime)
+    title = """LOFAR {} freq={} MHz @ {} UT""".format(
+        stnid, round(freq / 1e6, 2), samptime)
 
     if not printout:
         colorscale = None  # Colorscale for xst data plot (default None)
@@ -1955,8 +1969,8 @@ def viewxst(xstff, filenr, sampnr, printout=False, poltype=None,
             print(polk)
             numpy.savetxt(sys.stdout, cv_serial[polk], fmt='%.6e')
         else:
-            plotcmplxmat(xstfiledata[sampnr], cmplxrep=cmplxrep,
-                         title=polk+"\n"+title, xylabels='RCU [#]')
+            plotcmplxmat(cv_serial[polk], cmplxrep=cmplxrep,
+                         title=title+"\n"+polk, xylabels='RCU [#]')
     if not printout:
         print("Kill plot window for next plot...")
         plt.show()
@@ -2061,7 +2075,12 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
             continue
         dataff = os.path.normpath(dataff)
         lofar_datatype = datafolder_type(dataff)
-        print('Viewing datafile:', dataff)
+        if printout:
+            # Provide a sort of header
+            print('# datafile:', dataff)
+            print('# filenr:', filenr)
+            print('# sampnr:', sampnr)
+            print('# poltype:', poltype)
         if not freq:
             if lofar_datatype == 'acc':
                 freq = 0.0
