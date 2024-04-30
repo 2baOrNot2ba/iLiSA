@@ -15,9 +15,10 @@ the corresponding datatype.
 """
 import os
 import shutil
-import numpy
 import time
 import datetime
+
+import numpy
 import yaml
 import argparse
 import warnings
@@ -1410,6 +1411,14 @@ class CVCfiles(object):
             fsamps[freq] = freqset_flat.count(freq)
         return fsamps
 
+    def as_array(self, to='np'):
+        data = []
+        for fnr in range(self.getnrfiles()):
+            print(self[fnr].shape)
+            data.append(self[fnr])
+        data = numpy.asarray(data)
+        return data
+
 
 def readacc2bst(anacc2bstfilepath, datformat='hdf'):
     """\
@@ -2103,6 +2112,31 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                               cmplxrep)
         else:
             raise RuntimeError("Not a bst, sst, or xst filefolder")
+
+
+def export_ldat(dataff, outfmt='npy', save=True):
+    lofardatatype = datafolder_type(dataff)
+    if not lofardatatype:
+        raise TypeError('Cannot export unknow LOFAR data-type: {}'
+                        .format(lofardatatype))
+    basefilename = os.path.basename(os.path.normpath(dataff))
+    if lofardatatype == 'bst':
+        (bst_dat_xx, bst_dat_yy, bst_dat_xy, ts_list, freqs, obsinfo
+         ) = readbstfolder(dataff)
+        bst_dat = [bst_dat_xx, bst_dat_yy]
+        if bst_dat_xy:
+            bst_dat.append(bst_dat_xy)
+        data_arr = numpy.asarray(bst_dat).squeeze()
+    elif lofardatatype == 'sst':
+        sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(dataff)
+        data_arr = numpy.asarray(sstdata_rcu).squeeze()
+    elif lofardatatype == 'xst' or lofardatatype == 'acc':
+        cvcobj = CVCfiles(dataff)
+        cvc_array = cvcobj.as_array()
+        data_arr = cov_flat2polidx(cvc_array)
+    if save:
+        numpy.save(basefilename, data_arr)
+    return data_arr
 
 
 def main():
