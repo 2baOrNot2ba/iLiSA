@@ -1702,7 +1702,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     of it can be produced:
       * *persbs*: per frequency, plot over time waterfall of RCUs
       * *mean*: mean dynamic spectra averaged over RCU
-      * *dynspec*: dynamic spectra averaged of RCU
+      * *dynspec*: dynamic spectra averaged over selected RCUs
       * *overlay*: overlay spectrum of given RCU slice
       * *ssmosaic*: snapshot mosaic at time samp of spectra for all RCUs
 
@@ -1737,12 +1737,18 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     sbreq = None
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
+    if rcu_sel is not None:
+        if ':' in rcu_sel:
+            rcu_sel = rcu_sel.split(':')
+            rcu_sel = slice(*[int(_a) for _a in rcu_sel])
+        else:
+            rcu_sel = slice(int(rcu_sel), int(rcu_sel) + 1)
     if printout:
         if rcu_sel is None:
             rcus_str = ' '.join(['P_rcu'+str(_rcu) for _rcu in range(196)])
         else:
             rcus_str = 'P_rcu' + str(rcu_sel)
-        print('#UT Freq[Hz] ' + rcus_str)
+        print('# UT Freq[Hz] ' + rcus_str)
         for tidx, t in enumerate(ts):
             if sample_nr is not None:
                 if tidx != sample_nr:
@@ -1769,7 +1775,6 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
             show = 'overlay'
         if sample_nr is not None and rcu_sel is None:
             show = 'ssmosaic'
-
     if show == 'mean':
         # Show mean over RCUs
         meandynspec = numpy.mean(sstdata, axis=0)
@@ -1791,7 +1796,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
             plt.ylabel('Power [arb. unit]')
     elif show == 'dynspec':
         # Show dynamic spectrum of RCU
-        dynspec = sstdata[rcu_sel]
+        dynspec = numpy.mean(sstdata[rcu_sel], axis=0)
         res = dynspec
         if res.shape[0] > 1:
             plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm(),
@@ -1849,14 +1854,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
         plt.suptitle('RCU spectra @ {} UT, station {}'.format(
             ts[sample_nr], obsinfo['station_id']))
     elif show == 'overlay':
-        if rcu_sel is not None:
-            if ':' in rcu_sel:
-                rcu_sel = rcu_sel.split(':')
-                rcu_sel = slice(*[int(_a) for _a in rcu_sel])
-            else:
-                rcu_sel = slice(int(rcu_sel), int(rcu_sel)+1)
-        else:
-            rcu_sel = slice(None)
+
         res = sstdata[rcu_sel, sample_nr, :].squeeze()
         plt.semilogy(freqs, numpy.transpose(res))
         rcus = range(rcu_sel.start, rcu_sel.stop)
@@ -1910,7 +1908,7 @@ def plotcmplxmat(cm, cmplxrep='ReIm', xylabels='', title='Complex matrix'):
     fig.suptitle(title)
 
 
-def viewxst(xstff, filenr, sampnr, printout=False, poltype=None,
+def viewxst(xstsampdata, samptime, freq, stnid, printout=False, poltype=None,
             cmplxrep='ReIm'):
     """
     View XST data
@@ -1919,10 +1917,7 @@ def viewxst(xstff, filenr, sampnr, printout=False, poltype=None,
     ----------
     xstff : str
         Path to a CVC data filefolder.
-    filenr : int
-        Selects data file based on its ordinal number during recording.
-    sampnr : int
-        Ordinal number of the record sample within the filenr-th file.
+
     printout : bool
         Should the selected data be printed out, otherwise it will be plotted.
     poltype : str
@@ -1933,19 +1928,7 @@ def viewxst(xstff, filenr, sampnr, printout=False, poltype=None,
         Specifies how complex data should be represented. Choices are:
         'ReIm' for cartesian; 'AbsArg' for polar representation.
     """
-    # Get selected data
-    xstobj = CVCfiles(xstff)
-    xstfiledata = xstobj[filenr]
-    xstsampdata = xstfiledata[sampnr]
     cvpol = cov_flat2polidx(xstsampdata)
-
-    # Get metadata
-    obs_ids = xstobj.scanrecinfo.get_obs_ids()
-    times_in_filetimes = xstobj.samptimeset[filenr]
-    ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
-    samptime = times_in_filetimes[sampnr]
-    freq = ldatinfo.get_recfreq(sampnr)
-    stnid = xstobj.scanrecinfo.stnid
 
     title = """LOFAR {} freq={} MHz @ {} UT""".format(
         stnid, round(freq / 1e6, 2), samptime)
@@ -2058,9 +2041,9 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
     ----------
     dataff : str
         Data file-folder containing the bst, sst or xst.
-    filenr : int
+    filenr : str
         File number selection.
-    sampnr : int
+    sampnr : str
         Sample number selection.
     freq : float
         Frequency selection.
@@ -2073,45 +2056,80 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
         for real-imaginary (cartesian) or absolute-argument (polar)
         representation.
     """
-    if dataff:
-        dataffs = [dataff]
-    else:
-        dataffs = latest_scanrec_path()
-    for dataff in dataffs:
-        if not dataff:
-            print('Waiting 1s for data...')
-            time.sleep(1.0)
-            continue
-        dataff = os.path.normpath(dataff)
-        lofar_datatype = datafolder_type(dataff)
-        if printout:
-            # Provide a sort of header
-            print('# datafile:', dataff)
-            print('# filenr:', filenr)
-            print('# sampnr:', sampnr)
-            print('# poltype:', poltype)
-        if not freq:
-            if lofar_datatype == 'acc':
-                freq = 0.0
-                if sampnr:
-                    freq = modeparms.sb2freq(sampnr, 0)  # Assume LBA band
-        else:
-            freq = float(freq)
-        if (lofar_datatype == 'bst' or lofar_datatype == 'bst-357'
-                or lofar_datatype == 'bstc'):
-            _pol_stokes = False
-            if poltype == 'sto':
-                _pol_stokes = True
-            viewbst(dataff, pol_stokes=_pol_stokes,
-                    printout=printout)
-        elif lofar_datatype == 'sst':
-            viewsst(dataff, freq, sampnr, filenr, printout)
-        elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON' \
-                or lofar_datatype=='acc':
-            xstdata = viewxst(dataff, filenr, sampnr, printout, poltype,
-                              cmplxrep)
-        else:
-            raise RuntimeError("Not a bst, sst, or xst filefolder")
+    dataff = os.path.normpath(dataff)
+    lofar_datatype = datafolder_type(dataff)
+    if lofar_datatype == 'sst':
+        rcunr = filenr
+        filenr = None
+    filenrs = [0]
+    if filenr is not None:
+        if ':' in filenr:
+            filenrs = range(*map(int, filenr.split(':')))
+        elif filenr.isdigit():
+            filenrs = [int(filenr)]
+
+    sampnrs = [0]
+    if sampnr is not None:
+        if ':' in sampnr:
+            sampnrs = range(*map(int, sampnr.split(':')))
+        elif sampnr.isdigit():
+            sampnr = int(sampnr)
+            sampnrs = [sampnr]
+
+    for filenr in filenrs:
+        for sampidx in sampnrs:
+            if dataff:
+                dataffs = [dataff]
+            else:
+                dataffs = latest_scanrec_path()
+            for dataff in dataffs:
+                if not dataff:
+                    print('Waiting 1s for data...')
+                    time.sleep(1.0)
+                    continue
+                dataff = os.path.normpath(dataff)
+                lofar_datatype = datafolder_type(dataff)
+                if printout:
+                    # Provide a sort of header
+                    print('# datafile:', dataff)
+                    print('# filenr:', filenr)
+                    print('# sampnr:', sampidx)
+                    print('# poltype:', poltype)
+                if not freq:
+                    if lofar_datatype == 'acc':
+                        freq = 0.0
+                        if sampidx:
+                            freq = modeparms.sb2freq(sampidx, 0)  # Assume LBA band
+                else:
+                    freq = float(freq)
+                if (lofar_datatype == 'bst' or lofar_datatype == 'bst-357'
+                        or lofar_datatype == 'bstc'):
+                    _pol_stokes = False
+                    if poltype == 'sto':
+                        _pol_stokes = True
+                    viewbst(dataff, pol_stokes=_pol_stokes,
+                            printout=printout)
+                elif lofar_datatype == 'sst':
+                    viewsst(dataff, freq, sampnr, rcunr, printout)
+                elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON' \
+                        or lofar_datatype=='acc':
+                    # Get selected data
+                    xstobj = CVCfiles(dataff)
+                    xstfiledata = xstobj[filenr]
+                    xstsampdata = xstfiledata[sampidx]
+
+                    # Get metadata
+                    obs_ids = xstobj.scanrecinfo.get_obs_ids()
+                    times_in_filetimes = xstobj.samptimeset[filenr]
+                    ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
+                    samptime = times_in_filetimes[sampidx]
+                    freq = ldatinfo.get_recfreq(sampidx)
+                    stnid = xstobj.scanrecinfo.stnid
+
+                    xstdata = viewxst(xstsampdata, samptime, freq, stnid, printout,
+                                      poltype, cmplxrep)
+                else:
+                    raise RuntimeError("Not a bst, sst, or xst filefolder")
 
 
 def export_ldat(dataff, outfmt='npy', save=True):
@@ -2141,7 +2159,10 @@ def export_ldat(dataff, outfmt='npy', save=True):
 
 def main():
     parser = argparse.ArgumentParser()
-
+    # filenr : int
+    #     Selects data file based on its ordinal number during recording.
+    # sampnr : int
+    #     Ordinal number of the record sample within the filenr-th file.
     parser.add_argument('-n', '--filenr', type=str, default=None,
                         help="Can be file # or RCU #, or also a range #:#")
     parser.add_argument('-s', '--sampnr', type=str, default=None,
@@ -2158,24 +2179,8 @@ def main():
                         help="acc, bst, sst or xst filefolder")
     args = parser.parse_args()
 
-    filenrs = [0]
-    if args.filenr is not None:
-        if ':' in args.filenr:
-            filenrs = range(*map(int, args.filenr.split(':')))
-        elif args.filenr.isdigit():
-            filenrs = [int(args.filenr)]
-
-    sampnrs = [0]
-    if args.sampnr is not None:
-        if ':' in args.sampnr:
-            sampnrs = range(*map(int, args.sampnr.split(':')))
-        elif args.sampnr.isdigit():
-            sampnrs = [int(args.sampnr)]
-
-    for filenr in filenrs:
-        for sampnr in sampnrs:
-            view_bsxst(args.dataff, filenr, sampnr, args.freq, args.printout,
-                       args.pol, args.cmplx)
+    view_bsxst(args.dataff, args.filenr, args.sampnr, args.freq, args.printout,
+               args.pol, args.cmplx)
 
 
 if __name__ == "__main__":
