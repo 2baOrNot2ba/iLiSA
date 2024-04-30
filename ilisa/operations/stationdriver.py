@@ -1193,6 +1193,10 @@ def main_cli():
         handback(stndrv)
     elif args.admcmd == 'checkobs':
         checkobs(stndrv)
+    else:
+        err_mes = "No such command: {}".format(args.admcmd)
+        _LOGGER.critical(err_mes)
+        sys.exit(2)
 
 
 if __name__ == "__main__":
