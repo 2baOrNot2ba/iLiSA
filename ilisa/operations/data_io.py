@@ -1615,6 +1615,12 @@ def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
     pointing = obsinfo['pointing']
     max_nr_bls = obsinfo['max_nr_bls']
 
+    # Get nrfiles and nrsamps per file:
+    nrfiles = len(ts_list)
+    nrsamps = len(ts_list[0])
+    print('# nrfiles:', nrfiles)
+    print('# nrsamps:', nrsamps)
+
     # Squash list of data arrays (no padding between files)
     file_dur = (ts_list[0][-1]-ts_list[0][0]).total_seconds()
     ts = numpy.concatenate(ts_list)
@@ -1681,15 +1687,15 @@ def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
         # CSV style:
         #   Header
         t_prev = ts[0]
-        print("#H:M:S since {} UT".format(t_prev.isoformat()), "Freq[MHz]",
-              data2view_p_name, data2view_q_name, sep=', ')
+        print("## H:M:S since {} UT".format(t_prev.isoformat()), "Freq[MHz]",
+              data2view_p_name, data2view_q_name, sep=' ')
         #   Data
         for ti, t in enumerate(ts):
             for freqi, freq in enumerate(freqs):
                 dataval_p, dataval_q = (data2view_p[freqi, ti],
                                         data2view_q[freqi, ti])
                 del_t = t - t_prev
-                print(del_t, freq/1e6, dataval_p, dataval_q, sep=', ')
+                print(del_t, freq/1e6, dataval_p, dataval_q, sep=' ')
 
 
 def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
@@ -1731,8 +1737,17 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     """
     sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(sstff)
     starttime = obsinfo['datetime']
+
     # Squash file_nr and in file intg index to just samples
-    sstdata = numpy.array(sstdata_rcu).reshape((192, -1, 512))
+    sstdata = numpy.array(sstdata_rcu).reshape((modeparms.nrofrcus, -1,
+                                                modeparms.TotNrOfsb))
+    nrrcus, nrsamps, nrsbs = sstdata.shape
+    # Alternative way of geting nrfiles and nrsamps per file:
+    # _nrfiles = len(sstdata_rcu)
+    # _nrsamps = len(sstdata_rcu[0])
+    print('# nrsamps:', nrsamps)
+    print('# nrrcus:', nrrcus)
+    print('# nrsbs:', nrsbs)
     ts = numpy.ravel(ts_list)
     sbreq = None
     if freqreq:
@@ -1745,10 +1760,11 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
             rcu_sel = slice(int(rcu_sel), int(rcu_sel) + 1)
     if printout:
         if rcu_sel is None:
-            rcus_str = ' '.join(['P_rcu'+str(_rcu) for _rcu in range(196)])
+            rcus_str = ' '.join(
+                ['P_rcu'+str(_rcu) for _rcu in range(modeparms.nrofrcus)])
         else:
             rcus_str = 'P_rcu' + str(rcu_sel)
-        print('# UT Freq[Hz] ' + rcus_str)
+        print('## UT Freq[Hz] ' + rcus_str)
         for tidx, t in enumerate(ts):
             if sample_nr is not None:
                 if tidx != sample_nr:
@@ -2092,7 +2108,10 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                 if printout:
                     # Provide a sort of header
                     print('# datafile:', dataff)
-                    print('# filenr:', filenr)
+                    if lofar_datatype == 'sst':
+                        print('# rcunr:', rcunr)
+                    else:
+                        print('# filenr:', filenr)
                     print('# sampnr:', sampidx)
                     print('# poltype:', poltype)
                 if not freq:
@@ -2115,6 +2134,10 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                         or lofar_datatype=='acc':
                     # Get selected data
                     xstobj = CVCfiles(dataff)
+                    nrfiles = xstobj.getnrfiles()
+                    nrsamps = len(xstobj.samptimeset[0])
+                    print('# nrfiles', nrfiles)
+                    print('# nrsamps', nrsamps)
                     xstfiledata = xstobj[filenr]
                     xstsampdata = xstfiledata[sampidx]
 
