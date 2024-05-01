@@ -1742,9 +1742,10 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
     sstdata = numpy.array(sstdata_rcu).reshape((modeparms.nrofrcus, -1,
                                                 modeparms.TotNrOfsb))
     nrrcus, nrsamps, nrsbs = sstdata.shape
-    # Alternative way of geting nrfiles and nrsamps per file:
-    # _nrfiles = len(sstdata_rcu)
-    # _nrsamps = len(sstdata_rcu[0])
+    nrfiles = len(sstdata_rcu[0])
+    sampsperfile = sstdata_rcu[0][0].shape[0]
+    print('# nrfiles:', nrfiles)
+    print('# samps/file', sampsperfile)
     print('# nrsamps:', nrsamps)
     print('# nrrcus:', nrrcus)
     print('# nrsbs:', nrsbs)
