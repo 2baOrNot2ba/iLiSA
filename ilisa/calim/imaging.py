@@ -149,7 +149,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
         xstpol_flagged = ma.asarray(xstpol)
     # Count all non-flagged baselines per pol. incl. autocorrs & conjugate
     # (factor 2*2 is the 2*2 pol. correlations):
-    nrbls = xstpol.count()/(2*2)
+    nrbls = xstpol_flagged.count()/(2*2)
     # Fill flagged values with 0.0:
     xstpol = ma.filled(xstpol_flagged, 0.0)
 
