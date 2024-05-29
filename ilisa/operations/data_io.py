@@ -526,6 +526,7 @@ class ScanRecInfo(object):
         self.calibrationfile = ''
         self.gs_model = ''
         self.mockdata = mockdata
+        self.comments = ''
 
     def add_obs(self, ldatinfo):
         """Add an LDatInfo object to this ScanRecInfo."""
@@ -641,6 +642,8 @@ class ScanRecInfo(object):
         self.calibrationfile = scanrecfiledict.get('calibrationfile', '')
         self.gs_model = scanrecfiledict.get('gs_model', '')
         self.mockdata = scanrecfiledict.get('mockdata', False)
+        self.comments = scanrecfiledict.get('comments', '')
+        return self
 
     def read_scanrec_from_ff(self, datapath):
         """
@@ -2073,7 +2076,12 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
         for real-imaginary (cartesian) or absolute-argument (polar)
         representation.
     """
+    if not dataff:
+        dataff = latest_scanrec_path()
+        print('dataff', next(dataff))
     dataff = os.path.normpath(dataff)
+    scnrecinfo = ScanRecInfo().read_scanrec(dataff)
+    print('# comments:\n', scnrecinfo.comments)
     lofar_datatype = datafolder_type(dataff)
     if lofar_datatype == 'sst':
         rcunr = filenr
