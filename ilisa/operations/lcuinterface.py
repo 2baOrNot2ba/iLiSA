@@ -274,17 +274,23 @@ class LCUInterface(object):
             # Put caltables back to default
             self.selectCalTable('default')
 
-    def run_rspctl(self, select=None, mode=None, tbbmode=None):
+    def run_rspctl(self, mode=None, tbbmode=None, select=None, swapxy=None):
         """Run rspctl command to setup RCUs: rcumode, select.
         """
         # Form commandline argument string ignoring blank arguments:
         rspctl_cmd = "rspctl"
-        if select is not None:
-            rspctl_cmd += " --select={}".format(select)
         if mode is not None:
             rspctl_cmd += " --mode={}".format(mode)
+        if swapxy is not None:
+            if swapxy == '1' or swapxy:
+                swapxy = '1'
+            else:
+                swapxy = '0'
+            rspctl_cmd += " " + "--swapxy={}".format(swapxy)
         if tbbmode is not None:
             rspctl_cmd += " --tbbmode={}".format(tbbmode)
+        if select is not None:
+            rspctl_cmd += " --select={}".format(select)
         self._exec_lcu(rspctl_cmd)
         return rspctl_cmd
 
