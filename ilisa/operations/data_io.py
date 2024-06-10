@@ -2081,7 +2081,8 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
         print('dataff', next(dataff))
     dataff = os.path.normpath(dataff)
     scnrecinfo = ScanRecInfo().read_scanrec(dataff)
-    print('# comments:\n', scnrecinfo.comments)
+    if scnrecinfo and scnrecinfo.comments:
+        print('# comments:\n', scnrecinfo.comments)
     lofar_datatype = datafolder_type(dataff)
     if lofar_datatype == 'sst':
         rcunr = filenr
