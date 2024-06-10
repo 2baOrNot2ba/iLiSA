@@ -83,9 +83,10 @@ class LScan:
                 raise ValueError("Invalid pointing syntax: {}"
                                  .format(self.dir_bmctl))
         beam_needed = False
-        if self.bfs or self.rec_type == 'bst':
-            # Also ACC needs beam but not included here since it only leads
-            # to blank ACC data and conceptually ought not to need a beam
+        if self.rec_type == 'bst':
+            # * Also ACC needs beam but not included here since it only leads
+            #   to blank ACC data and conceptually ought not to need a beam
+            # * N.B. May not need beam for bfs (e.g. per antenna mode)
             beam_needed = True
         if beam_needed and not self.dir_bmctl:
             raise ValueError("No pointing, but beam needed")
