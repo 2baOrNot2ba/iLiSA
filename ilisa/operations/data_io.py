@@ -512,11 +512,11 @@ class ScanRecInfo(object):
     """
     scanrecinfo_header = "SCANREC_INFO.yml"
 
-    def __init__(self, stnid='', caltabinfos=[], mockdata=''):
+    def __init__(self, stnid='', caltabinfos=[], mockdata='', sourcename=''):
         self.headerversion = 5
         self.ldatinfos = {}
         self._pointing = ''
-        self.sourcename = ''
+        self.sourcename = sourcename
         self.caltabinfos = caltabinfos
         self.scanrecpath = None
         self.scanrecparms = {}
@@ -607,6 +607,8 @@ class ScanRecInfo(object):
             f.write("station: {}\n".format(self.stnid))
             f.write("scanrecparms: {!r}\n".format(self.scanrecparms)
                     .replace('None', 'null'))
+            if self.sourcename:
+                f.write("sourcename: {}\n".format(self.sourcename))
             f.write("ldat_ids: {!r}\n".format(list(self.ldatinfos.keys())))
             # Data modalities:
             if self.caltabinfos != []:
@@ -637,6 +639,7 @@ class ScanRecInfo(object):
         self.headerversion = scanrecfiledict['headerversion']
         self.stnid = scanrecfiledict['station']
         self.scanrecparms = scanrecfiledict['scanrecparms']
+        self.sourcename = scanrecfiledict.get('sourcename')
         self.obs_ids = scanrecfiledict.get('ldat_ids', None)
         # Data modalities:
         self.calibrationfile = scanrecfiledict.get('calibrationfile', '')
@@ -1928,8 +1931,8 @@ def plotcmplxmat(cm, cmplxrep='ReIm', xylabels='', title='Complex matrix'):
     fig.suptitle(title)
 
 
-def viewxst(xstsampdata, samptime, freq, stnid, printout=False, poltype=None,
-            cmplxrep='ReIm'):
+def viewxst(xstsampdata, samptime, freq, titleingress, printout=False,
+            poltype=None, cmplxrep='ReIm'):
     """
     View XST data
 
@@ -1950,8 +1953,8 @@ def viewxst(xstsampdata, samptime, freq, stnid, printout=False, poltype=None,
     """
     cvpol = cov_flat2polidx(xstsampdata)
 
-    title = """LOFAR {} freq={} MHz @ {} UT""".format(
-        stnid, round(freq / 1e6, 2), samptime)
+    title = """{}, freq={} MHz @ {} UT""".format(
+        titleingress, round(freq / 1e6, 2), samptime)
 
     if not printout:
         colorscale = None  # Colorscale for xst data plot (default None)
@@ -2158,9 +2161,11 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     samptime = times_in_filetimes[sampidx]
                     freq = ldatinfo.get_recfreq(sampidx)
                     stnid = xstobj.scanrecinfo.stnid
+                    titleingress = "LOFAR {}, src {}".format(stnid,
+                                                       scnrecinfo.sourcename)
 
-                    xstdata = viewxst(xstsampdata, samptime, freq, stnid, printout,
-                                      poltype, cmplxrep)
+                    xstdata = viewxst(xstsampdata, samptime, freq, titleingress,
+                                      printout, poltype, cmplxrep)
                 else:
                     raise RuntimeError("Not a bst, sst, or xst filefolder")
 
