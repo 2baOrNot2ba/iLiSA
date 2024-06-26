@@ -559,7 +559,10 @@ def check_scansess(sesmeta_in):
         except Exception as e:
             raise ValueError(
                 f"Couldn't read yaml file {scnses_file} (error: {e})")
-    sesmeta, scans_obsargs = process_scansess({**sesmeta_in, **scanses_fin})
+    # Merge scanses data from file and from function argument.
+    # Putting file dict data 1st after inp arg means
+    # that inp arg takes precedence by overwriting previous
+    sesmeta, scans_obsargs = process_scansess({**scanses_fin, **sesmeta_in})
     projectmeta, _, _, _ = projid2meta(sesmeta['projectid'])
     sesmeta['projectid_name'] = projectmeta['name']
     sesscans = {'scans': []}
