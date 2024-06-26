@@ -268,7 +268,8 @@ def bfsrec_main_cli():
         return
     if not args.mockrun:
         if args.which == 'py':
-            rec_bf_streams_py.main(args.ports[0], args.bfdatadir, args.duration)
+            rec_bf_streams_py.main(args.ports, args.bfdatadir, args.duration,
+                                   args.stnid)
         else:
             lanes = range(len(args.ports))
             rec_bfs_lanes(starttime, args.duration, args.file_duration, lanes,
