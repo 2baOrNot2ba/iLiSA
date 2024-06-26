@@ -182,6 +182,7 @@ def process_scansess(sesscans_in):
             bfs = False
             if 'bfs' in rec:
                 bfs = True
+                bfs_recorder = scan.get('bfs_recorder', 'ow')
             bsx_stat = None
             if 'bst' in rec:
                 bsx_stat = 'bst'
@@ -209,6 +210,7 @@ def process_scansess(sesscans_in):
                           'rec': rec,
                           'acc': acc,
                           'bfs': bfs,
+                          'bfs_recorder': bfs_recorder,
                           'bsx_stat': bsx_stat,
                           'integration': integration,
                           'duration': duration_tot,
@@ -398,6 +400,7 @@ class ScanSession(object):
                                  'source': scan['beam']['source']}
                 acc = scan['acc']
                 bfs = scan['bfs']
+                bfs_recorder = scan['bfs_recorder']
                 bsx_stat = scan['bsx_stat']
                 integration = scan['integration']
                 freqspec = scan['beam']['freqspec']
@@ -433,7 +436,8 @@ class ScanSession(object):
                 # Initialize LScan
                 lscan = LScan(self.stndrv, bsx_stat, freqsetup, pointing_spec,
                               scan_dur, integration, starttime,
-                              acc=acc, bfs=bfs, destpath=sesspath,
+                              acc=acc, bfs=bfs, bfs_recorder=bfs_recorder,
+                              destpath=sesspath,
                               destpath_bfs=bfdsesdumpdir,
                               file_dur=scan['file_dur'], scan_id=scan['id'])
                 _LOGGER.info("Started LScan:: {}"

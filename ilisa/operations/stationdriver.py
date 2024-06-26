@@ -673,7 +673,7 @@ class StationDriver(object):
                 continue_sub = yield ldatinfo
 
     def start_bfs_scan(self, starttime, freqsetup, duration_tot,
-                       duration_file=None, compress=False):
+                       duration_file=None, bfs_recorder=None, compress=False):
         """\
         Start recording BFS data
 
@@ -688,6 +688,8 @@ class StationDriver(object):
             only make one dumpfile.
         duration_tot : float
             Total duration in seconds of recording
+        bfs_recorder: str
+            bfs recorder to use for bfs recording
         compress : bool
             Is recording to be compressed?
 
@@ -716,6 +718,7 @@ class StationDriver(object):
             self._dru_interface.start_bf_rec(laneports, duration_tot,
                                              self.scanpath_bfdat,
                                              starttime=starttime,
+                                             which_recorder=bfs_recorder,
                                              file_dur=duration_file,
                                              compress=compress,
                                              band=freqsetup.rcubands[0],

@@ -16,8 +16,9 @@ _LOGGER = logging.getLogger(__name__)
 
 class LScan:
     def __init__(self, stndrv, rec_type, freqsetup, pointing_spec, duration_tot,
-                 integration, starttime, acc=False, bfs=False, destpath=None,
-                 destpath_bfs=None, file_dur=None, scan_id=None):
+                 integration, starttime, acc=False, bfs=False,
+                 bfs_recorder=None, destpath=None, destpath_bfs=None,
+                 file_dur=None, scan_id=None):
         """\
         Record a scan of LOFAR station data
 
@@ -55,6 +56,8 @@ class LScan:
             all array elements with each as a function of subband.
         bfs: bool
             If true, record 'bfs': Record BeamFormed Stream data.
+        bfs_recorder: str
+            Type of recorder to use to record bfs data.
         destpath: str
             Destination path for this recording.
         destpath_bfs: str
@@ -73,6 +76,7 @@ class LScan:
         self.starttime = starttime
         self.acc = acc
         self.bfs = bfs
+        self.bfs_recorder = bfs_recorder
         self.file_dur = file_dur if file_dur else duration_tot
         self.destpath = destpath if destpath else stndrv.scanpath
         self.destpath_bfs = destpath_bfs
@@ -173,9 +177,8 @@ class LScan:
                    stndrv.setup_tof()
             if self.bfs:
                 bfs_subscan = stndrv.start_bfs_scan(starttime, freqsetup,
-                                                    duration_tot,
-                                                    duration_file=file_dur,
-                                                    compress=True)
+                                duration_tot, duration_file=file_dur,
+                                bfs_recorder=self.bfs_recorder, compress=True)
                 bfs_yield = next(bfs_subscan)
             if bsx_type:
                 bsx_subscan = stndrv.rec_bsx_scan(bsx_type, freqsetup,

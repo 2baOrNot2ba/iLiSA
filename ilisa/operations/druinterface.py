@@ -198,8 +198,8 @@ class DRUinterface:
         return paths_data, paths_logs
 
     def start_bf_rec(self, ports, duration, bf_data_dir, starttime,
-                     file_dur=None, compress=True, band='110_190', stnid=None,
-                     mockrun=False):
+                     which_recorder=None, file_dur=None, compress=True,
+                     band='110_190', stnid=None, mockrun=False):
         """\
         Start Record beamformed streams using recording process on DRU
 
@@ -211,7 +211,8 @@ class DRUinterface:
             The paths to the BFS log files.
         """
         dumpercmd = PL_REC_WRAPPER
-        which_recorder = 'ow'
+        if not which_recorder:
+            which_recorder = 'ow'
         outdumpdirs, outargs, datafiles, logfiles = \
             self.bfsfilepathslist(starttime, band, bf_data_dir, ports,
                                   stnid, compress)
