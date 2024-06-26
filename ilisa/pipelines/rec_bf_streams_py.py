@@ -7,6 +7,7 @@ import datetime
 import os
 import os.path
 import argparse
+import platform
 
 
 integrate_step = 10
@@ -14,14 +15,15 @@ nr_lanes = 4
 # port = 4346
 # datadir_template = "/mnt/lane?/BF/SE607/"
 # basedir = "Scans"
-filename_base = ""
+filename_base = "udp"
 ext = "lbp"  # lofar beamlet packets
 REC_SET = True
 DATA_REDUCE = False
 bufsize = 1048576
+DRU_NAME = platform.node()
 
 
-def startlane(lane, port, dumppath, dur=None, threadqueue=None):
+def startlane(lane, port, dumppath, dur=None, stnid='', threadqueue=None):
     """
     Python based recorder for beamformed data streams
 
@@ -48,8 +50,8 @@ def startlane(lane, port, dumppath, dur=None, threadqueue=None):
             else:
                 print("Recording {} s of data.".format(dur))
             datapath = os.path.join(dumppath,
-                "{}{}_{}.{}".format(filename_base,
-                                    start_time_near_sec.isoformat(), lane, ext))
+                "{}_{}_{}.{}.{}.{}".format(filename_base, stnid, port, DRU_NAME,
+                                           start_time_near_sec.isoformat(), ext))
             f = open(datapath, "wb")
             f.write(recv_msg)
         clientsock.settimeout(1.0)
@@ -82,20 +84,21 @@ def startlane(lane, port, dumppath, dur=None, threadqueue=None):
         )
 
 
-def main(port0, datadir, duration):
-    lanes = range(nr_lanes)
+def main(ports, datadir, duration, stnid=None):
+    _nrlanes = len(ports)
+    lanes = range(_nrlanes)
     retvalq = multiprocessing.Queue()
-    datafiles = [None]*nr_lanes
-    logfiles = [None]*nr_lanes
+    datafiles = [None]*_nrlanes
+    logfiles = [None]*_nrlanes
     laneprocs = []
     for lane in lanes:
         dumppath = datadir.replace('?', str(lane))
         if not os.path.exists(dumppath):
             os.mkdir(dumppath)
-        port = port0 + lane
+        port = ports[lane]
         laneproc = multiprocessing.Process(target=startlane,
                                            args=(lane, port, dumppath,
-                                                 duration, retvalq))
+                                                 duration, stnid, retvalq))
         laneproc.start()
         laneprocs.append(laneproc)
     for laneproc in laneprocs:
@@ -125,12 +128,12 @@ def cli_main():
                         type=int, default=None,
                         help="Duration of recording in seconds"
                         )
-    parser.add_argument('-w', '--which',
-                        type=str, default='ow',
-                        help="Which backend recorder: ow or py",
+    parser.add_argument('-s', '--stnid',
+                        type=str, default='',
+                        help="Station ID",
                         )
     args = parser.parse_args()
-    main(args.port0, args.bfdatadir, args.dur)
+    main(args.port0, args.bfdatadir, args.dur, args.stnid)
 
 
 if __name__=="__main__":
