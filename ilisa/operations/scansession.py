@@ -711,7 +711,8 @@ def main_cli():
         args.time, args.project, args.mockrun, args.station, args.check,
         args.postprocess, args.file)
     )
-    _LOGGER.info('Session note: {}'.format(args.note))
+    if args.note:
+        _LOGGER.info('CLI session note: {}'.format(args.note))
     sesmeta_in = {}
     sesmeta_in['cli_start'] = args.time
     sesmeta_in['mockrun'] = args.mockrun
