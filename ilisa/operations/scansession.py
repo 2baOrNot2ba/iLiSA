@@ -180,6 +180,7 @@ def process_scansess(sesscans_in):
             if 'acc' in rec:
                 acc = True
             bfs = False
+            bfs_recorder = None
             if 'bfs' in rec:
                 bfs = True
                 bfs_recorder = scan.get('bfs_recorder', 'ow')
