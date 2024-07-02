@@ -1,9 +1,0 @@
-# Example scan-session schedule using main_obs mode and
-# it records the most data it can record: ACC,
-scans:
-  - beam:
-      freqspec: '50e6:150e6'
-      pointing: CasA
-    rec: [acc, bfs, sst]
-    integration:  60
-    duration: 601

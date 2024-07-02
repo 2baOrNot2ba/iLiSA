@@ -1,0 +1,14 @@
+# Example scan-session schedule recording over both LBA and HBA bands.
+# It also records multiple lofar datatypes, namely
+# ACC, BFS and SST.
+#
+# Run this example from a shell like this:
+# bash$ ilisa_obs lba_hba_ScnSes.yaml
+
+scans:
+  - beam:
+      freqspec: '50e6:150e6'
+      pointing: CasA
+    rec: [acc, bfs, sst]
+    integration:  60
+    duration: 601  # ACC need 519 seconds at least

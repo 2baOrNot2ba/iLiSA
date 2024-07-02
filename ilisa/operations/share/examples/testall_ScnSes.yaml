@@ -1,0 +1,78 @@
+# Example session schedule for testing most recording modes in iLiSA.
+#
+# Run this example from a shell like this:
+# bash$ ilisa_obs testall_ScnSes.yaml
+# To check integrity of _ScnSes.yaml file, add '-c' flag:
+# bash$ ilisa_obs -c testall_ScnSes.yaml
+
+note: Testing several different scan types
+scans:
+  # Record ACC and SST using LBA
+  - beam:
+      freqspec: '10_90'
+      pointing: Z
+    rec: [acc,sst]
+    file_dur: 512
+    duration: 519
+    id: 1_ACC_SST  # This is the ID and name of folder (prefixed with string 'scan_') containing scan data in session
+  # Then 11 mins after start of previous scan, record BFS for 12 s:
+  - after: 11m
+    beam:
+      freqspec: '10_90'
+      pointing: Z
+    rec: [bfs]
+    duration: 12
+    id: 2_BFS
+  # Record BST in half of band (to get 16bits) for 60s
+  # and chunk datafiles into 10s chunks (that are delivered on DRU
+  # as soon as the are finished)
+  - beam:
+      freqspec: '10.1e6:55e6'
+      pointing: '3.1415,1.57,AZELGEO'  # Just a bit south of Zenith
+    rec: [bst]
+    integration: 1
+    file_dur: 10  # Size of file recorded in seconds
+    duration: 60
+    id: 3_BST_nrm_chunked
+  # Record freq range (20-235 MHz) spanning all lofar bands (so-called 357 mode)
+  # skipping some subbands (subband step 1 MHz):
+  - beam:
+      freqspec: '20e6:1e6:235e6'
+      pointing: Cas-A
+    rec: [bst]
+    integration:  1
+    duration: 10
+    id: 4_BST_357
+  # Record SST data in HBA
+  - beam:
+      freqspec: '110_190'
+      pointing: S
+    rec: [sst]
+    integration:  1
+    duration: 10
+    id: 5_SST
+  # Record a XST at 55 MHz for 4*2 seconds integrating over 2 s:
+  - beam:
+      freqspec: '55e6'
+      pointing: '6.123487,1.026515,J2000'  # Cas-A in radian J2000
+    rec: [xst]
+    integration: 2
+    duration: 4*2
+    id: 6_XST_nrm
+  # Make XSTs over 30-60 MHz in steps of 5 MHz pointing at Sun
+  - beam:
+      freqspec: '30e6:5e6:60e6'
+      pointing: Sun
+    rec: [xst]
+    integration:  1
+    duration: 16  # Eight 1 sec. steps with 1 s switch time.
+    id: 7_XST_frq_swp
+  # Record allsky visibility XST in HBA. This exploits the tiling OFF (tof) mode
+  - beam:
+      freqspec: '118e6'
+    rec: [xst]
+    integration: 4
+    duration: 8
+    id: 8_HBA_allsky
+
+# This scan-session takes about 15 min.

@@ -1,4 +1,8 @@
 # Example scan-session schedule for bst recording
+#
+# Run this example from a shell like this:
+# bash$ ilisa_obs bst_ScnSes.yaml
+
 scans:
   - beam:
       freqspec: '52e6:148e6'
