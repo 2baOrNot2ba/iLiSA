@@ -1,0 +1,24 @@
+# Example schedule file for iLiSA
+# To setup this schedule execute:
+# $ ilisa_sched campaign1_schedfile.yml
+# To check integrity of this file before setting it up execute:
+# $ ilisa_sched -c campaign1_schedfile.yml
+
+mockrun: false  # Should this be test or mock observations? Otherwise run for real (can also be commented out)
+bootbefore: 4m  # Time before starting when obs system should boot (If not desired, comment it out)
+idleafter: 2m  # Time after finishing when obs system should idle (If not desired, comment it out)
+station: SE607
+schedule:
+   - start: '2024-07-12T12:00:00'
+     project: 0
+     cmd: obs
+     session: 'ScnSes/Commisioning/bfs_minimal_ScnSes.yml'
+     note: 'First session in this schedule'
+   - start: '2024-07-12T13:00:00'
+     project: 1
+     cmd: obs
+     session: 'ScnSes/Commisioning/bfs_minimal_ScnSes.yml'
+     postprocess: 'filecheck.py'
+     note: >
+        Second session in this schedule.
+        It runs executable <postprocess> found under <$HOME>/.config/iLiSA/postprocessing/
