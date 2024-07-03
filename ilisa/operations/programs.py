@@ -149,6 +149,9 @@ class ObsPrograms(object):
         self.stationdriver.halt_observingstate_when_finished = shutdown
         return [obsinfo]
 
+    def test(self, arg):
+        print(arg)
+
 
 def record_obsprog(stationdriver, scan):
     """\
@@ -165,7 +168,7 @@ def record_obsprog(stationdriver, scan):
     scan_flat['freqbndobj'] = freqbndobj
     prg = ObsPrograms(stationdriver)
     obsfun, obsargs_sig = prg.getprogram(scan['obsprog'])
-    scan_flat['bfdsesdumpdir'] = stationdriver.bf_data_dir
+    scan_flat['bfdsesdumpdir'] = stationdriver.scanpath_bfdata  # .bf_data_dir
     # Map only args required by
     obsargs = {k: scan_flat[k] for k in obsargs_sig}
     # Setup Calibration tables on LCU:
