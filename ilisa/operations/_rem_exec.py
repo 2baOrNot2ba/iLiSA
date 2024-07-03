@@ -57,20 +57,22 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
         pre_prompt = "(dryrun) "
     else:
         pre_prompt = ""
-    if verbose:
-        _LOGGER.info(pre_prompt + nodeprompt + cmdline)
+    _LOGGER.info(pre_prompt + nodeprompt + cmdline)
     if (not dryrun) and accessible:
         if background_job == 'locally':
             # Runs in background locally rather than in background on LCU
-            output = subprocess.run(shellinvoc + " " + cmdline + " &",
+            full_shell_cmdline = shellinvoc + " " + cmdline + " &"
+            output = subprocess.run(full_shell_cmdline,
                                     shell=True, stdout=subprocess.PIPE).stdout
         else:
-            output = subprocess.run(shellinvoc + " "
-                                    + quotes + cmdline + quotes,
+            full_shell_cmdline = shellinvoc + " " + quotes + cmdline + quotes
+            output = subprocess.run(full_shell_cmdline,
                                     shell=True, universal_newlines=True,
                                     stdout=subprocess.PIPE).stdout
             if _log_exec_exit:
                 _LOGGER.info('End {} {}'.format(nodetype, cmdline))
+        _LOGGER.debug('Using NODEURL: ' + nodeurl)
+        _LOGGER.debug('Full shell commandline: '+full_shell_cmdline)
         if output:
             output = output.rstrip()
     elif not accessible:
