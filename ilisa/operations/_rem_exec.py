@@ -9,7 +9,7 @@ except ImportError:
 import logging
 import ilisa.operations
 
-_USE_SSH_MASTER_MODE = True  # Whether to use SSH's Master mode option
+_USE_SSH_MASTER_MODE = False  # Whether to use SSH's Master mode option
 _LOGGER = logging.getLogger(__name__)
 
 
