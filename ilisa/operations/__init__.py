@@ -42,10 +42,9 @@ def default_access_lclstn_conf(stnid=None):
 
 logging.Formatter.converter = time.gmtime
 _LOGGER_ROOT = logging.getLogger(__package__)
-_LOGGER_ROOT.setLevel(logging.DEBUG)
+_LOGGER_ROOT.setLevel(logging.INFO)
 __CH = logging.StreamHandler()
 __CH.setFormatter(logging.Formatter(
     '%(asctime)s.%(msecs)03d | %(name)s | %(levelname)s | %(message)s',
     datefmt=DATETIMESTRFMT))
-#__CH.setLevel(logging.DEBUG)
 _LOGGER_ROOT.addHandler(__CH)
