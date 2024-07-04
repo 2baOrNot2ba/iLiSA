@@ -144,6 +144,23 @@ def _startlanerec(lane, starttime, duration, file_dur, rcumode, bf_data_dir,
     # return datafileguess, dumplogname
 
 
+def bfsfileparse(filename):
+    """Parse a BFS filename extracting osb info"""
+    compressed = False
+    if filename.endswith('.zst'):
+        compressed = True
+        filename = filename[:-4]
+    bfs_recorder = 'ow'
+    if filename.endswith(rec_bf_streams_py.ext):
+        bfs_recorder = 'py'
+        filename = filename[:-4]
+    _udp, stnid, _rest = filename.split('_', 2)
+    port, hostname, dattim_str, _chunk_nr = _rest.split('.', 3)
+    from ilisa.operations import DATETIMESTRFMT
+    dattim = datetime.datetime.strptime(dattim_str, DATETIMESTRFMT)
+    return dattim, port, stnid, compressed, bfs_recorder
+
+
 def rec_bfs_lanes(starttime, duration, file_duration, lanes, rcumode,
                   bf_data_dir, port0, stnid, compress):
     retvalq = multiprocessing.Queue()
@@ -282,3 +299,26 @@ def bfsrec_main_cli():
 
 if __name__ == '__main__':
     bfsrec_main_cli()
+
+
+def rawfilesinfolder(bfsff):
+    """Get raw BFS files in a file-folder
+
+    Parameters
+    ----------
+    bfsff : str
+        Path to a BFS data file-folder
+
+    Returns
+    -------
+    udpfps : list
+        Raw BFS file name with file-folder path prepended
+    """
+    udpfps = []
+    _ls = sorted(os.listdir(bfsff))
+    for f in _ls:
+        if f.startswith('udp_') and f.endswith('.000.zst'):
+            #_lane = int(f.split('.', 1)[0][-1])
+            f_uncmp =f.rstrip('.zst')
+            udpfps.append(os.path.join(bfsff, f_uncmp))
+    return udpfps

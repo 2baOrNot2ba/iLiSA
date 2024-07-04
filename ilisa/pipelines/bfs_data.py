@@ -12,6 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import ilisa.operations.data_io as dio
+from ilisa.pipelines.bfbackend import rawfilesinfolder
 
 # BF data/header format constants:
 NRTIMS_PACKET = 16  # Number of sample times in packet
@@ -344,7 +345,6 @@ def convert2bst(bfs_filepath, integration_req=1.0):
         bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
         bst_abspath = os.path.join(bfs_path, bst_ff_name)
         print(obsinfo_bst['max_nr_bls']//4)
-        exit()
         os.mkdir(bst_abspath)
     bfs_pathbase = os.path.join(bst_abspath, bfs_filenamebase)
     foutXX = open(bfs_pathbase + "_bst_XX.dat", "wb")
@@ -526,7 +526,7 @@ class BFS_dataset:
 
         Format: x[<chanbins>, <t_segment_maj>, <t_segment_min>]
         """
-        bfsfiles = self._rawfilesinfolder(bfs_ff)
+        bfsfiles = rawfilesinfolder(bfs_ff)
         self.attrs_ln = []
         for bfsfile in bfsfiles:
             if bfsfile:
@@ -596,28 +596,6 @@ class BFS_dataset:
             ysegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
                 np.complex64)
         return xsegbin, ysegbin
-
-    def _rawfilesinfolder(self, bfsff):
-        """Get raw BFS files in a file-folder
-
-        Parameters
-        ----------
-        bfsff : str
-            Path to a BFS data file-folder
-
-        Returns
-        -------
-        udpfps : list
-            Raw BFS file name with file-folder path prepended
-        """
-        udpfps = []
-        _ls = sorted(os.listdir(bfsff))
-        for f in _ls:
-            if f.startswith('udp_') and f.endswith('.000.zst'):
-                #_lane = int(f.split('.', 1)[0][-1])
-                f_uncmp =f.rstrip('.zst')
-                udpfps.append(os.path.join(bfsff, f_uncmp))
-        return udpfps
 
 
 def main_cli():
