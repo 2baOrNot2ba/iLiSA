@@ -372,11 +372,9 @@ def convert2bst(bfs_filepath, integration_req=1.0):
                 integration_req, integration))
             normfac = 1.0 / integrate_samps * (samprate / FFTSIZE)
             initialize = False
-        for bi in range(nrbeamlets):
-            xx[bi] += np.real(np.vdot(x[bi, :], x[bi, :]))
-            yy[bi] += np.real(np.vdot(y[bi, :], y[bi, :]))
-            xy[bi] += np.vdot(x[bi, :], y[bi, :])
-            # yx[bi]=np.vdot(y[bi,:],x[bi,:])
+        xx += np.real(np.sum(x * np.conj(x), axis=-1))
+        yy += np.real(np.sum(y * np.conj(y), axis=-1))
+        xy += np.sum(x * np.conj(y), axis=-1)
         totnrtimsamp += NRTIMS_PACKET
         if (totnrtimsamp % integrate_samps) == 0:
             print("Integrated {}/{} time samples".format(
