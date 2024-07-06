@@ -494,7 +494,6 @@ def check_packets(bfs_filename):
     """
     packetnr = 0
     missedpackets = 0
-    prev_dt =None
     for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
         seq = header['_blocksequencenumber']
         if header['error'] == 1:
@@ -509,10 +508,6 @@ def check_packets(bfs_filename):
                 print(seqdif)
         seqprev = seq
         packetnr += 1
-        if prev_dt:
-            print(header['datetime64'] -prev_dt)
-        prev_dt = header['datetime64']
-
     print("Missed packets: ", missedpackets, "/", packetnr, " ",
           100 * missedpackets / float(packetnr), '%')
 
