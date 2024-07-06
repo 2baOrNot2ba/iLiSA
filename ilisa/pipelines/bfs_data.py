@@ -514,7 +514,7 @@ def check_packets(bfs_filename):
 
 class BFS_dataset:
 
-    def __init__(self, bfs_ff):
+    def __init__(self, bfs_ff, segdur=None):
         """Load bfs dataset
 
         Format: x[<chanbins>, <t_segment_maj>, <t_segment_min>]
@@ -534,34 +534,51 @@ class BFS_dataset:
             self.ys.append(np.lib.format.open_memmap(bfsfile+'_Y.npy',
                                                      mode='r',
                                                      shape=(nrbeamlets, )))
-
-    def segment(self, segdur=None):
         self.seglen = 1
-        if segdur:
-            if type(segdur) == float:
-                self.seglen = int(segdur / BFSmeta.sbsampprd)
-            elif type(segdur) == int:
-                self.seglen = segdur
-        return self
+        if segdur is not None:
+            self.set_seglen(segdur)
 
-    def sel(self, freq_cntr, ts=(0.0, None)):
+    def set_seglen(self, segdur=1):
+        # Set up segment
+        if type(segdur) == float:
+            self.seglen = int(segdur / BFSmeta.sbsampprd)
+        elif type(segdur) == int:
+            self.seglen = segdur
+
+    def _sel_freq(self, freq_cntr, ts=(0.0, None)):
         freqs = np.array(
             [self.attrs_ln[_lane]['freqs']
              for _lane in range(len(self.attrs_ln))])
         lane_fr, self.fftbin = np.unravel_index(
             np.argmin((freqs - freq_cntr) ** 2), freqs.shape)
+        xseg, yseg = self._get_segmented(lane_fr, ts)
+        if self.attrs['bits'] == 8:
+            xsegbin = xseg[self.fftbin, ...].view(np.int8).astype(np.float32).view(
+                np.complex64)
+            ysegbin = yseg[self.fftbin, ...].view(np.int8).astype(np.float32).view(
+                np.complex64)
+        else:
+            xsegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
+                np.complex64)
+            ysegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
+                np.complex64)
+        return xsegbin, ysegbin
+
+    def _get_segmented(self, lane_fr, ts):
+        """Segment time series"""
         x = self.xs[lane_fr]
         y = self.ys[lane_fr]
         ### Time start
         t_smp0, dur = ts
         if not dur:
-            dur  = x.shape[1] * BFSmeta.sbsampprd
+            dur = x.shape[1] * BFSmeta.sbsampprd
         seg0 = int(t_smp0 / BFSmeta.sbsampprd) // self.seglen
         segN = int((t_smp0 + dur) / BFSmeta.sbsampprd) // self.seglen
         ### Time end
         nrsbs = x.shape[0]
         ofs = x.shape[1] % self.seglen
         endofs = -ofs if ofs > 0 else None
+        # Next lines change to F_CONTIGUOUS
         _xseg = x[:, :endofs].reshape((nrsbs, -1, self.seglen))
         _yseg = y[:, :endofs].reshape((nrsbs, -1, self.seglen))
         del x, y
@@ -576,19 +593,29 @@ class BFS_dataset:
         self.fftfreqs = np.fft.fftshift(np.fft.fftfreq(self.seglen,
                                                        d=BFSmeta.sbsampprd))
         start_dt = datetime.datetime.utcfromtimestamp(
-            (self.attrs['start_datetime'] - np.datetime64(0, 's')) / np.timedelta64(1, 's'))
+            (self.attrs['start_datetime'] - np.datetime64(0, 's')) / np.timedelta64(1,
+                                                                                    's'))
         # tstart = obsinfo['start_datetime']+datetime.timedelta(seconds=toffset)
+        return xseg, yseg
+
+    def sel(self, freq=None, ts=None):
+        if freq is not None:
+            if type(freq) == float:
+                return self._sel_freq(freq, ts)
+            lanenr = int(freq)
+        xseg, yseg = self._get_segmented(lanenr, ts)
+        xseg = np.ascontiguousarray(xseg)
+        yseg = np.ascontiguousarray(yseg)
         if self.attrs['bits'] == 8:
-            xsegbin = xseg[self.fftbin, ...].view(np.int8).astype(np.float32).view(
-                np.complex64)
-            ysegbin = yseg[self.fftbin, ...].view(np.int8).astype(np.float32).view(
-                np.complex64)
+            xseg = xseg.view(np.int8)
+            yseg = yseg.view(np.int8)
         else:
-            xsegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
-                np.complex64)
-            ysegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
-                np.complex64)
-        return xsegbin, ysegbin
+            xseg = xseg.view(np.int16)
+            yseg = yseg.view(np.int16)
+        xseg = xseg.astype(np.float32).view(np.complex64)
+        yseg = yseg.astype(np.float32).view(np.complex64)
+        return xseg, yseg
+
 
 
 def main_cli():
