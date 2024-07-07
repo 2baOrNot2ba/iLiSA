@@ -617,6 +617,36 @@ class BFS_dataset:
         return xseg, yseg
 
 
+def __read_use_np(bfsfile):
+    """Stub testing alternative way to read BFS data files using numpy"""
+
+    def __pktsinfile(bfsfile):
+        """Stub testing alternative way to read BFS data files using numpy"""
+        header_dtype = ('header', 'B', PacketH_struct_len)
+        xrxiyryi8_dtype = np.dtype([('xr', '<i1'), ('xi', '<i1'),
+                                    ('yr', '<i1'), ('yi', '<i1')])
+        payload8_dtype = ('payload', xrxiyryi8_dtype, (2 * 61, NRTIMS_PACKET))
+        lofpacket8_dtype = np.dtype([header_dtype, payload8_dtype])
+        data = np.fromfile(bfsfile, dtype=lofpacket8_dtype)
+        datseg = data[:-190].reshape((-1, 512))
+        for p in datseg:
+            yield p['payload']
+
+    with open('xx.bst', 'wb') as fx, open('yy.bst', 'wb') as fy,\
+            open('xy.bst', 'wb') as fxy:
+        nr = 0
+        for p in __pktsinfile(bfsfile):
+            _p=np.ascontiguousarray(p).view('int8').astype(np.float32).view(np.complex64)
+            _pp = _p * np.conj(_p)
+            ppx = np.real(np.mean(_pp[..., 0::2], axis=(0, -1)))
+            ppy = np.real(np.mean(_pp[..., 1::2], axis=(0, -1)))
+            ppxy = np.mean(_p[..., 0::2]*_p[..., 1::2], axis=(0,-1))
+            ppx.tofile(fx)
+            ppy.tofile(fy)
+            ppxy.tofile(fxy)
+            nr += 1
+    print(nr)
+
 
 def main_cli():
     cmdln_prsr = argparse.ArgumentParser()
@@ -643,6 +673,11 @@ def main_cli():
     parser_bst.add_argument('bfs_filename', help="BFS filename")
     parser_bst.add_argument('integration', type=float,
                             help="Integration in float seconds")
+
+    # Use Numpy for parsing
+    parser_bin = subparsers.add_parser('num', help='NOT IMPLEMENTED YET (testing)')
+    parser_bin.set_defaults(func=__read_use_np)
+    parser_bin.add_argument('bfs_filename', help="BFS filename")
 
     parser_npy = subparsers.add_parser('npy', help='Convert BFS to np npy')
     parser_npy.set_defaults(func=convert2npy)
@@ -680,6 +715,8 @@ def main_cli():
     elif args.func == convert2bst:
         integration = 1.0
         convert2bst(args.bfs_filename, args.integration)
+    elif args.func == __read_use_np:
+        __read_use_np(args.bfs_filename)
     elif args.func == convert2npy:
         convert2npy(args.bfs_filename)
     elif args.func == BFSmeta:
