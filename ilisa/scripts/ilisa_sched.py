@@ -17,6 +17,7 @@ del __now_timestamp
 DEFAULT_PROJ = 0
 # Margin of time before starttime 'at' command issued
 BEFORE_AT_MARGIN = datetime.timedelta(seconds=8)
+ATJOBSFILE_TMPLT = 'AT_JOBS_{}.txt'  # '{}' tobe replaced by station
 
 
 def sched2at(schedfile, check=False):
@@ -37,6 +38,11 @@ def sched2at(schedfile, check=False):
     last_start_ut = None
 
     schedlines = schedtab['schedule']
+    if not check and len(schedlines):
+        atjobid_file = open(ilisa.operations.USER_CACHE_DIR
+                            + ATJOBSFILE_TMPLT.format(station), 'w')
+    else:
+        atjobid_file = None
     # Check start times
     for schedline in schedlines:
         if type(schedline['start']) == datetime.datetime:
@@ -121,7 +127,8 @@ def sched2at(schedfile, check=False):
         if check:
             print(' '.join(atcmdv))
         else:
-            p = subprocess.Popen(atcmdv, stdin=subprocess.PIPE)
+            p = subprocess.Popen(atcmdv, stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         # First send sleep before ilisa command (at only does down to minutes)
         sleepcmd = ''
         if sleep_before_at_secs:
@@ -132,9 +139,14 @@ def sched2at(schedfile, check=False):
         if check:
             print(cmdline_wlog)
         else:
-            p.communicate(input=cmdline_wlog.encode())
+            sout, serr = p.communicate(input=cmdline_wlog.encode())
+            at_message = serr.decode('utf-8').split('\n')[-2]
+            at_job_id = int(at_message.split(' ')[1])
+            atjobid_file.write('{} {}\n'.format(at_job_id, cmdline))
     # Provide info on scheduled start and end times in UT:
     print(f"Scheduled observations start {first_start_ut} and end {end_ut}")
+    if atjobid_file is not None:
+        atjobid_file.close()
 
 
 def main():
