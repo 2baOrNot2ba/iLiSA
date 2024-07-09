@@ -17,7 +17,7 @@ del __now_timestamp
 DEFAULT_PROJ = 0
 # Margin of time before starttime 'at' command issued
 BEFORE_AT_MARGIN = datetime.timedelta(seconds=8)
-ATJOBSFILE_TMPLT = 'AT_JOBS_{}.txt'  # '{}' tobe replaced by station
+ATJOBSFILE_TMPLT = 'at_jobs_{}.txt'  # '{}' tobe replaced by station
 
 
 def sched2at(schedfile, check=False):
@@ -41,6 +41,7 @@ def sched2at(schedfile, check=False):
     if not check and len(schedlines):
         atjobid_file = open(ilisa.operations.USER_CACHE_DIR
                             + ATJOBSFILE_TMPLT.format(station), 'w')
+        atjobid_file.write('# Schedulefile: '+schedfile+'\n')
     else:
         atjobid_file = None
     # Check start times
@@ -70,7 +71,7 @@ def sched2at(schedfile, check=False):
     if bootbefore:
         boot_start_ut = first_start_ut - modeparms.hmsstr2deltatime(bootbefore)
         bootschedline ={'start': boot_start_ut, 'cmd': 'boot'}
-        schedlines.append(bootschedline)
+        schedlines.insert(0, bootschedline)
     if duration:
         duration_dt = modeparms.hmsstr2deltatime(duration)
         end_ut = first_start_ut + duration_dt
@@ -145,6 +146,15 @@ def sched2at(schedfile, check=False):
             atjobid_file.write('{} {}\n'.format(at_job_id, cmdline))
     # Provide info on scheduled start and end times in UT:
     print(f"Scheduled observations start {first_start_ut} and end {end_ut}")
+    if bootbefore:
+        print(f"Booting at {boot_start_ut}...", end='')
+    else:
+        print(f"Not booting before observations...", end='')
+    if idleafter:
+        print(f"and will handback at {idle_start_ut}.")
+    else:
+        print("and will not go idle afterwards.")
+    # If open, close atjobid_file (not in `with` to avoid massive indent)
     if atjobid_file is not None:
         atjobid_file.close()
 
