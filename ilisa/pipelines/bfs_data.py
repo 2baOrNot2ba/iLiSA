@@ -5,6 +5,7 @@ import os
 import sys
 import struct
 import math
+from multiprocessing import Pool
 
 import datetime
 import argparse
@@ -329,29 +330,15 @@ def convert2binary(bfs_filepath):
         (xy.flatten('F')).tofile(fout)
     fout.close()
 
-
-def convert2bst(bfs_filepath, integration_req=1.0):
-    """Recreate bst style data based on the streamed beamformed data
-
-    It also adds the novel combination of X*Y data.
-    """
+def correlate_bfs(bfs_filepath, bst_abspath, integration_req=1.0):
     (bfs_ff, bfs_filenamebase) = os.path.split(os.path.abspath(bfs_filepath))
-    if bfs_ff.endswith('_bfs'):
-        (bfs_path, bfs_ff_name) = os.path.split(bfs_ff)
-        obsinfo_bsf = dio.filefolder2obsinfo(bfs_ff_name)
-        obsinfo_bst = dict(obsinfo_bsf)
-        obsinfo_bst['ldat_type'] = 'bst'
-        obsinfo_bst['integration'] = integration_req
-        bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
-        bst_abspath = os.path.join(bfs_path, bst_ff_name)
-        print(obsinfo_bst['max_nr_bls']//4)
-        os.makedirs(bst_abspath, exist_ok=True)
-    bfs_pathbase = os.path.join(bst_abspath, bfs_filenamebase)
-    foutXX = open(bfs_pathbase + "_bst_XX.dat", "wb")
-    foutYY = open(bfs_pathbase + "_bst_YY.dat", "wb")
-    foutXY = open(bfs_pathbase + "_bst_XY.dat", "wb")
+    print('Converting', bfs_filepath)
+    bst_pathbase = os.path.join(bst_abspath, bfs_filenamebase)
+    foutXX = open(bst_pathbase + "_bst_XX.dat_", "wb")
+    foutYY = open(bst_pathbase + "_bst_YY.dat_", "wb")
+    foutXY = open(bst_pathbase + "_bst_XY.dat_", "wb")
 
-    nrpackets = os.path.getsize(bfs_filepath)/BytesBFPacket
+    nrpackets = os.path.getsize(bfs_filepath) / BytesBFPacket
     totnrtimsamp = 0
     initialize = True
     for header, x, y in next_bfpacket(bfs_filepath, False):
@@ -377,9 +364,9 @@ def convert2bst(bfs_filepath, integration_req=1.0):
         xy += np.sum(x * np.conj(y), axis=-1)
         totnrtimsamp += NRTIMS_PACKET
         if (totnrtimsamp % integrate_samps) == 0:
-            print("Integrated {}/{} time samples".format(
-                totnrtimsamp//integrate_samps,
-                nrpackets*NRTIMS_PACKET/integrate_samps))
+            print("Integrated {}/{} time samples from:".format(
+                totnrtimsamp // integrate_samps,
+                nrpackets * NRTIMS_PACKET / integrate_samps), bfs_filenamebase)
             # Normalize to covariance
             xx = xx * normfac
             yy = yy * normfac
@@ -394,6 +381,60 @@ def convert2bst(bfs_filepath, integration_req=1.0):
     foutXX.close()
     foutYY.close()
     foutXY.close()
+
+
+def convert2bst(bfs_filefolder, integration_req=1.0):
+    """Recreate bst style data based on the streamed beamformed data
+
+    It also adds the novel combination of X*Y data.
+    """
+    bfs_filefolder = bfs_filefolder.rstrip('/')
+    if bfs_filefolder.endswith('_bfs'):
+        (bfs_root, bfs_ff_name) = os.path.split(bfs_filefolder)
+    else:
+        raise RuntimeError('Not BFS filefolder')
+    obsinfo_bsf = dio.filefolder2obsinfo(bfs_ff_name)
+    obsinfo_bst = dict(obsinfo_bsf)
+    obsinfo_bst['ldat_type'] = 'bst'
+    obsinfo_bst['integration'] = integration_req
+    bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
+    bst_abspath = os.path.join(bfs_root, bst_ff_name)
+    nrblsperfile = obsinfo_bst['max_nr_bls'] // 4
+    os.makedirs(bst_abspath, exist_ok=True)
+    bfs_files = filter(lambda _f: _f.startswith('udp_') and not _f.endswith('.zst'), os.listdir(bfs_filefolder))
+    bfs_filepaths = [os.path.join(bfs_filefolder, bfs_file) for bfs_file in bfs_files]
+    from itertools import repeat, starmap
+    with Pool(4) as p:
+        p.starmap(correlate_bfs, zip(bfs_filepaths, repeat(bst_abspath), repeat(integration_req)))
+    # Non multiprocess version:
+    # list(starmap(correlate_bfs, zip(bfs_filepaths, repeat(bst_abspath), repeat(integration_req))))
+    # Transpose and concatenate the <=4 lanes
+    ls_bst = os.listdir(bst_abspath)
+    bstdat = {}
+    for corr in ['XX', 'YY', 'XY']:
+        bstdat[corr] = []
+        bst_dtype = np.dtype(('f8', (nrblsperfile)))
+        if corr == 'XY':
+            bst_dtype = np.dtype(('c16', (nrblsperfile)))
+        for _f in sorted(ls_bst):
+            if _f.endswith(corr+'.dat_'):
+                _bstdat = np.fromfile(os.path.join(bst_abspath, _f),
+                                     dtype=bst_dtype)
+                bstdat[corr].append(_bstdat.T)
+    # Transpose concatenated bst data and save
+    for corr in ['XX', 'YY', 'XY']:
+        bstdat[corr] = np.concatenate(bstdat[corr])
+        bstcorrlbl = corr[0]
+        if corr == 'XY':
+            bstcorrlbl += 'Y'
+        outfile = os.path.join(bst_abspath, obsinfo_bst['filenametime']
+                               + '_bst_00' + bstcorrlbl+'.dat')
+        bstdat[corr].T.tofile(outfile)
+    # Remove the intermediate untransposed and unconcatenated file
+    for _f in os.listdir(bst_abspath):
+        if _f.endswith('.dat_'):
+            os.remove(os.path.join(bst_abspath, _f))
+    return bst_abspath
 
 
 def convert2npy(bfs_filepath):
