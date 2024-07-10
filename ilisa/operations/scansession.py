@@ -738,6 +738,9 @@ def main_cli():
     except ValueError as err:
         _LOGGER.error(err)
         sys.exit(1)
+    except KeyboardInterrupt:
+        _LOGGER.info('SIGINT issued by user, exiting.')
+        sys.exit(0)
     _LOGGER.info('Ending scansession {}'.format(the_scansess.session_id))
     if the_scansess.failed:
         return
