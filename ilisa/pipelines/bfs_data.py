@@ -345,7 +345,7 @@ def convert2bst(bfs_filepath, integration_req=1.0):
         bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
         bst_abspath = os.path.join(bfs_path, bst_ff_name)
         print(obsinfo_bst['max_nr_bls']//4)
-        os.mkdir(bst_abspath)
+        os.makedirs(bst_abspath, exist_ok=True)
     bfs_pathbase = os.path.join(bst_abspath, bfs_filenamebase)
     foutXX = open(bfs_pathbase + "_bst_XX.dat", "wb")
     foutYY = open(bfs_pathbase + "_bst_YY.dat", "wb")
