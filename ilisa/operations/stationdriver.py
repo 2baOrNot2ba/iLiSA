@@ -88,6 +88,11 @@ class StationDriver(object):
             ##   set as ~/.cache/ilisa/DRU/<dru_hostname>
             self._dru_root = os.path.join(ilisa.operations.USER_CACHE_DIR,
                                           'DRU', self._dru_interface.hostname)
+            # Make sure there is a directory to mount on:
+            os.makedirs(self._dru_root, exist_ok=True)
+            if _is_sshfs_mounted(self._dru_root):
+                # Before mounting, first unmount (as mount point can go stale):
+                subprocess.run(['fusermount', '-u', self._dru_root])
             # Mount it using sshfs
             subprocess.run(['sshfs', self._dru_interface.url + ':/',
                             self._dru_root])
@@ -1030,14 +1035,14 @@ class StationDriver(object):
         return datetime.timedelta(seconds=service_time2startup)
 
 
-def _is_sshfs_mounted(hostname):
-    mounts_pnts = subprocess.run('mount', stdout=subprocess.PIPE
-                                 ).stdout.decode().rstrip().split('\n')
-    sshfs_mnt_pnts = filter(lambda l : 'fuse.sshfs' in l, mounts_pnts)
-    hostname_mnt_pnts = list(filter(lambda l : l.startswith(hostname),
-                                    sshfs_mnt_pnts))
-    _LOGGER.debug("hostname_mnt_pnts={}".format(hostname_mnt_pnts))
-    if hostname_mnt_pnts:
+def _is_sshfs_mounted(dru_mntpnt):
+    # Check if mounted
+    _findmntcmd = subprocess.run(['findmnt', '-n', '-oSOURCE',
+                                  dru_mntpnt],
+                                 stdout=subprocess.PIPE)
+    mnt_source = _findmntcmd.stdout.decode()
+    _LOGGER.debug("DRU_url_mounted: '{}'".format(mnt_source))
+    if mnt_source:
         return True
     else:
         return False
