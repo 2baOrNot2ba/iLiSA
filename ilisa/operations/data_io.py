@@ -1633,51 +1633,105 @@ def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
     dur_cur = (ts[-1]-ts[0]).total_seconds()
     t_left = dur_tot - dur_cur
     if t_left > 0:
-        print("Recording not finished yet {}".format(t_left))
+        print("Data duration {}s less than requested. (Rec not finished?)"
+              .format(t_left))
     bst_data_x = numpy.concatenate(bst_datas_x).reshape(-1, max_nr_bls).T
     bst_data_y = numpy.concatenate(bst_datas_y).reshape(-1, max_nr_bls).T
-
-    data2view_p_name, data2view_p = 'X-pol', bst_data_x
-    data2view_q_name, data2view_q = 'Y-pol', bst_data_x
-    data2view_q_unit = 'Flux [arb. units]'
-    norm_p, norm_q = None, None
-    cmap_q = None
+    if bst_datas_xy:
+        bst_data_xy =  numpy.concatenate(bst_datas_xy).reshape(-1, max_nr_bls).T
+        data2view_pq_name, data2view_pq = 'Abs(XY)', numpy.abs(bst_data_xy)
+        data2view_qp_name, data2view_qp = 'Arg(XY)', numpy.rad2deg(numpy.angle(bst_data_xy))
+        data2view_pq_unit = 'Flux [arb. units]'
+        data2view_qp_unit = 'Phase [deg]'
+        norm_pq, norm_qp = colors.LogNorm(), None
+        cmap_pq, cmap_qp = None, 'hsv'
+    data2view_pp_name, data2view_pp = 'X-pol', bst_data_x
+    data2view_qq_name, data2view_qq = 'Y-pol', bst_data_x
+    data2view_qq_unit, data2view_qq_unit = 'Flux [arb. units]', 'Flux [arb. units]'
+    norm_pp, norm_qq = colors.LogNorm(), colors.LogNorm()
+    cmap_pp, cmap_qq = None, None
     if pol_stokes:
-        data2view_p_name = 'Stokes I'
-        data2view_p = bst_data_x + bst_data_y
-        norm_p = colors.LogNorm()
-        data2view_q_name = '(antenna) Stokes Q'
-        data2view_q = bst_data_x - bst_data_y
-        data2view_q_unit = 'Signed flux [arb. units]'
-        cmap_q = 'RdBu_r'
-        norm_q = colors.SymLogNorm(linthresh=1e2)
-        stokes_norm = True
+        # Stokes I
+        data2view_pp_name = 'Stokes I'
+        data2view_pp = bst_data_x + bst_data_y
+        cmap_pp = None
+        norm_pp = colors.LogNorm()
+
+        # Stokes Q
+        data2view_qq_name = '(antenna) Stokes Q'
+        data2view_qq = bst_data_x - bst_data_y
+        data2view_qq_unit = 'Signed flux [arb. units]'
+        cmap_qq = 'RdBu_r'
+        norm_qq = colors.SymLogNorm(linthresh=1e5, base=10)
+
+        if bst_datas_xy:
+            # Stokes U
+            data2view_pq_name = 'Stokes U'
+            data2view_pq = numpy.real(bst_data_xy + numpy.conj(bst_data_xy))
+            data2view_pq_unit = 'Signed flux [arb. units]'
+            cmap_pq = 'RdBu_r'
+            norm_pq = colors.SymLogNorm(linthresh=1e5, base=10)
+            # Stokes V
+            data2view_qp_name = 'Stokes V'
+            data2view_qp = numpy.imag(bst_data_xy - numpy.conj(bst_data_xy))
+            data2view_qp_unit = 'Signed flux [arb. units]'
+            cmap_qp = 'RdBu_r'
+            norm_qp = colors.SymLogNorm(linthresh=1e5, base=10)
+        stokes_norm = False
         if stokes_norm:
-            data2view_q = data2view_q / data2view_p
+            data2view_qq = data2view_qq / data2view_pp
             data2view_q_name = '(antenna) Stokes q'
             data2view_q_unit = 'Signed relative flux []'
-            norm_q = colors.SymLogNorm(linthresh=1e-3)
+            norm_qq = None  # colors.SymLogNorm(linthresh=1e-3, base=10)
     if not printout:
-        fig, (ax_p, ax_q) = plt.subplots(2, 1, sharex=True, sharey=True)
-        # Plot quantity p:
+        _xtr_corrs = 1
+        if bst_datas_xy:
+            _xtr_corrs = 2
+        fig, axs = plt.subplots(2, _xtr_corrs, sharex=True, sharey=True)
+        if _xtr_corrs == 1:
+            (ax_pp, ax_qq) = axs
+        else:
+            ((ax_pp, ax_pq), (ax_qq, ax_qp)) = axs
         fr_grd, ts_grd = numpy.meshgrid(freqs/1e6, ts)
-        bstplt_p = ax_p.pcolormesh(ts_grd, fr_grd, data2view_p.T, norm=norm_p,
-                                   shading='nearest')
-        cbar_p = fig.colorbar(bstplt_p, ax=ax_p)
-        cbar_p.set_label('Flux [arb. units]')
-        ax_p.set_ylabel('Frequency [MHz]')
-        ax_p.set_title('{}'.format(data2view_p_name))
-        # Plot quantity q:
-        bstplt_q = ax_q.pcolormesh(ts_grd, fr_grd, data2view_q.T, cmap=cmap_q,
-                                   norm=norm_q, shading='nearest')
-        cbar_q = fig.colorbar(bstplt_q, ax=ax_q)
-        cbar_q.set_label(data2view_q_unit)
-        ax_q.set_title('{}'.format(data2view_q_name))
+
+        # Plot quantity pp:
+        bstplt_pp = ax_pp.pcolormesh(ts_grd, fr_grd, data2view_pp.T,  # numpy.log10(data2view_pp.T),
+                                     cmap=cmap_pp, norm=norm_pp,
+                                     shading='nearest')
+        cbar_pp = fig.colorbar(bstplt_pp, ax=ax_pp)
+        cbar_pp.set_label('Flux [arb. units]')
+        ax_pp.set_ylabel('Frequency [MHz]')
+        ax_pp.set_title('{}'.format(data2view_pp_name))
+
+        # Plot quantity qq:
+        bstplt_qq = ax_qq.pcolormesh(ts_grd, fr_grd, data2view_qq.T,
+                                     cmap=cmap_qq, norm=norm_qq,
+                                     shading='nearest')
+        cbar_qq = fig.colorbar(bstplt_qq, ax=ax_qq)
+        cbar_qq.set_label(data2view_qq_unit)
+        ax_qq.set_title('{}'.format(data2view_qq_name))
         fig.autofmt_xdate()
 
-        ax_q.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
-        ax_q.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
-        ax_q.set_ylabel('Frequency [MHz]')
+        ax_qq.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M:%S'))
+        ax_qq.set_xlabel('Datetime [UT]  Starts: {}'.format(starttime))
+        ax_qq.set_ylabel('Frequency [MHz]')
+
+        if bst_datas_xy:
+            # Plot quantity pq:
+            bstplt_pq = ax_pq.pcolormesh(ts_grd, fr_grd, data2view_pq.T,
+                                         cmap=cmap_pq, norm=norm_pq,
+                                         shading='nearest')
+            cbar_pq = fig.colorbar(bstplt_pq, ax=ax_pq)
+            cbar_pq.set_label(data2view_pq_unit)
+            ax_pq.set_title('{}'.format(data2view_pq_name))
+
+            # Plot quantity qp:
+            bstplt_qp = ax_qp.pcolormesh(ts_grd, fr_grd, data2view_qp.T,
+                                         cmap=cmap_qp, norm=norm_qp,
+                                         shading='nearest')
+            cbar_qp = fig.colorbar(bstplt_qp, ax=ax_qp)
+            cbar_qp.set_label(data2view_qp_unit)
+            ax_qp.set_title('{}'.format(data2view_qp_name))
 
         supertitle = ('{} BST intg: {}s dur: {}s'.format(stnid, intg, dur_cur)
                       + ' pointing: {}'.format(pointing))
@@ -1694,12 +1748,12 @@ def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
         #   Header
         t_prev = ts[0]
         print("## H:M:S since {} UT".format(t_prev.isoformat()), "Freq[MHz]",
-              data2view_p_name, data2view_q_name, sep=' ')
+              data2view_pp_name, data2view_qq_name, sep=' ')
         #   Data
         for ti, t in enumerate(ts):
             for freqi, freq in enumerate(freqs):
-                dataval_p, dataval_q = (data2view_p[freqi, ti],
-                                        data2view_q[freqi, ti])
+                dataval_p, dataval_q = (data2view_pp[freqi, ti],
+                                        data2view_qq[freqi, ti])
                 del_t = t - t_prev
                 print(del_t, freq/1e6, dataval_p, dataval_q, sep=' ')
 
