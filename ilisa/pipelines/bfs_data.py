@@ -421,6 +421,16 @@ def convert2bst(bfs_filefolder, integration_req=1.0):
                 _bstdat = np.fromfile(os.path.join(bst_abspath, _f),
                                      dtype=bst_dtype)
                 bstdat[corr].append(_bstdat.T)
+    # The nr of int samps may be different in the different lanes,
+    # so pad the missing samps at the ends:
+    nrintsmps_max = np.max([bstdat['XX'][lane].shape[-1] for lane in range(4)])
+    for lane in range(4):
+        for corr in ['XX', 'YY', 'XY']:
+            nrintsmps_cur = bstdat[corr][lane].shape[-1]
+            nrintsmps_xtr = nrintsmps_max - nrintsmps_cur
+            bstdat[corr][lane] = np.pad(bstdat[corr][lane],
+                                        [(0, 0), (0, nrintsmps_xtr)], 'constant',
+                                        constant_values=0.)
     # Transpose concatenated bst data and save
     for corr in ['XX', 'YY', 'XY']:
         bstdat[corr] = np.concatenate(bstdat[corr])
