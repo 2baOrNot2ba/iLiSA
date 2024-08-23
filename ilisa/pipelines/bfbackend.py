@@ -297,12 +297,8 @@ def bfsrec_main_cli():
         print(args)
 
 
-if __name__ == '__main__':
-    bfsrec_main_cli()
-
-
 def rawfilesinfolder(bfsff):
-    """Get raw BFS files in a file-folder
+    """Get uncompressed raw BFS files in a file-folder
 
     Parameters
     ----------
@@ -317,8 +313,10 @@ def rawfilesinfolder(bfsff):
     udpfps = []
     _ls = sorted(os.listdir(bfsff))
     for f in _ls:
-        if f.startswith('udp_') and f.endswith('.000.zst'):
-            #_lane = int(f.split('.', 1)[0][-1])
-            f_uncmp =f.rstrip('.zst')
-            udpfps.append(os.path.join(bfsff, f_uncmp))
+        if f.startswith('udp_') and not f.endswith('.zst'):
+            udpfps.append(os.path.join(bfsff, f))
     return udpfps
+
+
+if __name__ == '__main__':
+    bfsrec_main_cli()
