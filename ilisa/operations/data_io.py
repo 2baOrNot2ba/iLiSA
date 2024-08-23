@@ -2231,7 +2231,26 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     raise RuntimeError("Not a bst, sst, or xst filefolder")
 
 
-def export_ldat(dataff, outfmt='npy', save=True):
+def export_ldat(dataff, save=True):
+    """Export LOFAR data files
+
+    Parameters
+    ----------
+    dataff : str
+        name of filefolder with lofar data
+    save : bool
+        If True, save data to numpy formated file (filename derived from dataff)
+
+    Returns
+    -------
+    data : array
+        Complex numpy array pf data from dataff. Array indices depends on
+        lofar data-type:
+            'bst': ['filenr', 'sampnr', 'sbnr', 'polpolnr']
+            'sst': ['sampnr', 'sbnr', 'rcunr']
+            'xst' or 'acc': ['filenr', 'sampnr', 'polnr', 'polnr', 'antnr', antnr']
+
+    """
     lofardatatype = datafolder_type(dataff)
     if not lofardatatype:
         raise TypeError('Cannot export unknow LOFAR data-type: {}'
@@ -2243,10 +2262,12 @@ def export_ldat(dataff, outfmt='npy', save=True):
         bst_dat = [bst_dat_xx, bst_dat_yy]
         if bst_dat_xy:
             bst_dat.append(bst_dat_xy)
-        data_arr = numpy.asarray(bst_dat).squeeze()
+        data_arr = numpy.asarray(bst_dat)
+        data_arr = numpy.moveaxis(data_arr, 0, -1)
     elif lofardatatype == 'sst':
         sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(dataff)
-        data_arr = numpy.asarray(sstdata_rcu).squeeze()
+        data_arr = numpy.asarray(sstdata_rcu)
+        data_arr = numpy.moveaxis(data_arr, 0, -1)
     elif lofardatatype == 'xst' or lofardatatype == 'acc':
         cvcobj = CVCfiles(dataff)
         cvc_array = cvcobj.as_array()
