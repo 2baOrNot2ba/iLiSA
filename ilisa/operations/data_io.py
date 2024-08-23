@@ -1417,10 +1417,17 @@ class CVCfiles(object):
             fsamps[freq] = freqset_flat.count(freq)
         return fsamps
 
-    def as_array(self, to='np'):
+    def as_array(self):
+        """Return data as a numpy array
+
+        Returns
+        -------
+        data : array
+            Complex numpy array with indices:
+            ['filenr', 'sampnr', 'antnr', 'antnr']
+        """
         data = []
         for fnr in range(self.getnrfiles()):
-            print(self[fnr].shape)
             data.append(self[fnr])
         data = numpy.asarray(data)
         return data
