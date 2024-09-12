@@ -2247,8 +2247,9 @@ def export_ldat(dataff, save=True):
         Complex numpy array pf data from dataff. Array indices depends on
         lofar data-type:
             'bst': ['filenr', 'sampnr', 'sbnr', 'polpolnr']
-            'sst': ['sampnr', 'sbnr', 'rcunr']
-            'xst' or 'acc': ['filenr', 'sampnr', 'polnr', 'polnr', 'antnr', antnr']
+            'sst': ['filenr', 'sampnr', 'sbnr', 'rcunr']
+            'xst' or
+            'acc': ['filenr', 'sampnr', 'polnr', 'polnr', 'antnr', antnr']
 
     """
     lofardatatype = datafolder_type(dataff)
