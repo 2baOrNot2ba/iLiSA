@@ -2230,8 +2230,10 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     samptime = times_in_filetimes[sampidx]
                     freq = ldatinfo.get_recfreq(sampidx)
                     stnid = xstobj.scanrecinfo.stnid
-                    titleingress = "LOFAR {}, src {}".format(stnid,
-                                                       scnrecinfo.sourcename)
+                    sourcename = None
+                    if scnrecinfo:
+                        sourcename = scnrecinfo.sourcename
+                    titleingress = "LOFAR {}, src {}".format(stnid, sourcename)
 
                     xstdata = viewxst(xstsampdata, samptime, freq, titleingress,
                                       printout, poltype, cmplxrep)
