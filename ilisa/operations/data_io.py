@@ -1177,6 +1177,7 @@ def readsstfolder(sstfolder):
     sstfiles = [f for f in files if f.endswith('.dat')]
     sstfiles.sort()
     ts = []
+    # For each RCU initialize a list for each (rcu) file SST data
     sstdata_rcu = [[] for _ in range(192)]
     for sstfile in sstfiles:
         # Read sst file
@@ -1191,15 +1192,22 @@ def readsstfolder(sstfolder):
             raise ValueError("File name {} not in sst format.".format(sstfile))
         # Now read the SST data
         sst_dtype = numpy.dtype(('f8', (512,)))
-        with open(sst_filepath, "rb") as fin:
-            sstfiledata = numpy.fromfile(fin, dtype=sst_dtype)
+
+        # Normally just read all data into memory...
+        sstfiledata = numpy.fromfile(sst_filepath, dtype=sst_dtype)
+        # ...but in case data does not fit into memory (24h @ 1s) use memmap:
+        # #sstfiledata = numpy.memmap(sst_filepath, dtype=sst_dtype, mode='r')
+        # Note that using memmap can cause a linux error for too many open files
+        # in which case use bash> ulimit -n <N>  where <N> is no. files
+
         # Append file data array for this rcu to full data array
         sstdata_rcu[rcu].append(sstfiledata)
+        del sstfiledata
         # Assume time of samples is same for all RCU files;
         # deal only with 1st one
         if rcu == 0:
             Ymd, HMS, _ = sstfile.split('_', 2)
-            file_nrsmps = sstfiledata.shape[0]
+            file_nrsmps = sstdata_rcu[0][0].shape[0]
             file_dur = intg * file_nrsmps
             ts_rel = numpy.arange(0., file_dur, intg)
             file_ts = [file_start_dattim + datetime.timedelta(seconds=t)
