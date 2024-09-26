@@ -2288,7 +2288,7 @@ def export_ldat(dataff, save=True):
     return data_arr
 
 
-def main():
+def cli_view():
     parser = argparse.ArgumentParser()
     # filenr : int
     #     Selects data file based on its ordinal number during recording.
@@ -2315,4 +2315,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    cli_view()
