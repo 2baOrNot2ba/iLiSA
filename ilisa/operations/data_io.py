@@ -2288,6 +2288,14 @@ def export_ldat(dataff, save=True):
     return data_arr
 
 
+def cli_export():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('dataff', nargs='?', default=None,
+                        help="acc, bst, sst or xst filefolder")
+    args = parser.parse_args()
+    export_ldat(args.dataff)
+
+
 def cli_view():
     parser = argparse.ArgumentParser()
     # filenr : int
