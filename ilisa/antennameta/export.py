@@ -113,16 +113,13 @@ def max_stn_baselines():
     for stnnr, stnid in enumerate(stn_id_list):
         the_maxbaselines[stnid] = {}
         ant_fld = parseAntennaField(stnid)
-        if ant_fld['HBA0']['POSITION']:
-            nrelems = len(ant_fld['HBA']['REL_POS'])
-            ant_fld['HBA0']['REL_POS'] = ant_fld['HBA']['REL_POS'][:nrelems//2]
-            ant_fld['HBA1']['REL_POS'] = ant_fld['HBA']['REL_POS'][nrelems//2:]
+        if 'HBA0' in ant_fld:
+            nrelems = len(ant_fld['HBA']['REL_POS_X'])
+            ant_fld['HBA0']['REL_POS_X'] = ant_fld['HBA']['REL_POS_X'][:nrelems//2]
+            ant_fld['HBA1']['REL_POS_X'] = ant_fld['HBA']['REL_POS_X'][nrelems//2:]
             del ant_fld['HBA']
-        else:
-            del ant_fld['HBA0']
-            del ant_fld['HBA1']
         for bandarr in ant_fld.keys():
-            stn_rel_pos = np.array(ant_fld[bandarr]['REL_POS'])
+            stn_rel_pos = np.array(ant_fld[bandarr]['REL_POS_X'])
             nrelems = stn_rel_pos.shape[0]
             absuvwelemnr = []
             for elemnr in range(nrelems):
