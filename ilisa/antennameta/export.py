@@ -176,7 +176,7 @@ def ITRF2lonlat(x_itrf, y_itrf, z_itrf):
     return lon, lat, hgt
 
 
-def main():
+def cli_export():
     """Export AntennaField data for all or selected stations to casa CSV files.
     """
     stn_id_list = list_stations()
@@ -232,4 +232,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    cli_export()
