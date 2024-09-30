@@ -210,22 +210,20 @@ def cli_export():
         #            diam = 63.3
         outtable = np.zeros(0, dtype=CASA_CFG_DTYPE)
         for stnnr, stnid in enumerate(stn_id_list):
-            if not (stnid == 'NenuFAR' and bandarr == 'HBA'):
-                print('Doing {} {}'.format(stnid, bandarr))
-                row = np.zeros(1, dtype=CASA_CFG_DTYPE)
-                ant_fld = parseAntennaField(stnid)
-                position = ant_fld[bandarr]['POSITION']
-                row['X'], row['Y'], row['Z'] = position
-                try:
-                    row['Diam'] = the_maxbaselines[stnid][bandarr]
-                except KeyError:
-                    row['Diam'] = the_maxbaselines[stnid]['HBA0']
-                row['Name'] = stnid
-                outtable = np.append(outtable, row)
-                output_arrcfg_station(stnid, bandarr)
-                output_rotmat_station(stnid, bandarr)
-            if bandarr == 'HBA' and stnid != 'NenuFAR':
-                output_arrcfg_tile(stnid)
+            if stnid == 'NenuFAR' and bandarr == 'HBA':
+                continue
+            row = np.zeros(1, dtype=CASA_CFG_DTYPE)
+            ant_fld = parseAntennaField(stnid)
+            position = ant_fld[bandarr]['POSITION']
+            row['X'], row['Y'], row['Z'] = position
+            try:
+                row['Diam'] = the_maxbaselines[stnid][bandarr]
+            except KeyError:
+                row['Diam'] = the_maxbaselines[stnid]['HBA0']
+            row['Name'] = stnid
+            outtable = np.append(outtable, row)
+            output_arrcfg_station(stnid, bandarr)
+            output_rotmat_station(stnid, bandarr)
         # output array cfg_for ILT for this bandarr:
         filename = os.path.join(CASA_CFG_DEST, "ILT_" + bandarr + '.cfg')
         np.savetxt(filename, outtable, fmt=CASA_CFG_FMT, header=header)
