@@ -389,7 +389,6 @@ def show_arrconfs(view, stnid, bandarr, coordsys='local'):
             if projection == '3d':
                 ax.text(pos[idx, 0], pos[idx, 1], pos[idx, 2], '   '+name,
                         fontsize=6)
-                ax.set_zlim(-0.5, 0.5)
             else:
                 ax.text(pos[idx, 0], pos[idx, 1], '   ' + name, fontsize=6)
                 ax.axis('equal')
