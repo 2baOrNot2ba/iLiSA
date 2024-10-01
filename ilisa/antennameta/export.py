@@ -18,28 +18,27 @@ CASA_CFG_DEST = os.path.join(os.path.dirname(__file__), 'share/simmos/')
 ALIGNMENT_DEST = os.path.join(os.path.dirname(__file__), 'share/alignment/')
 
 
-def _get_casacfg_header(tier, bandarr=None, stnid=None):
+def _get_casacfg_header(tier, bandarr=None, stnid=None, coordsys=None):
     """Make a casa config header."""
     header = "observatory=LOFAR\n"
     columnlabels = "X Y Z Diam Name"
-    if tier == 'ILT':
-        header += "coordsys=XYZ" + "\n"
-    elif tier == 'station':
-        header += ("station="+stnid+"\n"
-                   + "arrayband="+bandarr+"\n"
-                   + "coordsys=XYZ"+"\n")
-    elif tier == 'tile' and bandarr == 'HBA':
-        header += ("station="+stnid+"\n"
-                   + "arrayband="+bandarr+"\n"
-                   + "coordsys=XYZ"+"\n")
-    elif tier == 'rot':
+    if tier == 'rot':
         header += ("station="+stnid+"\n"
                    + "arrayband="+bandarr+"\n"
                    + "coordsys=XYZ"+"\n"
                    + "Rotation matrix (alignment station frame w.r.t. ITRF)"+"\n")
         columnlabels = "x_hat y_hat z_hat"
     else:
-        raise ValueError("Tier {} not valid.".format(tier))
+        if tier == 'station':
+            header += ("station=" + stnid + "\n"
+                       + "arrayband=" + bandarr + "\n")
+        elif tier == 'tile' and bandarr == 'HBA':
+            header += ("station=" + stnid + "\n"
+                       + "arrayband=" + bandarr + "\n")
+        if coordsys == 'ITRF':
+            header += "coordsys=XYZ" + "\n"
+        elif coordsys.lower().startswith('loc'):
+            header += "coordsys=LOC (local tangent plane)" + "\n"
     header += ("\n"
                + "Created with {}\n".format("iLiSA")
                + "Created at {}\n".format(datetime.datetime.utcnow())
@@ -48,12 +47,12 @@ def _get_casacfg_header(tier, bandarr=None, stnid=None):
     return header
 
 
-def output_arrcfg_station(stnid, bandarr, output='default'):
+def output_arrcfg_station(stnid, bandarr, coordsys, output='default'):
     """Output a station array (given by stnid and bandarr) configuration in
     a CASA simmos .cfg format.
     """
     _pos, stn_rot, stn_relpos, _intile_pos = getArrayBandParams(stnid, bandarr)
-    header = _get_casacfg_header('station', bandarr, stnid)
+    header = _get_casacfg_header('station', bandarr, stnid, coordsys)
     nrelems = stn_relpos.shape[0]
     outtable = np.zeros(nrelems, dtype=CASA_CFG_DTYPE)
     if bandarr == 'LBA':
@@ -70,13 +69,13 @@ def output_arrcfg_station(stnid, bandarr, output='default'):
     np.savetxt(output, outtable, fmt=CASA_CFG_FMT, header=header)
 
 
-def output_arrcfg_tile(stnid):
+def output_arrcfg_tile(stnid, coordsys):
     """Output a station's HBA tile array configuration in
     CASA simobs .cfg format.
     """
     bandarr = 'HBA'
     hbadeltas = np.asarray(parseiHBADeltasfile(stnid))
-    header = _get_casacfg_header('tile', bandarr, stnid)
+    header = _get_casacfg_header('tile', bandarr, stnid, coordsys)
     nrelems = len(hbadeltas)
     diam = 0.5
     outtable = np.zeros(nrelems, dtype=CASA_CFG_DTYPE)
@@ -193,6 +192,8 @@ def cli_export():
                                 Choose from {}.
                                 If not given, do all.
                                 """.format(BANDARRS))
+    parser.add_argument('-c', '--coordsys', type=str, default=None,
+                        help="Choose from coord. sys.: LOCAL, ITRF (Def: None)")
     args = parser.parse_args()
 
     if args.stationid is not None:
@@ -200,10 +201,16 @@ def cli_export():
     bandarrs = BANDARRS
     if args.bandarr is not None:
         bandarrs = [args.bandarr]
+    coordsys = args.coordsys
+    if coordsys is None:
+        if args.stationid is None:
+            coordsys = 'ITRF'
+        else:
+            coordsys = 'LOCAL'
 
     the_maxbaselines = max_stn_baselines()
     for bandarr in bandarrs:
-        header = _get_casacfg_header('ILT', bandarr)
+        header = _get_casacfg_header('ILT', bandarr, coordsys='ITRF')
         #        if bandarr == 'LBA':
         #            diam = 55.5
         #        else:
@@ -222,7 +229,7 @@ def cli_export():
                 row['Diam'] = the_maxbaselines[stnid]['HBA0']
             row['Name'] = stnid
             outtable = np.append(outtable, row)
-            output_arrcfg_station(stnid, bandarr)
+            output_arrcfg_station(stnid, bandarr, coordsys)
             output_rotmat_station(stnid, bandarr)
         # output array cfg_for ILT for this bandarr:
         filename = os.path.join(CASA_CFG_DEST, "ILT_" + bandarr + '.cfg')
