@@ -11,6 +11,7 @@ import os
 from os.path import dirname
 import numpy as np
 from matplotlib import pyplot as plt
+from ilisa.operations.modeparms import str2elementMap2
 
 __version__ = 0.3
 
@@ -320,6 +321,8 @@ def show_arrconfs(view, stnid, bandarr, coordsys='local'):
     bandarr : str
         The band-array name. Could be 'LBA', 'HBA' or 'tile'. The latter
         refers to the HBA tile array layout.
+    coordsys : str
+        Coordinate system to use for output. Choose from 'local' or 'ITRF'.
     """
     if stnid == 'ILT':
         stns = list_stations()
@@ -327,6 +330,8 @@ def show_arrconfs(view, stnid, bandarr, coordsys='local'):
         names = []
         for stn in stns:
             if stn == 'NenuFAR' and bandarr == 'HBA':
+                continue
+            if stn == 'UK902' and bandarr == 'LBA':
                 continue
             names.append(stn)
             stnpos, stnrot, stnrelpos, stnintilepos = getArrayBandParams(
@@ -338,21 +343,32 @@ def show_arrconfs(view, stnid, bandarr, coordsys='local'):
         if bandarr == 'tile':
             tier = 'tile'
             bandarr = 'HBA'
+        elif len(bandarr) == 96:
+            tier = 'septon'
+            elemmap = str2elementMap2(bandarr)
+            bandarr = 'HBA'
         stnpos, stnrot, stnrelpos, stnintilepos = getArrayBandParams(
             stnid, bandarr)
         if coordsys == 'local':
             stnrelpos = stnrelpos * stnrot
             stnintilepos = stnintilepos * stnrot
         if tier == 'tile':
-            pos = np.asarray(stnintilepos)
+            _rel_pos = np.asarray(stnintilepos)
             nameprefix = 'elem'
+        elif tier == 'septon':
+            _rel_pos = np.asarray(stnrelpos)
+            for tilenr, elemnr in enumerate(elemmap):
+                _rel_pos[tilenr, :] += np.asarray(stnintilepos[elemnr]).squeeze()
+            nameprefix = 'ant'
         else:
             if bandarr == 'HBA':
                 nameprefix = 'tile'
             else:
                 nameprefix = 'ant'
-            pos = np.asarray(stnrelpos)
-
+            _rel_pos = np.asarray(stnrelpos)
+        pos = _rel_pos
+        if coordsys == 'ITRF':
+            pos += stnpos.T
         names = [nameprefix+str(elem) for elem in range(pos.shape[0])]
 
     # Set coord. labels:
@@ -368,7 +384,10 @@ def show_arrconfs(view, stnid, bandarr, coordsys='local'):
 
     if view == 'print':
         for idx in range(len(names)):
-            print(names[idx], pos[idx, 0], pos[idx, 1], pos[idx, 2])
+            print('{} {:10.2f} {:10.2f} {:10.2f}'.format(names[idx],
+                                                         pos[idx, 0],
+                                                         pos[idx, 1],
+                                                         pos[idx, 2]))
     else:
         # Plot
         fig = plt.figure()
