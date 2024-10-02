@@ -1428,6 +1428,18 @@ class CVCfiles(object):
             fsamps[freq] = freqset_flat.count(freq)
         return fsamps
 
+    def get_positions_ITRF(self):
+        """Return antenna array positions in ITRF coordinates
+
+        Returns
+        -------
+        pos_itrf : array
+            (nrants, 3) array of x,y,z positions in meters with respect to ITRF
+            of the antennas.
+        """
+        pos_itrf = self.stn_pos.squeeze() + self.stn_antpos
+        return pos_itrf
+
     def as_array(self):
         """Return data as a numpy array
 
