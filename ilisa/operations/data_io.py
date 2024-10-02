@@ -2256,7 +2256,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     raise RuntimeError("Not a bst, sst, or xst filefolder")
 
 
-def export_ldat(dataff, save=True):
+def export_ldat(dataff):
     """Export LOFAR data files
 
     Parameters
@@ -2268,20 +2268,33 @@ def export_ldat(dataff, save=True):
 
     Returns
     -------
-    data : array
-        Complex numpy array pf data from dataff. Array indices depends on
-        lofar data-type:
-            'bst': ['filenr', 'sampnr', 'sbnr', 'polpolnr']
-            'sst': ['filenr', 'sampnr', 'sbnr', 'rcunr']
-            'xst' or
-            'acc': ['filenr', 'sampnr', 'polnr', 'polnr', 'antnr', antnr']
-
+    dataset : dict
+        Dataset dict. Consists of
+        'observation_ID' : str
+            ID string for observation, equal to the ldat filefolder name.
+        'lofardatatype': str
+            The ldat data-type: ['bst', 'sst', 'xst', 'acc'].
+        'data_arr' : array
+            Complex numpy array pf data from dataff. Array indices depends on
+            lofar data-type:
+              'bst': ['filenr', 'sampnr', 'sbnr', 'polpolnr']
+              'sst': ['filenr', 'sampnr', 'sbnr', 'rcunr']
+              'xst' or
+              'acc': ['filenr', 'sampnr', 'polnr', 'polnr', 'antnr', antnr']
+        'positions' : (nrants, 3) float array
+            The element layout positions w.r.t. ITRF.
+        'start_datetime' : numpy.datetime64
+            The datetime of the first data sample.
+        'delta_secs' : float array
+            The delta-time in seconds of the sample w.r.t the start_datetime.
+        'frequencies' : float array
+            The center frequency in Hertz of the observation subband.
     """
     lofardatatype = datafolder_type(dataff)
     if not lofardatatype:
         raise TypeError('Cannot export unknow LOFAR data-type: {}'
                         .format(lofardatatype))
-    basefilename = os.path.basename(os.path.normpath(dataff))
+    observation_ID = os.path.basename(os.path.normpath(dataff))
     if lofardatatype == 'bst':
         (bst_dat_xx, bst_dat_yy, bst_dat_xy, ts_list, freqs, obsinfo
          ) = readbstfolder(dataff)
@@ -2289,36 +2302,48 @@ def export_ldat(dataff, save=True):
         if bst_dat_xy:
             bst_dat.append(bst_dat_xy)
         data_arr = numpy.asarray(bst_dat)
-        data_arr = numpy.moveaxis(data_arr, 0, -1)
-        positions, _names, _xyzlbls \
-            = antennafieldlib.get_tier_layouts(obsinfo['station_id'],
-                                               obsinfo['antennaset'][:3],
-                                               coordsys='ITRF')
     elif lofardatatype == 'sst':
         sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(dataff)
         data_arr = numpy.asarray(sstdata_rcu)
-        data_arr = numpy.moveaxis(data_arr, 0, -1)
-        positions, _names, _xyzlbls \
-            = antennafieldlib.get_tier_layouts(obsinfo['station_id'],
-                                               obsinfo['antennaset'][:3],
-                                               coordsys='ITRF')
     elif lofardatatype == 'xst' or lofardatatype == 'acc':
         cvcobj = CVCfiles(dataff)
         cvc_array = cvcobj.as_array()
         data_arr = cov_flat2polidx(cvc_array)
         positions = cvcobj.get_positions_ITRF()
-    if save:
-        numpy.savez_compressed(basefilename, lofardatatype=lofardatatype,
-                               data_arr=data_arr, positions=positions)
-    return data_arr
+        ts_list = cvcobj.samptimeset
+        freqs = numpy.asarray(cvcobj.freqset)
+    if lofardatatype == 'bst' or lofardatatype == 'sst':
+        data_arr = numpy.moveaxis(data_arr, 0, -1)
+        positions, _names, _xyzlbls \
+            = antennafieldlib.get_tier_layouts(obsinfo['station_id'],
+                                               obsinfo['antennaset'][:3],
+                                               coordsys='ITRF')
+    ts = numpy.vectorize(numpy.datetime64)(ts_list)
+    start_datetime = ts[0][0]
+    delta_secs = (ts - start_datetime) / numpy.timedelta64(1, 's')
+
+    if numpy.all(freqs == freqs[0][0]):
+        freqs = freqs[0][0]
+    dataset = {'observation_ID': observation_ID,
+               'lofardatatype': lofardatatype,
+               'data_arr': data_arr,
+               'positions': positions,
+               'start_datetime': start_datetime,
+               'delta_secs': delta_secs,
+               'frequencies': freqs}
+    return dataset
 
 
 def cli_export():
     parser = argparse.ArgumentParser()
     parser.add_argument('dataff', nargs='?', default=None,
                         help="acc, bst, sst or xst filefolder")
+    parser.add_argument('-d', '--dataformat', default='npz',
+                        help="Output data-format: npz")
     args = parser.parse_args()
-    export_ldat(args.dataff)
+    dataset = export_ldat(args.dataff)
+    if args.dataformat == 'npz':
+        numpy.savez_compressed(dataset['observation_ID'], **dataset)
 
 
 def cli_view():
