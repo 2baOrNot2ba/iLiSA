@@ -325,6 +325,9 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                      '%Y%m%dT%H%M%S')
     obsinfo['spw'] = spwstr[3:]
+    if obsinfo['antennaset'] == '':
+        # Assume a sensible value for antennaset based on spw:
+        obsinfo['antennaset'] = modeparms.rcumode2antset_eu(obsinfo['spw'])[:3]
     obsinfo['subbands'] = sbstr[2:]  # slicestr2seqlists(sbstr[2:])
     obsinfo['integration'] = float(intstr[3:])
     obsinfo['duration_scan'] = int(durstr[3:])
