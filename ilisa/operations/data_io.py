@@ -2290,16 +2290,26 @@ def export_ldat(dataff, save=True):
             bst_dat.append(bst_dat_xy)
         data_arr = numpy.asarray(bst_dat)
         data_arr = numpy.moveaxis(data_arr, 0, -1)
+        positions, _names, _xyzlbls \
+            = antennafieldlib.get_tier_layouts(obsinfo['station_id'],
+                                               obsinfo['antennaset'][:3],
+                                               coordsys='ITRF')
     elif lofardatatype == 'sst':
         sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(dataff)
         data_arr = numpy.asarray(sstdata_rcu)
         data_arr = numpy.moveaxis(data_arr, 0, -1)
+        positions, _names, _xyzlbls \
+            = antennafieldlib.get_tier_layouts(obsinfo['station_id'],
+                                               obsinfo['antennaset'][:3],
+                                               coordsys='ITRF')
     elif lofardatatype == 'xst' or lofardatatype == 'acc':
         cvcobj = CVCfiles(dataff)
         cvc_array = cvcobj.as_array()
         data_arr = cov_flat2polidx(cvc_array)
+        positions = cvcobj.get_positions_ITRF()
     if save:
-        numpy.save(basefilename, data_arr)
+        numpy.savez_compressed(basefilename, lofardatatype=lofardatatype,
+                               data_arr=data_arr, positions=positions)
     return data_arr
 
 
