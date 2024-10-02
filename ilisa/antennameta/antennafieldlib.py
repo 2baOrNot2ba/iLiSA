@@ -200,8 +200,6 @@ def getArrayBandParams(stnid, arrband):
     """
     antfld = parseAntennaField(stnid)
     stnLoc = stnid[0:2]
-    errmess = "Array band not valid. Only 'LBA', 'HBA' are valid, "\
-            + "except for 'CS' stations for which 'HBA0', 'HBA1' are also valid"
     subarr = None
     if arrband == 'LBA':
         subarr = 'LBA'
@@ -216,12 +214,12 @@ def getArrayBandParams(stnid, arrband):
                 subarr = 'HBA0' 
         elif arrband == 'HBA':
             subarr = arrband
-        else:
-            raise ValueError(errmess)
         arrband = 'HBA'
         hbadeltas = parseiHBADeltasfile(stnid)
     else:
-        raise ValueError(errmess)
+        raise ValueError("Array band '{}' invalid. Only 'LBA', 'HBA' are valid,"
+                         " except for 'CS' stations for which 'HBA0', 'HBA1'"
+                         " are also valid".format(arrband))
     # Use matrices in order to facilitate coord transformation.
     # axis=0
     stnpos = np.matrix(antfld[arrband]['POSITION']).T
@@ -307,22 +305,32 @@ def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
     return stnId_list
 
 
-def show_arrconfs(view, stnid, bandarr, coordsys='local'):
+def get_tier_layouts(stnid, bandarr, coordsys='local'):
     """\
     Plot or print different kinds of array configurations
 
     Parameters
     ----------
-    view : str
-        Choose from 'plot' or 'print'.
     stnid : str
         The Station ID. Can be a LOFAR station 'SE607' or the international
         LOFAR 'ILT'.
     bandarr : str
-        The band-array name. Could be 'LBA', 'HBA' or 'tile'. The latter
-        refers to the HBA tile array layout.
+        Band-array name: 'LBA', 'HBA', 'tile' or hexadecimal.
+        'tile' refers to the layout within an HBA tile of 16 elements.
+        The hexadecimal specifies a single-element-per-tile-on (SEPTON)
+        mode element layout, where each hexadecimal digit refers to the ON
+        element within each consecutive HBA tile.
     coordsys : str
         Coordinate system to use for output. Choose from 'local' or 'ITRF'.
+
+    Returns
+    -------
+    pos : array
+        (nrants, 3)  array of X,Y,Z ITRF positions.
+    names : list
+        List of unique name for each element in array.
+    xyzlbls : tuple
+        Labels for X,Y,Z position components.
     """
     if stnid == 'ILT':
         stns = list_stations()
@@ -382,36 +390,48 @@ def show_arrconfs(view, stnid, bandarr, coordsys='local'):
         ylbl = 'Y'
         zlbl = 'Z'
 
-    if view == 'print':
-        for idx in range(len(names)):
-            print('{} {:10.2f} {:10.2f} {:10.2f}'.format(names[idx],
-                                                         pos[idx, 0],
-                                                         pos[idx, 1],
-                                                         pos[idx, 2]))
+    return pos, names, (xlbl, ylbl, zlbl)
+
+
+def print_layout_pos(pos, names):
+    """\
+    Print out layout positions
+    """
+    for idx in range(len(names)):
+        print('{} {:10.2f} {:10.2f} {:10.2f}'.format(names[idx],
+                                                     pos[idx, 0],
+                                                     pos[idx, 1],
+                                                     pos[idx, 2]))
+
+
+def plot_layout_pos(pos, names, projection='3d', xyzlbls=('x','y','z'),
+                    title='NoTitle'):
+    """\
+    Plot layout positions
+    """
+    (xlbl, ylbl, zlbl) = xyzlbls
+    fig = plt.figure()
+
+    ax = fig.gca(projection=projection)
+    fontsize = 10
+    if len(title) > 96:
+        fontsize = 6
+    ax.set_title(title, fontsize=fontsize)
+    ax.set_xlabel(xlbl + ' [m]')
+    ax.set_ylabel(ylbl + ' [m]')
+    if projection == '3d':
+        ax.set_zlabel(zlbl)
+        ax.plot(pos[:, 0], pos[:, 1], pos[:, 2], '*')
     else:
-        # Plot
-        fig = plt.figure()
-        projection = '3d'
-        if coordsys == 'local':
-            projection = None
-        ax = fig.gca(projection=projection)
-        ax.set_title("Array configuration of {} {} in coordsys {}"
-                     .format(stnid, bandarr, coordsys))
-        ax.set_xlabel(xlbl)
-        ax.set_ylabel(ylbl)
+        ax.plot(pos[:, 0], pos[:, 1], '*')
+    for idx, name in enumerate(names):
         if projection == '3d':
-            ax.set_zlabel(zlbl)
-            ax.plot(pos[:, 0], pos[:, 1], pos[:, 2], '*')
+            ax.text(pos[idx, 0], pos[idx, 1], pos[idx, 2], '   '+name,
+                    fontsize=4)
         else:
-            ax.plot(pos[:, 0], pos[:, 1], '*')
-        for idx, name in enumerate(names):
-            if projection == '3d':
-                ax.text(pos[idx, 0], pos[idx, 1], pos[idx, 2], '   '+name,
-                        fontsize=6)
-            else:
-                ax.text(pos[idx, 0], pos[idx, 1], '   ' + name, fontsize=6)
-                ax.axis('equal')
-        plt.show()
+            ax.text(pos[idx, 0], pos[idx, 1], '   ' + name, fontsize=4)
+            ax.axis('equal')
+    plt.show()
 
 
 def cli_showarrconfs():
@@ -432,7 +452,22 @@ def cli_showarrconfs():
                         Choose from 'local' or 'ITRF'.
                         """)
     args = parser.parse_args()
-    show_arrconfs(args.view, args.stnid, args.bandarr, args.coordsys)
+    pos, names, xyzlbls = get_tier_layouts(args.stnid, args.bandarr, args.coordsys)
+    if args.coordsys == 'local':
+        projection = None
+    bandarr_lbl = 'Band-array: '
+    if len(args.bandarr) == 96:
+        bandarr_lbl = 'SEPTON:\n'
+    title = "Array configuration of {}\n{}{}\nCoord.sys.: {}"\
+        .format(args.stnid, bandarr_lbl, args.bandarr, args.coordsys)
+    if args.view == 'plot':
+        if args.coordsys == 'ITRF':
+            projection = '3d'
+        else:
+            projection = None
+        plot_layout_pos(pos, names, projection, xyzlbls, title)
+    else:
+        print_layout_pos(pos, names)
 
 
 if __name__ == '__main__':
