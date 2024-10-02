@@ -2289,12 +2289,16 @@ def export_ldat(dataff):
             The delta-time in seconds of the sample w.r.t the start_datetime.
         'frequencies' : float array
             The center frequency in Hertz of the observation subband.
+        'station' : str
+            ID of station.
+        'pointing' : str
+            String format of 3-tuple of pointing direction: '<azi>,<elv>,<ref>'.
     """
     lofardatatype = datafolder_type(dataff)
     if not lofardatatype:
         raise TypeError('Cannot export unknow LOFAR data-type: {}'
                         .format(lofardatatype))
-    observation_ID = os.path.basename(os.path.normpath(dataff))
+    id_scanrec = os.path.basename(os.path.normpath(dataff))
     if lofardatatype == 'bst':
         (bst_dat_xx, bst_dat_yy, bst_dat_xy, ts_list, freqs, obsinfo
          ) = readbstfolder(dataff)
@@ -2312,25 +2316,36 @@ def export_ldat(dataff):
         positions = cvcobj.get_positions_ITRF()
         ts_list = cvcobj.samptimeset
         freqs = numpy.asarray(cvcobj.freqset)
+        station_id = cvcobj.scanrecinfo.get_stnid()
+        pointing = cvcobj.scanrecinfo.get_pointingstr()
+        # sourcename  = cvcobj.scanrecinfo.sourcename
     if lofardatatype == 'bst' or lofardatatype == 'sst':
         data_arr = numpy.moveaxis(data_arr, 0, -1)
+        station_id = obsinfo['station_id']
         positions, _names, _xyzlbls \
-            = antennafieldlib.get_tier_layouts(obsinfo['station_id'],
+            = antennafieldlib.get_tier_layouts(station_id,
                                                obsinfo['antennaset'][:3],
                                                coordsys='ITRF')
+        pointing = obsinfo['pointing']
     ts = numpy.vectorize(numpy.datetime64)(ts_list)
     start_datetime = ts[0][0]
     delta_secs = (ts - start_datetime) / numpy.timedelta64(1, 's')
-
-    if numpy.all(freqs == freqs[0][0]):
-        freqs = freqs[0][0]
-    dataset = {'observation_ID': observation_ID,
+    if numpy.all(freqs == numpy.take(freqs, 0)):
+        # If all frequencies are the same then use only that frequency
+        # (mainly for single freq XST)
+        freqs = numpy.take(freqs, 0)
+    dataset = {'ID_scanrec': id_scanrec,
+               'station': station_id,
                'lofardatatype': lofardatatype,
                'data_arr': data_arr,
                'positions': positions,
                'start_datetime': start_datetime,
                'delta_secs': delta_secs,
                'frequencies': freqs}
+    # if sourcename:
+    #     dataset['source'] = sourcename
+    if pointing:
+        dataset['pointing'] = pointing
     return dataset
 
 
@@ -2343,7 +2358,7 @@ def cli_export():
     args = parser.parse_args()
     dataset = export_ldat(args.dataff)
     if args.dataformat == 'npz':
-        numpy.savez_compressed(dataset['observation_ID'], **dataset)
+        numpy.savez_compressed(dataset['ID_scanrec'], **dataset)
 
 
 def cli_view():
