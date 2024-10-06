@@ -298,6 +298,28 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     return uvw_xyz
 
 
+def layout_abs2rel(layout_abs):
+    """\
+    Convert absolute layout positions to positions relative a centroid
+
+    Parameters
+    ----------
+    layout_abs : array
+        Array of absolute 3D positions of layout
+
+    Returns
+    -------
+    layout_rel : array
+        Array of relative 3D positions of layout
+    centroid : array
+        Absolute vector to layout centroid
+    """
+    # Compute barycenter of abs 3D positions using mean:
+    centroid = np.mean(layout_abs, axis=0)
+    layout_rel = layout_abs - centroid
+    return layout_rel, centroid
+
+
 def rot2uv(stn_antpos, stn_rot):
     """
     Calculate 2D UV coords from antenna positions and rotation
