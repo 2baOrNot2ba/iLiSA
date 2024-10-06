@@ -2299,6 +2299,7 @@ def export_ldat(dataff):
         raise TypeError('Cannot export unknow LOFAR data-type: {}'
                         .format(lofardatatype))
     id_scanrec = os.path.basename(os.path.normpath(dataff))
+    stn_rot = None
     if lofardatatype == 'bst':
         (bst_dat_xx, bst_dat_yy, bst_dat_xy, ts_list, freqs, obsinfo
          ) = readbstfolder(dataff)
@@ -2319,6 +2320,7 @@ def export_ldat(dataff):
         station_id = cvcobj.scanrecinfo.get_stnid()
         pointing = cvcobj.scanrecinfo.get_pointingstr()
         # sourcename  = cvcobj.scanrecinfo.sourcename
+        stn_rot = cvcobj.stn_rot
     if lofardatatype == 'bst' or lofardatatype == 'sst':
         data_arr = numpy.moveaxis(data_arr, 0, -1)
         station_id = obsinfo['station_id']
@@ -2346,6 +2348,8 @@ def export_ldat(dataff):
     #     dataset['source'] = sourcename
     if pointing:
         dataset['pointing'] = pointing
+    if stn_rot is not None:
+        dataset['stn_rot'] = stn_rot
     return dataset
 
 
