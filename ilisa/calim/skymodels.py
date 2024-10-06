@@ -3,6 +3,7 @@ import argparse
 import os.path
 import shutil
 import warnings
+import datetime
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -223,7 +224,7 @@ def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model, ant_model=''):
     skymod_vis: array
         Complex array of visibilities
     """
-    nr_ants = stn_pos.shape[1]
+    #nr_ants = stn_pos.shape[1]
     imsize = 100  # ToDo: improve this expression?
     l = np.linspace(-1, 1, imsize)
     m = np.linspace(-1, 1, imsize)
@@ -261,6 +262,104 @@ def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model, ant_model=''):
         vis_xy = np.zeros_like(vis_xx)
         vis_yx = np.zeros_like(vis_xx)
     return vis_xx, vis_xy, vis_yx, vis_yy
+
+
+def datetime64_to_datetime(dattim64):
+    """\
+    Convert datetime64 to python datetime
+
+    Parameters
+    ----------
+    dattim64 : numpy.datetime64
+        A numpy datetime64 date-time.
+
+    Returns
+    -------
+    dattim : datetime.datetime
+        A python datetime date-time.
+    """
+    dattim = datetime.datetime.utcfromtimestamp(
+        (dattim64-np.datetime64('1970-01-01T00:00:00'))/np.timedelta64(1, 's'))
+    return dattim
+
+
+def create_vis_model(visdat, gs_model, ant_model=''):
+    """
+    Create visibility model
+
+    Parameters
+    ----------
+    visdat: dict
+        Visibility data. The metadata will be used for observational setup.
+        The visibilities themselves will computed overwriting existing
+        values, this being the returned quantity.
+    gs_model: str
+        Name of global sky model to use
+    ant_model: str
+        Name of antenna model to use. Could be '' or 'dual_dipole45'. If empty
+        str then no antenna model will be applied.
+
+    Returns
+    -------
+    visdat: dict
+        The model visibilities as a CVCfiles object
+
+    Raises
+    ------
+    FileExitsError
+        If the model filefolder already exists.
+    """
+    ldat_type = visdat['lofardatatype']
+    if ldat_type != 'acc' and ldat_type != 'xst':
+        raise ValueError("ldat_type not set")
+    nrfiles = visdat['data_arr'].shape[0]
+    antpos_uv = rot2uv(visdat['positions'], visdat['stn_rot'])
+    nrants = antpos_uv.shape[0]
+    stn_pos = np.mean(visdat['positions'], axis=0)
+    for filestep in range(nrfiles):
+        print("Making model for file {}/{}".format(filestep, nrfiles))
+        ts = visdat['delta_secs'][filestep]
+        cvc_infile = np.empty((len(ts), 2, 2, nrants, nrants), dtype=complex)
+        for sampstep in range(len(ts)):
+            print("  sample {}/{}".format(sampstep, len(ts)), end='\r')
+            if ldat_type == "xst":
+                if visdat['frequencies'].ndim == 0:
+                    freq = visdat['frequencies']  # Freq const. over xst file
+            else:
+                freq = visdat['frequencies'][filestep][sampstep]
+            t = datetime64_to_datetime(visdat['start_datetime']
+                     + np.timedelta64(int(ts[sampstep]),'s'))
+            if not gs_model.startswith('fid:'):
+                vis_XX_mod, vis_XY_mod, vis_YX_mod, vis_YY_mod \
+                    = skymodel_visibility(t, np.asmatrix(stn_pos).T, freq,
+                                          np.asmatrix(visdat['positions']),
+                                          gs_model, ant_model=ant_model)
+            else:
+                _fid, fid_typ = gs_model.split(':', 1)
+                lam = c/freq
+                stn_antpos_lambda = antpos_uv / lam
+                if fid_typ == 'map':
+                    img_I, ll, mm = fiducial_image(background=0.0)
+                    # N.B. freq=c => k=2*np.pi since antpos in lambda units
+                    # (nominally freq=c/lam)
+                    vis_I_mod = vcz(ll, mm, img_I, c, stn_antpos_lambda,
+                                    imag_is_fd=False)
+                elif fid_typ == 'vis':
+                    vis_I_mod = point_source_vis2d(stn_antpos_lambda, l0=0.0,
+                                                   m0=0.0, amp=1.0)
+                vis_XX_mod = vis_I_mod / 2.0
+                vis_YY_mod = vis_I_mod / 2.0
+                vis_XY_mod = np.zeros_like(vis_I_mod)
+                vis_YX_mod = np.zeros_like(vis_I_mod)
+            cvc_infile[sampstep, ...] = np.asarray(
+                                           [[vis_XX_mod, vis_XY_mod],
+                                            [vis_YX_mod, vis_YY_mod]])
+            # Replace observed data with model data:
+        visdat['data_arr'][filestep] = cvc_infile
+        print()
+    # Note in ScanRecInfo about model for this dataset:
+    visdat['model'] = gs_model+'+'+ant_model
+    return visdat
 
 
 def create_vis_model_ff(cvcpath, gs_model, ant_model=''):
@@ -314,6 +413,7 @@ def create_vis_model_ff(cvcpath, gs_model, ant_model=''):
         cvc_infile = np.empty((len(ts), cvcobj_mod.cvcdim1,
                                cvcobj_mod.cvcdim2), dtype=complex)
         for sampstep in range(len(ts)):
+            print("  sample {}/{}".format(sampstep, len(ts)), end='\r')
             freq = freqs[sampstep]
             t = ts[sampstep]
             if not gs_model.startswith('fid:'):
@@ -344,6 +444,7 @@ def create_vis_model_ff(cvcpath, gs_model, ant_model=''):
             cvc_infile[sampstep, ...] = vis_flat_mod
             # Replace observed data with model data:
         cvcobj_mod[filestep] = cvc_infile
+        print()
     # Note in ScanRecInfo about model for this dataset:
     cvcobj_mod.scanrecinfo.scanrecpath = cvcmodpath
     cvcobj_mod.scanrecinfo.set_model(gs_model+'+'+ant_model)
