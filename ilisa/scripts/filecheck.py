@@ -2,6 +2,9 @@
 """
 List size of all lofar datafiles found under the directory passed as argument
 
+The output is writen to file "out.txt" in same folder as this script, unless
+the 1st argument is the character '-', in which case it is written to stdout.
+
 This is an example of a iLiSA postprocessing script.
 It lives under ~/.config/ilisa/postprocessing/ and can be executed after a
 completed ilisa_sched run which will pass it the iLiSA session folder path.
@@ -11,8 +14,12 @@ and add it to an ilisa_sched yml file to add a postprocessing step.
 """
 import sys
 import os
-sessdir = sys.argv[1]
-
+if sys.argv[1] != '-':
+    sessdir = sys.argv[1]
+    outputf = os.path.join(os.path.dirname(__file__), "out.txt")
+else:
+    sessdir = sys.argv[2]
+    outputf = '/dev/stdout'
 ldatdirs = {'acc': [], 'bfs': [], 'sst': [], 'xst': []}
 ldatfiles = {'acc': {}, 'bfs': {}, 'sst': {}, 'xst': {}}
 ls_sessdir = os.listdir(sessdir)
@@ -35,7 +42,6 @@ for ldatdirtype in ldatdirs:
             datafilepath = os.path.join(ldatdir, f)
             sz = os.path.getsize(os.path.join(sessdir, datafilepath))
             ldatfiles[ldatdirtype][ldatdir][f] = sz
-outputf = os.path.join(os.path.dirname(__file__), "out.txt")
 with open(outputf, 'w') as f:
     f.write(sessdir+'\n')
     for ldatdirtype in ldatdirs:
