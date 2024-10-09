@@ -22,7 +22,8 @@ from ilisa.antennameta.export import ITRF2lonlat
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
 from .imaging import plotskyimage, imggrid_res, fiducial_image
-from .visibilities import cov_polidx2flat, calc_uvw, rot2uv, point_source_vis2d
+from .visibilities import cov_polidx2flat, calc_uvw, rot2uv,\
+    point_source_vis2d, layout_abs2rel
 from .beam import dualdipole45_cov_patt
 from .im_process import n_from_lm
 
@@ -283,16 +284,16 @@ def datetime64_to_datetime(dattim64):
     return dattim
 
 
-def create_vis_model(visdat, gs_model, ant_model=''):
+def create_vis_model(visdata, gs_model, ant_model=''):
     """
     Create visibility model
 
     Parameters
     ----------
-    visdat: dict
-        Visibility data. The metadata will be used for observational setup.
+    visdata: dict
         The visibilities themselves will computed overwriting existing
         values, this being the returned quantity.
+        Visibility metadata used for observational setup.
     gs_model: str
         Name of global sky model to use
     ant_model: str
@@ -309,30 +310,40 @@ def create_vis_model(visdat, gs_model, ant_model=''):
     FileExitsError
         If the model filefolder already exists.
     """
-    ldat_type = visdat['lofardatatype']
+    ldat_type = visdata['datatype']
     if ldat_type != 'acc' and ldat_type != 'xst':
         raise ValueError("ldat_type not set")
-    nrfiles = visdat['data_arr'].shape[0]
-    antpos_uv = rot2uv(visdat['positions'], visdat['stn_rot'])
+    # Look for visibility arrays
+    arr_keys = list(filter(lambda k: k.startswith('arr_'), visdata.keys()))
+    nrfiles = len(arr_keys)
+    antpos_uv, stn_pos = layout_abs2rel(visdata['positions'])
+    if visdata.get('stn_rot') is not None:
+        antpos_uv = rot2uv(antpos_uv, visdata['stn_rot'].T)
     nrants = antpos_uv.shape[0]
-    stn_pos = np.mean(visdat['positions'], axis=0)
     for filestep in range(nrfiles):
         print("Making model for file {}/{}".format(filestep, nrfiles))
-        ts = visdat['delta_secs'][filestep]
+        if nrfiles > 1:
+            ts = visdata['delta_secs'][filestep]
+        else:
+            # There 2 cases for nrfiles==1: need to remove singleton
+            ts = visdata['delta_secs'].squeeze()
         cvc_infile = np.empty((len(ts), 2, 2, nrants, nrants), dtype=complex)
         for sampstep in range(len(ts)):
             print("  sample {}/{}".format(sampstep, len(ts)), end='\r')
             if ldat_type == "xst":
-                if visdat['frequencies'].ndim == 0:
-                    freq = visdat['frequencies']  # Freq const. over xst file
+                if visdata['frequencies'].ndim == 0:
+                    freq = visdata['frequencies']  # Freq const. over xst file
             else:
-                freq = visdat['frequencies'][filestep][sampstep]
-            t = datetime64_to_datetime(visdat['start_datetime']
-                     + np.timedelta64(int(ts[sampstep]),'s'))
+                if nrfiles > 1:
+                    freq = visdata['frequencies'][filestep][sampstep]
+                else:
+                    freq = visdata['frequencies'][sampstep]
+            t = datetime64_to_datetime(visdata['start_datetime']
+                                       + np.timedelta64(int(ts[sampstep]),'s'))
             if not gs_model.startswith('fid:'):
                 vis_XX_mod, vis_XY_mod, vis_YX_mod, vis_YY_mod \
                     = skymodel_visibility(t, np.asmatrix(stn_pos).T, freq,
-                                          np.asmatrix(visdat['positions']),
+                                          np.asmatrix(visdata['positions']),
                                           gs_model, ant_model=ant_model)
             else:
                 _fid, fid_typ = gs_model.split(':', 1)
@@ -355,11 +366,11 @@ def create_vis_model(visdat, gs_model, ant_model=''):
                                            [[vis_XX_mod, vis_XY_mod],
                                             [vis_YX_mod, vis_YY_mod]])
             # Replace observed data with model data:
-        visdat['data_arr'][filestep] = cvc_infile
+        visdata[arr_keys[filestep]] = cvc_infile
         print()
     # Note in ScanRecInfo about model for this dataset:
-    visdat['model'] = gs_model+'+'+ant_model
-    return visdat
+    visdata['model'] = gs_model + '+' + ant_model
+    return visdata
 
 
 def create_vis_model_ff(cvcpath, gs_model, ant_model=''):
