@@ -245,7 +245,7 @@ def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model, ant_model=''):
                 phaseref_ccm['refer'])
     uvw_sl = calc_uvw(t, phaseref, stn_pos, stn_antpos)
     if ant_model == 'dual_dipole45':
-        (cov_xx, cov_xy, cov_yx, cov_yy), _, _ = dualdipole45_cov_patt(ll, mm)
+        (cov_xx, cov_xy, cov_yx, cov_yy) = dualdipole45_cov_patt(ll, mm)
         imag_xx = cov_xx * img_S0 / 2.0
         imag_xy = cov_xy * img_S0 / 2.0
         imag_yx = cov_yx * img_S0 / 2.0
