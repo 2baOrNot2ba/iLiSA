@@ -2272,15 +2272,8 @@ def export_ldat(dataff):
         Dataset dict. Consists of
         'observation_ID' : str
             ID string for observation, equal to the ldat filefolder name.
-        'lofardatatype': str
+        'datatype': str
             The ldat data-type: ['bst', 'sst', 'xst', 'acc'].
-        'data_arr' : array
-            Complex numpy array pf data from dataff. Array indices depends on
-            lofar data-type:
-              'bst': ['filenr', 'sampnr', 'sbnr', 'polpolnr']
-              'sst': ['filenr', 'sampnr', 'sbnr', 'rcunr']
-              'xst' or
-              'acc': ['filenr', 'sampnr', 'polnr', 'polnr', 'antnr', antnr']
         'positions' : (nrants, 3) float array
             The element layout positions w.r.t. ITRF.
         'start_datetime' : numpy.datetime64
@@ -2293,6 +2286,13 @@ def export_ldat(dataff):
             ID of station.
         'pointing' : str
             String format of 3-tuple of pointing direction: '<azi>,<elv>,<ref>'.
+    data_arr : array
+        Complex numpy array pf data from dataff. Array indices depends on
+        lofar data-type:
+          'bst': ['filenr', 'sampnr', 'sbnr', 'polpolnr']
+          'sst': ['filenr', 'sampnr', 'sbnr', 'rcunr']
+          'xst' or
+          'acc': ['filenr', 'sampnr', 'antnr', antnr']
     """
     lofardatatype = datafolder_type(dataff)
     if not lofardatatype:
@@ -2336,10 +2336,9 @@ def export_ldat(dataff):
         # If all frequencies are the same then use only that frequency
         # (mainly for single freq XST)
         freqs = numpy.take(freqs, 0)
-    dataset = {'ID_scanrec': id_scanrec,
+    metadata = {'ID_scanrec': id_scanrec,
                'station': station_id,
-               'lofardatatype': lofardatatype,
-               'data_arr': data_arr,
+               'datatype': lofardatatype,
                'positions': positions,
                'start_datetime': start_datetime,
                'delta_secs': delta_secs,
@@ -2347,10 +2346,10 @@ def export_ldat(dataff):
     # if sourcename:
     #     dataset['source'] = sourcename
     if pointing:
-        dataset['pointing'] = pointing
+        metadata['pointing'] = pointing
     if stn_rot is not None:
-        dataset['stn_rot'] = stn_rot
-    return dataset
+        metadata['stn_rot'] = stn_rot
+    return tuple(data_arr), metadata
 
 
 def cli_export():
@@ -2360,9 +2359,9 @@ def cli_export():
     parser.add_argument('-d', '--dataformat', default='npz',
                         help="Output data-format: npz")
     args = parser.parse_args()
-    dataset = export_ldat(args.dataff)
+    data_arrs, datameta = export_ldat(args.dataff)
     if args.dataformat == 'npz':
-        numpy.savez_compressed(dataset['ID_scanrec'], **dataset)
+        numpy.savez_compressed(datameta['ID_scanrec'], *data_arrs, **datameta)
 
 
 def cli_view():
