@@ -134,8 +134,8 @@ def plot_gsm(dattim, stn_pos, freq, gs_model='LFSM', imsize=200,
     ll, mm = np.meshgrid(l, m)
     img_zero = np.zeros_like(skyimg_model, dtype=float)
     modality = 'model:'+gs_model
-    _phaseref_ = (0,0,'AZEL')
-    integration = 0
+    _phaseref_ = (0, np.pi/2,'AZEL')
+    integration = None
     correctpb = True
     fluxperbeam = False
     plotskyimage(ll, mm, (skyimg_model, img_zero, img_zero, img_zero),
