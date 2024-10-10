@@ -446,7 +446,8 @@ def cli_showarrconfs():
                         """.format(stnId_list))
     parser.add_argument('bandarr',
                         help="""Band array to process.
-                        Choose from 'tile' or {}.""".format(BANDARRS))
+                        Choose from 'tile', '{}' or a SEPTON hex string."""
+                        .format("', '".join(BANDARRS)))
     parser.add_argument('-c', '--coordsys',
                         help="""Coordinate system to use.
                         Choose from 'local' or 'ITRF'.
