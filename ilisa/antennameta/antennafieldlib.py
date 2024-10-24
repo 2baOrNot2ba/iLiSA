@@ -448,10 +448,9 @@ def cli_showarrconfs():
                         help="""Band array to process.
                         Choose from 'tile', '{}' or a SEPTON hex string."""
                         .format("', '".join(BANDARRS)))
-    parser.add_argument('-c', '--coordsys',
+    parser.add_argument('-c', '--coordsys', default='local',
                         help="""Coordinate system to use.
-                        Choose from 'local' or 'ITRF'.
-                        """)
+                        Choose from 'local' (default) or 'ITRF'.""")
     args = parser.parse_args()
     pos, names, xyzlbls = get_tier_layouts(args.stnid, args.bandarr, args.coordsys)
     if args.coordsys == 'local':
