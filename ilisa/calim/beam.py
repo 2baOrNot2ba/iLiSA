@@ -48,7 +48,7 @@ def beamformed_pattern(stn2Dcoord, freq, vis_flags):
     vis_flags.vis = vis_pol
     vis_pol = vis_flags.apply_vispol_flags()
     skyimages, ll, mm \
-        = ilisa.calim.imaging.beamformed_image(vis_pol, stn2Dcoord.T, freq, nrpix=201)
+        = ilisa.calim.imaging.beamformed_image(vis_pol, stn2Dcoord, freq, nrpix=201)
     return ll, mm, skyimages
 
 

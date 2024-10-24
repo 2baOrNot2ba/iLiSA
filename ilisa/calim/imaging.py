@@ -113,7 +113,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
         polport2 are the two polarization ports, e.g. X and Y, and elemnr1 and
         elemnr2 are two elements of the interferometer array configuration.
     stn2Dcoord : array or tuple of 2 arrays
-        The 3xN array UVW configuration matrix (same used for both
+        The Nx3 array UVW configuration matrix (same used for both
         polarizations) or a tuple of len 2 where 1st is X coords and 2nd is
         Y coords.
     freq : float
@@ -181,7 +181,7 @@ def beamformed_image(xstpol, stn2Dcoord, freq, lmsize=2.0, nrpix=101,
             _XYcoord_same = True
         elif np.allclose(stn2Dcoord_X, stn2Dcoord_Y):
             _XYcoord_same = True
-    posU_X, posV_X = stn2Dcoord_X[0, :].squeeze(), stn2Dcoord_X[1, :].squeeze()
+    posU_X, posV_X = stn2Dcoord_X[:, 0].squeeze(), stn2Dcoord_X[:, 1].squeeze()
     bf_X = numpy.exp(-1.j*k*(numpy.einsum('ij,k->ijk', ll, posU_X)
                            + numpy.einsum('ij,k->ijk', mm, posV_X)))
     bf_Y = bf_X  # Default: make Y beamform matrix same as X
@@ -617,7 +617,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     vis = flagged_vis.apply_vispol_flags()
     UVWxyz_y = UVWxyz  # Set Y positions same as X
     # Make image on phased up visibilities
-    imgs_lin, ll, mm = beamformed_image(vis, (UVWxyz.T, UVWxyz_y.T), freq,
+    imgs_lin, ll, mm = beamformed_image(vis, (UVWxyz, UVWxyz_y), freq,
                         lmsize=lm_extent, nrpix=nrpixels,
                         polrep='linear', fluxperbeam=fluxperbeam,
                         fov_area=beamparmsf[freq]['fov_area'])
