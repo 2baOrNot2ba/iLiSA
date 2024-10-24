@@ -1,3 +1,4 @@
+import datetime
 import sys
 
 import casacore.measures
@@ -255,13 +256,15 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     Parameters
     ----------
     obstime : datetime
-        Datetime of observation.
+        Datetime of observation. Type can be datetime.datetime or
+        numpy.datetime64.
     phaseref : tuple
         Phase reference direction given by (lon, lat, ref),
         where lon, lat are floats for longitude, latitude in radians and ref is
         the reference frame str.
     stn_pos : array_like
-        Vector of ITRF X,Y,Z coordinates in meters.
+        Vector, with components X,Y,Z in axis 0, giving station's ITRF position
+        in meters.
     stn_antpos : array_like
         Matrix over antenna versus X,Y,Z  of ITRF positions relative stn_pos.
 
@@ -271,9 +274,9 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
         UVW coordinates in meters.
     """
     (pntRA, pntDEC, pntref) = phaseref
-    pos_ITRF_X = str(stn_pos[0, 0])+'m'
-    pos_ITRF_Y = str(stn_pos[1, 0])+'m'
-    pos_ITRF_Z = str(stn_pos[2, 0])+'m'
+    pos_ITRF_X = str(stn_pos[0].squeeze())+'m'
+    pos_ITRF_Y = str(stn_pos[1].squeeze())+'m'
+    pos_ITRF_Z = str(stn_pos[2].squeeze())+'m'
     # Set up casacore measures object.
     obsme = casacore.measures.measures()
     where = obsme.position("ITRF", pos_ITRF_X, pos_ITRF_Y, pos_ITRF_Z)
@@ -289,7 +292,11 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
                               numpy.asarray(stn_antpos[antnr, :]).squeeze()])
         bls.append(bl)
     uvw_xyz = numpy.zeros((nrant,3))
-    # for obstime
+    # Set obstime
+    if type(obstime) is np.datetime64:
+        obstime = datetime.datetime.utcfromtimestamp(
+            (obstime - np.datetime64('1970-01-01T00:00:00Z'))
+                  / np.timedelta64(1, 's'))
     when = obsme.epoch("UTC", obstime.isoformat('T'))
     obsme.doframe(when)
     for antnr in range(nrant):
