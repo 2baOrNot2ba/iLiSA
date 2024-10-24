@@ -1434,8 +1434,9 @@ class CVCfiles(object):
         Returns
         -------
         pos_itrf : array
-            (nrants, 3) array of x,y,z positions in meters with respect to ITRF
-            of the antennas.
+            (nrants, 3) array of absolute 3D cartesian element positions in
+            meters with respect to ITRF. It is computed by adding the station
+            ITRF position to the relative ITRF positions of the elements.
         """
         pos_itrf = self.stn_pos.squeeze() + self.stn_antpos
         return pos_itrf
@@ -2270,12 +2271,16 @@ def export_ldat(dataff):
     -------
     dataset : dict
         Dataset dict. Consists of
-        'observation_ID' : str
+        'ID_scanrec' : str
             ID string for observation, equal to the ldat filefolder name.
         'datatype': str
             The ldat data-type: ['bst', 'sst', 'xst', 'acc'].
         'positions' : (nrants, 3) float array
-            The element layout positions w.r.t. ITRF.
+            The element layout absolute positions w.r.t. ITRF.
+        'stn_rot' : (3, 3) float array
+            The rotation matrix between the ITRF and the station local frame.
+            It is used like this:
+                'positions_stn' = 'positions' @ 'stn_rot'.
         'start_datetime' : numpy.datetime64
             The datetime of the first data sample.
         'delta_secs' : float array
