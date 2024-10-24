@@ -263,7 +263,7 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     stn_pos : array_like
         Vector of ITRF X,Y,Z coordinates in meters.
     stn_antpos : array_like
-        Matrix over antenna versus ITRF X,Y,Z postions relative stn_pos.
+        Matrix over antenna versus X,Y,Z  of ITRF positions relative stn_pos.
 
     Returns
     -------
@@ -309,15 +309,15 @@ def layout_abs2rel(layout_abs):
 
     Returns
     -------
+    centroid : array
+            Absolute vector to layout centroid
     layout_rel : array
         Array of relative 3D positions of layout
-    centroid : array
-        Absolute vector to layout centroid
     """
     # Compute barycenter of abs 3D positions using mean:
     centroid = np.mean(layout_abs, axis=0)
     layout_rel = layout_abs - centroid
-    return layout_rel, centroid
+    return centroid, layout_rel
 
 
 def rot2uv(stn_antpos, stn_rot):

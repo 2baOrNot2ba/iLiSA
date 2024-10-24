@@ -316,7 +316,7 @@ def create_vis_model(visdata, gs_model, ant_model=''):
     # Look for visibility arrays
     arr_keys = list(filter(lambda k: k.startswith('arr_'), visdata.keys()))
     nrfiles = len(arr_keys)
-    antpos_uv, stn_pos = layout_abs2rel(visdata['positions'])
+    stn_pos, antpos_uv = layout_abs2rel(visdata['positions'])
     if visdata.get('stn_rot') is not None:
         antpos_uv = rot2uv(antpos_uv, visdata['stn_rot'].T)
     nrants = antpos_uv.shape[0]
