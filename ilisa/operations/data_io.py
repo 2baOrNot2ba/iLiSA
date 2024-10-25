@@ -2358,11 +2358,28 @@ def export_ldat(dataff):
 
 
 def cli_export():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description="Export lofar data to other formats",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
     parser.add_argument('dataff', nargs='?', default=None,
                         help="acc, bst, sst or xst filefolder")
     parser.add_argument('-d', '--dataformat', default='npz',
-                        help="Output data-format: npz")
+                        help="""\
+Output data-formats:
+    * 'npz'
+        The npz data consists of observational meta-data
+        and data paylooad. In particular:
+            * 'ID_scanrec': the ID of observatino.
+            * 'station': Name of station.
+            * 'datatype': lofar datatype, can be 'ACC', 'BST', 'SST' or 'XST'.
+            * 'positions': Absolute ITRF positions of layout in meters.
+            * 'start_datetime': Start of observation as UTC (numpy.datetime64)
+            * 'delta_secs': Time delta from start of sample in seconds.
+            * 'frequencies': frequencies in Hertz.
+            * 'arr_'+<arr_nr>: Observed data split into indexed chunks.                    
+"""
+)
     args = parser.parse_args()
     data_arrs, datameta = export_ldat(args.dataff)
     if args.dataformat == 'npz':
@@ -2370,7 +2387,7 @@ def cli_export():
 
 
 def cli_view():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(description="Plot or print lofar data")
     # filenr : int
     #     Selects data file based on its ordinal number during recording.
     # sampnr : int
