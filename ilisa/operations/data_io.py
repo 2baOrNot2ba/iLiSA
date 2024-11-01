@@ -2269,7 +2269,14 @@ def export_ldat(dataff):
 
     Returns
     -------
-    dataset : dict
+    data_arrs : tuple of arrays
+        Tuple of complex numpy array pf data from dataff. Tuple index represents
+        file number ('filenr'). Array indices depends on
+        lofar data-type:
+          'bst': ['sampnr', 'sbnr', 'polpolnr']
+          'sst': ['sampnr', 'sbnr', 'rcunr']
+          'xst' | 'acc': ['sampnr', 'polnr', 'polnr', 'antnr', antnr']
+    metadata : dict
         Dataset dict. Consists of
         'ID_scanrec' : str
             ID string for observation, equal to the ldat filefolder name.
@@ -2285,19 +2292,15 @@ def export_ldat(dataff):
             The datetime of the first data sample.
         'delta_secs' : float array
             The delta-time in seconds of the sample w.r.t the start_datetime.
+            Has shape ['filenr', 'sampnr'].
         'frequencies' : float array
             The center frequency in Hertz of the observation subband.
+            Can either be a scalar (for observation at fixed frequency)
+            or have shape ['filenr', 'sampnr'] like 'delta_secs'.
         'station' : str
             ID of station.
         'pointing' : str
             String format of 3-tuple of pointing direction: '<azi>,<elv>,<ref>'.
-    data_arr : array
-        Complex numpy array pf data from dataff. Array indices depends on
-        lofar data-type:
-          'bst': ['filenr', 'sampnr', 'sbnr', 'polpolnr']
-          'sst': ['filenr', 'sampnr', 'sbnr', 'rcunr']
-          'xst' or
-          'acc': ['filenr', 'sampnr', 'antnr', antnr']
     """
     lofardatatype = datafolder_type(dataff)
     if not lofardatatype:
@@ -2381,9 +2384,9 @@ Output data-formats:
 """
 )
     args = parser.parse_args()
-    data_arrs, datameta = export_ldat(args.dataff)
+    data_arrs, metadata = export_ldat(args.dataff)
     if args.dataformat == 'npz':
-        numpy.savez_compressed(datameta['ID_scanrec'], *data_arrs, **datameta)
+        numpy.savez_compressed(metadata['ID_scanrec'], *data_arrs, **metadata)
 
 
 def cli_view():
