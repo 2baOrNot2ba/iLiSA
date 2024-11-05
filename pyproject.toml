@@ -1,0 +1,70 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+#[tool.setuptools.dynamic]
+#version = {attr = "ilisa.__version__"}
+
+[project]
+name = "iLiSA"
+version = "7.0"
+description = "Package for handling international LOFAR station in Stand-Alone mode"
+authors = [
+    {name = "Tobia D. Carozzi", email = "tobia.carozzi@chalmers.se"}
+]
+license = {text = "ISC"}
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: ISC License",
+  "Programming Language :: Python :: 3.8",
+  "Topic :: Scientific/Engineering :: Astronomy",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: Scientific/Engineering :: Visualization"
+]
+dependencies = [
+  "numpy",
+  "scipy",
+  "python-casacore",
+  "matplotlib",
+  "PyYAML",
+  "h5py"
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+ilisa_adm = "ilisa.operations.stationdriver:main_cli"
+ilisa_rec = "ilisa.operations.scan:main_cli"
+ilisa_obs = "ilisa.operations.scansession:main_cli"
+ilisa_view = "ilisa.operations.data_io:cli_view"
+ilisa_export = "ilisa.operations.data_io:cli_export"
+ilisa_sched = "ilisa.scripts.ilisa_sched:main"
+calim_calib = "ilisa.calim.calibration:main_cli"
+calim_image = "ilisa.calim.imaging:main_cli"
+calim_model = "ilisa.calim.skymodels:main_cli"
+pl_bfs = "ilisa.pipelines.bfs_data:main_cli"
+pl_rec = "ilisa.pipelines.bfbackend:bfsrec_main_cli"
+
+[tool.setuptools]
+packages = [
+    "ilisa",
+    "ilisa.antennameta",
+    "ilisa.calim",
+    "ilisa.operations",
+    "ilisa.pipelines",
+    "ilisa.scripts"
+]
+
+[tool.setuptools.package-data]
+operations = [
+    "share/configs/access_lclstn_DIST.conf",
+    "share/configs/project_0_DIST.conf",
+    "share/scansess_examples/*.yaml"
+]
+antennameta = [
+    "share/CalTables/*/data/*.dat",
+    "share/StaticMetaData/*.conf"
+]
+pipelines = [
+    "share/*.py"  # post-process script examples
+]
