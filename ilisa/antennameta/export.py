@@ -162,7 +162,7 @@ def ITRF2lonlat(x_itrf, y_itrf, z_itrf):
     --------
     >>> from ilisa.antennameta.export import ITRF2lonlat
     >>> ITRF2lonlat(3370286.88256, 712053.913283, 5349991.484)
-    57.39876274671682, 11.929671631184405, 41.63424105290324
+    11.929671631184405, 57.39876274671682, 41.63424105290324)
     """
     dm = measures()
     posstr = ["{}m".format(crd) for crd in (x_itrf, y_itrf, z_itrf)]
