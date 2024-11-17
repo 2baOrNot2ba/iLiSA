@@ -174,6 +174,42 @@ def ITRF2lonlat(x_itrf, y_itrf, z_itrf):
     hgt = quantity(p_wgs84['m2']).get('m').get_value()
     return lon, lat, hgt
 
+def lonlat2ITRF(lon, lat, h='0.0m'):
+    """\
+    Convert a longtitude and latitude specified position to cartesian ITRF
+
+
+    Parameters
+    ----------
+    lon : str
+        Longitude with units string.
+    lat : str
+        Latitude with units string.
+    h : str
+        Height above geodetic with unit string.
+
+    Returns
+    -------
+    x, y, z : float
+        Cartesian ITRF position.
+
+    Examples
+    --------
+    >>> from ilisa.antennameta.export import lonlat2ITRF
+    >>> lonlat2ITRF('11.929671631184405deg', '57.39876274671682deg', '41.634m')
+    3370286.882433161, 712053.913256202, 5349991.4837967735
+    """
+    dm = measures()
+    p_wgs84 = dm.position('wgs84', lon, lat, h)
+    p_itrf = dm.measure(p_wgs84, 'itrf')
+    ilon = quantity(p_itrf['m0']).get('m').get_value()
+    ilat = quantity(p_itrf['m1']).get('m').get_value()
+    irad = quantity(p_itrf['m2']).get('m').get_value()
+    x = irad * np.cos(ilon) * np.cos(ilat)
+    y = irad * np.sin(ilon) * np.cos(ilat)
+    z = irad * np.sin(ilat)
+    return x, y, z
+
 
 def cli_export():
     """Export AntennaField data for all or selected stations to casa CSV files.
