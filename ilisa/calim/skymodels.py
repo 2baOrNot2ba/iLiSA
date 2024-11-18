@@ -120,12 +120,15 @@ def plot_gsm_for_obsdata(cvcobj, filenr=0, sampnr=0, gs_model='LFSM',
         for tidx in range(sampnr, intgs):
             t = cvcobj.samptimeset[fileidx][tidx]
             freq = cvcobj.freqset[fileidx][tidx]
-            plot_gsm(t, cvcobj.stn_pos, freq, gs_model, imsize, stnid)
+            lon, lat, h = ITRF2lonlat(cvcobj.stn_pos[0, 0],
+                                      cvcobj.stn_pos[1, 0],
+                                      cvcobj.stn_pos[2, 0])
+            plot_gsm(t, (lon, lat, h), freq, gs_model, imsize, stnid)
 
 
-def plot_gsm(dattim, stn_pos, freq, gs_model='LFSM', imsize=200,
+def plot_gsm(dattim, loc_lonlat, freq, gs_model='LFSM', imsize=200,
              stnid='Unknown'):
-    lon, lat, h = ITRF2lonlat(stn_pos[0,0], stn_pos[1,0], stn_pos[2,0])
+    lon, lat, h = loc_lonlat[0], loc_lonlat[1], loc_lonlat[2]
     try:
         skyimg_model = globaldiffuseskymodel(dattim, (lon, lat, h), freq,
                                              gs_model=gs_model, imsize=imsize)
