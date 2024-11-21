@@ -115,38 +115,32 @@ def plot_gsm_for_obsdata(cvcobj, filenr=0, sampnr=0, gs_model='LFSM',
                          imsize=200):
     stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(filenr, cvcobj.getnrfiles()):
-        integration = cvcobj.scanrecinfo.get_integration()
         intgs = len(cvcobj.samptimeset[fileidx])
         for tidx in range(sampnr, intgs):
-            t = cvcobj.samptimeset[fileidx][tidx]
+            dattim = cvcobj.samptimeset[fileidx][tidx]
             freq = cvcobj.freqset[fileidx][tidx]
             lon, lat, h = ITRF2lonlat(cvcobj.stn_pos[0, 0],
                                       cvcobj.stn_pos[1, 0],
                                       cvcobj.stn_pos[2, 0])
-            plot_gsm(t, (lon, lat, h), freq, gs_model, imsize, stnid)
-
-
-def plot_gsm(dattim, loc_lonlat, freq, gs_model='LFSM', imsize=200,
-             stnid='Unknown'):
-    lon, lat, h = loc_lonlat[0], loc_lonlat[1], loc_lonlat[2]
-    try:
-        skyimg_model = globaldiffuseskymodel(dattim, (lon, lat, h), freq,
-                                             gs_model=gs_model, imsize=imsize)
-    except ValueError:
-        warnings.warn("Skipping GSM plot since frequency invalid")
-    l, m = np.linspace(-1, 1, imsize), np.linspace(-1, 1, imsize)
-    ll, mm = np.meshgrid(l, m)
-    img_zero = np.zeros_like(skyimg_model, dtype=float)
-    modality = 'model:'+gs_model
-    _phaseref_ = (0, np.pi/2,'AZEL')
-    integration = None
-    correctpb = True
-    fluxperbeam = False
-    plotskyimage(ll, mm, (skyimg_model, img_zero, img_zero, img_zero),
-                 'stokes', dattim, freq, stnid, integration, _phaseref_,
-                 modality, pbcor=correctpb, maskhrz=False,
-                 fluxperbeam=fluxperbeam, plot_title='Model image')
-    plt.show()
+            try:
+                skyimg_model = globaldiffuseskymodel(dattim, (lon, lat, h),
+                                                     freq, gs_model=gs_model,
+                                                     imsize=imsize)
+            except ValueError:
+                warnings.warn("Skipping GSM plot since frequency invalid")
+            l, m = np.linspace(-1, 1, imsize), np.linspace(-1, 1, imsize)
+            ll, mm = np.meshgrid(l, m)
+            img_zero = np.zeros_like(skyimg_model, dtype=float)
+            modality = 'model:'+gs_model
+            _phaseref_ = (0, np.pi/2,'AZEL')
+            integration = None
+            correctpb = True
+            fluxperbeam = False
+            plotskyimage(ll, mm, (skyimg_model, img_zero, img_zero, img_zero),
+                         'stokes', dattim, freq, stnid, integration, _phaseref_,
+                         modality, pbcor=correctpb, maskhrz=False,
+                         fluxperbeam=fluxperbeam, plot_title='Model image')
+            plt.show()
 
 
 def vcz(ll, mm, skyimage, freq, ant_pos, imag_is_fd=False):
