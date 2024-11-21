@@ -1065,6 +1065,21 @@ class LDatInfo(object):
                 starttime = contents['StartTime']
                 beamctl_line = contents['BeamctlCmds']
                 rspctl_lines = contents['RspctlCmds'].split('\n')
+            elif headerversion == '3':
+                contents = yaml.safe_load(hf)
+                datatype = contents['datatype']
+                filenametime = contents['filetime']
+                rcusetup_cmds = []
+                beamctl_cmds = [contents['beamctl_cmds']]
+                rspctl_cmds = [contents['rspctl_cmds'].strip(' ;')]
+                if 'caltabinfos' in contents:
+                    caltabinfos = contents['caltabinfos']
+                else:
+                    caltabinfos = []
+                if 'septonconf' in contents:
+                    septonconf = contents['septonconf']
+                else:
+                    septonconf = None
             else:
                 # headerversion == '4':
                 contents = yaml.safe_load(hf)
