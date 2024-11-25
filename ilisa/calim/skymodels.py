@@ -342,7 +342,7 @@ def create_vis_model(visdata, gs_model, ant_model=''):
                 lam = c/freq
                 stn_antpos_lambda = antpos_uv / lam
                 if fid_typ == 'map':
-                    img_I, ll, mm = fiducial_image(background=0.0)
+                    ll, mm, img_I = fiducial_image(background=0.0)
                     # N.B. freq=c => k=2*np.pi since antpos in lambda units
                     # (nominally freq=c/lam)
                     vis_I_mod = vcz(ll, mm, img_I, c, stn_antpos_lambda,
@@ -429,7 +429,7 @@ def create_vis_model_ff(cvcpath, gs_model, ant_model=''):
                 lam = c/freq
                 stn_antpos_lambda = antpos_uv / lam
                 if fid_typ == 'map':
-                    img_I, ll, mm = fiducial_image(background=0.0)
+                    ll, mm, img_I = fiducial_image(background=0.0)
                     # N.B. freq=c => k=2*np.pi since antpos in lambda units
                     # (nominally freq=c/lam)
                     vis_I_mod = vcz(ll, mm, img_I, c, stn_antpos_lambda,

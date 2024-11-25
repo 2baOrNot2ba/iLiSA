@@ -731,12 +731,16 @@ def main_cli():
         plt.show()
 
 
-def fiducial_image(background=1.0):
+def fiducial_image(width=0.7, imsize=201, background=0.0):
     """
-    Generate a fiducial visibility
+    Generate a fiducial image
 
     Parameters
     ----------
+    width: float
+        Half-width of fiducial square in direction-cosine units.
+    imsize: int
+        Number of pixels along image axes.
     background: float
         Background flux density level.
 
@@ -745,7 +749,6 @@ def fiducial_image(background=1.0):
     img: array
         Fiducial image
     """
-    imsize = 100
     l = np.linspace(-1, 1, imsize)
     m = np.linspace(-1, 1, imsize)
     ll, mm = np.meshgrid(l, m)
@@ -753,12 +756,11 @@ def fiducial_image(background=1.0):
     make_sq_reg = True
     if make_sq_reg:
         sqregion = np.zeros_like(ll)
-        #sqregion[(-0.0<ll) & (ll<0.2) & (-0.9<mm) & (mm<-0.7)] = 2.0
-        sqregion[(-0.7<ll) & (ll<0.7) & (-0.7<mm) & (mm<0.7)] = 2.0
+        sqregion[(-width<ll) & (ll<width) & (-width<mm) & (mm<width)] = 1.0
         img += sqregion
     # Zero beyond horizon
     img[ll**2+mm**2>1.0] = 0.0
-    return img, ll, mm
+    return ll, mm, img
 
 
 if __name__ == "__main__":
