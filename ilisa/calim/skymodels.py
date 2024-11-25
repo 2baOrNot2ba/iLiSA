@@ -100,14 +100,9 @@ def globaldiffuseskymodel(dattim, geopos, freq, gs_model='LFSM', imsize=200):
         gsm_map = gsm_obs.generate(freq)
     except RuntimeError as e:
         raise ValueError(e)
-    f = pylab.figure(None, figsize=None)
-    extent = (0.0, 0.0, 1.0, 1.0)
-    ax = hp.projaxes.HpxOrthographicAxes(f, extent)
-    img_ma = ax.projmap(gsm_map, xsize=imsize, half_sky=True)
-    img = np.ma.getdata(img_ma)
-    img[img == -np.inf] = 0.0
-    img = np.fliplr(img)  # Sky-model has a flip along East-West, so flipback
-    pylab.close()
+    img = hp.orthview(gsm_map, half_sky=True, return_projected_map=True,
+                      rot=(0, 0), xsize=imsize, norm = 'lin', coord=['C'],
+                      flip='geo')  # Use 'geo' since plotskyimage() assumes this
     return img
 
 
