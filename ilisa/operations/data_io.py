@@ -325,21 +325,23 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo['datetime'] = datetime.datetime.strptime(Ymd + 'T' + HMS,
                                                      '%Y%m%dT%H%M%S')
     obsinfo['spw'] = spwstr[3:]
-    if obsinfo['antennaset'] == '':
-        # Assume a sensible value for antennaset based on spw:
-        obsinfo['antennaset'] = modeparms.rcumode2antset_eu(obsinfo['spw'])[:3]
     obsinfo['subbands'] = sbstr[2:]  # slicestr2seqlists(sbstr[2:])
     obsinfo['integration'] = float(intstr[3:])
     obsinfo['duration_scan'] = int(durstr[3:])
     obsinfo['pointing'] = dirstr[3:]
     obsinfo['ldat_type'] = ldat_type
 
-    if len(obsinfo['spw']) > 1:
-        obsinfo['spw'] = list(obsinfo['spw'])
-    obsinfo['subbands'] = slicestr2seqlists(obsinfo['subbands'])
+    obsinfo['spw'] = list(obsinfo['spw'])
 
-    if type(obsinfo['spw']) is not list:
-        obsinfo['spw'] = [obsinfo['spw']]
+    if not obsinfo['antennaset']:
+        # Assume a sensible value for antennaset based on spw:
+        _antennaset = modeparms.rcumode2antset_eu(obsinfo['spw'][0])
+        obsinfo['antennaset'] = _antennaset[:3]
+        if len(obsinfo) > 1:
+            # If multi-spw, then set antennaset to combined antennaset
+            obsinfo['antennaset'] = 'LBA+HBA'
+
+    obsinfo['subbands'] = slicestr2seqlists(obsinfo['subbands'])
     if type(obsinfo['subbands']) is not list:
         obsinfo['subbands'] = [obsinfo['subbands']]
     obsinfo['frequencies'] = numpy.empty(0)
