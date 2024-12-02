@@ -2273,6 +2273,55 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                 else:
                     raise RuntimeError("Not a bst, sst, or xst filefolder")
 
+def acc2xst(dataff, sb, save=False):
+    """
+    Convert ACC to XST
+
+    Parameters
+    ----------
+    dataff: str
+        Path the ACC data file-folder.
+    sb: int
+        Subband number to select.
+    save: bool
+        Save as an .npz file.
+
+    Returns
+    -------
+        Same as `export_ldat`.
+    """
+    cvcobj = CVCfiles(dataff)
+    id_scanrec = os.path.basename(os.path.normpath(dataff))
+    id_scanrec = id_scanrec[:-4] + '_xst'
+    _id_split = id_scanrec.split('_')
+    id_scanrec = '_'.join(_id_split[:4]+['sb'+str(sb)]+_id_split[4:])
+    _data = []
+    for fnr in range(cvcobj.getnrfiles()):
+        _bla = cvcobj[fnr][sb]
+        _data.append(_bla)
+    _data = numpy.asarray(_data)
+    data_arrs = cov_flat2polidx(_data)
+    positions = cvcobj.get_positions_ITRF()
+    ts_list = cvcobj.samptimeset
+    ts_full = numpy.vectorize(numpy.datetime64)(ts_list)
+    ts = numpy.asarray(ts_full)[:, sb]
+    start_datetime = ts[ 0]
+    delta_secs = (ts - start_datetime) / numpy.timedelta64(1, 's')
+    freqs = numpy.asarray(cvcobj.freqset)[:, sb]
+    station_id = cvcobj.scanrecinfo.get_stnid()
+    stn_rot = cvcobj.stn_rot
+    metadata = {'ID_scanrec': id_scanrec,
+                'station': station_id,
+                'datatype': 'xst',
+                'positions': positions,
+                'start_datetime': start_datetime,
+                'delta_secs': delta_secs,
+                'frequencies': freqs,
+                'stn_rot': stn_rot}
+    if save:
+        numpy.savez_compressed(metadata['ID_scanrec'], *tuple(data_arrs), **metadata)
+    return tuple(data_arrs), metadata
+
 
 def export_ldat(dataff):
     """Export LOFAR data files
