@@ -31,6 +31,8 @@ except ImportError:
 if CANUSE_DREAMBEAM:
     from dreambeam.polarimetry import convertxy2stokes, cov_lin2cir
     from dreambeam.rime.scenarios import primarybeampat
+else:
+    from .polarimetry import convertxy2stokes, cov_lin2cir
 
 
 def imggrid_res(ll, mm):
@@ -388,6 +390,12 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         plt.subplot(2, 2, pos+1)
         vmax = numpy.amax(compmap[pbeamfld])
         vmin = numpy.amin(compmap[pbeamfld])
+        if polrep == 'stokes':
+            if pos == 0:
+                pass
+            else:
+                vmax = 1
+                vmin =-1
         plt.imshow(compmap, origin='lower', extent=[lmin, lmax, mmin, mmax],
                    interpolation='none', cmap=plt.get_cmap("jet"),
                    vmax=vmax, vmin=vmin)
@@ -433,7 +441,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
         sv = sV / sI
 
         s0, s0lbl = sI, 'I'
-        if numpy.amin(sI) > 0.0:
+        if numpy.amin(sI) > 0.0 or True:
             s1, s1lbl = sq, 'q'
             s2, s2lbl = su, 'u'
             s3, s3lbl = sv, 'v'
@@ -642,10 +650,10 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
                     bri_xy_iau[:, :, 1, 0], bri_xy_iau[:, :, 1, 1])
 
     # Convert to requested polarization representation
-    if polrep == 'stokes' and CANUSE_DREAMBEAM:
+    if polrep == 'stokes':  # and CANUSE_DREAMBEAM:
         skyimages = convertxy2stokes(imgs_lin[0], imgs_lin[1], imgs_lin[2],
                                      imgs_lin[3])
-    elif polrep == 'circular' and CANUSE_DREAMBEAM:
+    elif polrep == 'circular':  # and CANUSE_DREAMBEAM:
         imgpolmat_lin = numpy.array([[imgs_lin[0], imgs_lin[1]],
                                      [imgs_lin[2], imgs_lin[3]]])
         imgpolmat = cov_lin2cir(imgpolmat_lin)
