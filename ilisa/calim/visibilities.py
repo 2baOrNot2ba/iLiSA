@@ -249,6 +249,57 @@ def cvc2polrep(cvc, crlpolrep='lin'):
     return cvpol
 
 
+def pos2uv_flat(antpos):
+    """
+    Convert 3D antenna positions (approx flat config) to 2D, UV baseline
+
+    Parameters
+    ----------
+    antpos: (nrants, 3) array
+        3D positions of antennas
+
+    Returns
+    -------
+    uv : (nrants, nrants, 3) array
+        Flat 3D baselines of configuration
+    """
+    # antpos is of the form [nants, 3]
+    nants = antpos.shape[0]
+    # Compute baselines in XYZ
+    ant_pos_rep = np.repeat(antpos[:, :], nants, axis=0
+                          ).reshape((nants, nants, 3))
+    # Compute square baseline tensor
+    _blsq = (ant_pos_rep - np.transpose(ant_pos_rep, (1, 0, 2)))
+    # Vectorize square baseline matrix
+    _idx = np.triu_indices(ant_pos_rep.shape[0])
+    baselines = _blsq[_idx]
+
+    # Compute local UV coord sys by first estimating normal to
+    # xyz (uvw) array, using the fact that its normal vec is a
+    # null space vector.
+    _u_svd, _d_svd, _vt_svd = np.linalg.svd(baselines)
+    nrmvec = -_vt_svd[2, :] / np.linalg.norm(_vt_svd[2, :])
+    lon_nrm = np.arctan2(nrmvec[1], nrmvec[0])
+    lat_nrm = np.arcsin(nrmvec[2])
+    # Transform by rotations xyz to local UV crd sys, which has
+    # normal along its z-axis and long-axis along x-axis:
+    # First rotate around z so nrmvec x is in (+x,+z) quadrant
+    # (this means Easting is normal to longitude 0 meridian plane)
+    _rz = np.array([[np.cos(lon_nrm), np.sin(lon_nrm), 0.],
+                    [-np.sin(lon_nrm), np.cos(lon_nrm), 0.],
+                    [0., 0., 1.]])
+    # Second rotate around y until normal vec is along z (NCP)
+    _tht = (np.pi / 2 - lat_nrm)
+    _ry = np.array([[np.cos(_tht), 0., -np.sin(_tht)],
+                    [0., 1., 0.],
+                    [+np.sin(_tht), 0., np.cos(_tht)]])
+    # Third rotate around z so Easting is along (final) x
+    _r_xy90 = np.array([[0, 1, 0], [-1, 0, 0], [0, 0, 1]])
+    rot_mat = _r_xy90 @ _ry @ _rz
+    uv = baselines @ rot_mat.T
+    return uv
+
+
 def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     """
     Calculate UVW coords from datetime, phaseref and station & antenna positions
