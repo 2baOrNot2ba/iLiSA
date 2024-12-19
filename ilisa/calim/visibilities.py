@@ -325,6 +325,7 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
         UVW coordinates in meters.
     """
     (pntRA, pntDEC, pntref) = phaseref
+    stn_pos = np.asarray(stn_pos)
     pos_ITRF_X = str(stn_pos[0].squeeze())+'m'
     pos_ITRF_Y = str(stn_pos[1].squeeze())+'m'
     pos_ITRF_Z = str(stn_pos[2].squeeze())+'m'
