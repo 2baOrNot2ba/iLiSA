@@ -301,16 +301,15 @@ def datetime64_to_datetime(dattim64):
     return dattim
 
 
-def create_vis_model(visdata, gs_model, ant_model=''):
+def create_vis_model(visdata_in, gs_model, ant_model=''):
     """
     Create visibility model
 
     Parameters
     ----------
-    visdata: dict
-        The visibilities themselves will computed overwriting existing
-        values, this being the returned quantity.
-        Visibility metadata used for observational setup.
+    visdata_in: dict
+        The visibilities dataset. Actual visibility arr not used,
+        only metadata on observational setup.
     gs_model: str
         Name of global sky model to use
     ant_model: str
@@ -319,7 +318,7 @@ def create_vis_model(visdata, gs_model, ant_model=''):
 
     Returns
     -------
-    visdat: dict
+    visdata: dict
         The model visibilities as a CVCfiles object
 
     Raises
@@ -327,6 +326,7 @@ def create_vis_model(visdata, gs_model, ant_model=''):
     FileExitsError
         If the model filefolder already exists.
     """
+    visdata = visdata_in.copy()
     ldat_type = visdata['datatype']
     if ldat_type != 'acc' and ldat_type != 'xst':
         raise ValueError("ldat_type not set")
