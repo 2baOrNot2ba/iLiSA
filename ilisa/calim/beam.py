@@ -240,6 +240,41 @@ def airydisk_radius(freq, d):
     return sintheta
 
 
+def horizontaldipoles_jones(ll, mm, rotzen=0.):
+    """
+    Compute Jones pattern of two orthogonal, ideal dipoles with arb. z rotation
+
+    Parameters
+    ----------
+    ll: 2D array
+        East-west direction cosines grid.
+    mm: 2D array
+        North-south direction cosines grid.
+    rotzen : 2D array
+        Rotation of the two horizontal dipoles around zenith direction.
+
+    Returns
+    -------
+    jones: 4D array
+        Direction distribution of Jones matrices
+        with shape (2, 2, ll.shape[0], ll.shape[1]).
+        Indices correspond to (polchn, sphcmp, l_idx, m_idx),
+        where polchn is the polarized output channel X,Y (0,1);
+        sphcmp is the Ludwig3 components in l,m distribution X,Y (0,1);
+        and l_idx, m_idx are the indices of the direction-cosine components of
+        the pattern distribution.
+    """
+    nn = np.sqrt(1-ll**2-mm**2)
+    nn[ll**2+mm**2>1.0] = 0.0
+    rotmat = np.array([[np.cos(rotzen), -np.sin(rotzen)],
+                       [np.sin(rotzen),  np.cos(rotzen)]])
+    _ll = rotmat[0, 0]*ll + rotmat[0, 1]*mm
+    _mm = rotmat[1, 0]*ll + rotmat[1, 1]*mm
+    jones_patt = 1/(1-nn**2)*np.array([[_ll**2*nn+_mm**2, -_ll*_mm*(1-nn)],
+                                       [-_ll*_mm*(1-nn), _ll**2+_mm**2*nn]])
+    return jones_patt
+
+
 def dualdipole45_cov_patt(ll, mm):
     """
     Compute covariance pattern of dual-dipole rotated 45 deg.
@@ -257,13 +292,7 @@ def dualdipole45_cov_patt(ll, mm):
         Transverse electric field covariance matrix. x,y are w.r.t antennas
         X,Y.
     """
-    nn = np.sqrt(1-ll**2-mm**2)
-    nn[ll**2+mm**2>1.0]=0.0
-    ll45 = 1/np.sqrt(2)*(ll-mm)
-    mm45 = 1/np.sqrt(2)*(ll+mm)
-    _jones_patt = (1/(1-nn**2)
-                  *np.array([[ll45**2*nn+mm45**2, -ll45*mm45*(1-nn)],
-                             [-ll45*mm45*(1-nn), ll45**2+mm45**2*nn]]))
+    _jones_patt = horizontaldipoles_jones(ll, mm, np.pi/4)
     _jones_l = np.moveaxis(_jones_patt, [0, 1], [-2, -1])
     _jones2 = np.matmul(_jones_l, _jones_l)
     _jones2 = np.moveaxis(_jones2, [-2, -1], [0, 1])
