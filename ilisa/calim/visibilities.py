@@ -2,7 +2,6 @@ import datetime
 import sys
 
 import casacore.measures
-import numpy
 import numpy as np
 
 from . import SPEED_OF_LIGHT as c
@@ -35,7 +34,7 @@ def point_source_vis2d(uv_lam, l0=0.0, m0=0.0, amp=1.0):
 
 
 def baseline_distances(uvw_xyz):
-    dist = numpy.linalg.norm(uvw_xyz[None, :, :] - uvw_xyz[:, None, :], axis=-1)
+    dist = np.linalg.norm(uvw_xyz[None, :, :] - uvw_xyz[:, None, :], axis=-1)
     return dist
 
 
@@ -70,7 +69,7 @@ def cov_polidx2flat(cvcpol, parity_ord=True):
     --------
     For one sample and 2 elements, an example where the two polarization
     indices are embedded along with elements as in
-    >>> v0=numpy.arange(1*2*2*2*2).reshape((1,2,2,2,2))
+    >>> v0=np.arange(1*2*2*2*2).reshape((1,2,2,2,2))
     array([[[[[ 0,  1],
           [ 2,  3]],
          [[ 4,  5],
@@ -106,13 +105,13 @@ def cov_polidx2flat(cvcpol, parity_ord=True):
         N = cvcpol.shape[-1]
         restshape = cvcpol.shape[:-4]
         flatshape = restshape + (2 * N, 2 * N)
-        cvcflat = numpy.empty(flatshape, dtype=cvcpol.dtype)
+        cvcflat = np.empty(flatshape, dtype=cvcpol.dtype)
         cvcflat[..., ::2, ::2] = pp
         cvcflat[..., 1::2, 1::2] = qq
         cvcflat[..., ::2, 1::2] = pq
         cvcflat[..., 1::2, ::2] = qp
     else:
-        cvcflat = numpy.block([[pp, pq], [qp, qq]])
+        cvcflat = np.block([[pp, pq], [qp, qq]])
     return cvcflat
 
 
@@ -149,7 +148,7 @@ def cov_flat2polidx(cvc, parity_ord=True):
     --------
     For one sample and 2 elements, an example where the two polarization
     indices are embedded along with elements as in
-    >>> v0=numpy.arange(1*2*2*2*2).reshape((1,2*2,2*2))
+    >>> v0=np.arange(1*2*2*2*2).reshape((1,2*2,2*2))
     array([[[ 0,  1,  2,  3],
         [ 4,  5,  6,  7],
         [ 8,  9, 10, 11],
@@ -192,10 +191,10 @@ def cov_flat2polidx(cvc, parity_ord=True):
         qq = cvc[..., n:, n:]
         pq = cvc[..., :n, n:]
         qp = cvc[..., n:, :n]
-    cvpol = numpy.array([[pp, pq], [qp, qq]])
+    cvpol = np.array([[pp, pq], [qp, qq]])
     # Move pol-axes from leftmost axises rightward just before element indexes:
-    cvpol = numpy.moveaxis(cvpol, 1, -3)
-    cvpol = numpy.moveaxis(cvpol, 0, -4)
+    cvpol = np.moveaxis(cvpol, 1, -3)
+    cvpol = np.moveaxis(cvpol, 0, -4)
     return cvpol
 
 
@@ -236,14 +235,14 @@ def cvc2polrep(cvc, crlpolrep='lin'):
         cvpol = cvcpolidx
     elif crlpolrep == 'cir':
         cvpol = cov_lin2cir(cvcpolidx)
-        cvpol = numpy.moveaxis(cvpol, 1, -3)
-        cvpol = numpy.moveaxis(cvpol, 0, -4)
+        cvpol = np.moveaxis(cvpol, 1, -3)
+        cvpol = np.moveaxis(cvpol, 0, -4)
     elif crlpolrep == 'sto':
         (S0, S1, S2, S3) =\
             convertxy2stokes(cvcpolidx[0][0], cvcpolidx[0][1], cvcpolidx[1][0],
                              cvcpolidx[1][1])
-        cvpol = numpy.array([S0, S1, S2, S3])
-        cvpol = numpy.moveaxis(cvpol, 0, -3)
+        cvpol = np.array([S0, S1, S2, S3])
+        cvpol = np.moveaxis(cvpol, 0, -3)
     else:
         raise ValueError("No such correlated pol rep: '{}'".format(crlpolrep))
     return cvpol
@@ -308,7 +307,7 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     ----------
     obstime : datetime
         Datetime of observation. Type can be datetime.datetime or
-        numpy.datetime64.
+        np.datetime64.
     phaseref : tuple
         Phase reference direction given by (lon, lat, ref),
         where lon, lat are floats for longitude, latitude in radians and ref is
@@ -341,9 +340,9 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     for antnr in range(nrant):
         bl = obsme.baseline("ITRF",
                             *[str(comp)+'m' for comp in
-                              numpy.asarray(stn_antpos[antnr, :]).squeeze()])
+                              np.asarray(stn_antpos[antnr, :]).squeeze()])
         bls.append(bl)
-    uvw_xyz = numpy.zeros((nrant,3))
+    uvw_xyz = np.zeros((nrant,3))
     # Set obstime
     if type(obstime) is np.datetime64:
         obstime = datetime.datetime.utcfromtimestamp(
@@ -352,7 +351,7 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     when = obsme.epoch("UTC", obstime.isoformat('T'))
     obsme.doframe(when)
     for antnr in range(nrant):
-        uvw_xyz[antnr,:] = numpy.asarray(
+        uvw_xyz[antnr,:] = np.asarray(
                         obsme.to_uvw(bls[antnr])["xyz"].get_value('m'))
     return uvw_xyz
 
@@ -430,9 +429,9 @@ def phaseref_xstpol(xstpol, UVWxyz, freq):
     # Phase-factor corresponds to exp(-i*2*pi*W/lambda),
     # this is so that B(l,m)*exp(i*2*pi*(U*l+V*m+W*n)/lambda)*phasefactor=
     #   B(l,m)*exp(i*2*pi*(U*l+V*m+W*(n-1))/lambda) which
-    phasefactors = numpy.exp(-2.0j*numpy.pi*UVWxyz[:,2]/lambda0)
-    PP = numpy.einsum('i,k->ik', phasefactors, numpy.conj(phasefactors))
-    #xstpupol = numpy.array(
+    phasefactors = np.exp(-2.0j*np.pi*UVWxyz[:,2]/lambda0)
+    PP = np.einsum('i,k->ik', phasefactors, np.conj(phasefactors))
+    #xstpupol = np.array(
     #       [[PP*xstpol[0, 0, ...].squeeze(), PP*xstpol[0, 1, ...].squeeze()],
     #        [PP*xstpol[1, 0, ...].squeeze(), PP*xstpol[1, 1, ...].squeeze()]])
     xstpupol = PP*xstpol
