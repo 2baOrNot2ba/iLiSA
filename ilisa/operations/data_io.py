@@ -2342,8 +2342,19 @@ def export_ldat(dataff):
           'bst': ['sampnr', 'sbnr', 'polpolnr']
           'sst': ['sampnr', 'sbnr', 'rcunr']
           'xst' | 'acc': ['sampnr', 'polnr', 'polnr', 'antnr', antnr']
+    coords : dict
+        The coordinates of the data_arrs:
+        'delta_secs' : float array
+            The delta-time in seconds of the sample w.r.t the start_datetime.
+            Has shape ['filenr', 'sampnr'].
+        'frequencies' : float array
+            The center frequency in Hertz of the observation subband.
+            Can either be a scalar (for observation at fixed frequency)
+            or have shape ['filenr', 'sampnr'] like 'delta_secs'.
     metadata : dict
         Dataset dict. Consists of
+        'version' : str
+            Version of the dataset.
         'ID_scanrec' : str
             ID string for observation, equal to the ldat filefolder name.
         'datatype': str
@@ -2356,15 +2367,10 @@ def export_ldat(dataff):
                 'positions_stn' = 'positions' @ 'stn_rot'.
         'start_datetime' : numpy.datetime64
             The datetime of the first data sample.
-        'delta_secs' : float array
-            The delta-time in seconds of the sample w.r.t the start_datetime.
-            Has shape ['filenr', 'sampnr'].
-        'frequencies' : float array
-            The center frequency in Hertz of the observation subband.
-            Can either be a scalar (for observation at fixed frequency)
-            or have shape ['filenr', 'sampnr'] like 'delta_secs'.
         'station' : str
             ID of station.
+        'telescope' : str
+            Set to 'LOFAR'.
         'pointing' : str
             String format of 3-tuple of pointing direction: '<azi>,<elv>,<ref>'.
     """
@@ -2410,20 +2416,22 @@ def export_ldat(dataff):
         # If all frequencies are the same then use only that frequency
         # (mainly for single freq XST)
         freqs = numpy.take(freqs, 0)
-    metadata = {'ID_scanrec': id_scanrec,
-               'station': station_id,
-               'datatype': lofardatatype,
-               'positions': positions,
-               'start_datetime': start_datetime,
-               'delta_secs': delta_secs,
-               'frequencies': freqs}
+    coords = {'delta_secs': delta_secs,
+              'frequencies': freqs}
+    metadata = {'version': '1.0',
+                'ID_scanrec': id_scanrec,
+                'telescope': 'LOFAR',
+                'station': station_id,
+                'datatype': lofardatatype,
+                'positions': positions,
+                'start_datetime': start_datetime}
     # if sourcename:
     #     dataset['source'] = sourcename
     if pointing:
         metadata['pointing'] = pointing
     if stn_rot is not None:
         metadata['stn_rot'] = stn_rot
-    return tuple(data_arr), metadata
+    return tuple(data_arr), coords, metadata
 
 
 def cli_export():
@@ -2439,20 +2447,20 @@ Output data-formats:
     * 'npz'
         The npz data consists of observational meta-data
         and data paylooad. In particular:
-            * 'ID_scanrec': the ID of observatino.
-            * 'station': Name of station.
-            * 'datatype': lofar datatype, can be 'ACC', 'BST', 'SST' or 'XST'.
-            * 'positions': Absolute ITRF positions of layout in meters.
-            * 'start_datetime': Start of observation as UTC (numpy.datetime64)
-            * 'delta_secs': Time delta from start of sample in seconds.
-            * 'frequencies': frequencies in Hertz.
-            * 'arr_'+<arr_nr>: Observed data split into indexed chunks.                    
-"""
-)
+            * 'arr_'+<arr_nr>: Observed data split into indexed chunks                    
+            * 'delta_secs': Time delta from start of sample in seconds
+            * 'frequencies': frequencies in Hertz
+            * 'ID_scanrec': the ID of observation
+            * 'station': Name of station
+            * 'datatype': lofar datatype, can be 'ACC', 'BST', 'SST' or 'XST'
+            * 'positions': Absolute ITRF positions of layout in meters
+            * 'start_datetime': Start of observation as UTC (numpy.datetime64).
+""")
     args = parser.parse_args()
-    data_arrs, metadata = export_ldat(args.dataff)
+    data_arrs, coords, metadata = export_ldat(args.dataff)
     if args.dataformat == 'npz':
-        numpy.savez_compressed(metadata['ID_scanrec'], *data_arrs, **metadata)
+        numpy.savez_compressed(metadata['ID_scanrec'], *data_arrs, **coords,
+                               **metadata)
 
 
 def cli_view():
