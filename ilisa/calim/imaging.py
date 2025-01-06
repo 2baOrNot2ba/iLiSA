@@ -479,6 +479,46 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                    integration, t, pbcor, modality), fontsize=8)
 
 
+def lmgrid(imsize=100):
+    """\
+    Generate an lm grid
+
+    Parameters
+    ----------
+    imsize: int
+        Number of lm pixels per dimension.
+
+    Returns
+    -------
+    ll, mm: array
+        The lm grid.
+    """
+    l, m = np.linspace(-1, 1, imsize), np.linspace(-1, 1, imsize)
+    ll, mm = np.meshgrid(l, m)
+    return ll, mm
+
+
+def integrate_lm_image(img):
+    """\
+    Integrate direction-cosine image
+
+    Parameters
+    ----------
+    img :  array
+        The image.
+
+    Returns
+    -------
+    integral : float
+        The resulting definite integral.
+    """
+    imsize = img.shape[0]
+    ll, mm = lmgrid(imsize)
+    dll, dmm = ll[0, 1] - ll[0, 0], mm[1, 0] - mm[0, 0]
+    integral = np.sum(np.sum(img, -1) * dll*dmm)
+    return integral
+
+
 def pntsrc_hmsph(*pntsrcs, imsize=101):
     """Generate point sources on a hemisphere.
     """
