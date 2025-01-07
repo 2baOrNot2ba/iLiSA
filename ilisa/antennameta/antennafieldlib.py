@@ -12,6 +12,7 @@ from os.path import dirname
 import numpy as np
 from matplotlib import pyplot as plt
 from ilisa.operations.modeparms import str2elementMap2
+from ilisa.calim.geodesy import ITRF2lonlat
 
 __version__ = 0.3
 
@@ -290,6 +291,26 @@ def get_antset_params(stnid, antset):
     else:
         stnrelpos = stnrelpos_x
     return stnpos, stnrot, stnrelpos, stnintilepos
+
+
+def antset_lonlat(stnid, antset):
+    """\
+    Get longitude, latitude position of antenna-set
+
+    Parameters
+    ----------
+    stnid : str
+        LOFAR station ID
+    antset : str
+        LOFAR station antenna-set, e.g. 'LBA' or 'HBA'
+    Returns
+    -------
+    stnpos_lonlat : tuple
+        Tuple with (longitude, latitude, height)
+    """
+    stnpos, stnrot, stnrelpos, stnintilepos = get_antset_params(stnid, antset)
+    stnpos_lonlat = ITRF2lonlat(*stnpos.squeeze())
+    return stnpos_lonlat
 
 
 def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
