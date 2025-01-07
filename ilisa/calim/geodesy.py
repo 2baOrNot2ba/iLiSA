@@ -1,3 +1,5 @@
+import datetime
+
 import numpy as np
 from casacore.measures import measures
 from casacore.quanta import quantity
@@ -77,3 +79,43 @@ def lonlat2ITRF(lon, lat, h='0.0m'):
     y = irad * np.sin(ilon) * np.cos(ilat)
     z = irad * np.sin(ilat)
     return x, y, z
+
+
+def utcpos2lmst(utctim, lonlat):
+    """\
+    Convert UTC to local mean sidereal time
+
+    Parameters
+    ----------
+    utctim : datetime
+        A UTC date-time of an epoch.
+    lonlat : tuple
+        A tuple of len 3 (lon, lat, hgt), or 2 (lon, lat) where hgt=0.
+
+    Returns
+    -------
+    lsmt_timdel : tuple
+    """
+    # Convert utctim instant to ISO datetime str
+    if type(utctim) is datetime.datetime:
+        dattim_str = utctim.isoformat()
+    else:
+        dattim_str = utctim
+    me = measures()
+    if len(lonlat) < 3:
+        lonlat += ('0m',)
+    lonlathgt = []
+    for _e in lonlat[:2]:
+        if type(_e) is float:
+            _e = str(_e) + 'deg'
+        lonlathgt.append(_e)
+    if type(lonlat[2]) is float or type(lonlat[2]) is int:
+        lonlathgt.append(str(lonlat[2])+'m')
+    pos = me.position('WGS84', *lonlathgt)
+    me.doframe(pos)
+    epoch = me.epoch('UTC', quantity(dattim_str))
+    lmst = me.measure(epoch, 'LMST')
+    fracday = lmst['m0']['value'] % 1
+    # hms_str = quantity(str(fracday)+'d').to_time().formatted()
+    lsmt_timdel = datetime.timedelta(days=fracday)
+    return lsmt_timdel
