@@ -4,6 +4,32 @@ import numpy as np
 from casacore.measures import measures
 from casacore.quanta import quantity
 
+def lonlat2flt(geopos):
+    """\
+    Canonicalize geodetic datum in spherical coords to float values
+
+    Parameters
+    ----------
+    geopos : tuple
+        (lon, lat, hgt) where lon, lat and hgt can be strings, the first two
+        ending with 'deg' and the last ending with 'm' or they can be floats
+        already with angles in units of degrees and the height in units meters.
+
+    Returns
+    -------
+    geopos_flt : tuple
+        (lon, lat, hgt) in which all entries are floats.
+    """
+    (lon, lat, hgt) = geopos
+    if type(lon) == str and lon.endswith('deg'):
+        lon = float(lon.rstrip('deg'))
+    if type(lat) == str and lat.endswith('deg'):
+        lat = float(lat.rstrip('deg'))
+    if type(hgt) == str and hgt.endswith('m'):
+        hgt = float(hgt.rstrip('m'))
+    geopos_flt = (lon, lat, hgt)
+    return geopos_flt
+
 
 def ITRF2lonlat(x_itrf, y_itrf, z_itrf):
     """\
