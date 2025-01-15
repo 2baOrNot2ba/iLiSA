@@ -126,21 +126,23 @@ class LScan:
                 self.scanresult['acc'].set_caltabinfos([])
                 self.scanresult['acc'].set_scanrecparms(
                     'acc', freqsetup.freq_arg, duration_tot,
-                    self.pointing_spec['direction'], 1.0)
+                    self.pointing_spec['direction'], 1.0, file_dur=512.0)
             if bsx_stat:
                 self.scanresult['rec'].append('bsx')
                 self.scanresult['bsx'] = data_io.ScanRecInfo(
                         self.stndrv.get_stnid(), caltabinfos, stndrv.mockrun)
                 self.scanresult['bsx'].set_scanrecparms(
                     bsx_stat, freqsetup.freq_arg, duration_tot,
-                    self.pointing_spec['direction'], integration)
+                    self.pointing_spec['direction'], integration,
+                    file_dur=file_dur)
             if bfs:
                 self.scanresult['rec'].append('bfs')
                 self.scanresult['bfs'] = data_io.ScanRecInfo(
                         self.stndrv.get_stnid(), caltabinfos, stndrv.mockrun)
                 self.scanresult['bfs'].set_scanrecparms(
                     'bfs', freqsetup.freq_arg, duration_tot,
-                    self.pointing_spec['direction'], None)
+                    self.pointing_spec['direction'], integration=None,
+                    file_dur=file_dur)
 
         self.ldatinfos = []
         self.ldatinfos_acc = []
@@ -211,7 +213,7 @@ class LScan:
                             # so with no BSX have to throttle it...
                             _LOGGER.info("waiting {}s for BFS".format(bfs_wait))
                             time.sleep(bfs_wait)
-                            if bfs_wait==file_dur:
+                            if bfs_wait == file_dur:
                                 bfs_wait = 1
                     if self.acc:
                         if not acc_yield:

@@ -573,7 +573,7 @@ class ScanRecInfo(object):
 
     def set_scanrecparms(self, ldat_type, freqspec, duration,
                          direction="None,None,None", integration=1.0,
-                         antset=''):
+                         antset='', file_dur=None):
         """
         Set ScanRecInfo's dict attribute `scanrecparms` parameters
 
@@ -591,6 +591,9 @@ class ScanRecInfo(object):
             Integration in seconds.
         antset: str
             Antenna-set name.
+        file_dur: float
+            Duration in seconds until a new file is created for scan data.
+            If None or 0, then only one file will be created.
         """
         self.scanrecparms['datatype'] = ldat_type
         self.scanrecparms['freqspec'] = freqspec
@@ -599,6 +602,7 @@ class ScanRecInfo(object):
         self.scanrecparms['integration'] = integration
         if antset:
             self.scanrecparms['antennaset'] = antset
+        self.scanrecparms['file_dur'] = file_dur
 
     def set_caltabinfos(self, caltabinfos):
         self.caltabinfos = caltabinfos
