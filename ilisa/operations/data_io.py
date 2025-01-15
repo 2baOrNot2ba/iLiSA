@@ -2456,11 +2456,18 @@ Output data-formats:
             * 'positions': Absolute ITRF positions of layout in meters
             * 'start_datetime': Start of observation as UTC (numpy.datetime64).
 """)
+    parser.add_argument('-k', '--fileparts', action='store_true',
+                        help="Keep file partitions")
     args = parser.parse_args()
     data_arrs, coords, metadata = export_ldat(args.dataff)
     if args.dataformat == 'npz':
-        numpy.savez_compressed(metadata['ID_scanrec'], *data_arrs, **coords,
-                               **metadata)
+        if args.fileparts:
+            numpy.savez_compressed(metadata['ID_scanrec'], *data_arrs, **coords,
+                                   **metadata)
+        else:
+            numpy.savez_compressed(metadata['ID_scanrec'],
+                                   data_arrs=numpy.asarray(data_arrs), **coords,
+                                   **metadata)
 
 
 def cli_view():
