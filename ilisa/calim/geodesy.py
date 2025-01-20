@@ -57,7 +57,7 @@ def ITRF2lonlat(x_itrf, y_itrf, z_itrf):
     --------
     >>> from ilisa.calim.geodesy import ITRF2lonlat
     >>> ITRF2lonlat(3370286.88256, 712053.913283, 5349991.484)
-    11.929671631184405, 57.39876274671682, 41.63424105290324)
+    11.929671631184405, 57.39876274671682, 41.63424105290324
     """
     dm = measures()
     posstr = ["{}m".format(crd) for crd in (x_itrf, y_itrf, z_itrf)]
@@ -120,7 +120,8 @@ def utcpos2lmst(utctim, lonlat):
 
     Returns
     -------
-    lsmt_timdel : tuple
+    lmst_timdel : float
+        Local mean sidereal seconds of sidereal day.
     """
     # Convert utctim instant to ISO datetime str
     if type(utctim) is datetime.datetime:
@@ -137,11 +138,13 @@ def utcpos2lmst(utctim, lonlat):
         lonlathgt.append(_e)
     if type(lonlat[2]) is float or type(lonlat[2]) is int:
         lonlathgt.append(str(lonlat[2])+'m')
+    else:
+        lonlathgt.append(lonlat[2])
     pos = me.position('WGS84', *lonlathgt)
     me.doframe(pos)
     epoch = me.epoch('UTC', quantity(dattim_str))
     lmst = me.measure(epoch, 'LMST')
     fracday = lmst['m0']['value'] % 1
     # hms_str = quantity(str(fracday)+'d').to_time().formatted()
-    lsmt_timdel = datetime.timedelta(days=fracday)
-    return lsmt_timdel
+    lmst_timdel = datetime.timedelta(days=fracday)
+    return lmst_timdel.total_seconds()
