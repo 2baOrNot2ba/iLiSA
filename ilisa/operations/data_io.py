@@ -2344,7 +2344,7 @@ def export_ldat(dataff):
         file number ('filenr'). Array indices depends on
         lofar data-type:
           'bst': ['sampnr', 'sbnr', 'polpolnr']
-          'sst': ['sampnr', 'sbnr', 'antnr', 'polnr'] | ['sampnr', 'sbnr', 'rcunr']
+          'sst': ['sampnr', 'sbnr', 'polnr', 'antnr']
           'xst' | 'acc': ['sampnr', 'polnr', 'polnr', 'antnr', antnr']
     coords : dict
         The coordinates of the data_arrs:
@@ -2408,7 +2408,7 @@ def export_ldat(dataff):
     if lofardatatype == 'bst' or lofardatatype == 'sst':
         data_arr = numpy.moveaxis(data_arr, 0, -1)
         if lofardatatype == 'sst':
-            data_arr = data_arr.reshape(*data_arr.shape[:-1], -1, 2)
+            data_arr = data_arr.reshape(*data_arr.shape[:-1], 2, -1)
         station_id = obsinfo['station_id']
         positions, _names, _xyzlbls \
             = antennafieldlib.get_tier_layouts(station_id,
@@ -2422,7 +2422,7 @@ def export_ldat(dataff):
         # If all frequencies are the same then use only that frequency
         # (mainly for single freq XST)
         freqs = numpy.take(freqs, 0)
-    coords = {'delta_secs': delta_secs,
+    coords = {'delta_time': delta_secs,
               'frequencies': freqs}
     metadata = {'version': '1.0',
                 'ID_scanrec': id_scanrec,
@@ -2454,7 +2454,7 @@ Output data-formats:
         The npz data consists of observational meta-data
         and data paylooad. In particular:
             * 'arr_'+<arr_nr>: Observed data split into indexed chunks                    
-            * 'delta_secs': Time delta from start of sample in seconds
+            * 'delta_time': Time delta from start of sample in seconds
             * 'frequencies': frequencies in Hertz
             * 'ID_scanrec': the ID of observation
             * 'station': Name of station
