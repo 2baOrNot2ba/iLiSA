@@ -2408,7 +2408,7 @@ def export_ldat(dataff):
     if lofardatatype == 'bst' or lofardatatype == 'sst':
         data_arr = numpy.moveaxis(data_arr, 0, -1)
         if lofardatatype == 'sst':
-            data_arr = data_arr.reshape(*data_arr.shape[:-1], 2, -1)
+            data_arr = data_arr.reshape(*data_arr.shape[:-1], 2, -1, order='F')
         station_id = obsinfo['station_id']
         positions, _names, _xyzlbls \
             = antennafieldlib.get_tier_layouts(station_id,
