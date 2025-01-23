@@ -15,6 +15,7 @@ the corresponding datatype.
 """
 import os
 import shutil
+import sys
 import time
 import datetime
 
@@ -2377,11 +2378,16 @@ def export_ldat(dataff):
             Set to 'LOFAR'.
         'pointing' : str
             String format of 3-tuple of pointing direction: '<azi>,<elv>,<ref>'.
+
+    Raises
+    ------
+    TypeError
+        If file is not a LOFAR data file.
     """
     lofardatatype = datafolder_type(dataff)
     if not lofardatatype:
-        raise TypeError('Cannot export unknow LOFAR data-type: {}'
-                        .format(lofardatatype))
+        raise TypeError("Path '{}' is not a LOFAR data file-folder."
+                        .format(dataff))
     id_scanrec = os.path.basename(os.path.normpath(dataff))
     stn_rot = None
     if lofardatatype == 'bst':
@@ -2465,7 +2471,11 @@ Output data-formats:
     parser.add_argument('-k', '--fileparts', action='store_true',
                         help="Keep file partitions")
     args = parser.parse_args()
-    data_arrs, coords, metadata = export_ldat(args.dataff)
+    try:
+        data_arrs, coords, metadata = export_ldat(args.dataff)
+    except TypeError as err:
+        print(err)
+        sys.exit()
     if args.dataformat == 'npz':
         if args.fileparts:
             numpy.savez_compressed(metadata['ID_scanrec'], *data_arrs, **coords,
