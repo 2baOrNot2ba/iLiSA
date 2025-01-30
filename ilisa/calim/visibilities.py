@@ -16,6 +16,130 @@ if canuse_dreambeam:
     from dreambeam.polarimetry import cov_lin2cir, convertxy2stokes
 
 
+class VisDatasetFile:
+    """"""
+    _axes_all = ('filenr',         # 0
+                 'delta_time',     # 1
+                 'frequencies',    # 2
+                 'polarization1',  # 3
+                 'polarization2',  # 4
+                 'antenna1',       # 5
+                 'antenna2'        # 6
+                 )
+    _axes_gen = {'full': _axes_all,
+                 'autocorr': (*_axes_all[0:4], _axes_all[5])}
+    coord_names = (_axes_all[1], _axes_all[2])
+
+    def __init__(self, *data_files, coords=None, attrs=None, vis_type='full'):
+        self.values = data_files
+        self.delta_time = coords[self.coord_names[0]]
+        self.frequencies = coords[self.coord_names[1]]
+        self.attrs = attrs
+        dt_shape = list(self.delta_time.shape)
+        if len(dt_shape) > 1:
+            self.nrfile = dt_shape.pop(0)
+        self.nrsmpsfile = dt_shape.pop(0)
+        self.vis_type = vis_type
+        self.dims = VisDatasetFile._axes_gen[self.vis_type]
+
+    @classmethod
+    def load_from_np(cls, npfile):
+        ds_np = np.load(npfile, allow_pickle=True)
+        arr_names = tuple(filter(lambda s: s.startswith('arr_'), ds_np.files))
+        data_arrs = (ds_np[en] for en in arr_names)
+        coords = {nm: ds_np[nm] for nm in VisDatasetFile.coord_names}
+        attrs = {k: ds_np[k] for k in ds_np.files
+                 if k not in arr_names+VisDatasetFile.coord_names}
+        vis_type = 'full'
+        if attrs['telescope'] == 'LOFAR' and attrs['datatype'] == 'sst':
+            vis_type = 'autocorr'
+        return cls(*data_arrs, coords=coords, attrs=attrs, vis_type=vis_type)
+
+    def save_to_np(self, filename):
+            np.savez_compressed(filename, *self.values, **self._get_coords(),
+                                **self.attrs)
+
+    def __len__(self):
+        """Returns number of temporal samples"""
+        return self.nrfile * self.nrsmpsfile
+
+    def __deepcopy__(self):
+        new_vis = VisDatasetFile(*self.values, coords=self._get_coords(),
+                             attrs=self.attrs, vis_type=self.vis_type)
+        return new_vis
+
+    def _get_coords(self):
+        coords = {self.coord_names[0]: self.delta_time,
+                  self.coord_names[1]: self.frequencies}
+        return coords
+
+    def shape(self, squashed=False):
+        shape = (self.nrfile,) + self.values[0].shape
+        if squashed:
+            shape = (self.__len__(), *self.values[0].shape[1:])
+        return shape
+
+    def get_values(self, squash=True):
+        values = np.asarray(self.values).reshape(self.shape(squash))
+        return values
+
+    def refile(self, nrfile=1):
+        new_vd = self.__deepcopy__()
+        new_vd.values = tuple(new_vd.values.reshape(nrfile, -1, *self.shape()[2:]))
+        new_vd.nrfile = nrfile
+        new_vd.nrsmpsfile = self.__len__() // nrfile
+        # Coords
+        new_vd.delta_time = new_vd.delta_time.reshape(new_vd.nrfile, new_vd.nrsmpsfile)
+        if new_vd.frequencies.shape > 1:
+            new_vd.frequencies = new_vd.frequencies.reshape(new_vd.nrfile, new_vd.nrsmpsfile)
+        return new_vd
+
+    def flagondim(self, indices, dim):
+        """Flag indices on a dimension"""
+        if self.attrs.get('flagaxes') is None:
+            self.attrs['flagaxes'] = {}
+        self.attrs['flagaxes'][dim] = indices
+
+    def flag2weights(self, dims=None, squash=True):
+        """Get Weights as per Flags and Axes"""
+        flagaxes = self.attrs.get('flagaxes', np.array({})).item()
+        wvec_axes = [np.ones(1)] * len(self.dims)
+        for dim in dims:
+            flagaxis = flagaxes.get(dim, [])
+            if dim == 'delta_time':
+                # Map across file axis
+                wvv = np.tensordot(np.ones(self.shape()[0]),
+                                   np.ones(self.shape()[1]), axes=0)
+                if flagaxis != []:
+                    idxs = np.unravel_index(flagaxis, wvv.shape)
+                    wvv[idxs] = 0.0
+                wvec_axes[0] = wvv
+                wvec_axes[1] = None
+            else:
+                _axis = self.dims.index[dim]
+                nrcmp = self.shape()[_axis]
+                wv = np.ones(nrcmp)
+                if flagaxis != []:
+                    wv[flagaxis] = 0.0
+                wvec_axes[_axis] = wv
+        wvec_axes = list(filter(lambda x: x is not None, wvec_axes))
+        # Compute einsum index expression
+        p = 105
+        idxxpr = []
+        for b in (np.ndim(wv) for wv in wvec_axes):
+            l = ''
+            for bi in range(b):
+                c = chr(p)
+                l += c
+                p += 1
+            idxxpr.append(l)
+        idxxpr = ','.join(idxxpr)
+        w = np.einsum(idxxpr, *wvec_axes)
+        if squash:
+            w = w.reshape(w.shape[0]*w.shape[1], *w.shape[2:])
+        return w
+
+
 def fiducial_visibility(nrelems=2):
     off_diag_val = 0.5
     vis = np.ones((nrelems, nrelems), dtype=complex)
