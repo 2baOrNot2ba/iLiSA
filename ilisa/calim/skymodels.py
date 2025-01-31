@@ -536,6 +536,70 @@ def skymodel_visibility(t, stn_pos, freq, stn_antpos, gs_model, ant_model=''):
     return vis_xx, vis_xy, vis_yx, vis_yy
 
 
+def lightcurve_bl(freq, gs_model_obj, t_s=None, start_dattim=None,
+                  beampat0=1, beampat1=None):
+    """\
+    Baseline lightcurve
+
+    Parameters
+    ----------
+    freq: float
+        Frequency in Hertz.
+    gs_model_obj : GlobalDiffuseSkyModel
+        The global diffuse skymodel object to use.
+    t_s: array
+        Sample times.
+    start_dattim: datetime
+        Date-time of first sample.
+    beampat0: array
+        2D array of float representing the beampattern of
+    beampat1: array
+        2D array of float representing the beampattern.
+
+    Returns
+    -------
+    lmsts: array
+        Local sidereal times of samples.
+    lightcurve: array
+        The light-curve values at sample times.
+    start_dat00: datetime
+        The python datetime.datetime for the start date with time set to
+        midnight.
+    """
+    geopos = gs_model_obj.geopos
+    if t_s is None:
+        t_s = np.arange(24.)*60*60
+    # Convert `start_dattim` instant to python `datetime`
+    if type(start_dattim) is str:
+        start_dattim = datetime.datetime.strptime(start_dattim,
+                                                  '%Y-%m-%dT%H:%M:%S')
+    elif type(start_dattim) == np.ndarray:
+        start_dattim = datetime64_to_datetime(start_dattim)
+    if beampat1 is None:
+        beampat1 = beampat0
+    if type(beampat0) == np.ndarray:
+        beampow = np.einsum('ij...,kj...->ik...', beampat0, np.conj(beampat1))
+    lmsts = []
+    lightcurv00 = []
+    lightcurv11 = []
+    for dt in t_s:
+        print('Simulating timestep ', dt/t_s[1], '/', t_s[-1]/t_s[1], end='\r')
+        dattim = start_dattim + datetime.timedelta(seconds=int(dt))
+        lst = utcpos2lmst(dattim, geopos)
+        img0 = gs_model_obj.get_image(dattim, freq)
+        powtot00 = 1 / (4 * np.pi) * integrate_lm_image(beampow[0, 0] * img0/2)
+        powtot11 = 1 / (4 * np.pi) * integrate_lm_image(beampow[1, 1] * img0/2)
+        lmsts.append(lst)
+        lightcurv00.append(powtot00)
+        lightcurv11.append(powtot11)
+    print()
+    # From start_dattim compute start_dat00 which is the datetime for the start
+    # date with time set to midnight
+    start_dat00 = datetime.datetime.combine(start_dattim.date(), datetime.time())
+    return np.asarray(lmsts), np.asarray(lightcurv00), np.asarray(lightcurv11),\
+           start_dat00
+
+
 def datetime64_to_datetime(dattim64):
     """\
     Convert datetime64 to python datetime
