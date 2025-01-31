@@ -4,6 +4,7 @@ import os.path
 import shutil
 import warnings
 import datetime
+from zipfile import ZipFile
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -18,10 +19,12 @@ from pygdsm.base_observer import BaseObserver
 
 from casacore.measures import measures
 
-from ilisa.antennameta.export import ITRF2lonlat
+from ilisa.calim.geodesy import ITRF2lonlat, utcpos2lmst, lonlat2flt
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
-from .imaging import plotskyimage, imggrid_res, fiducial_image
+from . import USER_DATA_DIR
+from .imaging import plotskyimage, imggrid_res, fiducial_image,\
+    integrate_lm_image
 from .visibilities import cov_polidx2flat, calc_uvw, rot2uv,\
     point_source_vis2d, layout_abs2rel
 from .beam import dualdipole45_cov_patt
@@ -70,7 +73,7 @@ def globaldiffuseskymodel(dattim, geopos, freq, gs_model='LFSM', imsize=200):
     Returns
     -------
     img: array_like
-        The generated sky model image
+        The image of the Stokes I sky model.
     """
     if freq < 10e6:
         warnings.warn('Freq =< 10 MHz, will use model for 10.1 MHz instead.')
@@ -134,6 +137,257 @@ def globaldiffuseskymodel(dattim, geopos, freq, gs_model='LFSM', imsize=200):
     return img
 
 
+class HemiDiffuseSkyModel:
+    # Sky Model Image lookup-tables:
+    IMAGEMODELTABLE_SUBDIR = 'siddaymodcubes'
+    IMAGECUBE_FILE = 'imagecubes.npy'
+    DELTASEC_FILE = 'delta_secs.npy'
+    FREQS_FILE = 'freqs.npy'
+    GEOPOS_FILE = 'geopos.npy'
+
+    def __init__(self, geopos, gs_model='LFSM', imsize=128):
+        """\
+        Generate hemisphere sky model image based on GSM, epoch & geolocation
+
+        Parameters
+        ----------
+        geopos: tuple or str
+            If tuple:
+                Longitude, latitude, elevation tuple of geographic position for model.
+                This is a static variable and if it is equal to previous call, it will
+                reuse previous instance of GDSM with same geopos, otherwise a new
+                instance is created. If None, the gdsm model obj is renewed and None
+                is returned.
+            If str:
+                The filename of the lookup table to use.
+        gs_model: str
+            ID of global sky model
+        imsize: int
+            Number of pixels along one dimension of image
+        """
+        self.geopos = geopos
+        self.gs_model = gs_model
+        self.imsize = imsize
+        self._uselookuptab = False
+        if type(geopos) == str:
+            # Lookup-table used when geopos is name of lookup-table file
+            # Initialize lookup table (in particular self.tab_imagecube):
+            self._uselookuptab = True
+            cwd = os.getcwd()
+            os.chdir(os.path.join(USER_DATA_DIR,
+                                  HemiDiffuseSkyModel.IMAGEMODELTABLE_SUBDIR))
+            print("Initializing image lookup tables")
+            with ZipFile(geopos+'.npz') as _zf:
+                _zf.extractall()
+            self.tab_imagecube = np.load(HemiDiffuseSkyModel.IMAGECUBE_FILE)
+            self.freqs = np.load(HemiDiffuseSkyModel.FREQS_FILE)
+            self.deltasecs = np.load(HemiDiffuseSkyModel.DELTASEC_FILE)
+            self.geopos = tuple(
+                np.load(HemiDiffuseSkyModel.GEOPOS_FILE).tolist())
+            os.chdir(cwd)
+        else:
+            # When geopos is tuple, calculate directly from model
+            # Initialize calc model object (self.gsm_obs)
+            gs_model = self.gs_model
+            (longitude, latitude, elevation) = self.geopos
+            include_cmb = True
+            res = 'hi'
+            freq_unit = 'Hz'  # ('Hz', 'MHz', 'GHz')
+            # `data_unit` internal to PyGDSM depends on model:
+            #       'K' for LFSM, Haslam, GSM08;
+            #       'MJysr' for GSM16 (but provides 2 conversion functions to K).
+            # so for conformity use default 'K' and then convert afterwards
+            if gs_model == 'LFSM':
+                gsm_obs = LFSMObserver()
+            elif gs_model == 'Haslam':
+                gsm_obs = HaslamObserver()
+            elif gs_model == 'GSM' or gs_model == 'GSM2008' or gs_model == 'GSM08':
+                # gsm = GlobalSkyModel08(freq_unit=freq_unit,
+                #                     basemap='haslam',  # 'haslam', 'wmap' or '5deg'
+                #                     interpolation='pchip'  # 'cubic' or 'pchip'
+                #                     )
+                gsm_obs = GSMObserver08()
+                basemap = 'haslam'
+                if res != 'hi':
+                    basemap = '5deg'
+                gsm_obs.gsm.basemap = basemap
+            else:
+                # gsm=GlobalSkyModel16(freq_unit=freq_unit,
+                #                     data_unit='MJysr',  # ('TCMB','MJysr','TRJ')
+                #                     resolution='hi',  # ('hi', 'lo')
+                #                     theta_rot=0, phi_rot=0)
+                gsm_obs = GSMObserver16()
+                gsm_obs.gsm.resolution = res
+                gsm_obs.gsm.data_unit = 'TCMB'
+            # NOTE: CommonGSMObserver() is my addition to PyGDSM
+            # gsm_obs = CommonGSMObs(gsm)
+            gsm_obs.gsm.freq_unit = freq_unit
+            gsm_obs.gsm.include_cmb = include_cmb
+            gsm_obs.lon = str(longitude)
+            gsm_obs.lat = str(latitude)
+            gsm_obs.elev = elevation
+            # Store gsm_obs as function attribute to make it static
+            self.gsm_obs = gsm_obs
+
+    def generate_siddaymodcubes(self, freqs, nrtime=144, filename=None):
+        """\
+        Generate all possible sky model cubes for a location
+
+        Parameters
+        ----------
+        geopos : tuple
+            Geoposition tuple given as (lon, lat) or (lon, lat, hgt).
+        freqs : list
+            List of frequencies in Hz.
+        nrtime : int
+            Number of sidereal time samples.
+        filename : str
+            Basename of memmap file to output .
+
+        Returns
+        -------
+        allskies : array
+            Model direction-cosine cubes for all sidereal times (starting at
+            LMST 00:00:00). Array indices: [t_idx, freq_idx, l_idx, m_idx].
+            If `filename` is given, this array will be a memmapped array in file
+            named '<filename>.npy'.
+        """
+        from numpy.lib.format import open_memmap
+        gs_model = 'LFSM'
+        geopos_flt = lonlat2flt(self.geopos)
+        lon = geopos_flt[0]
+        # Use datetime 2000-01-01T17:17:17 UTC since it corresponds to 00:00:00 GMST
+        start_dattim_GM = datetime.datetime(2000, 1, 1, 17, 17, 17)
+        sid2ut = 365.24 / 366.24
+        start_dattim = start_dattim_GM - datetime.timedelta(days=lon / 360) * sid2ut
+        del_ts = np.arange(
+            nrtime) / nrtime * 24 * 60 * 60  # time since `start_dattim` in s
+        nrfreq = len(freqs)
+        nrdel_ts = len(del_ts)
+        if filename:
+            cwd = os.getcwd()
+            filesfolder = os.path.join(USER_DATA_DIR, HemiDiffuseSkyModel.IMAGEMODELTABLE_SUBDIR)
+            os.chdir(filesfolder)
+            imcub_file = HemiDiffuseSkyModel.IMAGECUBE_FILE
+            # imcub = np.memmap(imcub_file+'.mmap', dtype='float32', mode='w+',
+            #                  shape=(nrt_s, nrfreq, imsize, imsize))
+            imcub = open_memmap(imcub_file + '', dtype='float32', mode='w+',
+                                shape=(nrdel_ts, nrfreq, self.imsize, self.imsize))
+        else:
+            imcub = np.zeros((nrdel_ts, nrfreq, self.imsize, self.imsize))
+        for freq_idx in range(nrfreq):
+            print('frq', freq_idx, '/', nrfreq)
+            for t_idx in range(nrdel_ts):
+                print('Simulating timestep ', t_idx, '/', nrdel_ts, end='\r')
+                dattim = start_dattim + datetime.timedelta(seconds=int(del_ts[t_idx]))
+                # img0 = globaldiffuseskymodel_old(dattim, geopos_flt, freqs[freq_idx], gs_model=gs_model, imsize=imsize)
+                img0 = self.get_image(dattim, freqs[freq_idx])
+                # del globaldiffuseskymodel.geopos
+                imcub[t_idx, freq_idx, ...] = img0
+            print()
+        if filename:
+            deltasecs_file = HemiDiffuseSkyModel.DELTASEC_FILE
+            np.save(deltasecs_file, del_ts)
+            freqs_file = HemiDiffuseSkyModel.FREQS_FILE
+            np.save(freqs_file, freqs)
+            geopos_file = HemiDiffuseSkyModel.GEOPOS_FILE
+            np.save(geopos_file, self.geopos)
+            imcub.flush()
+            with ZipFile(filename + '.npz', 'w') as z:
+                z.write(imcub_file)
+                z.write(deltasecs_file)
+                z.write(freqs_file)
+                z.write(geopos_file)
+            os.remove(imcub_file)
+            os.remove(deltasecs_file)
+            os.remove(freqs_file)
+            os.remove(geopos_file)
+            os.chdir(cwd)
+        return imcub
+
+    def get_image(self, dattim, freq):
+        """
+        Get Stokes I model image for date-time and frequency
+
+        Parameters
+        ----------
+        dattim: datetime
+            Epoch for model sky
+        freq: float
+            Frequency for which model should be generated
+
+        Returns
+        -------
+        img0: array_like
+            The image of the Stokes I sky model.
+        """
+        if freq < 10e6:
+            warnings.warn('Freq =< 10 MHz, will use model for 10.1 MHz instead.')
+            freq = 10.1e6
+
+        if self._uselookuptab:
+            img0 = self._image_lookup(dattim, freq)
+        else:
+            # Set attrs that could not be set but now freq is specified:
+            if (type(self.gsm_obs) == GSMObserver08
+                    and self.gsm_obs.gsm.basemap != '5deg') and freq > 1e6:
+                self.gsm_obs.gsm.basemap = 'wmap'
+            img0 = self._image_calc(dattim, freq)
+        return img0
+
+    def _image_lookup(self, dattim, freq):
+        """\
+        """
+        frq_idx = (np.abs(self.freqs - freq)).argmin()
+        geopos_str = (str(self.geopos[0]) + 'deg', str(self.geopos[1]) + 'deg',
+                      str(self.geopos[2]) + 'm')
+        lmst_sec = utcpos2lmst(dattim, geopos_str)
+        # Using nearest-neighbor interpolation
+        # so find lookup time closest to requested time
+        t_idx = (np.abs(self.deltasecs - lmst_sec)).argmin()
+        img0 = self.tab_imagecube[t_idx, frq_idx, :, :].squeeze()
+        return img0
+
+    def _image_calc(self, dattim ,freq):
+        """\
+        """
+        gsm_obs = self.gsm_obs
+        gsm_obs.date = dattim
+        gsm_obs.observed_sky = None  #
+        try:
+            gsm_map = gsm_obs.generate(freq)
+        except RuntimeError as e:
+            raise ValueError(e)
+        # Convert to data_unit
+        data_unit = 'K'  # ('K' default, 'TCMB', 'MJysr', 'TRJ')
+        convert_data_unit = 1.
+        if data_unit == 'MJysr':
+            convert_data_unit = 1.0 / K_CMB2MJysr(1., freq)
+        gsm_map *= convert_data_unit
+        img = hp.orthview(gsm_map, half_sky=True, return_projected_map=True,
+                          rot=(0, 0), xsize=self.imsize, norm=None, coord=['C'],
+                          flip='geo')  # Use 'geo' since plotskyimage() assumes this
+        plt.close(plt.gcf())  # close figure generated by orthview()
+        img = np.ma.getdata(img)
+        img[img == -np.inf] = 0.0
+        return img
+
+    def __del__(self):
+        if self._uselookuptab:
+            print('CLEANing up')
+            # Close lookup-table model since geopos previously was str but now null
+            del self.geopos  # This will trigger intialization on next call
+            cwd = os.getcwd()
+            os.chdir(os.path.join(USER_DATA_DIR, HemiDiffuseSkyModel.IMAGEMODELTABLE_SUBDIR))
+            os.remove(HemiDiffuseSkyModel.IMAGECUBE_FILE)
+            os.remove(HemiDiffuseSkyModel.FREQS_FILE)
+            os.remove(HemiDiffuseSkyModel.DELTASEC_FILE)
+            os.remove(HemiDiffuseSkyModel.GEOPOS_FILE)
+            os.chdir(cwd)
+            # Remove static variables, at least the big ones
+            del self.tab_imagecube
+
+
 def plot_gsm_for_obsdata(cvcobj, filenr=0, sampnr=0, gs_model='LFSM',
                          imsize=200):
     stnid = cvcobj.scanrecinfo.get_stnid()
@@ -146,8 +400,8 @@ def plot_gsm_for_obsdata(cvcobj, filenr=0, sampnr=0, gs_model='LFSM',
                                       cvcobj.stn_pos[1, 0],
                                       cvcobj.stn_pos[2, 0])
             skyimg_model = globaldiffuseskymodel(dattim, (lon, lat, h),
-                                                     freq, gs_model=gs_model,
-                                                     imsize=imsize)
+                                                 freq, gs_model=gs_model,
+                                                 imsize=imsize)
             l, m = np.linspace(-1, 1, imsize), np.linspace(-1, 1, imsize)
             ll, mm = np.meshgrid(l, m)
             img_zero = np.zeros_like(skyimg_model, dtype=float)
