@@ -94,11 +94,25 @@ class VisDatasetFile:
             new_vd.frequencies = new_vd.frequencies.reshape(new_vd.nrfile, new_vd.nrsmpsfile)
         return new_vd
 
-    def flagondim(self, indices, dim):
-        """Flag indices on a dimension"""
+    def flagondim(self, dim=None, indices=None):
+        """Flag indices on a dimension
+
+        Parameters
+        ----------
+        dim : str
+            Name of the dimension to add flags too.
+        indices : list of ints
+            List of indices along dimension `dim` to flag.
+        """
         if self.attrs.get('flagaxes') is None:
             self.attrs['flagaxes'] = {}
-        self.attrs['flagaxes'][dim] = indices
+        if dim is not None:
+            if indices is not None:
+                self.attrs['flagaxes'][dim] = indices
+            else:
+                del self.attrs['flagaxes'][dim]
+        else:
+            del self.attrs['flagaxes']
 
     def flag2weights(self, dims=None, squash=True):
         """Get Weights as per Flags and Axes"""
