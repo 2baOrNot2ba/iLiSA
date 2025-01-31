@@ -553,6 +553,78 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy', nitr=100):
     return gainsolutions, noisesolutions
 
 
+def autocorr_gain_solve(vis_uncal, hdsm_file=None):
+    """\
+    Solve for gains using autocorrelation over sidereal day
+
+    This function solves r = g*m + n, with r the measured autocorrelations,
+    m the model sky powers, g the power gains and n the noise power.
+    Note that to apply the calibration to measured power data, one needs to
+    invert this formula, so r_cal = 1/g*r-n/g.
+
+    Parameters
+    ----------
+    vis_uncal : VisDataset
+        The uncalibrated visibilities to be used to find gains and noise.
+    hsdm_file: str
+        Hemispheric diffuse model file name.
+
+    Returns
+    -------
+    powgains : array
+        Power gain solutions.
+    pownoise : array
+        Noise power solutions.
+    """
+    if vis_uncal.attrs['datatype'] != 'sst':
+        # Extract auto-correlations from XST
+        raise NotImplementedError(vis_uncal.attrs['datatype'])
+    acc = vis_uncal.get_values(squash=True)
+    #acc = vis_uncal.values.reshape(len(vis_uncal), *vis_uncal.shape()[2:])
+    nrant = acc.shape[-1]
+    nrsb = acc.shape[1]
+    if not hdsm_file:
+        abs_positions = vis_uncal.attrs['positions']
+        centroid, rel_pos  = visibilities.layout_abs2rel(abs_positions)
+        geopos = ITRF2lonlat(*centroid)
+    else:
+        geopos = hdsm_file
+    hdsm = skymodels.HemiDiffuseSkyModel(geopos)
+    del_ts = vis_uncal.delta_time.flatten()
+    ll, mm = imaging.lmgrid(hdsm.imsize)
+    bmjones = beam.horizontaldipoles_jones(ll, mm, rotzen=np.deg2rad(-45.0))
+    powgains = np.zeros((nrsb, 2, nrant))
+    pownoise = np.zeros_like(powgains)
+    lc_mod = np.zeros((len(del_ts), nrsb, 2))
+    relerr = np.zeros((nrsb, 2, nrant))
+    # For each s and pol, solve eq.:
+    #     w_isp .* [lcmod_isp, 1_isp] * [G_spn, N_spn] = w_isp .* lcmes_ispn
+    w = np.diag(vis_uncal.flag2weights(['delta_time']).squeeze().flatten())
+    for sb in range(nrsb):
+        print('On subband ', sb, '/', nrsb)
+        freq = vis_uncal.frequencies[sb]
+        lsts, lc_mod_sb_XX, lc_mod_sb_YY, dat00 = \
+            skymodels.lightcurve_bl(freq, hdsm, del_ts,
+                                    vis_uncal.attrs['start_datetime'], bmjones)
+        lc_mod[:, sb, 0] = lc_mod_sb_XX
+        lc_mod[:, sb, 1] = lc_mod_sb_YY
+        idx_lsts = np.argsort(lsts)
+        for pol in range(2):
+            # Solve lin eq a*x=b for XX and YY polarizations, where
+            a = np.vstack([lc_mod[idx_lsts, sb, pol], np.ones(len(idx_lsts))]).T
+            b = acc[idx_lsts, sb, pol, :].squeeze()
+            lsq_res = np.linalg.lstsq(w @ a, w @ b)
+            powgains[sb, pol, :] = lsq_res[0][0, :]
+            pownoise[sb, pol, :] = lsq_res[0][1, :]
+            # Calculate rel.err. of solutions as
+            lc_cal = (b - pownoise[sb, pol, :]) * (1 / powgains[sb, pol, :])
+            relerr[sb, pol, :] = np.linalg.norm(
+                lc_mod[:, sb, pol][..., np.newaxis] - lc_cal, axis=0
+            ) / np.linalg.norm(lc_cal)
+    # Axes have form [sampnr, sbnr, polnr, antnr]
+    gains = numpy.emath.sqrt(powgains)
+    return gains, pownoise, lc_mod, relerr
+
 import argparse
 
 
