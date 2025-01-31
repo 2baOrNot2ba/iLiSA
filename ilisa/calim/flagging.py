@@ -65,11 +65,13 @@ class Flags:
                [False,  True, False, False],
                [False, False,  True, False],
                [False, False, False,  True]])
+        Inverse selection, i.e. select everything except what is specified by
+        the list (bar the first element, which should be None to trigger this):
         >>> Flags(nrelems=4).select_cov_mask([None, 0]).bl_mask
-        array([[ True,  True,  True,  True],
-               [ True, False, False, False],
-               [ True, False, False, False],
-               [ True, False, False, False]])
+        array([[False, False, False, False],
+               [False,  True,  True,  True],
+               [False,  True,  True,  True],
+               [False,  True,  True,  True]])
         """
         _invert = False
         maskmat = np.zeros(self.shape[-2:], dtype=bool)
