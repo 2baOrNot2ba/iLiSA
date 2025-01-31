@@ -3,12 +3,14 @@ import os
 import shutil
 
 import numpy
+import numpy as np
 from numpy.linalg import norm
 
+from ilisa.calim.geodesy import ITRF2lonlat
 from ilisa.antennameta import calibrationtables as calibrationtables
 from ilisa.operations import data_io as data_io, modeparms as modeparms
 from ilisa.operations.directions import _req_calsrc_proc
-from . import visibilities
+from . import visibilities, skymodels, beam, imaging
 
 
 def reldiffnorm(x, y):
@@ -122,23 +124,30 @@ def applycal_cvcfolder(cvcpath, caltabpath):
     cvcobj_cal.scanrecinfo.set_postcalibration(caltabpath, cvccalpath)
 
 
-def apply_gains_noises(vispol, gainspol, noises=None, variant='legacy'):
+def apply_gains_noises(vispol, gainspol, noises=None, variant='legacy',
+                       ac_vis=False):
     """
     Apply polarized biscalar gains to polarized visibility
 
     Parameters
     ----------
     vispol : array_like
-        Polarized visibility array. Its shape is (2,2,N,N)
+        Polarized visibility array. Its shape is (...,2,2,N,N), for pol-indexed,
+        full visibility matrix, or (...,2,N). for pol-indexed autocorrelations.
     gainspol : array_like
-        Polarized biscalar gains. g_pq has shape (2,N) where N is number of
+        Polarized biscalar gains. g_pq has shape (T,2,N) where N is number of
         dual-polarized elements.
     noises: array_like
-        Antenna noise powers. This vector represents diagonl of noise power
-        matrix.
-    variant: str
-        Which gain solution variant to use. Can be either: 'legacy' or 'inv'.
-
+        Antenna noise powers and has shape (T,2,N). This vector represents
+        the diagonal of the noise power matrix.
+    variant : {'legacy', 'inv'}
+        Which gain solution variant to use. 'legacy' uses formula
+            V^{est} = (1/g) * (r - n) * (1/g)^H
+        while 'inv' uses
+            V^{est} = g * r * g^H - n
+    ac_vis : bool, default=True
+        True if `vispol` array a pol-indexed autocorrelation, if False then
+        `vis_pol` is a normal, full visibility.
     Returns
     -------
     vispol_gapp : array_like
@@ -177,24 +186,32 @@ def apply_gains_noises(vispol, gainspol, noises=None, variant='legacy'):
              [0., 0., 0.],
              [0., 0., 0.]]]])
     """
-    if variant=='legacy':
-        gainspol = 1.0 / gainspol
-    #    (T,2,N),conj(T,2,N) => (T,2,1,N,1)*conj(T,1,2,1,N) => (T,2,2,N,N)
-    gg = (gainspol[...,    :, None,    :, None] * numpy.conj(
-          gainspol[..., None,    :, None,    :]))
-    vispol_gapp = gg * vispol
-    if noises is not None:
-        # Update vis estimate `V^{est}` by removing noise estimate `n` from
-        # measured vis `r`, i.e.
-        #    V^{est}=(1/g)*(r-n)*(1/g)^H  'legacy'
-        #    V^{est}=g*r*g^H-n            'inv'
+    if not ac_vis:
+        # Full visibility
         if variant=='legacy':
-            noises *= numpy.abs(gainspol)**2
-        # noises.shape == (T,2,N) so apply diag on axis 1 AND -1:
-        vispol_gapp -= numpy.apply_along_axis(numpy.diag, 1,
-            numpy.apply_along_axis(numpy.diag, -1, noises))
+            gainspol = 1.0 / gainspol
+        #    (T,2,N),conj(T,2,N) => (T,2,1,N,1)*conj(T,1,2,1,N) => (T,2,2,N,N)
+        gg = (gainspol[...,    :, None,    :, None] * numpy.conj(
+              gainspol[..., None,    :, None,    :]))
+        vispol_gapp = gg * vispol
+        if noises is not None:
+            # Update vis estimate `V^{est}` by removing noise estimate `n` from
+            # measured vis `r`, i.e.
+            #    V^{est}=(1/g)*(r-n)*(1/g)^H  'legacy'
+            #    V^{est}=g*r*g^H-n            'inv'
+            if variant=='legacy':
+                noises *= numpy.abs(gainspol)**2
+            # noises.shape == (T,2,N) so apply diag on axis 1 AND -1:
+            vispol_gapp -= numpy.apply_along_axis(numpy.diag, 1,
+                numpy.apply_along_axis(numpy.diag, -1, noises))
+    else:
+        # Auto-correlation visibility
+        gg = numpy.abs(gainspol) ** 2
+        if variant == 'legacy':
+            vispol_gapp = 1/gg * (vispol - noises)
+        else:  # 'inv'
+            vispol_gapp = gg * vispol - noises
     return vispol_gapp
-
 
 def apply_polgains_cvcfolder(dataff, variant='legacy'):
     """
