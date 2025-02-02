@@ -79,8 +79,11 @@ class VisDatasetFile:
             shape = (self.__len__(), *self.values[0].shape[1:])
         return shape
 
-    def get_values(self, squash=True):
+    def get_values(self, squash=True, wflagdims=None):
         values = np.asarray(self.values).reshape(self.shape(squash))
+        if wflagdims is not None:
+            wf = self.flag2weights(wflagdims, squash)
+            values *= wf
         return values
 
     def refile(self, nrfile=1):
@@ -94,7 +97,7 @@ class VisDatasetFile:
             new_vd.frequencies = new_vd.frequencies.reshape(new_vd.nrfile, new_vd.nrsmpsfile)
         return new_vd
 
-    def flagondim(self, dim=None, indices=None):
+    def _flagondim(self, dim=None, indices=None):
         """Flag indices on a dimension
 
         Parameters
@@ -114,11 +117,31 @@ class VisDatasetFile:
         else:
             del self.attrs['flagaxes']
 
-    def flag2weights(self, dims=None, squash=True):
+    def flagfromfile(self, filename):
+        """
+        Use flags specified in text file
+
+        Parameters
+        ----------
+        filename: str
+            Name of the flag file.
+        """
+        flagaxes = {}
+        with open(filename, 'r') as f:
+            for l in f.readlines():
+                if l.startswith('#'): continue
+                axis, indices_str = l.rstrip().split(' ', 1)
+                indices = eval('np.r_'+indices_str)
+                flagaxes[axis] = indices
+        for _axis in flagaxes:
+            self._flagondim(_axis, flagaxes[_axis])
+
     def flag2weights(self, dims=None, squashfile=True):
         """Get Weights as per Flags and Axes"""
         flagaxes = self.attrs.get('flagaxes', np.array({})).item()
         wvec_axes = [np.ones(1)] * len(self.dims)
+        if dims == '*':
+            dims = self.dims
         for dim in dims:
             flagaxis = flagaxes.get(dim, [])
             if dim == 'delta_time':
@@ -131,7 +154,9 @@ class VisDatasetFile:
                 wvec_axes[0] = wvv
                 wvec_axes[1] = None
             else:
-                _axis = self.dims.index[dim]
+                if dim == 'filenr' and squashfile:
+                    continue
+                _axis = self.dims.index(dim)
                 nrcmp = self.shape()[_axis]
                 wv = np.ones(nrcmp)
                 if flagaxis != []:
