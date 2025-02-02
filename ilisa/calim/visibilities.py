@@ -250,7 +250,7 @@ def cov_polidx2flat(cvcpol, parity_ord=True):
         [ 2,  6,  3,  7],
         [10, 14, 11, 15]]])
 
-    while if one the other hand the lower half is pol 0 and upper half pol 1:
+    while if on the other hand the lower half is pol 0 and upper half pol 1:
     >>> cov_polidx2flat(v0, parity_ord=False)
     array([[[ 0,  1,  4,  5],
             [ 2,  3,  6,  7],
@@ -328,7 +328,7 @@ def cov_flat2polidx(cvc, parity_ord=True):
           [12, 14]],
          [[ 5,  7],
           [13, 15]]]]])
-    while if one the other hand the lower half is pol 0 and upper half pol 1:
+    while if on the other hand the lower half is pol 0 and upper half pol 1:
     >>> cov_flat2polidx(v0, parity_ord=False)
     array([[[[[ 0,  1],
           [ 4,  5]],
@@ -509,9 +509,9 @@ def calc_uvw(obstime, phaseref, stn_pos, stn_antpos):
     uvw_xyz = np.zeros((nrant,3))
     # Set obstime
     if type(obstime) is np.datetime64:
-        obstime = datetime.datetime.utcfromtimestamp(
+        obstime = datetime.datetime.fromtimestamp(
             (obstime - np.datetime64('1970-01-01T00:00:00Z'))
-                  / np.timedelta64(1, 's'))
+                  / np.timedelta64(1, 's'), datetime.timezone.utc)
     when = obsme.epoch("UTC", obstime.isoformat('T'))
     obsme.doframe(when)
     for antnr in range(nrant):
