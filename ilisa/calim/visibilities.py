@@ -115,6 +115,7 @@ class VisDatasetFile:
             del self.attrs['flagaxes']
 
     def flag2weights(self, dims=None, squash=True):
+    def flag2weights(self, dims=None, squashfile=True):
         """Get Weights as per Flags and Axes"""
         flagaxes = self.attrs.get('flagaxes', np.array({})).item()
         wvec_axes = [np.ones(1)] * len(self.dims)
@@ -149,7 +150,7 @@ class VisDatasetFile:
             idxxpr.append(l)
         idxxpr = ','.join(idxxpr)
         w = np.einsum(idxxpr, *wvec_axes)
-        if squash:
+        if squashfile:
             w = w.reshape(w.shape[0]*w.shape[1], *w.shape[2:])
         return w
 
