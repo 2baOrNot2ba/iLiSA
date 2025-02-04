@@ -18,29 +18,39 @@ if canuse_dreambeam:
 
 class VisDatasetFile:
     """"""
+    coord_names = ('delta_time', 'frequencies')
     _axes_all = ('filenr',         # 0
-                 'delta_time',     # 1
-                 'frequencies',    # 2
+                 'dt_perfile',     # 1
+                 coord_names[1],   # 2
                  'polarization1',  # 3
                  'polarization2',  # 4
                  'antenna1',       # 5
                  'antenna2'        # 6
                  )
+    _multi_axes = {coord_names[0]: (0,1),
+                   'rcu1': (3,5),
+                   'rcu2': (4,5)}
     _axes_gen = {'full': _axes_all,
                  'autocorr': (*_axes_all[0:4], _axes_all[5])}
-    coord_names = (_axes_all[1], _axes_all[2])
 
     def __init__(self, *data_files, coords=None, attrs=None, vis_type='full'):
         self.values = data_files
-        self.delta_time = coords[self.coord_names[0]]
-        self.frequencies = coords[self.coord_names[1]]
+        self.delta_time = coords[VisDatasetFile.coord_names[0]]
+        self.frequencies = coords[VisDatasetFile.coord_names[1]]
         self.attrs = attrs
         dt_shape = list(self.delta_time.shape)
         if len(dt_shape) > 1:
             self.nrfile = dt_shape.pop(0)
         self.nrsmpsfile = dt_shape.pop(0)
         self.vis_type = vis_type
-        self.dims = VisDatasetFile._axes_gen[self.vis_type]
+        self._dim_basis = VisDatasetFile._axes_gen[self.vis_type]
+        _dt_axes = VisDatasetFile._multi_axes[VisDatasetFile.coord_names[0]]
+        # Create virtual axes with delta_time axes replacing filenr, dt_perfile
+        __dim_basis = list(self._dim_basis)
+        for _axis in reversed(_dt_axes):
+            __dim_basis.pop(_axis)
+        __dim_basis.insert(sorted(_dt_axes)[0], VisDatasetFile.coord_names[0])
+        self.dims = tuple(__dim_basis)
 
     @classmethod
     def load_from_np(cls, npfile):
@@ -139,32 +149,32 @@ class VisDatasetFile:
     def flag2weights(self, dims=None, squashfile=True):
         """Get Weights as per Flags and Axes"""
         flagaxes = self.attrs.get('flagaxes', np.array({})).item()
-        wvec_axes = [np.ones(1)] * len(self.dims)
+        wvec_axes = [np.ones(1)] * len(self._dim_basis)
         if dims == '*':
             dims = self.dims
         for dim in dims:
-            flagaxis = flagaxes.get(dim, [])
-            if dim == 'delta_time':
+            flagindices = flagaxes.get(dim, [])
+            if dim in VisDatasetFile._multi_axes:
+                merge_axis_0, merge_axis_1 = VisDatasetFile._multi_axes[dim]
                 # Map across file axis
-                wvv = np.tensordot(np.ones(self.shape()[0]),
-                                   np.ones(self.shape()[1]), axes=0)
-                if flagaxis != []:
-                    idxs = np.unravel_index(flagaxis, wvv.shape)
+                wvv = np.tensordot(np.ones(self.shape(False)[merge_axis_0]),
+                                   np.ones(self.shape(False)[merge_axis_1]),
+                                   axes=0)
+                if flagindices != []:
+                    idxs = np.unravel_index(flagindices, wvv.shape)
                     wvv[idxs] = 0.0
                 wvec_axes[0] = wvv
                 wvec_axes[1] = None
             else:
-                if dim == 'filenr' and squashfile:
-                    continue
-                _axis = self.dims.index(dim)
-                nrcmp = self.shape()[_axis]
+                _axis = self._dim_basis.index(dim)
+                nrcmp = self.shape(False)[_axis]
                 wv = np.ones(nrcmp)
-                if flagaxis != []:
-                    wv[flagaxis] = 0.0
+                if flagindices != []:
+                    wv[flagindices] = 0.0
                 wvec_axes[_axis] = wv
         wvec_axes = list(filter(lambda x: x is not None, wvec_axes))
         # Compute einsum index expression
-        p = 105
+        p = ord('i')
         idxxpr = []
         for b in (np.ndim(wv) for wv in wvec_axes):
             l = ''
