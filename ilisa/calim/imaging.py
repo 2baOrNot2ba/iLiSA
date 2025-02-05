@@ -537,9 +537,9 @@ def pntsrc_hmsph(*pntsrcs, imsize=101):
     return ll, mm, (img_S0, img_S1, img_S2, img_S3)
 
 
-def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
-          flag_bl_file=None, lm_extent=2.0, nrpixels=100,
-          polrep='stokes'):
+def image_cvcfile(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
+                  flag_bl_file=None, lm_extent=2.0, nrpixels=100,
+                  polrep='stokes'):
     """\
     Image visibility-type data
 
@@ -664,6 +664,7 @@ def image(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian,
     flagged_vis.vis = cvpu_lin
     vis = flagged_vis.apply_vispol_flags()
     UVWxyz_y = UVWxyz  # Set Y positions same as X
+
     # Make image on phased up visibilities
     imgs_lin, ll, mm = beamformed_image(vis, (UVWxyz, UVWxyz_y), freq,
                         lmsize=lm_extent, nrpix=nrpixels,
@@ -745,7 +746,7 @@ def main_cli():
     subparsers = parser.add_subparsers(help='sub-command help')
 
     parser_image = subparsers.add_parser('bf', help='beamform image')
-    parser_image.set_defaults(func=image)
+    parser_image.set_defaults(func=image_cvcfile)
     parser_image.add_argument('dataff', help="acc or xst filefolder")
     parser_image.add_argument('-p', '--phaseref', type=str, default=None)
     parser_image.add_argument('-c', '--correctpb',
@@ -768,10 +769,10 @@ def main_cli():
         nfimage(args.dataff, args.filenr, args.sampnr)
     else:
         try:
-            imagedataset = image(args.dataff, args.filenr, args.sampnr,
-                                 args.phaseref, args.correctpb,
-                                 args.fluxpersterradian, args.blflagfile,
-                                 polrep='stokes')
+            imagedataset = image_cvcfile(args.dataff, args.filenr, args.sampnr,
+                                         args.phaseref, args.correctpb,
+                                         args.fluxpersterradian, args.blflagfile,
+                                         polrep='stokes')
         except (IndexError, ValueError) as err:
             print("Error:", err)
             sys.exit()
