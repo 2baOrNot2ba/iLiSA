@@ -16,7 +16,7 @@ from ilisa.antennameta import antennafieldlib as antennafieldlib
 from ilisa.operations.modeparms import rcumode2sbfreqs
 from . import SPEED_OF_LIGHT as c
 from . import visibilities as vsb
-import ilisa.calim.imaging
+#import ilisa.calim.imaging
 
 
 def beamformed_pattern(stn2Dcoord, freq, vis_flags):
@@ -263,6 +263,7 @@ def horizontaldipoles_jones(ll, mm, rotzen=0.):
         sphcmp is the Ludwig3 components in l,m distribution X,Y (0,1);
         and l_idx, m_idx are the indices of the direction-cosine components of
         the pattern distribution.
+        Jones matrix is normalized to identity matrix for (l,m)==(0,0).
     """
     nn = np.sqrt(1-ll**2-mm**2)
     nn[ll**2+mm**2>1.0] = 0.0
@@ -270,9 +271,13 @@ def horizontaldipoles_jones(ll, mm, rotzen=0.):
                        [np.sin(rotzen),  np.cos(rotzen)]])
     _ll = rotmat[0, 0]*ll + rotmat[0, 1]*mm
     _mm = rotmat[1, 0]*ll + rotmat[1, 1]*mm
-    jones_patt = 1/(1-nn**2)*np.array([[_ll**2*nn+_mm**2, -_ll*_mm*(1-nn)],
+    with np.errstate(divide='ignore', invalid='ignore'):
+        _jones = 1/(1-nn**2)*np.array([[_ll**2*nn+_mm**2, -_ll*_mm*(1-nn)],
                                        [-_ll*_mm*(1-nn), _ll**2+_mm**2*nn]])
-    return jones_patt
+    # Where nn==1.0, replace jones with identity matrix:
+    jones = np.where(np.isclose(nn,1.),
+                     np.identity(2)[..., np.newaxis, np.newaxis], _jones)
+    return jones
 
 
 def dualdipole45_cov_patt(ll, mm):
