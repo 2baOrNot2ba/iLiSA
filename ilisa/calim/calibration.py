@@ -608,11 +608,12 @@ def autocorr_gain_solve(vis_uncal, hdsm_file=None):
                                     vis_uncal.attrs['start_datetime'], bmjones)
         lc_mod[:, sb, 0] = lc_mod_sb_XX
         lc_mod[:, sb, 1] = lc_mod_sb_YY
-        idx_lsts = np.argsort(lsts)
         for pol in range(2):
             # Solve lin eq a*x=b for XX and YY polarizations, where
-            a = np.vstack([lc_mod[idx_lsts, sb, pol], np.ones(len(idx_lsts))]).T
-            b = acc[idx_lsts, sb, pol, :].squeeze()
+            #   a=[lc_mod(UT), 1] and b=acc(UT,elem).
+            # (Previously UT index was sorted by LST, but not needed)
+            a = np.vstack([lc_mod[:, sb, pol], np.ones(lc_mod.shape[0])]).T
+            b = acc[:, sb, pol, :].squeeze()
             lsq_res = np.linalg.lstsq(w @ a, w @ b)
             powgains[sb, pol, :] = lsq_res[0][0, :]
             pownoise[sb, pol, :] = lsq_res[0][1, :]
