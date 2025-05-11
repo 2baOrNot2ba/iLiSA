@@ -24,6 +24,9 @@ IHBADELTASDIR = STATICMETADATA
 COMMENT_CHAR = '#'
 AFfileNameType = 3
 
+# ITRF direction of LOFAR center
+RHAT_0 = [0.598753, 0.072099, 0.797682]
+
 # LOFAR band array's elements diameter or 1D extent (approximately) 
 ELEMENT_DIAMETER = {'LBA': 2.0,
                     'HBA': 5.0}  # meters
@@ -291,6 +294,33 @@ def get_antset_params(stnid, antset):
     else:
         stnrelpos = stnrelpos_x
     return stnpos, stnrot, stnrelpos, stnintilepos
+
+
+def northoffsetangle(pos):
+    """\
+    Compute the North offset angle of a geo position
+
+    Parameters
+    ----------
+    pos: array
+        ITRF 3d position vector
+
+    Returns
+    -------
+    noffsetang: float
+        The North offset angle (radians).
+    """
+    r = pos/np.linalg.norm(pos)
+    N = [0, 0, 1]  # North Pole
+    m = np.cross(RHAT_0, N)
+    m =  m/np.linalg.norm(m)
+    q = np.cross(m, r)
+    q = q/np.linalg.norm(q)  # Local station's "LOFAR north direction"
+    Ns = np.cross(r, np.cross(N, r))  # Local station's cardinal North direction
+    Ns = Ns/np.linalg.norm(Ns)
+    sgn = np.sign(np.cross(q, Ns)[2])
+    noffsetang = sgn * np.arccos(np.dot(q, Ns))  # Angle to Local station's LOFAR-north
+    return noffsetang
 
 
 def antset_lonlat(stnid, antset):
