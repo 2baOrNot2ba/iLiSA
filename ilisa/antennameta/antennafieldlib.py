@@ -339,8 +339,10 @@ def antset_lonlat(stnid, antset):
         Tuple with (longitude, latitude, height)
     """
     stnpos, stnrot, stnrelpos, stnintilepos = get_antset_params(stnid, antset)
+    r = stnrot[:, -1]
+    noa = northoffsetangle(r)
     stnpos_lonlat = ITRF2lonlat(*stnpos.squeeze())
-    return stnpos_lonlat
+    return stnpos_lonlat, noa
 
 
 def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
