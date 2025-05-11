@@ -240,6 +240,56 @@ def airydisk_radius(freq, d):
     return sintheta
 
 
+def rot_2d_vecf(ll, mm, vf2df, rotang):
+    """\
+    Rotate two-dimensional vetor field
+
+    Parameters
+    ----------
+    ll, mm: 2d array
+        The 2d coordinates for which the vector field should be evaluated.
+    vf2df: function
+        The 2d vector field given as a function pointer.
+    rotang: float
+        The angle of the rotation.
+
+    Returns
+    -------
+    vf2drot: array
+        The rotated vector field given as an array with at least 3 dimensions:
+        two for the independent coords and one for the vector component.
+    """
+    rotmat = np.array([[np.cos(rotang), -np.sin(rotang)],
+                       [np.sin(rotang),  np.cos(rotang)]])
+    _ll = rotmat[0, 0]*ll + rotmat[0, 1]*mm
+    _mm = rotmat[1, 0]*ll + rotmat[1, 1]*mm
+    # Evaluate vector field
+    vf2d = vf2df(_ll, _mm)
+    # Rotate vector part
+    ## Move matrix axes from 1st two to last two indices
+    _vf = np.moveaxis(np.moveaxis(vf2d,1, -1), 0, -2)
+    _vf = np.matmul(_vf, rotmat.T)
+    ## Move jones matrix axes back from last two to 1st two indices
+    vf2drot = np.moveaxis(np.moveaxis(_vf,-2, 0), -1, 1)
+    return vf2drot
+
+
+def lindip_lm(_ll, _mm):
+    """\
+    Dipole vector field over the direction cosine domain
+    """
+    nn = np.sqrt(1 - _ll ** 2 - _mm ** 2)
+    nn[_ll ** 2 + _mm ** 2 > 1.0] = 0.0
+    with np.errstate(divide='ignore', invalid='ignore'):
+        _jones = 1 / (1 - nn ** 2) * np.array(
+            [[_ll ** 2 * nn + _mm ** 2, -_ll * _mm * (1 - nn)],
+             [-_ll * _mm * (1 - nn), _ll ** 2 + _mm ** 2 * nn]])
+    # Where nn==1.0, replace jones with identity matrix:
+    _jones = np.where(np.isclose(nn, 1.),
+                      np.identity(2)[..., np.newaxis, np.newaxis], _jones)
+    return _jones
+
+
 def horizontaldipoles_jones(ll, mm, rotzen=0.):
     """
     Compute Jones pattern of two orthogonal, ideal dipoles with arb. z rotation
@@ -265,19 +315,8 @@ def horizontaldipoles_jones(ll, mm, rotzen=0.):
         the pattern distribution.
         Jones matrix is normalized to identity matrix for (l,m)==(0,0).
     """
-    nn = np.sqrt(1-ll**2-mm**2)
-    nn[ll**2+mm**2>1.0] = 0.0
-    rotmat = np.array([[np.cos(rotzen), -np.sin(rotzen)],
-                       [np.sin(rotzen),  np.cos(rotzen)]])
-    _ll = rotmat[0, 0]*ll + rotmat[0, 1]*mm
-    _mm = rotmat[1, 0]*ll + rotmat[1, 1]*mm
-    with np.errstate(divide='ignore', invalid='ignore'):
-        _jones = 1/(1-nn**2)*np.array([[_ll**2*nn+_mm**2, -_ll*_mm*(1-nn)],
-                                       [-_ll*_mm*(1-nn), _ll**2+_mm**2*nn]])
-    # Where nn==1.0, replace jones with identity matrix:
-    jones = np.where(np.isclose(nn,1.),
-                     np.identity(2)[..., np.newaxis, np.newaxis], _jones)
-    return jones
+    jonesrot = rot_2d_vecf(ll, mm, lindip_lm, rotzen)
+    return jonesrot
 
 
 def dualdipole45_cov_patt(ll, mm):
