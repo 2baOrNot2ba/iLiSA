@@ -432,10 +432,16 @@ def filename2obsparm(filepath):
     Returns
     -------
     obsparm: dict
-        datatype
-        filebegindatetime
-        cvcdim1
-        cvcdim2
+        Consists of at least the keys:
+            ldat_type
+            datetime
+            sb
+        Then depending on ldat_type.
+        ACC has in addition:
+            cvcdim0
+            cvcdim1
+        and XST has in addition:
+            spw
     """
     filename = os.path.basename(filepath)
     (Ymd, HMS, cvcextrest) = filename.split('_', 2)
@@ -443,7 +449,7 @@ def filename2obsparm(filepath):
     (rest, _datstr) = restdat.split('.')
     rest = rest.lstrip('_')
     if datatype == 'acc':
-        (_nrsamps, nrrcus0, nrrcus1) = map(int, rest.split('x'))
+        (nrsamps, nrrcus0, nrrcus1) = map(int, rest.split('x'))
     elif datatype == 'xst':
         spwnr, sbnr = rest.split('_')
         spw = int(spwnr[3:])
@@ -453,13 +459,18 @@ def filename2obsparm(filepath):
     # NOTE: For ACC, filename is last obstime, while for XST, it is first.
     if datatype == 'acc':
         filebegindatetime = filenamedatetime - datetime.timedelta(
-            seconds=_nrsamps)
+            seconds=nrsamps)
     else:
         filebegindatetime = filenamedatetime
     obsparm = {'ldat_type': datatype,
-               'datetime': filebegindatetime,
-               'spw': spw,
-               'sb': sb}
+               'datetime': filebegindatetime}
+    if datatype == 'acc':
+        obsparm['sb'] = modeparms.list2seqarg(list(range(nrsamps)))
+        obsparm['cvcdim0'] = nrrcus0
+        obsparm['cvcdim1'] = nrrcus1
+    elif datatype == 'xst':
+        obsparm['spw'] = spw
+        obsparm['sb']= sb
     return obsparm
 
 
@@ -954,7 +965,7 @@ class LDatInfo(object):
 
     @classmethod
     def from_filename(cls, datfilename, anadigdir=',,', integration=1.0,
-                      duration_scan=1.0):
+                      duration_scan=1.0, spw_hint=None):
         """
         Create an LDatInfo from an ldat filename
 
@@ -968,6 +979,8 @@ class LDatInfo(object):
             Integration time.
         duration_scan: float
             Duration of scan.
+        spw_hint: int
+            Hint for spw. This is mainly for ACC data
 
         Returns
         -------
@@ -977,10 +990,14 @@ class LDatInfo(object):
         obsparm = filename2obsparm(datfilename)
         ldat_type = obsparm['ldat_type']
         sb = obsparm['sb']
+        if ldat_type == 'xst':
+            spw = obsparm['spw']
+        elif ldat_type == 'acc':
+            spw = spw_hint
         rcusetup_cmds = ''
         anadigdir = ilisa.operations.directions.normalizebeamctldir(anadigdir)
         beamlets = modeparms.alloc_beamlets(sb)[0]
-        band = modeparms.rcumode2band(obsparm['spw'])
+        band = modeparms.rcumode2band(spw)
         beamctl_cmds = modeparms.beamctl_args2cmds(beamlets=beamlets,
                                                    subbands=sb,
                                                    band=band,
@@ -1306,10 +1323,12 @@ class CVCfiles(object):
             except:
                 warnings.warn(
                     "Couldn't find a header file for {}".format(cvcfile))
+                spw_hint = modeparms.band2rcumode(scanrecinfo.get_band())
                 ldatinfo = LDatInfo.from_filename(cvcfile,
                                                   duration_scan=
                                                   scanrecinfo.scanrecparms[
-                                                      'duration'])
+                                                      'duration'],
+                                                  spw_hint=spw_hint)
             scanrecinfo.add_obs(ldatinfo)
             _datatype, t_begin = self._parse_cvcfile(
                 os.path.join(self.filefolder, cvcfile))
