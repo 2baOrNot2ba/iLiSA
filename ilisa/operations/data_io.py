@@ -689,8 +689,10 @@ class ScanRecInfo(object):
             nqz = modeparms.rcumode2nyquistzone(spw)
             sbs = modeparms.seqarg2list(obsinfo['subbands'][0])
             freqspec_hi = modeparms.sb2freq(sbs[-1], nqz)
+            direction = ilisa.operations.directions.normalizebeamctldir(
+                obsinfo['pointing'])
             self.set_scanrecparms(obsinfo['ldat_type'], str(freqspec_hi),
-                                  obsinfo['duration_scan'], obsinfo['pointing'],
+                                  obsinfo['duration_scan'], direction,
                                   obsinfo['integration'], obsinfo['antennaset'])
             self.scanrecparms['rcumode'] = spw
             self.set_stnid(obsinfo['station_id'])
