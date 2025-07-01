@@ -4,6 +4,8 @@ import subprocess
 import time
 import datetime
 import argparse
+import warnings
+
 import yaml
 
 import ilisa.operations  # Sets up logging
@@ -55,18 +57,22 @@ def sched2at(schedfile, check=False):
                 raise verr
         else:
             raise RuntimeError(type(schedline['start']))
-        if start_ut < datetime.datetime.utcnow():
-            raise RuntimeError('Starttime {} is in the past.'.format(start_ut))
-        else:
-            schedline['start'] = start_ut
-            if not first_start_ut or first_start_ut > start_ut:
-                first_start_ut = start_ut
-            if not last_start_ut or last_start_ut < start_ut:
-                last_start_ut = start_ut
-                last_sess_file = schedline.get('session', None)
-                if last_sess_file:
-                    dur_last_sess = ssss.check_scansess(
-                        {'file': last_sess_file})['duration_total']
+        _utcnow = datetime.datetime.now(datetime.timezone.utc)  # replace utcnow
+        _utcnow = _utcnow.replace(tzinfo=None)  # Remove tz to make it naive
+        if start_ut < _utcnow:
+            _mess = 'Starttime {} is in the past.'.format(start_ut)
+            if not check:
+                raise RuntimeError(_mess)
+            warnings.warn(_mess)
+        schedline['start'] = start_ut
+        if not first_start_ut or first_start_ut > start_ut:
+            first_start_ut = start_ut
+        if not last_start_ut or last_start_ut < start_ut:
+            last_start_ut = start_ut
+            last_sess_file = schedline.get('session', None)
+            if last_sess_file:
+                dur_last_sess = ssss.check_scansess(
+                    {'file': last_sess_file})['duration_total']
     # Compute start times for boot and idle, and add them to schedule
     if bootbefore:
         boot_start_ut = first_start_ut - modeparms.hmsstr2deltatime(bootbefore)
