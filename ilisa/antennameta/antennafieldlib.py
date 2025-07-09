@@ -489,8 +489,8 @@ def plot_layout_pos(pos, names, projection='3d', xyzlbls=('x','y','z'),
     geommean = np.mean(pos, axis=0)
     if projection != '3d':
         geommean = geommean[:2]
-    ax.plot(*geommean, 'r+')
-    ax.text(*geommean, 'Barycenter', fontsize=5)
+    ax.plot(geommean[0], geommean[1], 'r+')
+    ax.text(geommean[0], geommean[1], 'Barycenter', fontsize=5)
 
     plt.show()
 
