@@ -1966,9 +1966,16 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
             plt.ylabel('Power [arb. unit]')
     elif show == 'persb':
         ampVStime = True
+        if rcu_sel is None:
+            rcu_sel_lst = numpy.array(range(nrrcus))
+        else:
+            _step = rcu_sel.step
+            if _step is None:
+                _step = 1
+            rcu_sel_lst = numpy.array(range(rcu_sel.start, rcu_sel.stop, _step))
         res = sstdata[:, :, sbreq]
-        resX = res[0::2, :]
-        resY = res[1::2, :]
+        resX = res[0::2, :][rcu_sel_lst[rcu_sel_lst % 2 == 0]//2]
+        resY = res[1::2, :][rcu_sel_lst[rcu_sel_lst % 2 == 1]//2]
         plt.subplot(211)
         if ampVStime:
             plt.plot(ts, numpy.transpose(resX))
