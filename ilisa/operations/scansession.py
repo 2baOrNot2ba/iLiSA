@@ -3,6 +3,8 @@ import os
 import time
 import datetime
 import shutil
+import warnings
+
 import yaml
 import argparse
 import logging
@@ -101,16 +103,37 @@ def process_scansess(sesscans_in):
         sessmeta['start'] = 'ASAP'
 
     def generate_scans():
+        """
+        Yield observation args for next scan
+
+        Yields
+        ------
+        obsargs_in : dict
+            Arguments needed for setting up the next observation scan.
+
+        Raises
+        ------
+        ValueError
+            Direction incorrect format.
+        ValueError
+            Integration longer than duration.
+        """
         # Margin of time between two scans in seconds (fastest safe switching)
         margintime = datetime.timedelta(seconds=13.0)
 
         # Initialize "previous" values for scan loop
         scanstarttimeprev = modeparms.timestr2datetime(sessmeta['start'])
         duration_totprev = 0
+        scan_ids = {}  # Used to check for duplicates used in prior gen iters
         for scan in sesscans_in['scans']:
             # Get a title for this scan
             scan_id = scan.get('id')
-
+            if scan_id in scan_ids:
+                scan_ids[scan_id] += 1
+                scan_id += '_' + str(scan_ids[scan_id])
+                warnings.warn('Duplicate scan ID renamed: '+scan_id)
+            else:
+                scan_ids[scan_id] = 0
             # Prepare observation arguments:
 
             # - Compute `starttime` of this scan
