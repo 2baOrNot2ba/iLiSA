@@ -323,6 +323,31 @@ def northoffsetangle(pos):
     return noffsetang
 
 
+def zenoffsetangle(stnid, antset):
+    """\
+    Compute the Zenith offset angle of a station antennaset
+
+    Parameters
+    ----------
+    pos: array
+        ITRF 3d position vector
+
+    Returns
+    -------
+    zenang: float
+        Zenith offset angle (radians).
+    """
+    stnpos, stnrot, stnrelpos, stnintilepos = get_antset_params(stnid, antset)
+    coordsys = 'local'
+    relpos, names, xyzlbls = get_tier_layouts(stnid, antset, coordsys)
+    _u_svd, _d_svd, _vt_svd = np.linalg.svd(relpos)
+
+    arrnrml = _vt_svd[2,:]
+    arrnrml = arrnrml/np.linalg.norm(arrnrml)
+    zenang = np.arctan2(np.sqrt(arrnrml[0]**2+arrnrml[1]**2), arrnrml[2])
+    return zenang
+
+
 def antset_lonlat(stnid, antset):
     """\
     Get longitude, latitude position of antenna-set
