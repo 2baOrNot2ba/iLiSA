@@ -1499,6 +1499,18 @@ class CVCfiles(object):
         data = numpy.asarray(data)
         return data
 
+    def __iter__(self):
+        self._fnr = 0  # File number index used in __next__
+        return self
+
+    def __next__(self):
+        if self._fnr + 1 > self.getnrfiles():
+            raise StopIteration
+        poldatafile_arr = cov_flat2polidx(self[self._fnr])
+        print('iter',self._fnr,self.getnrfiles())
+        self._fnr += 1
+        return poldatafile_arr
+
 
 def readacc2bst(anacc2bstfilepath, datformat='hdf'):
     """\
