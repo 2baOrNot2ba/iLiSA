@@ -2442,8 +2442,7 @@ def export_ldat(dataff):
         data_arr = numpy.asarray(sstdata_rcu)
     elif lofardatatype == 'xst' or lofardatatype == 'acc':
         cvcobj = CVCfiles(dataff)
-        cvc_array = cvcobj.as_array()
-        data_arr = cov_flat2polidx(cvc_array)
+        data_arr = cvcobj
         positions = cvcobj.get_positions_ITRF()
         ts_list = cvcobj.samptimeset
         freqs = numpy.asarray(cvcobj.freqset)
@@ -2470,7 +2469,7 @@ def export_ldat(dataff):
         freqs = numpy.take(freqs, 0)
     coords = {'delta_time': delta_secs,
               'frequencies': freqs}
-    metadata = {'version': '1.0',
+    metadata = {'version': '1.1',
                 'ID_scanrec': id_scanrec,
                 'telescope': 'LOFAR',
                 'station': station_id,
@@ -2483,7 +2482,7 @@ def export_ldat(dataff):
         metadata['pointing'] = pointing
     if stn_rot is not None:
         metadata['stn_rot'] = stn_rot
-    return tuple(data_arr), coords, metadata
+    return data_arr, coords, metadata
 
 
 def cli_export():
