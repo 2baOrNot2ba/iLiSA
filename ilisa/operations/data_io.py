@@ -2499,7 +2499,7 @@ Output data-formats:
     * 'npz'
         The npz data consists of observational meta-data
         and data paylooad. In particular:
-            * 'arr_'+<arr_nr>: Observed data split into indexed chunks                    
+            * 'arr_'+<arr_nr> | 'data_arrs': observed data; filesplit | monolithic                  
             * 'delta_time': Time delta from start of sample in seconds
             * 'frequencies': frequencies in Hertz
             * 'ID_scanrec': the ID of observation
