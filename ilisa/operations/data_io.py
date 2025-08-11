@@ -1978,6 +1978,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
             plt.ylabel('Power [arb. unit]')
     elif show == 'persb':
         ampVStime = True
+        _logplt = False  # Plot powers using log plot
         if rcu_sel is None:
             rcu_sel_lst = numpy.array(range(nrrcus))
         else:
@@ -1990,13 +1991,19 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
         resY = res[1::2, :][rcu_sel_lst[rcu_sel_lst % 2 == 1]//2]
         plt.subplot(211)
         if ampVStime:
-            plt.plot(ts, numpy.transpose(resX))
+            if _logplt:
+                plt.semilogy(ts, numpy.transpose(resX))
+            else:
+                plt.plot(ts, numpy.transpose(resX))
         else:
             plt.pcolormesh(ts, numpy.arange(96), resX, norm=colors.LogNorm())
         plt.title('X pol')
         plt.subplot(212)
         if ampVStime:
-            plt.plot(ts, numpy.transpose(resY))
+            if _logplt:
+                plt.semilogy(ts, numpy.transpose(resY))
+            else:
+                plt.plot(ts, numpy.transpose(resY))
             plt.gcf().autofmt_xdate()
         else:
             plt.pcolormesh(ts, numpy.arange(96), resY, norm=colors.LogNorm())
