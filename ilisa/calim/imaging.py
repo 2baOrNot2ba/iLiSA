@@ -498,24 +498,39 @@ def lmgrid(imsize=100):
     return ll, mm
 
 
-def integrate_lm_image(img):
+def integrate_lm_image(img, use_solidangle=False):
     """\
     Integrate direction-cosine image
 
     Parameters
     ----------
     img :  array
-        The image.
+        Array where first two axes represent an orthographic hemisphere image.
+        The image axes are therefore direction cosines with the center of the
+        image assumed to be the direction origin.
+
+    use_solidangle : bool
+        Use solid angle weighting, i.e. multiply image by 1/n
+        (where n=sqrt(1-l^2-m^2) and l,m are the image coordinates)
 
     Returns
     -------
     integral : float
-        The resulting definite integral.
+        Resulting definite integral over the sky above the horizon image
     """
+    _img = np.copy(img)
     imsize = img.shape[0]
     ll, mm = lmgrid(imsize)
     dll, dmm = ll[0, 1] - ll[0, 0], mm[1, 0] - mm[0, 0]
-    integral = np.sum(np.sum(img, -1) * dll*dmm)
+    hemisph = ll**2 + mm**2
+    if use_solidangle:
+        sa_w = np.zeros_like(ll)
+        hs_on = hemisph < 1.  # On hemisphere
+        # Solid angle weighting:
+        sa_w[hs_on] = 1 / np.sqrt(1 - ll[hs_on]**2 - mm[hs_on]**2)
+        _img = sa_w * _img
+    _img[hemisph > 1.] = 0.
+    integral = np.sum(_img, axis=(0,1)) * dll*dmm
     return integral
 
 
