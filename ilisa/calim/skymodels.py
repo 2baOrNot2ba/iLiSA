@@ -578,7 +578,16 @@ def lightcurve_bl(freq, gs_model_obj, t_s=None, start_dattim=None,
     if beampat1 is None:
         beampat1 = beampat0
     if type(beampat0) == np.ndarray:
-        beampow = np.einsum('ij...,kj...->ik...', beampat0, np.conj(beampat1))
+        # Compute gain wrt Stokes I (ie multiply by S0 brightness for Rx pow)
+        beam_S0 = np.einsum('ij...,kj...->ik...', beampat0, np.conj(beampat1))
+        #beam_S0 *= 0.5  # Due to Pauli dim of 2 (for Mueller not coherence mat)
+        # Assuming unpolarized sky model so brightness matrix is prop to ident
+    else:
+        imsize = gs_model_obj.imsize
+        beam_S0 = np.zeros((2, 2, imsize, imsize))
+        isotrsky = np.ones((imsize, imsize))
+        beam_S0[0, 0] = beampat0*beampat0*isotrsky
+        beam_S0[1, 1] = beampat1*beampat1*isotrsky
     lmsts = []
     lightcurv00 = []
     lightcurv11 = []
@@ -586,9 +595,24 @@ def lightcurve_bl(freq, gs_model_obj, t_s=None, start_dattim=None,
         print('Simulating timestep ', dt/t_s[1], '/', t_s[-1]/t_s[1], end='\r')
         dattim = start_dattim + datetime.timedelta(seconds=int(dt))
         lst = utcpos2lmst(dattim, geopos)
-        img0 = gs_model_obj.get_image(dattim, freq)
-        powtot00 = 1 / (4 * np.pi) * integrate_lm_image(beampow[0, 0] * img0/2)
-        powtot11 = 1 / (4 * np.pi) * integrate_lm_image(beampow[1, 1] * img0/2)
+        # Assume brightness is a temperature rather than spectral flux density
+        bri_unit = 'K'
+        if bri_unit == 'K':
+            bri_tot2pol = 1.0
+        elif bri_unit == 'Jy':
+            bri_tot2pol = 0.5
+        bri_mod_S0 = gs_model_obj.get_image(dattim, freq)
+        _use_solidangle = True
+        powtot00 = integrate_lm_image(bri_tot2pol * bri_mod_S0 * beam_S0[0, 0],
+                                      use_solidangle=_use_solidangle)
+        powtot11 = integrate_lm_image(bri_tot2pol * bri_mod_S0 * beam_S0[1, 1],
+                                      use_solidangle=_use_solidangle)
+        pownrm00 = integrate_lm_image(beam_S0[0, 0],
+                                      use_solidangle=_use_solidangle)
+        pownrm11 = integrate_lm_image(beam_S0[1, 1],
+                                      use_solidangle=_use_solidangle)
+        powtot00 /= pownrm00
+        powtot11 /= pownrm11
         lmsts.append(lst)
         lightcurv00.append(powtot00)
         lightcurv11.append(powtot11)
