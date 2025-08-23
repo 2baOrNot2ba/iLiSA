@@ -553,7 +553,7 @@ def gainsolve(cvcobj_uncal, cvcobj_model, wals_variant='legacy', nitr=100):
     return gainsolutions, noisesolutions
 
 
-def autocorr_gain_solve(vis_uncal, hdsm_file=None):
+def autocorr_gain_solve(vis_uncal, hdsm_file=None, northoffset=0.):
     """\
     Solve for gains using autocorrelation over sidereal day
 
@@ -568,6 +568,8 @@ def autocorr_gain_solve(vis_uncal, hdsm_file=None):
         The uncalibrated visibilities to be used to find gains and noise.
     hsdm_file: str
         Hemispheric diffuse model file name.
+    northoffset: float
+        The angle (radians) between true North and antenna coord. sys. north.
 
     Returns
     -------
@@ -592,7 +594,9 @@ def autocorr_gain_solve(vis_uncal, hdsm_file=None):
     hdsm = skymodels.HemiDiffuseSkyModel(geopos)
     del_ts = vis_uncal.delta_time.flatten()
     ll, mm = imaging.lmgrid(hdsm.imsize)
-    bmjones = beam.horizontaldipoles_jones(ll, mm, rotzen=np.deg2rad(-45.0))
+    rotzen = -45.+np.rad2deg(northoffset)  # -45 build design Exloo
+                                           # + stn north offset from Exloo north
+    bmjones = beam.horizontaldipoles_jones(ll, mm, rotzen=np.deg2rad(rotzen))
     powgains = np.zeros((nrsb, 2, nrant))
     pownoise = np.zeros_like(powgains)
     lc_mod = np.zeros((len(del_ts), nrsb, 2))
