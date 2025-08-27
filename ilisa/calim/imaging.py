@@ -479,7 +479,7 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
                    integration, t, pbcor, modality), fontsize=8)
 
 
-def lmgrid(imsize=100):
+def lmgrid(imsize=201):
     """\
     Generate an lm grid
 
