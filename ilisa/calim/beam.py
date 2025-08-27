@@ -275,6 +275,7 @@ def rot_2d_vecf(ll, mm, vf2df, rotang):
 
 
 def n_from_lm(ll, mm):
+    """\
     Compute 3rd direction cosine component
     """
     fov_full = ll ** 2 + mm ** 2 >= 1.0  # Hemisphere horizon
@@ -283,6 +284,16 @@ def n_from_lm(ll, mm):
     nn = np.zeros_like(ll)
     nn[idxin] = np.sqrt(1 - ll[idxin] ** 2 - mm[idxin] ** 2)
     return nn
+
+
+def grnd_reflect(ll, mm, patt, reff):
+    """\
+    Compute Pattern with Ground Reflection
+    """
+    nn = n_from_lm(ll, mm)
+    patt_r = nn * patt
+    patt_tot = (1-reff)*patt + reff*patt_r
+    return patt_tot
 
 
 def lindip_lm(_ll, _mm):
