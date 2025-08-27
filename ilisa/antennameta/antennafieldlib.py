@@ -298,7 +298,7 @@ def get_antset_params(stnid, antset):
 
 def northoffsetangle(pos):
     """\
-    Compute the North offset angle of a geo position
+    Compute the North offset angle of a LOFAR station given by ITRF position
 
     Parameters
     ----------
