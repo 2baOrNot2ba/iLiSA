@@ -276,12 +276,13 @@ def rot_2d_vecf(ll, mm, vf2df, rotang):
 
 def lindip_lm(_ll, _mm):
     """\
-    Dipole vector field over the direction cosine domain
+    Jones field in direction cosince of dual-linear dipoles over ground
     """
     nn = np.sqrt(1 - _ll ** 2 - _mm ** 2)
     nn[_ll ** 2 + _mm ** 2 > 1.0] = 0.0
+    reff = 1.  # Controls amount of ground reflection (0: none, 1: full)
     with np.errstate(divide='ignore', invalid='ignore'):
-        _jones = 1 / (1 - nn ** 2) * np.array(
+        _jones = (1-reff*(1-nn)**1) / (1 - nn ** 2) * np.array(
             [[_ll ** 2 * nn + _mm ** 2, -_ll * _mm * (1 - nn)],
              [-_ll * _mm * (1 - nn), _ll ** 2 + _mm ** 2 * nn]])
     # Where nn==1.0, replace jones with identity matrix:
