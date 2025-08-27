@@ -298,18 +298,33 @@ def grnd_reflect(ll, mm, patt, reff):
 
 def lindip_lm(_ll, _mm):
     """\
-    Jones field in direction cosince of dual-linear dipoles over ground
+    Jones field in direction cosine of dual-linear dipoles over ground
+
+    Parameters
+    ----------
+    ll : 2d-array
+        l-dimension of direction cosine.
+    mm : 2d-array
+        m-dimension of direction cosine.
+
+    Returns
+    -------
+    jones : 4d-array
+        Jones matrices, in first two indices, over cosine directions, in last
+        two indices. The Jones matrices are set to zero at, and beyond, horizon.
+        It is equal to the identity matrix at (ll,mm)=(0,0).
     """
-    nn = np.sqrt(1 - _ll ** 2 - _mm ** 2)
-    nn[_ll ** 2 + _mm ** 2 > 1.0] = 0.0
-    reff = 1.  # Controls amount of ground reflection (0: none, 1: full)
+    nn = n_from_lm(_ll, _mm)
+    # Ignore division by 0 at boresight (it is set in next step)
     with np.errstate(divide='ignore', invalid='ignore'):
-        _jones = (1-reff*(1-nn)**1) / (1 - nn ** 2) * np.array(
+        _jones = 1 / (1 - nn ** 2) * np.array(
             [[_ll ** 2 * nn + _mm ** 2, -_ll * _mm * (1 - nn)],
              [-_ll * _mm * (1 - nn), _ll ** 2 + _mm ** 2 * nn]])
-    # Where nn==1.0, replace jones with identity matrix:
-    _jones = np.where(np.isclose(nn, 1.),
-                      np.identity(2)[..., np.newaxis, np.newaxis], _jones)
+    # At DP boresight, set Jones to identity matrix
+    _jones[:, :, _ll**2+_mm**2==0.] = np.identity(2)[:,:,np.newaxis]
+    # Outside of FoV, replace Jones with zero matrix:
+    idxout = np.where(nn == 0.)
+    _jones[:, :, idxout[0], idxout[1]] = np.zeros((2,2,1))
     return _jones
 
 
