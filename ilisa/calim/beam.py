@@ -274,6 +274,17 @@ def rot_2d_vecf(ll, mm, vf2df, rotang):
     return vf2drot
 
 
+def n_from_lm(ll, mm):
+    Compute 3rd direction cosine component
+    """
+    fov_full = ll ** 2 + mm ** 2 >= 1.0  # Hemisphere horizon
+    idxout = np.where(fov_full)  # Region outside FoV
+    idxin = np.where(~fov_full)  # Region inside FoV
+    nn = np.zeros_like(ll)
+    nn[idxin] = np.sqrt(1 - ll[idxin] ** 2 - mm[idxin] ** 2)
+    return nn
+
+
 def lindip_lm(_ll, _mm):
     """\
     Jones field in direction cosince of dual-linear dipoles over ground
