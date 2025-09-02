@@ -368,7 +368,7 @@ def jones2cov_patt(jones_patt):
     Parameters
     ----------
     jones_patt: array-like
-        Jones pattern over ll,mm.
+        Jones pattern, where 1st two axes are the Jones matrix.
 
     Returns
     -------
@@ -377,7 +377,7 @@ def jones2cov_patt(jones_patt):
         X,Y.
     """
     _jones_l = np.moveaxis(jones_patt, [0, 1], [-2, -1])
-    _jones2 = np.matmul(_jones_l, _jones_l)
+    _jones2 = np.matmul(_jones_l, np.conjugate(np.swapaxes(_jones_l,-2,-1)))
     _jones2 = np.moveaxis(_jones2, [-2, -1], [0, 1])
     cov_xx = _jones2[0, 0]
     cov_xy = _jones2[0, 1]
