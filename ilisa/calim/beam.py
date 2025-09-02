@@ -242,7 +242,7 @@ def airydisk_radius(freq, d):
 
 def rot_2d_vecf(ll, mm, vf2df, rotang):
     """\
-    Rotate two-dimensional vetor field
+    Rotate stacked rows of two-dimensional vector fields
 
     Parameters
     ----------
@@ -259,18 +259,22 @@ def rot_2d_vecf(ll, mm, vf2df, rotang):
         The rotated vector field given as an array with at least 3 dimensions:
         two for the independent coords and one for the vector component.
     """
+    # Using the formula v' = R*v(R^-1*r)
+    # where R is rotation matrix
     rotmat = np.array([[np.cos(rotang), -np.sin(rotang)],
                        [np.sin(rotang),  np.cos(rotang)]])
-    _ll = rotmat[0, 0]*ll + rotmat[0, 1]*mm
-    _mm = rotmat[1, 0]*ll + rotmat[1, 1]*mm
+    # so this is r'=R^-1*r (transposed rotmat)
+    _ll = rotmat[0, 0]*ll + rotmat[1, 0]*mm
+    _mm = rotmat[0, 1]*ll + rotmat[1, 1]*mm
     # Evaluate vector field
     vf2d = vf2df(_ll, _mm)
     # Rotate vector part
-    ## Move matrix axes from 1st two to last two indices
-    _vf = np.moveaxis(np.moveaxis(vf2d,1, -1), 0, -2)
-    _vf = np.matmul(_vf, rotmat.T)
-    ## Move jones matrix axes back from last two to 1st two indices
-    vf2drot = np.moveaxis(np.moveaxis(_vf,-2, 0), -1, 1)
+    ## Move matrix axes from 1st two to last two indices with transpose
+    ## so row vectors (eff. lengths) in become columns
+    _vf = np.moveaxis(vf2d,[0, 1], [-1, -2])
+    _vf = np.matmul(rotmat, _vf)
+    ## Move jones matrix axes back from last to 1st two indices with transpose
+    vf2drot = np.moveaxis(_vf, [-2, -1], [1, 0])
     return vf2drot
 
 
