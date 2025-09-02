@@ -357,9 +357,11 @@ def horizontaldipoles_jones(ll, mm, rotzen=0., reff=0.):
     return jonesrot
 
 
-def dualdipole_cov_patt(ll, mm, rot_deg=45., reff=0.):
+def jones2cov_patt(ll, mm, jones_patt):
     """
-    Compute covariance pattern of dual-dipole rotated 45 deg.
+    Compute covariance pattern from Jones patterns
+
+    Assumes unpolarized unit sky.
 
     Parameters
     ----------
@@ -367,8 +369,8 @@ def dualdipole_cov_patt(ll, mm, rot_deg=45., reff=0.):
         East-west direction cosines grid.
     mm: 2D array
         North-south direction cosines grid.
-    rot_deg : float
-        Rotation of pattern around dual-pol bore-axis in degrees. Default 45.
+    jones_patt: array-like
+        Jones pattern over ll,mm.
 
     Returns
     -------
@@ -376,9 +378,7 @@ def dualdipole_cov_patt(ll, mm, rot_deg=45., reff=0.):
         Transverse electric field covariance matrix. x,y are w.r.t antennas
         X,Y.
     """
-    _jones_isol_patt = horizontaldipoles_jones(ll, mm, np.deg2rad(rot_deg))
-    _jones_patt = grnd_reflect(ll, mm, _jones_isol_patt, reff)
-    _jones_l = np.moveaxis(_jones_patt, [0, 1], [-2, -1])
+    _jones_l = np.moveaxis(jones_patt, [0, 1], [-2, -1])
     _jones2 = np.matmul(_jones_l, _jones_l)
     _jones2 = np.moveaxis(_jones2, [-2, -1], [0, 1])
     cov_xx = _jones2[0, 0]
