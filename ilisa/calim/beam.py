@@ -357,7 +357,7 @@ def horizontaldipoles_jones(ll, mm, rotzen=0., reff=0.):
     return jonesrot
 
 
-def dualdipole45_cov_patt(ll, mm, rot_deg=45., reff=0.):
+def dualdipole_cov_patt(ll, mm, rot_deg=45., reff=0.):
     """
     Compute covariance pattern of dual-dipole rotated 45 deg.
 
