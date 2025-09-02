@@ -358,10 +358,13 @@ def antset_lonlat(stnid, antset):
         LOFAR station ID
     antset : str
         LOFAR station antenna-set, e.g. 'LBA' or 'HBA'
+
     Returns
     -------
     stnpos_lonlat : tuple
         Tuple with (longitude, latitude, height)
+    noa : float
+        North offset angle (radians)
     """
     stnpos, stnrot, stnrelpos, stnintilepos = get_antset_params(stnid, antset)
     r = stnrot[:, -1]
