@@ -16,7 +16,7 @@ from ilisa.antennameta import antennafieldlib as antennafieldlib
 from ilisa.operations.modeparms import rcumode2sbfreqs
 from . import SPEED_OF_LIGHT as c
 from . import visibilities as vsb
-#import ilisa.calim.imaging
+import ilisa.calim.imaging
 
 
 def beamformed_pattern(stn2Dcoord, freq, vis_flags):
@@ -406,6 +406,9 @@ def main_cli():
     parser.add_argument('-f', '--freq', type=float, default=0.0)
     parser.add_argument('-b', '--blflags', type=str, default='[]',
                         help="Baseline flag select")
+    parser.add_argument('-B', '--beam', type=str, default='bf',
+                        help=("Beam type, choose: 'el' (element beam)"+
+                              " default 'bf' (beamformed)"))
     args = parser.parse_args()
     if not args.stnid:
         raise(RuntimeError, 'Choose stnid')
@@ -417,23 +420,32 @@ def main_cli():
         freqs = rcumode2sbfreqs(rcumode)
     else:
         freqs = [args.freq]
-    stn_pos, stn_rot, stn_antpos, stn_intilepos \
-        = antennafieldlib.get_antset_params(args.stnid, args.antset)
-    antpos_uv = vsb.rot2uv(stn_antpos, stn_rot)
-
+    if args.beam == 'bf':
+        stn_pos_itrf, stn_rot_mat, stn_antpos, stn_intilepos \
+            = antennafieldlib.get_antset_params(args.stnid, args.antset)
+        antpos_uv = vsb.rot2uv(stn_antpos, stn_rot_mat)
+    else:
+        stn_pos_wgs, stn_rot_ang = antennafieldlib.antset_lonlat(args.stnid,
+                                                                 args.antset)
     beamshapes = []
     print('Freq Major Minor Tilt FoV')
     for freq in freqs:
-        flagged_bls = Flags(nrelems=antpos_uv.shape[0]).set_blflagargs(args.blflags)
-        ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flagged_bls)
+        if args.beam == 'bf':
+            flagged_bls = Flags(nrelems=antpos_uv.shape[0]).set_blflagargs(args.blflags)
+            ll, mm, bfps = beamformed_pattern(antpos_uv, freq, flagged_bls)
+        elif args.beam == 'el':
+            ll, mm = ilisa.calim.imaging.lmgrid()
+            jones_patt = horizontaldipoles_jones(ll, mm, stn_rot_ang, 0.)
+            bfps_lin = jones2cov_patt(jones_patt)
+            bfps = bfps_lin[0], bfps_lin[1:]
         madi, midi, tlt, fov_area = beam_pat_shape(ll, mm, bfps)
         beamshape = freq, madi, midi, numpy.rad2deg(tlt), fov_area
         print(*beamshape)
         print("Pixels over hemisphere:", nrpixels_hint(midi, 2))
         beamshapes.append(beamshape)
         if args.plot and len(freqs)==1:
-            ilisa.calim.imaging.plotskyimage(ll, mm, bfps, 'linear', 0, freq,
-                                             args.stnid, 0)
+            ilisa.calim.imaging.plotskyimage(ll, mm, bfps_lin, 'linear', 0,
+                                             freq, args.stnid, 0)
             plt.show()
     if len(freqs) > 1:
         outfilename = 'beamshape_' + args.stnid + '_' + args.antset + '.npy'
