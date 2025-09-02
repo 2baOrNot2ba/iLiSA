@@ -328,7 +328,7 @@ def lindip_lm(_ll, _mm):
     return _jones
 
 
-def horizontaldipoles_jones(ll, mm, rotzen=0.):
+def horizontaldipoles_jones(ll, mm, rotzen=0., reff=0.):
     """
     Compute Jones pattern of two orthogonal, ideal dipoles with arb. z rotation
 
@@ -351,13 +351,13 @@ def horizontaldipoles_jones(ll, mm, rotzen=0.):
         sphcmp is the Ludwig3 components in l,m distribution X,Y (0,1);
         and l_idx, m_idx are the indices of the direction-cosine components of
         the pattern distribution.
-        Jones matrix is normalized to identity matrix for (l,m)==(0,0).
     """
     jonesrot = rot_2d_vecf(ll, mm, lindip_lm, rotzen)
+    jonesrot = grnd_reflect(ll, mm, jonesrot, reff)
     return jonesrot
 
 
-def dualdipole45_cov_patt(ll, mm):
+def dualdipole45_cov_patt(ll, mm, rot_deg=45., reff=0.):
     """
     Compute covariance pattern of dual-dipole rotated 45 deg.
 
@@ -367,6 +367,8 @@ def dualdipole45_cov_patt(ll, mm):
         East-west direction cosines grid.
     mm: 2D array
         North-south direction cosines grid.
+    rot_deg : float
+        Rotation of pattern around dual-pol bore-axis in degrees. Default 45.
 
     Returns
     -------
@@ -374,7 +376,8 @@ def dualdipole45_cov_patt(ll, mm):
         Transverse electric field covariance matrix. x,y are w.r.t antennas
         X,Y.
     """
-    _jones_patt = horizontaldipoles_jones(ll, mm, np.pi/4)
+    _jones_isol_patt = horizontaldipoles_jones(ll, mm, np.deg2rad(rot_deg))
+    _jones_patt = grnd_reflect(ll, mm, _jones_isol_patt, reff)
     _jones_l = np.moveaxis(_jones_patt, [0, 1], [-2, -1])
     _jones2 = np.matmul(_jones_l, _jones_l)
     _jones2 = np.moveaxis(_jones2, [-2, -1], [0, 1])
