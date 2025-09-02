@@ -5,6 +5,7 @@ import shutil
 import warnings
 import datetime
 from zipfile import ZipFile
+import pickle
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -144,6 +145,9 @@ class HemiDiffuseSkyModel:
     DELTASEC_FILE = 'delta_secs.npy'
     FREQS_FILE = 'freqs.npy'
     GEOPOS_FILE = 'geopos.npy'
+    HDSM_FILE = 'HDSM.pkl'
+    _gsminc = ['name', 'basemap', 'freq_unit', 'data_unit', 'nside',
+               'include_cmb']
 
     def __init__(self, geopos, gs_model='LFSM', imsize=128):
         """\
@@ -151,15 +155,12 @@ class HemiDiffuseSkyModel:
 
         Parameters
         ----------
-        geopos: tuple or str
-            If tuple:
-                Longitude, latitude, elevation tuple of geographic position for model.
-                This is a static variable and if it is equal to previous call, it will
-                reuse previous instance of GDSM with same geopos, otherwise a new
-                instance is created. If None, the gdsm model obj is renewed and None
-                is returned.
-            If str:
-                The filename of the lookup table to use.
+        geopos: tuple
+            Longitude, latitude, elevation tuple of geographic position for model.
+            This is a static variable and if it is equal to previous call, it will
+            reuse previous instance of GDSM with same geopos, otherwise a new
+            instance is created. If None, the gdsm model obj is renewed and None
+            is returned.
         gs_model: str
             ID of global sky model
         imsize: int
@@ -169,65 +170,44 @@ class HemiDiffuseSkyModel:
         self.gs_model = gs_model
         self.imsize = imsize
         self._uselookuptab = False
-        if type(geopos) == str:
-            # Lookup-table used when geopos is name of lookup-table file
-            # Initialize lookup table (in particular self.tab_imagecube):
-            self._uselookuptab = True
-            cwd = os.getcwd()
-            os.chdir(os.path.join(USER_DATA_DIR,
-                                  HemiDiffuseSkyModel.IMAGEMODELTABLE_SUBDIR))
-            print("Initializing image lookup tables")
-            with ZipFile(geopos+'.npz') as _zf:
-                _zf.extractall()
-            self.tab_imagecube = np.load(HemiDiffuseSkyModel.IMAGECUBE_FILE)
-            self.freqs = np.load(HemiDiffuseSkyModel.FREQS_FILE)
-            self.deltasecs = np.load(HemiDiffuseSkyModel.DELTASEC_FILE)
-            self.geopos = tuple(
-                np.load(HemiDiffuseSkyModel.GEOPOS_FILE).tolist())
-            os.chdir(cwd)
+        # When geopos is tuple, calculate directly from model
+        # Initialize calc model object (self.gsm_obs)
+        gs_model = self.gs_model
+        (longitude, latitude, elevation) = self.geopos
+        include_cmb = True
+        res = 'hi'
+        freq_unit = 'Hz'  # ('Hz', 'MHz', 'GHz')
+        # `data_unit` internal to PyGDSM depends on model:
+        #       'K' for LFSM, Haslam, GSM08;
+        #       'TCMB' for GSM16 (but provides 2 conversion functions to K).
+        # so for conformity use default 'K' and then convert afterwards
+        if gs_model == 'LFSM':
+            gsm_obs = LFSMObserver()
+        elif gs_model == 'Haslam':
+            gsm_obs = HaslamObserver()
+        elif gs_model == 'GSM' or gs_model == 'GSM2008' or gs_model == 'GSM08':
+            # gsm = GlobalSkyModel08(freq_unit=freq_unit,
+            #                     basemap='haslam',  # 'haslam', 'wmap' or '5deg'
+            #                     interpolation='pchip'  # 'cubic' or 'pchip'
+            #                     )
+            gsm_obs = GSMObserver08()
+            basemap = 'haslam'
+            if res != 'hi':
+                basemap = '5deg'
+            gsm_obs.gsm.basemap = basemap
         else:
-            # When geopos is tuple, calculate directly from model
-            # Initialize calc model object (self.gsm_obs)
-            gs_model = self.gs_model
-            (longitude, latitude, elevation) = self.geopos
-            include_cmb = True
-            res = 'hi'
-            freq_unit = 'Hz'  # ('Hz', 'MHz', 'GHz')
-            # `data_unit` internal to PyGDSM depends on model:
-            #       'K' for LFSM, Haslam, GSM08;
-            #       'MJysr' for GSM16 (but provides 2 conversion functions to K).
-            # so for conformity use default 'K' and then convert afterwards
-            if gs_model == 'LFSM':
-                gsm_obs = LFSMObserver()
-            elif gs_model == 'Haslam':
-                gsm_obs = HaslamObserver()
-            elif gs_model == 'GSM' or gs_model == 'GSM2008' or gs_model == 'GSM08':
-                # gsm = GlobalSkyModel08(freq_unit=freq_unit,
-                #                     basemap='haslam',  # 'haslam', 'wmap' or '5deg'
-                #                     interpolation='pchip'  # 'cubic' or 'pchip'
-                #                     )
-                gsm_obs = GSMObserver08()
-                basemap = 'haslam'
-                if res != 'hi':
-                    basemap = '5deg'
-                gsm_obs.gsm.basemap = basemap
-            else:
-                # gsm=GlobalSkyModel16(freq_unit=freq_unit,
-                #                     data_unit='MJysr',  # ('TCMB','MJysr','TRJ')
-                #                     resolution='hi',  # ('hi', 'lo')
-                #                     theta_rot=0, phi_rot=0)
-                gsm_obs = GSMObserver16()
-                gsm_obs.gsm.resolution = res
-                gsm_obs.gsm.data_unit = 'TCMB'
-            # NOTE: CommonGSMObserver() is my addition to PyGDSM
-            # gsm_obs = CommonGSMObs(gsm)
-            gsm_obs.gsm.freq_unit = freq_unit
-            gsm_obs.gsm.include_cmb = include_cmb
-            gsm_obs.lon = str(longitude)
-            gsm_obs.lat = str(latitude)
-            gsm_obs.elev = elevation
-            # Store gsm_obs as function attribute to make it static
-            self.gsm_obs = gsm_obs
+            # gsm=GlobalSkyModel16(freq_unit=freq_unit,
+            #                     data_unit='TCMB',  # ('TCMB','MJysr','TRJ')
+            #                     resolution='hi',  # ('hi', 'lo')
+            #                     theta_rot=0, phi_rot=0)
+            gsm_obs = GSMObserver16()
+            gsm_obs.gsm.resolution = res
+        gsm_obs.gsm.freq_unit = freq_unit
+        gsm_obs.gsm.include_cmb = include_cmb
+        gsm_obs.lon = str(longitude)
+        gsm_obs.lat = str(latitude)
+        gsm_obs.elev = elevation
+        self.gsm_obs = gsm_obs
 
     def generate_siddaymodcubes(self, freqs, nrtime=144, filename=None):
         """\
@@ -242,7 +222,8 @@ class HemiDiffuseSkyModel:
         nrtime : int
             Number of sidereal time samples.
         filename : str
-            Basename of memmap file to output .
+            Basename of memmap file to output. If `None` then use normal
+            variable for storage.
 
         Returns
         -------
@@ -253,7 +234,6 @@ class HemiDiffuseSkyModel:
             named '<filename>.npy'.
         """
         from numpy.lib.format import open_memmap
-        gs_model = 'LFSM'
         geopos_flt = lonlat2flt(self.geopos)
         lon = geopos_flt[0]
         # Use datetime 2000-01-01T17:17:17 UTC since it corresponds to 00:00:00 GMST
@@ -269,8 +249,6 @@ class HemiDiffuseSkyModel:
             filesfolder = os.path.join(USER_DATA_DIR, HemiDiffuseSkyModel.IMAGEMODELTABLE_SUBDIR)
             os.chdir(filesfolder)
             imcub_file = HemiDiffuseSkyModel.IMAGECUBE_FILE
-            # imcub = np.memmap(imcub_file+'.mmap', dtype='float32', mode='w+',
-            #                  shape=(nrt_s, nrfreq, imsize, imsize))
             imcub = open_memmap(imcub_file + '', dtype='float32', mode='w+',
                                 shape=(nrdel_ts, nrfreq, self.imsize, self.imsize))
         else:
@@ -280,9 +258,7 @@ class HemiDiffuseSkyModel:
             for t_idx in range(nrdel_ts):
                 print('Simulating timestep ', t_idx, '/', nrdel_ts, end='\r')
                 dattim = start_dattim + datetime.timedelta(seconds=int(del_ts[t_idx]))
-                # img0 = globaldiffuseskymodel_old(dattim, geopos_flt, freqs[freq_idx], gs_model=gs_model, imsize=imsize)
                 img0 = self.get_image(dattim, freqs[freq_idx])
-                # del globaldiffuseskymodel.geopos
                 imcub[t_idx, freq_idx, ...] = img0
             print()
         if filename:
@@ -293,17 +269,74 @@ class HemiDiffuseSkyModel:
             geopos_file = HemiDiffuseSkyModel.GEOPOS_FILE
             np.save(geopos_file, self.geopos)
             imcub.flush()
+            hdsm_file = HemiDiffuseSkyModel.HDSM_FILE
+            pklvars = {}
+            for k in self._gsminc:
+                pklvars[k] = getattr(self.gsm_obs.gsm, k)
+            with open(hdsm_file, 'wb') as pf:
+                pickle.dump(pklvars, pf)
             with ZipFile(filename + '.npz', 'w') as z:
                 z.write(imcub_file)
                 z.write(deltasecs_file)
                 z.write(freqs_file)
                 z.write(geopos_file)
+                z.write(hdsm_file)
             os.remove(imcub_file)
             os.remove(deltasecs_file)
             os.remove(freqs_file)
             os.remove(geopos_file)
+            os.remove(hdsm_file)
             os.chdir(cwd)
         return imcub
+
+    @classmethod
+    def load_siddaymodcubes(cls, modelfile):
+        """\
+        Load a Sidereal Day Model Cube file
+
+        Parameters
+        ----------
+        modelfile : str
+            Name of the Sidereal Day Model Cube file. This is a zipped file
+            containing numpy files for the imagecube, freqs, deltasecs, geopos.
+
+        Returns
+        -------
+        hdsm_tab : HemiDiffuseSkyModel
+            The HemiDiffuseSkyModel corresponding to `modelfile`.
+        """
+        # `modelfile` is name of lookup-table, it lives under the USER_DATA_DIR
+        cwd = os.getcwd()
+        os.chdir(os.path.join(USER_DATA_DIR,
+                              HemiDiffuseSkyModel.IMAGEMODELTABLE_SUBDIR))
+        # Initialize lookup table (in particular self.tab_imagecube):
+        print("Initializing image lookup tables II")
+        with ZipFile(modelfile + '.npz') as _zf:
+            _zf.extractall()
+        tab_imagecube = np.load(HemiDiffuseSkyModel.IMAGECUBE_FILE)
+        freqs = np.load(HemiDiffuseSkyModel.FREQS_FILE)
+        deltasecs = np.load(HemiDiffuseSkyModel.DELTASEC_FILE)
+        geopos = tuple(np.load(HemiDiffuseSkyModel.GEOPOS_FILE).tolist())
+        with open(HemiDiffuseSkyModel.HDSM_FILE,'rb') as pf:
+            gsm = pickle.load(pf)
+        # Now that model data has been loaded remove unzipped files:
+        for fn in [HemiDiffuseSkyModel.IMAGECUBE_FILE,
+                   HemiDiffuseSkyModel.FREQS_FILE,
+                   HemiDiffuseSkyModel.DELTASEC_FILE,
+                   HemiDiffuseSkyModel.GEOPOS_FILE,
+                   HemiDiffuseSkyModel.HDSM_FILE]:
+            os.remove(fn)
+        os.chdir(cwd)
+        # Create HemiDiffuseSkyModel instance which uses lookup table:
+        imsize = tab_imagecube.shape[-1]
+        hdsm_tab = cls(geopos, imsize=imsize)
+        hdsm_tab._uselookuptab = True
+        hdsm_tab.freqs = freqs
+        hdsm_tab.deltasecs = deltasecs
+        hdsm_tab.tab_imagecube = tab_imagecube
+        for k in cls._gsminc:
+            setattr(hdsm_tab.gsm_obs.gsm , k, gsm[k])
+        return hdsm_tab
 
     def get_image(self, dattim, freq):
         """
@@ -371,21 +404,6 @@ class HemiDiffuseSkyModel:
         img = np.ma.getdata(img)
         img[img == -np.inf] = 0.0
         return img
-
-    def __del__(self):
-        if self._uselookuptab:
-            print('CLEANing up')
-            # Close lookup-table model since geopos previously was str but now null
-            del self.geopos  # This will trigger intialization on next call
-            cwd = os.getcwd()
-            os.chdir(os.path.join(USER_DATA_DIR, HemiDiffuseSkyModel.IMAGEMODELTABLE_SUBDIR))
-            os.remove(HemiDiffuseSkyModel.IMAGECUBE_FILE)
-            os.remove(HemiDiffuseSkyModel.FREQS_FILE)
-            os.remove(HemiDiffuseSkyModel.DELTASEC_FILE)
-            os.remove(HemiDiffuseSkyModel.GEOPOS_FILE)
-            os.chdir(cwd)
-            # Remove static variables, at least the big ones
-            del self.tab_imagecube
 
 
 def plot_gsm_for_obsdata(cvcobj, filenr=0, sampnr=0, gs_model='LFSM',
