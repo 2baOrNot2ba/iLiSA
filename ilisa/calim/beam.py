@@ -251,7 +251,7 @@ def rot_2d_vecf(ll, mm, vf2df, rotang):
     vf2df: function
         The 2d vector field given as a function pointer.
     rotang: float
-        The angle of the rotation.
+        The angle (radians) of the rotation.
 
     Returns
     -------
@@ -338,8 +338,10 @@ def horizontaldipoles_jones(ll, mm, rotzen=0., reff=0.):
         East-west direction cosines grid.
     mm: 2D array
         North-south direction cosines grid.
-    rotzen : 2D array
+    rotzen : float
         Rotation of the two horizontal dipoles around zenith direction.
+    reff : float
+        Efficency coefficient of ground reflection.
 
     Returns
     -------
@@ -357,7 +359,7 @@ def horizontaldipoles_jones(ll, mm, rotzen=0., reff=0.):
     return jonesrot
 
 
-def jones2cov_patt(ll, mm, jones_patt):
+def jones2cov_patt(jones_patt):
     """
     Compute covariance pattern from Jones patterns
 
@@ -365,10 +367,6 @@ def jones2cov_patt(ll, mm, jones_patt):
 
     Parameters
     ----------
-    ll: 2D array
-        East-west direction cosines grid.
-    mm: 2D array
-        North-south direction cosines grid.
     jones_patt: array-like
         Jones pattern over ll,mm.
 
