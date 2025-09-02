@@ -607,27 +607,30 @@ def lightcurve_bl(freq, gs_model_obj, t_s=None, start_dattim=None,
         beam_S0[0, 0] = beampat0*beampat0*isotrsky
         beam_S0[1, 1] = beampat1*beampat1*isotrsky
     lmsts = []
+    # Compute auto-power of each dual-pol channel
     lightcurv00 = []
     lightcurv11 = []
+    data_unit = gs_model_obj.gsm_obs.gsm.data_unit
+    _use_solidangle = True
+    pownrm00 = 1.0
+    pownrm11 = 1.0
+    # Assume brightness is a temperature rather than spectral flux density
+    if data_unit == 'K' or data_unit == 'TCMB' or data_unit == 'TRJ':
+        bri_tot2pol = 1.0  # Temperature of pol-comp is same as total
+        pownrm00 = integrate_lm_image(beam_S0[0, 0],
+                                      use_solidangle=_use_solidangle)
+        pownrm11 = integrate_lm_image(beam_S0[1, 1],
+                                      use_solidangle=_use_solidangle)
+    elif data_unit.endswith('Jy'):
+        bri_tot2pol = 0.5  # Flux of pol-comp is half of total
     for dt in t_s:
         print('Simulating timestep ', dt/t_s[1], '/', t_s[-1]/t_s[1], end='\r')
         dattim = start_dattim + datetime.timedelta(seconds=int(dt))
         lst = utcpos2lmst(dattim, geopos)
-        # Assume brightness is a temperature rather than spectral flux density
-        bri_unit = 'K'
-        if bri_unit == 'K':
-            bri_tot2pol = 1.0
-        elif bri_unit == 'Jy':
-            bri_tot2pol = 0.5
         bri_mod_S0 = gs_model_obj.get_image(dattim, freq)
-        _use_solidangle = True
         powtot00 = integrate_lm_image(bri_tot2pol * bri_mod_S0 * beam_S0[0, 0],
                                       use_solidangle=_use_solidangle)
         powtot11 = integrate_lm_image(bri_tot2pol * bri_mod_S0 * beam_S0[1, 1],
-                                      use_solidangle=_use_solidangle)
-        pownrm00 = integrate_lm_image(beam_S0[0, 0],
-                                      use_solidangle=_use_solidangle)
-        pownrm11 = integrate_lm_image(beam_S0[1, 1],
                                       use_solidangle=_use_solidangle)
         powtot00 /= pownrm00
         powtot11 /= pownrm11
