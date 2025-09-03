@@ -16,7 +16,6 @@ from ilisa.antennameta import antennafieldlib as antennafieldlib
 from ilisa.operations.modeparms import rcumode2sbfreqs
 from . import SPEED_OF_LIGHT as c
 from . import visibilities as vsb
-import ilisa.calim.imaging
 
 
 def beamformed_pattern(stn2Dcoord, freq, vis_flags):
@@ -300,6 +299,48 @@ def grnd_reflect(ll, mm, patt, reff):
     return patt_tot
 
 
+def bor1_ff_EH(ll, mm, e_pln, h_pln, theta_cut, pol_Y=False):
+    """\
+    Build far-field for 1st order body-of-rotation from E- and H-plane cuts
+
+    Parameters
+    ----------
+
+    e_pln : array of floats
+        E-plane cut.
+    h_pln :  array of floats
+        H-plane cut.
+    theta_cut : array of floats
+        Angle (radians) from boresight for which the cut values are sampled.
+    pol_Y : bool
+        Whether to do Y aligned antenna (True) or X (False).
+
+    Returns
+    -------
+    ff_x, ff_y : array of floats
+        Far-field amplitude pattern components X,Y.
+    """
+    co = (e_pln + h_pln)/2.
+    xp = (e_pln - h_pln)/2.
+    phi = np.arctan2(mm, ll)
+    theta_p = np.arcsin(np.sqrt(ll**2+mm**2))
+    co_map = np.zeros_like(ll)
+    xp_map = np.zeros_like(ll)
+    for thti in range(theta_p.shape[0]):
+        co_map[thti] = np.interp(theta_p[thti], theta_cut, co)
+        xp_map[thti] = np.interp(theta_p[thti], theta_cut, xp)
+    polfac = 1
+    if not pol_Y:
+        polfac = -1
+    ff_Yy = co_map - polfac * xp_map * np.cos(2*phi)
+    ff_Yx = xp_map * np.sin(2*phi)
+    ff_x, ff_y = ff_Yx, ff_Yy
+    if not pol_Y:
+        # Flip x,y components
+        ff_x, ff_y = ff_Yy, ff_Yx
+    return ff_x, ff_y
+
+
 def lindip_lm(_ll, _mm):
     """\
     Jones field in direction cosine of dual-linear dipoles over ground
@@ -444,8 +485,8 @@ def main_cli():
         print("Pixels over hemisphere:", nrpixels_hint(midi, 2))
         beamshapes.append(beamshape)
         if args.plot and len(freqs)==1:
-            ilisa.calim.imaging.plotskyimage(ll, mm, bfps_lin, 'linear', 0,
-                                             freq, args.stnid, 0)
+            from ilisa.calim.imaging import plotskyimage
+            plotskyimage(ll, mm, bfps_lin, 'linear', 0, freq, args.stnid, 0)
             plt.show()
     if len(freqs) > 1:
         outfilename = 'beamshape_' + args.stnid + '_' + args.antset + '.npy'
