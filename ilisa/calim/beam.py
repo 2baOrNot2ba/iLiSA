@@ -409,6 +409,19 @@ def horizontaldipoles_jones(ll, mm, rotzen=0., reff=0.):
     return jonesrot
 
 
+def horizontaldipoles_jones2(ll, mm, rotzen=0., reff=0.):
+    """\
+    Same as horizontaldipoles_jones() but uses E,H plane functions
+    """
+    thts = np.arcsin(ll[0])
+    e_pln_dip = np.cos(thts)
+    h_pln_dip = np.ones_like(e_pln_dip)
+    dip_jones_card = bor1_ff_EH(e_pln_dip, h_pln_dip, thts)
+    dip_jones_rot = rot_2d_vecf(ll, mm, dip_jones_card, rotzen)
+    jones = grnd_reflect(ll, mm, dip_jones_rot, reff)
+    return jones
+
+
 def jones2cov_patt(jones_patt):
     """
     Compute covariance pattern from Jones patterns
