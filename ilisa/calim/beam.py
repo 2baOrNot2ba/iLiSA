@@ -299,46 +299,51 @@ def grnd_reflect(ll, mm, patt, reff):
     return patt_tot
 
 
-def bor1_ff_EH(ll, mm, e_pln, h_pln, theta_cut, pol_Y=False):
+def bor1_ff_EH(e_pln, h_pln, theta_cut, poltype='dual'):
     """\
-    Build far-field for 1st order body-of-rotation from E- and H-plane cuts
+    Return far-field for 1st order body-of-rotation from E- and H-plane cuts
 
     Parameters
     ----------
-
     e_pln : array of floats
         E-plane cut.
     h_pln :  array of floats
         H-plane cut.
     theta_cut : array of floats
         Angle (radians) from boresight for which the cut values are sampled.
-    pol_Y : bool
-        Whether to do Y aligned antenna (True) or X (False).
+    poltype : str
+        Type of polarization: 'dual' returns Jones matrix for dual-polarization,
+                              'X' for X aligned polarization,
+                              'Y' for Y aligned polarization.
 
     Returns
     -------
-    ff_x, ff_y : array of floats
-        Far-field amplitude pattern components X,Y.
+    ffvec_fun : function returning array of floats
+        Far-field vector function to be evaluated over direction cosine domain.
+        Shape depends on `poltype`.
     """
-    co = (e_pln + h_pln)/2.
-    xp = (e_pln - h_pln)/2.
-    phi = np.arctan2(mm, ll)
-    theta_p = np.arcsin(np.sqrt(ll**2+mm**2))
-    co_map = np.zeros_like(ll)
-    xp_map = np.zeros_like(ll)
-    for thti in range(theta_p.shape[0]):
-        co_map[thti] = np.interp(theta_p[thti], theta_cut, co)
-        xp_map[thti] = np.interp(theta_p[thti], theta_cut, xp)
-    polfac = 1
-    if not pol_Y:
-        polfac = -1
-    ff_Yy = co_map - polfac * xp_map * np.cos(2*phi)
-    ff_Yx = xp_map * np.sin(2*phi)
-    ff_x, ff_y = ff_Yx, ff_Yy
-    if not pol_Y:
-        # Flip x,y components
-        ff_x, ff_y = ff_Yy, ff_Yx
-    return ff_x, ff_y
+    def ffvec_fun(ll,mm):
+        co = (e_pln + h_pln)/2.
+        xp = (e_pln - h_pln)/2.
+        phi = np.arctan2(mm, ll)
+        theta_p = np.arcsin(np.sqrt(ll**2+mm**2))
+        co_map = np.zeros_like(ll)
+        xp_map = np.zeros_like(ll)
+        for thti in range(theta_p.shape[0]):
+            co_map[thti] = np.interp(theta_p[thti], theta_cut, co)
+            xp_map[thti] = np.interp(theta_p[thti], theta_cut, xp)
+        ff_Q = xp_map * np.cos(2*phi)
+        ff_Xx = co_map + ff_Q
+        ff_Yy = co_map - ff_Q
+        ff_Yx = xp_map * np.sin(2*phi)
+        ff_jones = np.array([[ff_Xx, ff_Yx], [ff_Yx, ff_Yy]])
+        ff_vf = ff_jones
+        if poltype == 'X':
+            ff_vf = ff_jones[0]
+        elif poltype == 'Y':
+            ff_vf = ff_jones[1]
+        return ff_vf
+    return ffvec_fun
 
 
 def lindip_lm(_ll, _mm):
