@@ -422,6 +422,44 @@ def horizontaldipoles_jones2(ll, mm, rotzen=0., reff=0.):
     return jones
 
 
+def lwa1(ll, mm, freq=38e6):
+    """\
+    LWA1 antenna farfield patterns
+
+    Based on LWA memo 175 (Ellingson 2010). Antennas aligned cardinally.
+
+    Parameters
+    ----------
+    ll, mm: 2d float arrays
+        Direction cosine domain.
+    freq: float
+        Frequency (Hz). Can be 38e6 (default) or 74e6.
+
+    Returns
+    -------
+    lwa1ffjones: Nd array of floats
+        The farfield Jones matrix for the LWA1 antenna model.
+    """
+    def p(alpha, beta, gamma, delta, theta):
+        p = ((1-(theta/(np.pi/2))**(alpha))*np.cos(theta)**beta
+             + gamma*(theta/(np.pi/2))*np.cos(theta)**delta)
+        return p
+    thts = np.arcsin(ll[0])
+                                    #Parameters for:
+    parms_38_E = 1., 3.0, 1., 1.7   # 38 MHz E-plane
+    parms_38_H = 9., 1.3, 0., 0.    # 38 MHz H-plane
+    parms_74_E = 1., 4.0, 1., 1.4   # 74 MHz E-plane
+    parms_74_H = 9., 1.2, 0., 0.    # 74 MHz H-plane
+    parms_E, parms_H = parms_38_E, parms_38_H  # Default is 38 MHz
+    if freq == 74e6:
+        parms_E, parms_H = parms_74_E, parms_74_H
+    e_pln = p(*parms_E, thts)
+    h_pln = p(*parms_H, thts)
+    lwa1fffun = bor1_ff_EH(e_pln, h_pln, thts)
+    lwa1ffjones = lwa1fffun(ll, mm)
+    return lwa1ffjones
+
+
 def jones2cov_patt(jones_patt):
     """
     Compute covariance pattern from Jones patterns
