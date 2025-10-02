@@ -2296,7 +2296,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     viewbst(dataff, pol_stokes=_pol_stokes,
                             printout=printout)
                 elif lofar_datatype == 'sst':
-                    viewsst(dataff, freq, sampnr, rcunr, printout)
+                    viewsst(dataff, freq, sampidx, rcunr, printout)
                 elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON' \
                         or lofar_datatype=='acc':
                     # Get selected data
