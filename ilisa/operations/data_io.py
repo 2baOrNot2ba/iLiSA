@@ -1685,7 +1685,8 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
     return acc2bstbase + "." + saveformat
 
 
-def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
+def viewbst(bstff, pol_stokes=True, printout=False, filenr=None,
+            update_wait=False):
     """\
     View BST data
 
@@ -1721,6 +1722,10 @@ def viewbst(bstff, pol_stokes=True, printout=False, update_wait=False):
     if t_left > 0:
         print("Data duration {}s less than requested. (Rec not finished?)"
               .format(t_left))
+    if filenr is not None:
+        bst_datas_x = [bst_datas_x[filenr]]
+        bst_datas_y = [bst_datas_y[filenr]]
+        ts = ts_list[filenr]
     bst_data_x = numpy.concatenate(bst_datas_x).reshape(-1, max_nr_bls).T
     bst_data_y = numpy.concatenate(bst_datas_y).reshape(-1, max_nr_bls).T
     if bst_datas_xy:
@@ -2259,7 +2264,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
             sampnr = int(sampnr)
             sampnrs = [sampnr]
 
-    for filenr in filenrs:
+    for fileidx in filenrs:
         for sampidx in sampnrs:
             if dataff:
                 dataffs = [dataff]
@@ -2278,7 +2283,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     if lofar_datatype == 'sst':
                         print('# rcunr:', rcunr)
                     else:
-                        print('# filenr:', filenr)
+                        print('# filenr:', fileidx)
                     print('# sampnr:', sampidx)
                     print('# poltype:', poltype)
                 if not freq:
@@ -2293,7 +2298,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     _pol_stokes = False
                     if poltype == 'sto':
                         _pol_stokes = True
-                    viewbst(dataff, pol_stokes=_pol_stokes,
+                    viewbst(dataff, pol_stokes=_pol_stokes, filenr=fileidx,
                             printout=printout)
                 elif lofar_datatype == 'sst':
                     viewsst(dataff, freq, sampidx, rcunr, printout)
@@ -2305,13 +2310,13 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     nrsamps = len(xstobj.samptimeset[0])
                     print('# nrfiles', nrfiles)
                     print('# nrsamps', nrsamps)
-                    xstfiledata = xstobj[filenr]
+                    xstfiledata = xstobj[fileidx]
                     xstsampdata = xstfiledata[sampidx]
 
                     # Get metadata
                     obs_ids = xstobj.scanrecinfo.get_obs_ids()
-                    times_in_filetimes = xstobj.samptimeset[filenr]
-                    ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[filenr]]
+                    times_in_filetimes = xstobj.samptimeset[fileidx]
+                    ldatinfo = xstobj.scanrecinfo.ldatinfos[obs_ids[fileidx]]
                     samptime = times_in_filetimes[sampidx]
                     freq = ldatinfo.get_recfreq(sampidx)
                     stnid = xstobj.scanrecinfo.stnid
