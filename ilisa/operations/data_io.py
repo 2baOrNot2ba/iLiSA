@@ -1855,7 +1855,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
       * *persbs*: per frequency, plot over time waterfall of RCUs
       * *mean*: mean dynamic spectra averaged over RCU
       * *dynspec*: dynamic spectra averaged over selected RCUs
-      * *overlay*: overlay spectrum of given RCU slice
+      * *overlay*: overlay spectras for given RCU slice
       * *ssmosaic*: snapshot mosaic at time samp of spectra for all RCUs
 
     Which plot is selected depends on argument settings (T,F,X = Set, Unset,
