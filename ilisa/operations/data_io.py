@@ -2298,7 +2298,10 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     _pol_stokes = False
                     if poltype == 'sto':
                         _pol_stokes = True
-                    viewbst(dataff, pol_stokes=_pol_stokes, filenr=fileidx,
+                    _filenr = fileidx
+                    if filenr is None:
+                        _filenr = None
+                    viewbst(dataff, pol_stokes=_pol_stokes, filenr=_filenr,
                             printout=printout)
                 elif lofar_datatype == 'sst':
                     viewsst(dataff, freq, sampidx, rcunr, printout)
