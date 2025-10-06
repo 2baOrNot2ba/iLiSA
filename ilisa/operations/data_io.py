@@ -2160,9 +2160,12 @@ def latest_scanrec_path():
     latest_scanrecpath : str
         Path on DRU of latest ScanRec data.
     """
-    latestdatafile = sorted(filter(lambda _f: _f.startswith('latest'),
-                                   os.listdir(USER_CACHE_DIR)),
-                            key=os.path.getmtimeget)[-1]
+    cwd = os.getcwd()
+    os.chdir(USER_CACHE_DIR)
+    lastestdatafile = sorted(filter(lambda _f: _f.startswith('latest'),
+                                    os.listdir()), key=os.path.getmtime)[-1]
+    latestdatafile = os.path.join(USER_CACHE_DIR, lastestdatafile)
+    os.chdir(cwd)
     with open(latestdatafile, 'r') as f:
         lines_in = f.readlines()
     _contents = [_l.rstrip() for _l in lines_in]
@@ -2239,8 +2242,8 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
         representation.
     """
     if not dataff:
-        dataff = latest_scanrec_path()
-        print('dataff', next(dataff))
+        dataff = next(latest_scanrec_path())
+        print('dataff', dataff)
     dataff = os.path.normpath(dataff)
     scnrecinfo = ScanRecInfo().read_scanrec(dataff)
     if scnrecinfo and scnrecinfo.comments:
