@@ -2244,6 +2244,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
     if not dataff:
         dataff = next(latest_scanrec_path())
         print('dataff', dataff)
+        filenr = '-1'
     dataff = os.path.normpath(dataff)
     scnrecinfo = ScanRecInfo().read_scanrec(dataff)
     if scnrecinfo and scnrecinfo.comments:
@@ -2256,7 +2257,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
     if filenr is not None:
         if ':' in filenr:
             filenrs = range(*map(int, filenr.split(':')))
-        elif filenr.isdigit():
+        elif filenr.lstrip('-+').isdigit():
             filenrs = [int(filenr)]
 
     sampnrs = [0]
