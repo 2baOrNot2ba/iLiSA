@@ -313,7 +313,8 @@ def rawfilesinfolder(bfsff):
     udpfps = []
     _ls = sorted(os.listdir(bfsff))
     for f in _ls:
-        if f.startswith('udp_') and not f.endswith('.zst'):
+        if (f.startswith('udp_') and not f.endswith('.zst')
+                and not f.endswith('.npy') and not f.endswith('.npz')):
             udpfps.append(os.path.join(bfsff, f))
     return udpfps
 
