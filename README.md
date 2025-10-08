@@ -54,8 +54,8 @@ The `monitor` subpackage provides tools for collecting information on the state
 of a station so that operators can remotely monitor the state of the telescopes.
 
 The `pipelines` subpackage enables the setting up of pipelines that process
-data recorded during station operations. It also contains CLI support for LOFAR
-BFS data.
+data recorded during station operations. It also contains CLI support for
+handling LOFAR BFS data files, allowing e.g. conversion to numpy etc.
 
 `scripts` contain some high level scripts such as a scheduling tool that can
 start observing sessions at specific times on specific stations and start
