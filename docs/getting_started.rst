@@ -16,9 +16,12 @@ remotely. Look at the following diagram
 This shows a typical layout topology consisting of a local control unit
 (LCU) that performs the actual observations, a data recording unit (DRU)
 where recorded data ends up and a central control unit (CCU) from which
-you control and monitor the LCU and DRU. For security reasons, the LCU
-will be on another network than the other resouces, and this necessitates
-a gateway portal. In what follows in it assumed that this topology has
+you control and monitor the LCU and DRU.
+Note that the CCU and DRU could be the same physical node, since these are
+only logical nodes.
+For security reasons, the LCU will be on another network than the other
+resources, and this necessitates a gateway portal.
+In what follows in it assumed that this topology has
 been setup already, often this will mean enabling ssh tunnels and port
 configurations, so that the ``iLiSA`` user is able to ssh without password
 into the LCU and DRU from the CCU.
@@ -50,14 +53,15 @@ Basic Recording
 ---------------
 The simplest way to use a LOFAR station is to record data using the command
 line interface called ``ilisa_rec``. For let's say you want to record XST data
-for Cassiopeia-A:
+for Cassiopeia-A. You do this on the CCU command line
+(which has the prompt `[CCU]$`) as follows:
 
 .. code-block:: console
 
-   [localhost]$ ilisa_rec xst 55e6 10 Cas-A
-   [localhost]$ ls /data/LOFAR/SE607/xst/
+   [CCU]$ ilisa_rec xst 55e6 10 Cas-A
+   [CCU]$ ls /data/LOFAR/SE607/xst/
    scan_59632.40269
-   [localhost]$ ls /data/LOFAR/SE607/xst/scan_59632.40269
+   [CCU]$ ls /data/LOFAR/SE607/xst/scan_59632.40269
    SCANREC_INFO.yml  SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
 
 Running Scan Sessions
@@ -82,7 +86,7 @@ is recorded. This scan session can be executed using the follow command:
 
 .. code-block:: console
 
-   [localhost]$ ilisa_obs -t 2022-04-26T11:15:00 bst_scnses.yml
+   [CCU]$ ilisa_obs -t 2022-04-26T11:15:00 bst_scnses.yml
 
 where the last argument was the name of the yaml file shown previously
 and the ``-t`` flag specifies when the scan session should start.
@@ -97,21 +101,21 @@ One simply types:
 
 .. code-block:: console
 
-   [localhost]$ ilisa_view
+   [CCU]$ ilisa_view
 
 In this case the latest, potentially realtime, data is plotted. Otherwise one
 can type
 
 .. code-block:: console
 
-   [localhost]$ ilisa_view /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+   [CCU]$ ilisa_view /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
 
 which will browse through the XST data which is shown as covariance matrices.
 If one wishes to see the sky image maps, one can use the command:
 
 .. code-block:: console
 
-   [localhost]$ calim_image bf /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+   [CCU]$ calim_image bf /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
 
 where ``bf`` argument implies using the beamform imaging algorithm.
 The result should look something like:
