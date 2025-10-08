@@ -7,13 +7,6 @@ LOFAR is a low-frequency radio telescope array located in Europe.
 
 ### What is this repository for? ###
 
-iLiSA provides a package to make observations on international LOFAR stations in
-stand-alone mode called `operations` and a package to handle metadata about
-the configuration of the LOFAR station's antenna metadata called `antennameta`.
-LOFAR is a low-frequency radio telescope array located in Europe.
-
-### What is this repository for? ###
-
 iLiSA is of interest to people that have access to a LOFAR station or if you
 wish to process data taken with a LOFAR station in stand-alone mode.
 
@@ -74,4 +67,7 @@ for handling visibilities and global sky models.
 * Optional features might require additional software...
 
 ### Status ###
+
+Please note that iLiSA is still in development. It has been used heavily on the
+Swedish LOFAR station. Features such as TBB handling require DAL software.
 
