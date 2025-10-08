@@ -30,7 +30,7 @@ observational conditions of the input XST data. So for example:
 
 .. code-block:: console
 
-   [localhost]$ ilisa_model vis SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+   [localhost]$ calim_model vis SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
    [localhost]$ ls -d *mod_xst
    SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_mod_xst
 
@@ -48,7 +48,7 @@ solving (argument ``sol``) for the gains. E.g.
 
 .. code-block:: console
 
-   [localhost]$ ilisa_cal sol SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+   [localhost]$ calim_calib sol SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
    [localhost]$ ls -d *mod_xst/*.npy
    gainsolutions.npy
 
@@ -61,7 +61,7 @@ measured data to obtain calibrated data. E.g.
 
 .. code-block:: console
 
-   [localhost]$ ilisa_cal app SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+   [localhost]$ calim_calib app SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
    [localhost]$ ls -d *cal_xst/
    SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_cal_xst
 
@@ -94,7 +94,7 @@ Beamform imaging:
 
 .. code-block:: console
 
-   [localhost]$ ilisa_image bf SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+   [localhost]$ calim_image bf SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
 
 results in an image such as:
 
