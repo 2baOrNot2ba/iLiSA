@@ -111,7 +111,7 @@ If one wishes to see the sky image maps, one can use the command:
 
 .. code-block:: console
 
-   [localhost]$ ilisa_image bf /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
+   [localhost]$ calim_image bf /data/LOFAR/SE607/xst/SE607_20220222_093955_spw3_sb230_int1_dur30_dirCas-A_xst
 
 where ``bf`` argument implies using the beamform imaging algorithm.
 The result should look something like:
