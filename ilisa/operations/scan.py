@@ -17,6 +17,7 @@ _LOGGER = logging.getLogger(__name__)
 class LScan:
     def __init__(self, stndrv, rec_type, freqsetup, pointing_spec, duration_tot,
                  integration, starttime, acc=False, bfs=False,
+                 septonconf=None,
                  bfs_recorder=None, destpath=None, destpath_bfs=None,
                  file_dur=None, scan_id=None):
         """\
@@ -56,6 +57,8 @@ class LScan:
             all array elements with each as a function of subband.
         bfs: bool
             If true, record 'bfs': Record BeamFormed Stream data.
+        septonconf: str
+            SEPTON configuration str. Default None meaning SEPTON mode not used.
         bfs_recorder: str
             Type of recorder to use to record bfs data.
         destpath: str
@@ -76,6 +79,7 @@ class LScan:
         self.starttime = starttime
         self.acc = acc
         self.bfs = bfs
+        self.septonconf = septonconf
         self.bfs_recorder = bfs_recorder
         self.file_dur = file_dur if file_dur else duration_tot
         self.destpath = destpath if destpath else stndrv.scanpath
@@ -176,7 +180,7 @@ class LScan:
                 stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup._rcumodes[0])
                 if freqsetup._rcumodes[0] > 4:
                     # No pointing for HBA implies tiles-off mode
-                   stndrv.setup_tof()
+                   stndrv.setup_tof(self.septonconf)
             if self.bfs:
                 bfs_subscan = stndrv.start_bfs_scan(starttime, freqsetup,
                                 duration_tot, duration_file=file_dur,
