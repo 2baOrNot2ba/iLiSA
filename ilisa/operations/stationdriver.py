@@ -802,16 +802,15 @@ class StationDriver(object):
         # From swlevel 0 it takes about 1:30min? to reach swlevel 3
         _LOGGER.info("Booting")
 
-    def setup_tof(self, elemsOn=modeparms.tof_on_els_default):
+    def setup_tof(self, tof_on_els=modeparms.tof_on_els_default):
         """Setup (HBA) tiling off mode."""
         # NOTE: LCU must be in swlevel=2 to run SEPTON!
         self._lcu_interface.set_swlevel(2)
-        if elemsOn is None:
-            elemsOn = modeparms.tof_on_els_default
+        if tof_on_els is None:
+            tof_on_els = modeparms.tof_on_els_default
         # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
-        self._lcu_interface.turnoffElinTile_byEl(elemsOn)
-        self.septonconf = modeparms.elementMap2str(elemsOn)
-        return self.septonconf
+        self._lcu_interface.turnoffElinTile_byEl(tof_on_els)
+        return tof_on_els
 
     def stop_tof(self):
         """Stop tiling off mode."""
