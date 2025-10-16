@@ -107,7 +107,7 @@ def lonlat2ITRF(lon, lat, h='0.0m'):
     return x, y, z
 
 
-def utcpos2lmst(utctim, lonlat):
+def utcpos2lmst(utctim, lonlat, deltatimes=None):
     """\
     Convert UTC to local mean sidereal time
 
@@ -117,6 +117,10 @@ def utcpos2lmst(utctim, lonlat):
         A UTC date-time of an epoch.
     lonlat : tuple
         A tuple of len 3 (lon, lat, hgt), or 2 (lon, lat) where hgt=0.
+    deltatimes : array-like of floats
+        List of delta times in float seconds w.r.t. utctim of the times to
+        evaluate lsmt for. Default is None, which effectively means a delta-time
+        of 0.0s.
 
     Returns
     -------
@@ -124,10 +128,10 @@ def utcpos2lmst(utctim, lonlat):
         Local mean sidereal seconds of sidereal day.
     """
     # Convert utctim instant to ISO datetime str
-    if type(utctim) is datetime.datetime:
-        dattim_str = utctim.isoformat()
-    else:
-        dattim_str = utctim
+    #if type(utctim) is datetime.datetime:
+    #    dattim_str = utctim.isoformat()
+    #else:
+    #    dattim_str = utctim
     me = measures()
     if len(lonlat) < 3:
         lonlat += ('0m',)
@@ -142,9 +146,18 @@ def utcpos2lmst(utctim, lonlat):
         lonlathgt.append(lonlat[2])
     pos = me.position('WGS84', *lonlathgt)
     me.doframe(pos)
-    epoch = me.epoch('UTC', quantity(dattim_str))
-    lmst = me.measure(epoch, 'LMST')
-    fracday = lmst['m0']['value'] % 1
-    # hms_str = quantity(str(fracday)+'d').to_time().formatted()
-    lmst_timdel = datetime.timedelta(days=fracday)
-    return lmst_timdel.total_seconds()
+    if deltatimes is None:
+        deltatimes = [0.]
+    lmsts = []
+    for deltatime in deltatimes:
+        t = utctim + datetime.timedelta(deltatime)
+        dattim_str = t.isoformat()
+        epoch = me.epoch('UTC', quantity(dattim_str))
+        lmst = me.measure(epoch, 'LMST')
+        fracday = lmst['m0']['value'] % 1
+        # hms_str = quantity(str(fracday)+'d').to_time().formatted()
+        lmst_timdel = datetime.timedelta(days=fracday)
+        lmsts.append(lmst_timdel.total_seconds())
+    if deltatimes is None:
+        lmsts = lmsts[0]
+    return lmsts
