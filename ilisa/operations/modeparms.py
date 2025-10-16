@@ -44,9 +44,10 @@ elOn_Generic_Int_201512 = \
       3,12, 7, 4, 6, 0, 5, 9, 1,10,10,11, 5,11, 7, 9, 7, 6, 4, 4,15, 4, 1,15]
 # hex for elOn_Generic_Int_201512
 # f0f39fe2034ea85fc02b3cc1544863053b328fd83291e880cd0bf3c3d3a50a164a3f3e0c070c73d073f4e43849c0e93b
-elOn_same_el = 0
-# elOn_same = [elOn_same_el for elemNr in range(stationcontrol.nrTiles)]
-elemsOn = elOn_Generic_Int_201512  # elOn_same or elOn_step or elOn_gILT or ...
+_elOn_same_el = 0
+elOn_same = [_elOn_same_el for elemNr in range(nrofrcus//2)]
+
+tof_on_els_default = elOn_gILT  # Set default to be elOn_gILT to conform with setup_tof()
 
 
 def beamctl_args2cmds(beamlets, subbands, band, anadigdir, rcus='all',
