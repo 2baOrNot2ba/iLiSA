@@ -619,6 +619,11 @@ class ScanRecInfo(object):
     def set_caltabinfos(self, caltabinfos):
         self.caltabinfos = caltabinfos
 
+    def set_septonconf(self, septonconf):
+        # Not included in __init__() because septonconf may not be known until
+        # scan is running and set_tof() is called
+        self.scanrecparms['septonconf'] = septonconf
+
     def write_scanrec(self, datapath):
         with open(os.path.join(datapath, self.scanrecinfo_header), "w") as f:
             f.write("# Scan recording header\n")
