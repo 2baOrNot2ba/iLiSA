@@ -428,6 +428,7 @@ class ScanSession(object):
                 integration = scan['integration']
                 freqspec = scan['beam']['freqspec']
                 freqsetup = modeparms.FreqSetup(freqspec)
+                septonconf = scan['septonconf']
                 scan_dur = scan['duration']
 
                 # Calculate scan schedule fundamental timings
@@ -459,7 +460,8 @@ class ScanSession(object):
                 # Initialize LScan
                 lscan = LScan(self.stndrv, bsx_stat, freqsetup, pointing_spec,
                               scan_dur, integration, starttime,
-                              acc=acc, bfs=bfs, bfs_recorder=bfs_recorder,
+                              acc=acc, bfs=bfs, septonconf=septonconf,
+                              bfs_recorder=bfs_recorder,
                               destpath=sesspath,
                               destpath_bfs=bfdsesdumpdir,
                               file_dur=scan['file_dur'], scan_id=scan['id'])
