@@ -179,8 +179,13 @@ class LScan:
             else:
                 stndrv._rcusetup(freqsetup.bits, 0, mode=freqsetup._rcumodes[0])
                 if freqsetup._rcumodes[0] > 4:
+                    tof_on_els_in = None
+                    if self.septonconf is not None:
+                        tof_on_els_in = modeparms.str2elementMap2(self.septonconf)
                     # No pointing for HBA implies tiles-off mode
-                   stndrv.setup_tof(self.septonconf)
+                    tof_on_els = stndrv.setup_tof(tof_on_els_in)
+                    # tof_on_els is element in tiles list. Convert to septonconf str
+                    self.septonconf = modeparms.elementMap2str(tof_on_els)
             if self.bfs:
                 bfs_subscan = stndrv.start_bfs_scan(starttime, freqsetup,
                                 duration_tot, duration_file=file_dur,
@@ -391,6 +396,7 @@ class LScan:
         """
         for ldat in self.scanresult['rec']:
             scanrecinfo = self.scanresult.get(ldat)
+            scanrecinfo.set_septonconf(self.septonconf)
             scanrecpath = scanrecinfo.scanrecpath
             if scanrecpath:
                 scanrecinfo.write_scanrec(scanrecpath)
