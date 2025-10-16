@@ -219,6 +219,7 @@ def process_scansess(sesscans_in):
             if integration > duration_tot:
                 raise ValueError("Integration longer than duration ({}>{})."
                                  .format(integration, duration_tot))
+            septonconf = scan.get('septonconf')
 
             # If dedicated observation program chosen, set it up
             # otherwise run main obs program
@@ -239,9 +240,7 @@ def process_scansess(sesscans_in):
                           'integration': integration,
                           'duration': duration_tot,
                           'file_dur': file_dur,
-                          #'starttime': modeparms.astimestr(scanstarttime),
-                          #'starttime_guess': \
-                          #    modeparms.astimestr(scanstarttime_guess),
+                          'septonconf': septonconf,
                           'starttime': scanstarttime,
                           'starttime_guess': scanstarttime_guess,
                           'id': scan_id
