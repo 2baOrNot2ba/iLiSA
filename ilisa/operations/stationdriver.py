@@ -806,6 +806,8 @@ class StationDriver(object):
         """Setup (HBA) tiling off mode."""
         # NOTE: LCU must be in swlevel=2 to run SEPTON!
         self._lcu_interface.set_swlevel(2)
+        if elemsOn is None:
+            elemsOn = modeparms.tof_on_els_default
         # self.stationcontroller.turnoffElinTile_byTile(elemsOn) # Alternative
         self._lcu_interface.turnoffElinTile_byEl(elemsOn)
         self.septonconf = modeparms.elementMap2str(elemsOn)
