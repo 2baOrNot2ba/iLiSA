@@ -162,7 +162,8 @@ class LScan:
         file_dur = self.file_dur
 
         bsx_type = modeparms._xtract_bsx(rec_type)
-        stndrv.field = self.pointing_spec.get('source')
+        if not self.pointing_spec.get('source'):
+            stndrv.field = self.dir_bmctl
 
         if rec_type != 'tbb' and rec_type != 'dmp':
             if self.acc:
