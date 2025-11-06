@@ -84,7 +84,7 @@ def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
         Argument 'out' passed to dumper CLI.
     datafileguess : str
         Path to data file. Has format:
-            _<port>.start.<%Y-%m-%dT%H:%M:%S>.000
+            udp_<stnid>_<port>.<BEnode>.<%Y-%m-%dT%H:%M:%S>.000<.compress>
     dumplogname :
         Name of dumper's logfile.
     """
@@ -96,7 +96,7 @@ def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
     dumplogname = os.path.join(outdumpdir,
                                '{}_lane{}_rcu{}.log'.format(DUMPERNAME, lane,
                                                             rcumode))
-    datafileguess = outarg + '_' + str(port) + platform.node()\
+    datafileguess = outarg + '_' + str(port) +'.'+ platform.node()\
         + starttime.strftime("%Y-%m-%dT%H:%M:%S") + '.000'
     if compress:
         datafileguess += '.zst'
@@ -120,7 +120,7 @@ def _startlanerec(lane, starttime, duration, file_dur, rcumode, bf_data_dir,
         os.mkdir(outdumpdir)
     dur_flagarg = ''
     if duration:
-        dur_flagarg = ' --duration ' + str(int(duration))
+        dur_flagarg = ' --duration ' + str(duration)
     maxfilesz_arg = ''
     if file_dur:
         datarate_perlane = 95.5E6  # Bytes per second per lane approx
