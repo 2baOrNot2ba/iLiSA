@@ -96,7 +96,7 @@ def bfsfilepaths(lane, starttime, rcumode, bf_data_dir, port0, stnid,
     dumplogname = os.path.join(outdumpdir,
                                '{}_lane{}_rcu{}.log'.format(DUMPERNAME, lane,
                                                             rcumode))
-    datafileguess = outarg + '_' + str(port) +'.'+ platform.node()\
+    datafileguess = outarg + '_' + str(port) +'.'+ platform.node() +'.'\
         + starttime.strftime("%Y-%m-%dT%H:%M:%S") + '.000'
     if compress:
         datafileguess += '.zst'
