@@ -23,6 +23,12 @@ import ilisa.operations.modeparms as modeparms
 import ilisa.operations.data_io as data_io
 
 _LOGGER = logging.getLogger(__name__)
+ADM_CDM_funcs = {}  # dict of adm commands to be registered at defs
+
+def adm_cmd_fun(func):
+    """Decorater to register a function as station admin command"""
+    ADM_CDM_funcs[func.__name__] = func
+    return func
 
 
 class StationDriver(object):
@@ -1122,6 +1128,7 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     return time_at_return
 
 
+@adm_cmd_fun
 def boot(stndrv):
     """\
     Put station into ready to observe state
@@ -1134,6 +1141,7 @@ def boot(stndrv):
         print("**", "Could not boot station since:", err, "**")
 
 
+@adm_cmd_fun
 def idle(stndrv):
     """\
     Put station into idle state
@@ -1143,11 +1151,13 @@ def idle(stndrv):
     stndrv.halt_observingstate()
 
 
+@adm_cmd_fun
 def handback(stndrv):
     """Handback station to ILT control."""
     idle(stndrv)
 
 
+@adm_cmd_fun
 def checkobs(stndrv):
     """Check if user can observe on LCU"""
     print("For station {}:".format(stndrv.get_stnid()), end=" ")
@@ -1193,18 +1203,15 @@ def main_cli():
     starttime = modeparms.timestr2datetime(args.time)
     waituntil(starttime, stndrv._time2startup_hint(args.admcmd))
     # Dispatch admin commands
-    _LOGGER.info('ilisa_adm {} -t{} -s{}'.format(args.admcmd, args.time, args.station))
-    if args.admcmd == 'boot':
-        boot(stndrv)
-    elif args.admcmd == 'idle':
-        idle(stndrv)
-    elif args.admcmd == 'handback':
-        handback(stndrv)
-    elif args.admcmd == 'checkobs':
-        checkobs(stndrv)
+    _LOGGER.info('ilisa_adm {} -t{} -s{}'.format(args.admcmd, args.time,
+                                                 args.station))
+    if args.admcmd in ADM_CDM_funcs:
+        ADM_CDM_funcs[args.admcmd](stndrv)
     else:
-        err_mes = "No such command: {}".format(args.admcmd)
-        _LOGGER.critical(err_mes)
+        if args.admcmd != 'list':
+            err_mes = "No such command: {}".format(args.admcmd)
+            _LOGGER.critical(err_mes)
+        print("Station adm commands:", list(ADM_CDM_funcs.keys()))
         sys.exit(2)
 
 
