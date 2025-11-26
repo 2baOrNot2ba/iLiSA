@@ -757,6 +757,8 @@ def main_cli():
     parser = argparse.ArgumentParser()
     parser.add_argument('-n', '--filenr', type=int, default=0)
     parser.add_argument('-s', '--sampnr', type=int, default=0)
+    parser.add_argument('-o', '--output', action="store_true",
+                        help="Output png image file")
 
     subparsers = parser.add_subparsers(help='sub-command help')
 
@@ -792,7 +794,13 @@ def main_cli():
             print("Error:", err)
             sys.exit()
         plotskyimage(**imagedataset, maskhrz=False, plot_title='Imaged Sky')
-        plt.show()
+        if args.output:
+            pltfile = (os.path.basename(args.dataff) + '_n' + str(args.filenr)
+                       + '_s' + str(args.sampnr) +'.png')
+            plt.draw()
+            plt.savefig(pltfile)
+        else:
+            plt.show()
 
 
 def fiducial_image(width=0.7, imsize=201, background=0.0):
