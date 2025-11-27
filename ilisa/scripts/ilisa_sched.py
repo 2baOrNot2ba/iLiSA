@@ -35,6 +35,7 @@ def sched2at(schedfile, check=False):
     bootbefore = schedtab.get('bootbefore', None)
     duration = schedtab.get('duration', None)
     idleafter = schedtab.get('idleafter', None)
+    cyclebefore = schedtab.get('cyclebefore', False)
 
     first_start_ut = None
     last_start_ut = None
@@ -78,6 +79,11 @@ def sched2at(schedfile, check=False):
         boot_start_ut = first_start_ut - modeparms.hmsstr2deltatime(bootbefore)
         bootschedline ={'start': boot_start_ut, 'cmd': 'boot'}
         schedlines.insert(0, bootschedline)
+    if cyclebefore:
+        # This forces station to swlevel 0 before booting
+        cycle_start_ut = boot_start_ut - modeparms.hmsstr2deltatime('1m')
+        cycleschedline ={'start': cycle_start_ut, 'cmd': 'idle'}
+        schedlines.insert(0, cycleschedline)
     if duration:
         duration_dt = modeparms.hmsstr2deltatime(duration)
         end_ut = first_start_ut + duration_dt
