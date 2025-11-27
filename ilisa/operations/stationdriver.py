@@ -1133,7 +1133,7 @@ def boot(stndrv):
     """\
     Put station into ready to observe state
 
-    Note: This typically takes 77 s.
+    Note: This typically takes >77 s.
     """
     try:
         stndrv.goto_observingstate()
@@ -1146,7 +1146,7 @@ def idle(stndrv):
     """\
     Put station into idle state
 
-    Note: This typically takes 41 s.
+    Note: This typically takes >41 s.
     """
     stndrv.halt_observingstate()
 
