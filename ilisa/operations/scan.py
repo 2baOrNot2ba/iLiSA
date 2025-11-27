@@ -380,7 +380,10 @@ class LScan:
         # Move logs to scanrec folder
         for abfslogpath in bfslogpaths:
             _drusrc = _DRU2CCUpath(abfslogpath)
-            shutil.move(_drusrc, scanrecpath)
+            try:
+                shutil.move(_drusrc, scanrecpath)
+            except:
+                _LOGGER.error('Could not move BFS logs')
 
     def _gen_scan_id(self, scan_started):
         """\
