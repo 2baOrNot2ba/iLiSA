@@ -103,10 +103,10 @@ class LCUInterface(object):
 
         # Check LCU OS env:
         path_ok, datadirs_ok = self.checkLCUenv()
-        assert path_ok, "Check $PATH on LCU. Needs to have {} and {}." \
-            .format(self.lofarbin, self.lofaroperationsbin)
-        assert datadirs_ok, "Check that data folders {} and {} on LCU." \
-            .format(self.lcuDumpDir, self.ACCsrcDir)
+        assert path_ok, "Check $PATH on LCU {}. Needs to have {} and {}." \
+            .format(self.url, self.lofarbin, self.lofaroperationsbin)
+        assert datadirs_ok, "Check data folders {} and {} exist on LCU {}." \
+            .format(self.lcuDumpDir, self.ACCsrcDir, self.url)
 
     def __del__(self):
         pass
