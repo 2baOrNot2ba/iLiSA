@@ -13,6 +13,13 @@ _USE_SSH_MASTER_MODE = False  # Whether to use SSH's Master mode option
 _LOGGER = logging.getLogger(__name__)
 
 
+class RemExecError(Exception):
+    """Exception raised by remote execution functions"""
+    def __init__(self, cmdline, returncode):
+        self.cmdline = cmdline
+        self.returncode = returncode
+
+
 def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False,
               dryrun=False, accessible=False, quotes="'", stdoutdir='~',
               verbose=True, _slow_conn_time=0):
@@ -54,7 +61,7 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
 
     Raises
     ------
-    RuntimeError
+    RemExecError
         Raised if the remote command's return code indicates error.
     """
     _log_exec_exit = False  # Add info line in logging when exec exits
@@ -100,10 +107,11 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
                                     stdout=subprocess.PIPE)
             except:
                 _LOGGER.error('_exec_ssh : could not run subprocess.run()')
+                raise
             if outprc.returncode != 0:
-                _LOGGER.error("'"+full_shell_cmdline+"' returned code "
-                              +str(outprc.returncode))
-                raise RuntimeError
+                _LOGGER.warning("'"+full_shell_cmdline+"' returned code "
+                                +str(outprc.returncode))
+                raise RemExecError(full_shell_cmdline, outprc.returncode)
             output = outprc.stdout
             if _log_exec_exit:
                 _LOGGER.info('End {} {}'.format(nodetype, cmdline))
