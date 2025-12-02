@@ -9,7 +9,7 @@ import threading
 import logging
 
 import ilisa.operations
-from ilisa.operations._rem_exec import _exec_ssh
+from ilisa.operations._rem_exec import _exec_ssh, RemExecError
 import ilisa.operations.modeparms as modeparms
 from ilisa.operations.modeparms import parse_lofar_conf_files, rcumode2band,\
     beamctl_args2cmds, rcusetup_args2cmds, rspctl_stats_args2cmds
@@ -251,26 +251,48 @@ class LCUInterface(object):
         return swlevel
 
     def set_swlevel(self, swleveltarget=3, fullreboot=False):
-        """Set station's software level. swleveltarget=3 is the swlevel for which
-        most operations take place."""
+        """Set station's software level
+
+        Parameters
+        ----------
+        swleveltarget: int
+            Desired swlevel. 0 is idle, 3 is fully operational mode.
+        fullreboot: bool
+            Force reboot by cycling through swlevel 0
+
+        Returns
+        -------
+        swlevel_changed: bool
+            Indicates whether swlevel changed.
+        """
         swlevel_changed = False
         if not self.DryRun:
             if not fullreboot:
                 swlevel = self.get_swlevel()
                 if swlevel != swleveltarget:
-                    self._exec_lcu("swlevel {}".format(swleveltarget))
-                    swlevel_changed = True
+                    try:
+                        self._exec_lcu("swlevel {}".format(swleveltarget))
+                    except RemExecError as err:
+                        _LOGGER.warning(f'Ignoring swlevel {swleveltarget} '
+                                        f'exit code {err.returncode}')
             else:
                 # For completeness swlevel 0, but swlevel 1 is faster
-                self._exec_lcu("swlevel 0; swlevel {}".format(swleveltarget))
-                swlevel_changed = True
+                try:
+                    self._exec_lcu("swlevel 0; swlevel {}".format(swleveltarget))
+                except RemExecError:
+                    pass
+            swlevel_changed = True
         return swlevel_changed
 
     def stop_beam(self):
         """Stop any running beamctl processes."""
         # Stop any beamctl on lcu.
         if not self.DryRun:
-            self._exec_lcu("killall beamctl")
+            try:
+                self._exec_lcu("killall beamctl")
+            except RemExecError:
+                # End up here if there are no beams, but that's OK
+                _LOGGER.info('No beams to kill')
             # Put caltables back to default
             self.selectCalTable('default')
 
