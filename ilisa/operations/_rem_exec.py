@@ -66,9 +66,17 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
                                     shell=True, stdout=subprocess.PIPE).stdout
         else:
             full_shell_cmdline = shellinvoc + " " + quotes + cmdline + quotes
-            output = subprocess.run(full_shell_cmdline,
+            try:
+                outprc = subprocess.run(full_shell_cmdline,
                                     shell=True, universal_newlines=True,
-                                    stdout=subprocess.PIPE).stdout
+                                    stdout=subprocess.PIPE)
+            except:
+                _LOGGER.error('_exec_ssh : could not run subprocess.run()')
+            if outprc.returncode != 0:
+                _LOGGER.error("'"+full_shell_cmdline+"' returned code "
+                              +str(outprc.returncode))
+                raise RuntimeError
+            output = outprc.stdout
             if _log_exec_exit:
                 _LOGGER.info('End {} {}'.format(nodetype, cmdline))
         _LOGGER.debug('Using NODEURL: ' + nodeurl)
