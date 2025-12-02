@@ -1197,9 +1197,13 @@ def main_cli():
     if accessconf==None:
         _LOGGER.critical("No default access config for local station {}"
                          .format(args.station))
-        sys.exit()
-    stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
-                           mockrun=args.mockrun)
+        sys.exit(1)
+    try:
+        stndrv = StationDriver(accessconf['LCU'], accessconf['DRU'],
+                               mockrun=args.mockrun)
+    except AssertionError as err:
+        _LOGGER.critical(err)
+        sys.exit(2)
     starttime = modeparms.timestr2datetime(args.time)
     waituntil(starttime, stndrv._time2startup_hint(args.admcmd))
     # Dispatch admin commands
