@@ -25,9 +25,37 @@ def _exec_rem(remnode, cmdline, nodetype='LCU', background_job=False,
 def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
               background_job=False, dryrun=False, accessible=False, quotes="'",
               stdoutdir='~', verbose=True, _slow_conn_time=0):
-    """Execute a command on the remnode, either as a background job or in the
+    """Execute a command on the remnode
+
+    This can be either as a background job or in the
     foreground (blocking). Typically access is remote via ssh.
     (To speed things up use the ssh CommandMaster option.)
+
+    Parameters
+    ----------
+    nodeurl: str
+        Node URL.
+    cmdline: str
+        The shell command to execute remotely.
+    nodetype: str
+        Name of node type, can be e.g. 'LCU' or 'DRU'.
+    background_job: bool
+        Whether to run as a background job or not.
+    dryrun: bool
+        Whether to fake the remote execution or not.
+    accessible: bool
+        Is the LCU accessible or not.
+    quotes: str
+        Character to use as quotes for shell commands.
+    stdoutdir: str
+        Path to where stdout of remore execution should be dumped.
+    _slow_conn_time: int
+        Number of seconds to wait when running in dryrun mode.
+
+    Raises
+    ------
+    RuntimeError
+        Raised if the remote command's return code indicates error.
     """
     _log_exec_exit = False  # Add info line in logging when exec exits
     if nodetype == 'TEST':
