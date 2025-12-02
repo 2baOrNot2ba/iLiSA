@@ -109,8 +109,8 @@ def _exec_ssh(nodeurl, cmdline, nodetype='LCU',
                 _LOGGER.error('_exec_ssh : could not run subprocess.run()')
                 raise
             if outprc.returncode != 0:
-                _LOGGER.warning("'"+full_shell_cmdline+"' returned code "
-                                +str(outprc.returncode))
+                _LOGGER.debug("'"+full_shell_cmdline+"' returned code "
+                              +str(outprc.returncode))
                 raise RemExecError(full_shell_cmdline, outprc.returncode)
             output = outprc.stdout
             if _log_exec_exit:
