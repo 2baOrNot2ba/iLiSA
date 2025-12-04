@@ -475,8 +475,9 @@ def plotskyimage(ll, mm, skyimages, polrep, t, freq, stnid, integration,
     plt.suptitle(
         """{}: PhaseRef={} @ {} MHz,
         Station {}, int={}s, UT={}, PbCor={}, {}
-        """.format(plot_title, pointing_tuple2str(phaseref), freq/1e6, stnid,
-                   integration, t, pbcor, modality), fontsize=8)
+        """.format(plot_title, pointing_tuple2str(phaseref),
+                   round(freq/1e6,3), stnid, integration, t, pbcor, modality),
+        fontsize=8)
 
 
 def lmgrid(imsize=201):
