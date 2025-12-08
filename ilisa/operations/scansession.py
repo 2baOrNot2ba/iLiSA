@@ -500,7 +500,10 @@ class ScanSession(object):
                 scanresult = lscan.scanresult
             scan['id'] = scanresult.get('scan_id', None)
             scanpath_scdat = scanresult.get('scanpath_scdat', None)
-            _LOGGER.info("Saved scan here: {}".format(scanpath_scdat))
+            if scanpath_scdat:
+                _LOGGER.info("Saved scan here: {}".format(scanpath_scdat))
+            else:
+                _LOGGER.info("No saved scans")
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
             duration_req = datetime.timedelta(seconds=scan['duration'])
