@@ -1960,7 +1960,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
                       + 'Starttime: {} Station: {}'
                       .format(starttime, obsinfo['station_id']))
             plt.xlabel('Frequency [MHz]')
-            plt.ylabel('Time [h]')
+            plt.ylabel('UTC [d H:M]')
         else:
             # Only one integration so show it as 2D spectrum
             plt.plot(freqs/1e6, res[0, :])
@@ -1979,7 +1979,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
                       + 'Starttime: {} Station: {}')
                       .format(rcu_sel, starttime, obsinfo['station_id']))
             plt.xlabel('Frequency [MHz]')
-            plt.ylabel('Time [h]')
+            plt.ylabel('UTC [d H:M]')
         else:
             # Only one integration so show it as 2D spectrum
             plt.plot(freqs/1e6, res[0, :])
