@@ -17,6 +17,11 @@ from ilisa.operations.modeparms import parse_lofar_conf_files, rcumode2band,\
 _LOGGER = logging.getLogger(__name__)
 
 
+class RspctlError(Exception):
+    """Exception raised when something is wrong with RSPCTL"""
+    pass
+
+
 class LCUInterface(object):
     """This class provides an interface to the Local Control Unit (LCU) of an
        International LOFAR station."""
@@ -365,7 +370,10 @@ class LCUInterface(object):
             directory = self.lcuDumpDir
         rspctl_cmds[-1] += " --directory={}".format(directory)
         for rspctl_cmd in rspctl_cmds:
-            self._exec_lcu(rspctl_cmd)
+            try:
+                self._exec_lcu(rspctl_cmd)
+            except RemExecError:
+                raise RspctlError
         if self.DryRun:
             self.mockstatistics(bsxtype, integration, duration)
         return rspctl_cmds
