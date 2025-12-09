@@ -15,7 +15,7 @@ from ilisa.operations import USER_CACHE_DIR
 import ilisa.operations.directions as directions
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.programs as programs
-from ilisa.operations.stationdriver import StationDriver, waituntil
+from ilisa.operations.stationdriver import StationDriver, waituntil, RspctlError
 from ilisa.operations.scan import still_time_fun, LScan
 
 OBSLOGFILE = "ilisa_cmds.log"  # Log of each ilisa_obs or ilisa_adm CLI run
@@ -484,11 +484,15 @@ class ScanSession(object):
                         _ = subscan.send(stop_scan_cond)
                     except StopIteration:
                         stop_scan_cond = False
+                        list(map(_update_latestdatafile,
+                                 *zip(('acc', acc), ('bfs', bfs),
+                                      ('bsx', bsx_stat))))
+                    except RspctlError:
+                        stop_scan_cond = False
+                        _LOGGER.critical("Could not run `rspctl`")
+                        self.failed = True
                     else:
                         stop_scan_cond = stop_cond()
-                    list(map(_update_latestdatafile,
-                             *zip(('acc', acc), ('bfs', bfs), ('bsx', bsx_stat)))
-                         )
                 _LOGGER.debug('scansession: END SUBSCAN LOOP')
                 lscan.close()
                 # If no recording then simply wait for duration_tot
