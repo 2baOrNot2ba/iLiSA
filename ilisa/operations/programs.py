@@ -97,7 +97,8 @@ class ObsPrograms(object):
         dir_bmctl = ilisa.monitorcontrol.directions.normalizebeamctldir(pointing)
 
         # BEGIN Dummy or hot beam start: (takes about 14sec)
-        print("Running warmup beam... @ {}".format(datetime.datetime.utcnow()))
+        print("Running warmup beam... @ {}".format(
+            datetime.datetime.now(datetime.timezone.utc)))
         # Setting bits is necessary:
         self.stationdriver._rcusetup(bits, attenuation)  
         self.stationdriver._run_beamctl(beamlets, subbands, band, dir_bmctl)
@@ -108,12 +109,13 @@ class ObsPrograms(object):
         time.sleep(pause)
 
         # Real beam start:
-        print("Beam started @ UT {}".format(datetime.datetime.utcnow()))
+        print("Beam started @ UT {}".format(
+            datetime.datetime.now(datetime.timezone.utc)))
         rcu_setup_cmds = self.stationdriver._rcusetup(bits, attenuation)
         beamctl_cmds = self.stationdriver._run_beamctl(beamlets, subbands, band,
                                                       dir_bmctl)
         rspctl_cmds = []
-        beamstart = datetime.datetime.utcnow()
+        beamstart = datetime.datetime.now(datetime.timezone.utc)
         timeleft = rectime - beamstart
         if timeleft.total_seconds() < 0.:
             rectime = beamstart

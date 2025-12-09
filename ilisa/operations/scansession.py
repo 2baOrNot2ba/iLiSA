@@ -299,7 +299,7 @@ def stilltime_sess_start(sessmeta):
     if sessmeta['start'] == 'ASAP':
         # For ASAP start, left time is irrelevant, return 'ASAP'
         return 'ASAP'
-    utcnow = datetime.datetime.utcnow()
+    utcnow = datetime.datetime.now(datetime.timezone.utc)
     time_left = sessmeta['start'] - utcnow
     if time_left < datetime.timedelta(0):
         # No time left, return None
@@ -331,7 +331,7 @@ class ScanSession(object):
     def get_stn_session_id(self):
         return self.stn_sess_id
 
-    def make_session_id(self, ref_dattim=datetime.datetime.utcnow()):
+    def make_session_id(self, ref_dattim=datetime.datetime.now(datetime.timezone.utc)):
         """Make a session ID based on time of creation.
         session_id has format 'sid<CT>' where <CT> is the datetime
         in the format '%Y%m%dT%H%M%S' of the time of creation.
@@ -473,7 +473,7 @@ class ScanSession(object):
                 next(subscan)
 
                 # Compute stop time as now + scan_dur + margin_scan_start
-                stoptime = datetime.datetime.utcnow() + datetime.timedelta(
+                stoptime = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
                     seconds=scan_dur) + margin_scan_start
                 _LOGGER.info('Will stop @ {}'.format(stoptime))
                 stop_cond = still_time_fun(stoptime)
@@ -508,7 +508,7 @@ class ScanSession(object):
                 _LOGGER.info("Saved scan here: {}".format(scanpath_scdat))
             else:
                 _LOGGER.info("No scan saved")
-            scan_ended_at = datetime.datetime.utcnow()
+            scan_ended_at = datetime.datetime.now(datetime.timezone.utc)
             duration_actual = scan_ended_at - startedtime
             duration_req = datetime.timedelta(seconds=scan['duration'])
             _LOGGER.info("End LScan:: id: {}".format(scan['id']))
@@ -659,7 +659,7 @@ def obs(scansess_in, sac):
     mockrun = scansess_in['mockrun']
     projectid = scansess_in['projectid']
     file = scansess_in['file']
-    issued_at = datetime.datetime.utcnow().isoformat(timespec='seconds')
+    issued_at = datetime.datetime.now(datetime.timezone.utc)
     # Initialize stationdriver
     try:
         stndrv = StationDriver(sac['LCU'], sac['DRU'], mockrun=mockrun)
@@ -686,9 +686,10 @@ def obs(scansess_in, sac):
             priority_fld = '0'
         if scnsess.failed:
             lgf.write('FAILED ')
-        lgf.write("{} {} {} {}".format(issued_at, cli_start, priority_fld,
-                                       projectid)
-                  + " {} {} {} '{}'\n".format(stndrv.get_stnid(), cmd,
+        lgf.write("{} {} {} {}".format(
+            issued_at.replace(tzinfo=None).isoformat('T', timespec='seconds'),
+            cli_start, priority_fld, projectid))
+        lgf.write(" {} {} {} '{}'\n".format(stndrv.get_stnid(), cmd,
                                               scnsess.session_id,
                                               scansess_in.get('note', '')))
     return scnsess

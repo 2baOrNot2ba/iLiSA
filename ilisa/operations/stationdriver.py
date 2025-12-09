@@ -3,7 +3,6 @@
 via one LCUinterface instance and one DRUinterface instance.
 This package knows about the data archive and
 should not run anything directly on LCU."""
-import shutil
 import sys
 import time
 import datetime
@@ -191,13 +190,11 @@ class StationDriver(object):
             # Dummy or hot beam start: (takes about 10sec)
             # This seems necessary: first beamctl after going to swlevel 3
             # seems to crash.
-            _LOGGER.info("Running warmup beam... @ {}".format(
-                datetime.datetime.utcnow()))
+            _LOGGER.info("Running warmup beam...")
             self.streambeams(modeparms.FreqSetup('10_90'),
                              '0.,1.5707963,AZELGEO')
             self._lcu_interface.stop_beam()
-            _LOGGER.info("Finished warmup beam... @ {}".format(
-                datetime.datetime.utcnow()))
+            _LOGGER.info("Finished warmup beam")
 
     def halt_observingstate(self):
         """
@@ -500,7 +497,7 @@ class StationDriver(object):
             beamctl_main = self._run_beamctl(beamlets, subbands, rcumode,
                                              direction, rcusel)
             beamctl_cmds.append(beamctl_main)
-        self.beamstart = datetime.datetime.utcnow()
+        self.beamstart = datetime.datetime.now(datetime.timezone.utc)
         return rcuctl_cmds, beamctl_cmds
 
     def stop_beam(self):
@@ -792,7 +789,7 @@ class StationDriver(object):
     def _waittoboot(self, starttime, pause=0):
         """Before booting, wait until time given by starttime which includes
         a pause . """
-        nw = datetime.datetime.utcnow()
+        nw = datetime.datetime.now(datetime.timezone.utc)
         # st = datetime.datetime.strptime(starttime, "%Y-%m-%dT%H:%M:%S")
 
         maxminsetuptime = datetime.timedelta(seconds=105 + pause)
@@ -969,7 +966,7 @@ class StationDriver(object):
                                                  "%Y%m%d_%H%M%S")
         except Exception:
             if beamstarted is None:
-                beamstarted = datetime.datetime.utcnow()
+                beamstarted = datetime.datetime.now(datetime.timezone.utc)
             scan_dt = beamstarted
         scan_mjd_id = modeparms.dt2mjd(scan_dt)
         scan_id = "scan_{}".format(scan_mjd_id)
@@ -983,9 +980,9 @@ class StationDriver(object):
             url = self._lcu_interface.url
         elif remunit=='DRU':
             url = self._dru_interface.url
-        stndrv_before = datetime.datetime.utcnow()
+        stndrv_before = datetime.datetime.now(datetime.timezone.utc)
         remunit_dattim = ostimenow(url, remunit)
-        stndrv_after = datetime.datetime.utcnow()
+        stndrv_after = datetime.datetime.now(datetime.timezone.utc)
         # Compute time diff as difference between remote units time
         # and mean of local before and after time
         stndrv_mean = (stndrv_after - stndrv_before)/2+stndrv_before
@@ -1103,7 +1100,7 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
     time_at_return : datetime
         datetime this function returned.
     """
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     if starttime_req == "NOW" or starttime_req == "ASAP":
         return now
     else:
@@ -1124,7 +1121,7 @@ def waituntil(starttime_req, margin=datetime.timedelta(seconds=0)):
         _LOGGER.info("Waiting {}s before {} - {}".format(secondsleft, starttime,
                                                          margin))
         time.sleep(secondsleft)
-    time_at_return = datetime.datetime.utcnow()
+    time_at_return = datetime.datetime.now(datetime.timezone.utc)
     return time_at_return
 
 

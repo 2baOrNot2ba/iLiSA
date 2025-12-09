@@ -426,7 +426,7 @@ class LCUInterface(object):
             dd_cmdbase = 'dd if=/dev/random'
         nrrcus = modeparms.nrofrcus
         nrsbs = modeparms.TotNrOfsb
-        started = datetime.datetime.utcnow()
+        started = datetime.datetime.now(datetime.timezone.utc)
 
         if statistics != 'acc':
             directory = self.lcuDumpDir

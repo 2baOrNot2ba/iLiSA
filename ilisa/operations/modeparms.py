@@ -1056,12 +1056,13 @@ def timestr2datetime(timestr, dt_format=DATETIMESTRFMT):
     if type(timestr) == datetime.datetime: return timestr
     if timestr == 'NOW' or timestr == 'ASAP':
         # Set time to nearest rounded second from now:
-        dattim = datetime.datetime.utcnow()
+        dattim = datetime.datetime.now(datetime.timezone.utc)
         dattim = dattim.replace(microsecond=0)
         dattim += datetime.timedelta(seconds=1)
     else:
         try:
             dattim = datetime.datetime.strptime(timestr, dt_format)
+            dattim = dattim.replace(tzinfo=datetime.timezone.utc)
         except:
             raise RuntimeError("Wrong datetime format.")
     return dattim

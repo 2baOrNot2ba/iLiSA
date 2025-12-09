@@ -232,7 +232,8 @@ class DRUinterface:
             cmdlineargs.append('--compress')
         if mockrun:
             cmdlineargs.append('--mockrun')
-        print("BFS rec process issued to DRU @", datetime.datetime.utcnow())
+        print("BFS rec process issued to DRU @",
+              datetime.datetime.now(datetime.timezone.utc))
         self._bfsrec_thread = threading.Thread(
             target=self.dru, args=(' '.join([dumpercmd] + cmdlineargs),))
         self._bfsrec_thread.start()
@@ -268,7 +269,7 @@ class DRUinterface:
             cmdlineargs.append('--compress')
         if mockrun:
             cmdlineargs.append('--mockrun')
-        print("BFS rec process issued to DRU @", datetime.datetime.utcnow())
+        print("BFS rec process issued to DRU @", datetime.datetime.now(datetime.timezone.utc))
         self.dru(' '.join([dumpercmd] + cmdlineargs))
         print("BFS_end")
         return datafiles, logfiles
@@ -284,7 +285,7 @@ if __name__ == "__main__":
     ports = [4346, 4347, 4348, 4349]
     duration_tot = 1.0
     scanpath_bfdat = accessconf['DRU']['BeamFormDataDir']
-    starttime = datetime.datetime.utcnow()
+    starttime = datetime.datetime.now(datetime.timezone.utc)
     band = '110_190'
     _datafiles, _logfiles = dru_interface._rec_bf_proxy(ports,
             duration_tot, scanpath_bfdat, starttime, band=band,

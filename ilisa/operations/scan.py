@@ -438,7 +438,7 @@ def still_time_fun(stoptime):
         otherwise False.
     """
     def still_time():
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now(datetime.timezone.utc)
         timeleft = stoptime - now
         secondsleft = int(timeleft.total_seconds())
         _LOGGER.info('Stop condition: TIME LEFT {}'.format(secondsleft))
