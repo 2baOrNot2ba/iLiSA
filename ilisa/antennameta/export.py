@@ -39,7 +39,7 @@ def _get_casacfg_header(tier, bandarr=None, stnid=None, coordsys=None):
             header += "coordsys=LOC (local tangent plane)" + "\n"
     header += ("\n"
                + "Created with {}\n".format("iLiSA")
-               + "Created at {}\n".format(datetime.datetime.utcnow())
+               + "Created at {}\n".format(datetime.datetime.now(datetime.timezone.utc))
                + "\n"
                + columnlabels)
     return header

@@ -178,7 +178,7 @@ def create_caltabfile(stnid, rcumode, caltab=None):
                           'AntennaSet': antset, 'Band': band, 'Source': '',
                           'Date': ''}
     user = os.environ.get('USER')
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc)
     header_calibration = {'Version': '0', 'Name': user,
                           'Date': now.strftime('YYYYmmdd'),
                           'PPSDelay': '[]'}
