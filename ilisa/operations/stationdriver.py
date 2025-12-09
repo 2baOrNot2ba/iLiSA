@@ -16,7 +16,7 @@ import logging
 
 import ilisa.operations
 import ilisa.operations.directions as directions
-from ilisa.operations.lcuinterface import LCUInterface
+from ilisa.operations.lcuinterface import LCUInterface, RspctlError
 from ilisa.operations.druinterface import DRUinterface
 from ilisa.operations._rem_exec import ostimenow
 import ilisa.operations.modeparms as modeparms
