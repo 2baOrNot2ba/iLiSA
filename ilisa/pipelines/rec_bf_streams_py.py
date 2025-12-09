@@ -40,7 +40,7 @@ def startlane(lane, port, dumppath, dur=None, stnid='', threadqueue=None):
         # Wait until I get some data:
         print("Lane %d waiting..." % lane)
         recv_msg, _addr = clientsock.recvfrom(bufsize)
-        start_time = datetime.datetime.utcnow()
+        start_time = datetime.datetime.now(datetime.timezone.utc)
         start_time_near_sec = start_time.replace(microsecond=0)
         print("...got some data at {}".format(start_time))
         datapath = None
@@ -50,8 +50,9 @@ def startlane(lane, port, dumppath, dur=None, stnid='', threadqueue=None):
             else:
                 print("Recording {} s of data.".format(dur))
             datapath = os.path.join(dumppath,
-                "{}_{}_{}.{}.{}.{}".format(filename_base, stnid, port, DRU_NAME,
-                                           start_time_near_sec.isoformat(), ext))
+                "{}_{}_{}.{}.{}.{}".format(filename_base, stnid, port,
+                    DRU_NAME,
+                    start_time_near_sec.replace(tzinfo=None).isoformat(), ext))
             f = open(datapath, "wb")
             f.write(recv_msg)
         clientsock.settimeout(1.0)
@@ -65,14 +66,14 @@ def startlane(lane, port, dumppath, dur=None, stnid='', threadqueue=None):
                 break
             if REC_SET:
                 f.write(recv_msg)
-            elapsedtime = datetime.datetime.utcnow() - start_time
+            elapsedtime = datetime.datetime.now(datetime.timezone.utc) - start_time
             if dur:
                 if elapsedtime > datetime.timedelta(seconds=int(dur)):
                     break
         return start_time, datapath
 
     _start_time, recdatapath = get_databurst()
-    _stop_time = datetime.datetime.utcnow()
+    _stop_time = datetime.datetime.now(datetime.timezone.utc)
 
     print("{}: Created file: {}".format(os.path.basename(__file__), recdatapath))
     if threadqueue:
