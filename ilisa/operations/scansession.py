@@ -507,7 +507,7 @@ class ScanSession(object):
             if scanpath_scdat:
                 _LOGGER.info("Saved scan here: {}".format(scanpath_scdat))
             else:
-                _LOGGER.info("No saved scans")
+                _LOGGER.info("No scan saved")
             scan_ended_at = datetime.datetime.utcnow()
             duration_actual = scan_ended_at - startedtime
             duration_req = datetime.timedelta(seconds=scan['duration'])
@@ -772,10 +772,12 @@ def main_cli():
     except KeyboardInterrupt:
         _LOGGER.info('SIGINT issued by user, exiting.')
         sys.exit(0)
-    _LOGGER.info('Ending scansession {}'.format(the_scansess.session_id))
+    _LOGGER.info('Ending scansession {}, saved it here {}'
+                 .format(the_scansess.session_id, the_scansess.get_sesspath()))
     if the_scansess.failed:
-        return
-    shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
+        _LOGGER.info('This scansession FAILED')
+        shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
+        sys.exit(2)
     if args.postprocess:
         pp = args.postprocess.split()
         pp[0] = os.path.join(ilisa.operations.USER_CONF_DIR, 'postprocessing',
