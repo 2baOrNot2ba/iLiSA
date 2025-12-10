@@ -774,7 +774,9 @@ def main_cli():
                  .format(the_scansess.session_id, the_scansess.get_sesspath()))
     if the_scansess.failed:
         _LOGGER.info('This scansession FAILED')
-        shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
+    # Save LOGGER log (stored in SESLOGFILE) to scansession folder
+    shutil.move(SESLOGFILE, os.path.join(the_scansess.get_sesspath()))
+    if the_scansess.failed:
         sys.exit(2)
     if args.postprocess:
         pp = args.postprocess.split()
