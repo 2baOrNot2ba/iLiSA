@@ -192,9 +192,6 @@ def process_scansess(sesscans_in):
             if not directions.check_directionstr(direction):
                 raise ValueError('direction {} is not correct format'
                                  .format(direction))
-            if not source:
-                if pointing:
-                    source = pointing
 
             # - Record
             #     defaults
