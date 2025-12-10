@@ -757,7 +757,11 @@ def main_cli():
                 plot_packet(header, x, y)
             else:
                 print_packet(header, x, y)
-                input("Press return for next packet, ctrl-c to stop ")
+                try:
+                    input("Press return for next packet, ctrl-c to stop ")
+                except KeyboardInterrupt:
+                    print('\n')
+                    break
             packetnr += 1
     elif args.func == check_packets:
         check_packets(args.bfs_filename)
