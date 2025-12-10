@@ -1953,7 +1953,8 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
         meandynspec = numpy.mean(sstdata, axis=0)
         res = meandynspec
         if res.shape[0] > 1:
-            plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm(),
+            plt.pcolormesh(freqs/1e6, ts, res,
+                           norm=colors.LogNorm(vmax=None),
                            shading='nearest')
             plt.colorbar()
             plt.title('Mean (over RCUs) dynamicspectrum\n'
