@@ -162,8 +162,16 @@ class LScan:
         file_dur = self.file_dur
 
         bsx_type = modeparms._xtract_bsx(rec_type)
-        if not self.pointing_spec.get('source'):
-            stndrv.field = self.dir_bmctl
+        # Set `field` attribute in stationdriver to (in order of priority)
+        #   1) 'source', 2) 'pointing', 3) 'direction'
+        stndrv.field = self.pointing_spec.get('source')
+        if not stndrv.field:
+            if self.pointing_spec.get('source'):
+                stndrv.field = self.pointing_spec.get('source')
+            elif self.pointing_spec.get('pointing'):
+                stndrv.field = self.pointing_spec.get('pointing')
+            else:
+                stndrv.field = self.dir_bmctl
 
         if rec_type != 'tbb' and rec_type != 'dmp':
             if self.acc:
