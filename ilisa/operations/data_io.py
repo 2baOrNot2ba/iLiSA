@@ -338,7 +338,7 @@ def filefolder2obsinfo(filefolderpath):
         # Assume a sensible value for antennaset based on spw:
         _antennaset = modeparms.rcumode2antset_eu(obsinfo['spw'][0])
         obsinfo['antennaset'] = _antennaset[:3]
-        if len(obsinfo) > 1:
+        if len(obsinfo['spw']) > 1:
             # If multi-spw, then set antennaset to combined antennaset
             obsinfo['antennaset'] = 'LBA+HBA'
 
