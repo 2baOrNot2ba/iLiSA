@@ -330,7 +330,20 @@ def convert2binary(bfs_filepath):
         (xy.flatten('F')).tofile(fout)
     fout.close()
 
-def correlate_bfs(bfs_filepath, bst_abspath, integration_req=1.0):
+def correlate_bfs(bfs_filepath_skip, bst_abspath, integration_req=1.0):
+    """\
+    Correlate BFS file
+
+    Parameters
+    ----------
+    bfs_filepath_skip: tuple
+        A 2-tuple with bfs filepath and number packet number to skip to.
+    bst_abspath: str
+        Path to output BST filefolder
+    integration_req: int
+        Integration length in float seconds
+    """
+    (bfs_filepath, skip) = bfs_filepath_skip
     (bfs_ff, bfs_filenamebase) = os.path.split(os.path.abspath(bfs_filepath))
     print('Converting', bfs_filepath)
     bst_pathbase = os.path.join(bst_abspath, bfs_filenamebase)
@@ -394,18 +407,31 @@ def convert2bst(bfs_filefolder, integration_req=1.0):
     else:
         raise RuntimeError('Not BFS filefolder')
     obsinfo_bsf = dio.filefolder2obsinfo(bfs_ff_name)
+
+    bfs_files = filter(lambda _f: _f.startswith('udp_') and not _f.endswith('.zst'),
+                       os.listdir(bfs_filefolder))
+    bfs_filepaths = [os.path.join(bfs_filefolder, bfs_file) for bfs_file in bfs_files]
+    fstart_dt = datetime.strptime(obsinfo_bsf['filenametime'],
+                                  '%Y%m%d_%H%M%S').replace(tzinfo=timezone.utc)
+    bfs_filepath_skips = []
+    for _filep in bfs_filepaths:
+        packetstart, realstart = firstwholesecond(_filep, fstart_dt)
+        bfs_filepath_skips.append((_filep, packetstart))
+
+    # Create BST filefolder
     obsinfo_bst = dict(obsinfo_bsf)
     obsinfo_bst['ldat_type'] = 'bst'
     obsinfo_bst['integration'] = integration_req
+    obsinfo_bst['filenametime'] = datetime.strftime(realstart, '%Y%m%d_%H%M%S')
     bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
     bst_abspath = os.path.join(bfs_root, bst_ff_name)
     nrblsperfile = obsinfo_bst['max_nr_bls'] // 4
     os.makedirs(bst_abspath, exist_ok=True)
-    bfs_files = filter(lambda _f: _f.startswith('udp_') and not _f.endswith('.zst'), os.listdir(bfs_filefolder))
-    bfs_filepaths = [os.path.join(bfs_filefolder, bfs_file) for bfs_file in bfs_files]
+
     from itertools import repeat, starmap
     with Pool(4) as p:
-        p.starmap(correlate_bfs, zip(bfs_filepaths, repeat(bst_abspath), repeat(integration_req)))
+        p.starmap(correlate_bfs, zip(bfs_filepath_skips, repeat(bst_abspath),
+                                     repeat(integration_req)))
     # Non multiprocess version:
     # list(starmap(correlate_bfs, zip(bfs_filepaths, repeat(bst_abspath), repeat(integration_req))))
     # Transpose and concatenate the <=4 lanes
