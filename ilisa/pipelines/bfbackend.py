@@ -146,7 +146,21 @@ def _startlanerec(lane, starttime, duration, file_dur, rcumode, bf_data_dir,
 
 
 def bfsfileparse(filename):
-    """Parse a BFS filename extracting osb info"""
+    """Parse a BFS filename extracting osb info
+
+    Parameters
+    ----------
+    filename : str
+        Name or fullpath of BFS file
+
+    Returns
+    -------
+    dattim, port, stnid, compressed, bfs_recorder, druname \
+        : datetime, int, str, bool, str, str
+
+    """
+    filename_arg = filename
+    filename = os.path.basename(filename_arg)
     compressed = False
     if filename.endswith('.zst'):
         compressed = True
@@ -156,10 +170,10 @@ def bfsfileparse(filename):
         bfs_recorder = 'py'
         filename = filename[:-4]
     _udp, stnid, _rest = filename.split('_', 2)
-    port, hostname, dattim_str, _chunk_nr = _rest.split('.', 3)
+    port, druname, dattim_str, _chunk_nr = _rest.split('.', 3)
     from ilisa.operations import DATETIMESTRFMT
     dattim = datetime.datetime.strptime(dattim_str, DATETIMESTRFMT)
-    return dattim, port, stnid, compressed, bfs_recorder
+    return dattim, port, stnid, compressed, bfs_recorder, druname
 
 
 def rec_bfs_lanes(starttime, duration, file_duration, lanes, rcumode,
