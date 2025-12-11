@@ -7,7 +7,7 @@ import struct
 import math
 from multiprocessing import Pool
 
-import datetime
+from datetime import datetime, timedelta, timezone
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
@@ -113,14 +113,14 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
     header['nrbeamlets'] = nrbeamlets
     header['nrblocks'] = nrblocks
     header['_timestamps'] = timestamps
-    header['datetime'] = datetime.datetime.utcfromtimestamp(timestamps)
+    header['datetime'] = datetime.fromtimestamp(timestamps, timezone.utc)
     header['_blocksequencenumber'] = blocksequencenumber
     _microsecflt = (blocksequencenumber * 0.005 * FFTSIZE if is200mhz
                     else blocksequencenumber * 0.00625 * FFTSIZE)
     _microsecfrac, microsecs = math.modf(_microsecflt)
     _nanoseconds = _microsecfrac * 1000
     header['datetime'] = (header['datetime']
-                          + datetime.timedelta(microseconds=int(microsecs)))
+                          + timedelta(microseconds=int(microsecs)))
     # Since 0.2 samp/ns doesn't go out evenly for packets with 16*FFTSIZE
     # samples on full second timestamps, I add half an FFTSIZE sample time
     # to the nanosecs calculate for odd timestamps: (Not sure about this)
@@ -643,10 +643,10 @@ class BFS_dataset:
         self.attrs = self.attrs_ln[lane_fr]
         self.fftfreqs = np.fft.fftshift(np.fft.fftfreq(self.seglen,
                                                        d=BFSmeta.sbsampprd))
-        start_dt = datetime.datetime.utcfromtimestamp(
-            (self.attrs['start_datetime'] - np.datetime64(0, 's')) / np.timedelta64(1,
-                                                                                    's'))
-        # tstart = obsinfo['start_datetime']+datetime.timedelta(seconds=toffset)
+        start_dt = datetime.fromtimestamp(
+            (self.attrs['start_datetime'] - np.datetime64(0, 's')) \
+             / np.timedelta64(1, 's'), timezone.utc)
+        # tstart = obsinfo['start_datetime'] + timedelta(seconds=toffset)
         return xseg, yseg
 
     def sel(self, freq=None, ts=None):
