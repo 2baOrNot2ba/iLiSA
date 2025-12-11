@@ -1,8 +1,7 @@
 #!/usr/bin/python
 import logging
 import subprocess
-import time
-import datetime
+from datetime import datetime, timedelta, timezone
 import argparse
 import warnings
 
@@ -12,13 +11,12 @@ import ilisa.operations  # Sets up logging
 import ilisa.operations.modeparms as modeparms
 import ilisa.operations.scansession as ssss
 
-__now_timestamp = time.time()
-ut2lt_offset = datetime.datetime.fromtimestamp(__now_timestamp) \
-               - datetime.datetime.utcfromtimestamp(__now_timestamp)
-del __now_timestamp
+# Compute time delta between LT to UT using astimezone(None) to convert to LT
+ut2lt_offset = datetime.utcoffset(datetime.now(None).astimezone(None))
+
 DEFAULT_PROJ = 0
 # Margin of time before starttime 'at' command issued
-BEFORE_AT_MARGIN = datetime.timedelta(seconds=8)
+BEFORE_AT_MARGIN = timedelta(seconds=8)
 ATJOBSFILE_TMPLT = 'at_jobs_{}.txt'  # '{}' tobe replaced by station
 
 
@@ -49,7 +47,7 @@ def sched2at(schedfile, check=False):
         atjobid_file = None
     # Check start times
     for schedline in schedlines:
-        if type(schedline['start']) == datetime.datetime:
+        if type(schedline['start']) == datetime:
             start_ut = schedline['start']
         elif type(schedline['start']) == str:
             try:
@@ -58,8 +56,8 @@ def sched2at(schedfile, check=False):
                 raise verr
         else:
             raise RuntimeError(type(schedline['start']))
-        _utcnow = datetime.datetime.now(datetime.timezone.utc)  # replace utcnow
-        _utcnow = _utcnow.replace(tzinfo=None)  # Remove tz to make it naive
+        start_ut.replace(tzinfo=timezone.utc)  # Add UTC timezone to start time
+        _utcnow = datetime.now(timezone.utc)
         if start_ut < _utcnow:
             _mess = 'Starttime {} is in the past.'.format(start_ut)
             if not check:
