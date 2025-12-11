@@ -164,7 +164,8 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
     return header, x, y
 
 
-def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
+def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
+                  firstpacket=0):
     if bfs_filename.endswith('.pcap'):
         pcapfile = True
         bytesperpacket = BytesPerPcapPacket
@@ -178,13 +179,12 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True):
 
     # nrPackets =
     # float(os.stat(bfs_filename).st_size - startskip + endpad) / bytesperpacket
-    fin = open(bfs_filename, "rb")
     EOF = False
-    packetnr = 0
+    packetnr = firstpacket
     missed_pkts_tot = 0
-    fin.seek(startskip)
+    fin = open(bfs_filename, "rb")
+    fin.seek(startskip + packetnr*BytesBFPacket)
     while not EOF:
-        # print(str(packetNr)+" / "+str(nrPackets))
         header, x, y = read_bf_packet(fin, keepstruct, pcapfile)
         if header == '':
             EOF = True
