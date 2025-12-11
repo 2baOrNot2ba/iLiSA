@@ -563,6 +563,23 @@ def check_packets(bfs_filename):
           100 * missedpackets / float(packetnr), '%')
 
 
+def firstwholesecond(bfs_filename, filestart):
+    packetnr = 0
+    prev_second = None
+    for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
+        #print(header['datetime'],header['nanosecs'])
+        packetnr += 1
+        if header['datetime'] < filestart:
+            # BFS can have left over packets
+            continue
+        if prev_second is None:
+            prev_second = header['datetime'].second
+            continue
+        if prev_second != header['datetime'].second:
+            break
+    return packetnr, header['datetime']
+
+
 class BFS_dataset:
 
     def __init__(self, bfs_ff, segdur=None):
