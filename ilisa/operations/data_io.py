@@ -770,25 +770,15 @@ class ScanRecInfo(object):
     def get_pointingstr(self, filenr=0):
         return self.scanrecparms['direction']
 
-    def is_septon(self, filenr=0):
-        obs_ids = self.get_obs_ids()
-        try:
-            self.ldatinfos[obs_ids[filenr]]
-        except:
-            if self.get_datatype().endswith('SEPTON'):
-                return True
-            else:
-                return False
-        else:
-            if self.ldatinfos[obs_ids[filenr]].septonconf:
-                return True
-            else:
-                return False
+    def is_septon(self):
+        if not (self.scanrecparms['septonconf']
+                or self.get_datatype().endswith('SEPTON')):
+            return False
+        return True
 
-    def get_septon_elmap(self, filenr=0):
-        obs_ids = self.get_obs_ids()
+    def get_septon_elmap(self):
         elmap = modeparms.str2elementMap2(
-                    self.ldatinfos[obs_ids[filenr]].septonconf)
+                    self.scanrecparms['septonconf'])
         return elmap
 
     def get_ldat_filenames(self):
