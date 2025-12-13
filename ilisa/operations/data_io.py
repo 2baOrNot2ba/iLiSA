@@ -241,7 +241,7 @@ def obsinfo2filefolder(obsinfo):
     if 'duration_scan' in obsinfo:
         filefoldername += '_dur' + str(int(obsinfo['duration_scan']))
     if ldat_type != 'sst':
-        if str(obsinfo['pointing']) != '':
+        if obsinfo['pointing'] is not None and str(obsinfo['pointing']) != '':
             filefoldername += '_dir' + str(obsinfo['pointing'])
         else:
             filefoldername += '_dir,,'
