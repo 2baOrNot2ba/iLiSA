@@ -319,6 +319,9 @@ class LCUInterface(object):
         if select is not None:
             rspctl_cmd += " --select={}".format(select)
         self._exec_lcu(rspctl_cmd)
+        waittime = 1
+        _LOGGER.info("Waiting {}s for rspctl to settle...".format(waittime))
+        time.sleep(waittime)  # Wait for rspctl to settle
         return rspctl_cmd
 
     def rcusetup(self, bits, attenuation, mode=None):
@@ -332,7 +335,7 @@ class LCUInterface(object):
         if self.DryRun:
             self.bits = bits
         waittime = 1
-        _LOGGER.info("Waiting {}s for rspctl to settle...".format(waittime))
+        _LOGGER.info("Waiting {}s for rcusetup (rspctl) to settle...".format(waittime))
         time.sleep(waittime)  # Wait for rspctl to settle
         return rcusetup_cmds
 
@@ -658,3 +661,4 @@ class LCUInterface(object):
                      + str(tile_map).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
             self._exec_lcu(lcucmd)
+
