@@ -645,6 +645,7 @@ class LCUInterface(object):
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(2*tileNr)+","+str(2*tileNr+1)
             self._exec_lcu(lcucmd)
+        time.sleep(1)
 
     def turnoffElinTile_byEl(self, elems_on):
         """"Turn off all elements per tile except the one specificied in list.
@@ -661,4 +662,4 @@ class LCUInterface(object):
                      + str(tile_map).strip('[]').replace(" ", "")\
                      + " --select="+str(rcus).strip('[]').replace(" ", "")
             self._exec_lcu(lcucmd)
-
+    time.sleep(1)
