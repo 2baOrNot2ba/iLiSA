@@ -79,6 +79,11 @@ def bffmtparams(header):
     return bffmtparams.packetData_dtype, bffmtparams.cint_smp
 
 
+def nrpackets_in_file(bfs_filepath):
+    nrpackets = int(np.floor(os.path.getsize(bfs_filepath) / BytesBFPacket))
+    return nrpackets
+
+
 def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
     """Read a Beamlet packet"""
     pcapheader = None
@@ -351,7 +356,7 @@ def correlate_bfs(bfs_filepath_skip, bst_abspath, integration_req=1.0):
     foutYY = open(bst_pathbase + "_bst_YY.dat_", "wb")
     foutXY = open(bst_pathbase + "_bst_XY.dat_", "wb")
 
-    nrpackets = os.path.getsize(bfs_filepath) / BytesBFPacket
+    nrpackets = nrpackets_in_file(bfs_filepath) - skip
     totnrtimsamp = 0
     initialize = True
     for header, x, y in next_bfpacket(bfs_filepath, False):
@@ -495,7 +500,10 @@ def get_packet_h_x_y_fromfile(bfs_filename, packetnr=0):
         pcktlen = BytesBFPacket
         startskip = 0
     f = open(bfs_filename, "rb")
-    f.seek(packetnr * (pcktlen) + startskip)
+    if packetnr >= 0:
+        f.seek(packetnr * (pcktlen) + startskip, os.SEEK_SET)
+    else:
+        f.seek(packetnr * pcktlen, os.SEEK_END)
     header, x, y = read_bf_packet(f, pcapfile=pcapfile)
     f.close()
     return header, x, y
@@ -592,6 +600,8 @@ def check_packets(bfs_filename):
 def firstwholesecond(bfs_filename, filestart):
     packetnr = 0
     prev_second = None
+    print('Searching for first whole second in {}...'
+          .format(os.path.basename(bfs_filename)))
     for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
         #print(header['datetime'],header['nanosecs'])
         packetnr += 1
@@ -795,7 +805,7 @@ def main_cli():
             if not header:
                 print("Passed end of datafile, nothing to show")
                 break
-            print("packetnr:", packetnr)
+            print("packetnr:", packetnr ,'/', nrpackets_in_file(args.bfs_filename))
             if args.plot:
                 plot_packet(header, x, y)
             else:
