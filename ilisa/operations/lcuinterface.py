@@ -645,9 +645,9 @@ class LCUInterface(object):
                      + str(tileMap).strip('[]').replace(" ", "")\
                      + " --select="+str(2*tileNr)+","+str(2*tileNr+1)
             self._exec_lcu(lcucmd)
-        settle = 10
-        _LOGGER.info(f'Waiting {settle}s for SEPTON setup to settle')
-        time.sleep(settle)
+            settle = 1
+            _LOGGER.info(f'Waiting {settle}s for SEPTON setup to settle')
+            time.sleep(settle)
 
     def turnoffElinTile_byEl(self, elems_on):
         """"Turn off all elements per tile except the one specificied in list.
@@ -667,6 +667,6 @@ class LCUInterface(object):
         # Even though RSPCTL command return instantaneously,
         # it takes time for commands to be fully implemented in hardware.
         # Time scale for SEPTON to settle is a few seconds; 10s on safe side
-        settle = 10
-        _LOGGER.info(f'Waiting {settle}s for SEPTON setup to settle')
-        time.sleep(settle)
+            settle = 1
+            _LOGGER.info(f'Waiting {settle}s for SEPTON setup to settle')
+            time.sleep(settle)
