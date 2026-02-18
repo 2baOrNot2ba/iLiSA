@@ -1681,8 +1681,8 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
     return acc2bstbase + "." + saveformat
 
 
-def viewbst(bstff, pol_stokes=True, printout=False, filenr=None,
-            update_wait=False):
+def viewbst(bstff, freq=0., filenr=None, pol_stokes=True,
+            printout=False, update_wait=False):
     """\
     View BST data
 
@@ -1690,6 +1690,8 @@ def viewbst(bstff, pol_stokes=True, printout=False, filenr=None,
     ----------
     bstff : str
         Path to BST file-folder.
+    freq: float
+        Requested frequency, if 0. then not used.
     pol_stokes : bool
         Use Stokes representation for polarization?
     printout : bool
@@ -1732,6 +1734,25 @@ def viewbst(bstff, pol_stokes=True, printout=False, filenr=None,
         data2view_qp_unit = 'Phase [deg]'
         norm_pq, norm_qp = colors.LogNorm(), None
         cmap_pq, cmap_qp = None, 'hsv'
+    if freq is not None and freq != 0.:
+        fi = numpy.abs(freq-freqs).argmin()
+        bst_datas_x = numpy.stack(bst_datas_x)
+        bst_datas_y = numpy.stack(bst_datas_y)
+        xdat = bst_datas_x[0][:,fi].squeeze()
+        ydat = bst_datas_y[0][:,fi].squeeze()
+        res0, res1 = xdat, ydat
+        lbl0, lbl1 = 'XX', 'YY'
+        if pol_stokes:
+            res0 = (xdat + ydat)/2.
+            res1 = (xdat - ydat)/2.
+            lbl0, lbl1 = 'SI', 'SQ'
+        plt.plot(ts, res0, 'b')
+        plt.plot(ts, res1, 'r')
+        plt.legend([lbl0, lbl1])
+        plt.title('Freq: '+str(freqs[fi]/1e6)+'MHz')
+        plt.grid()
+        plt.show()
+        return
     data2view_pp_name, data2view_pp = 'X-pol', bst_data_x
     data2view_qq_name, data2view_qq = 'Y-pol', bst_data_x
     data2view_qq_unit, data2view_qq_unit = 'Flux [arb. units]', 'Flux [arb. units]'
@@ -2302,7 +2323,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     _filenr = fileidx
                     if filenr is None:
                         _filenr = None
-                    viewbst(dataff, pol_stokes=_pol_stokes, filenr=_filenr,
+                    viewbst(dataff, freq, filenr=_filenr, pol_stokes=_pol_stokes,
                             printout=printout)
                 elif lofar_datatype == 'sst':
                     _sampnr = sampidx
@@ -2571,4 +2592,5 @@ def cli_view():
 
 
 if __name__ == "__main__":
-    cli_view()
+    #cli_view()
+    summarize_lofardata(sys.argv[1])
