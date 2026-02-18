@@ -1680,6 +1680,33 @@ def saveacc2bst(bst_pols, filestarttimes, freqs, calrunstarttime,
         numpy.save(acc2bstbase + '_YY', bstYY)
     return acc2bstbase + "." + saveformat
 
+def summarize_lofardata(ff):
+    """\
+    Summarize LOFAR station data filefolder
+
+    Prints out metdata necessary for tracking.
+
+    Parameters
+    ----------
+    ff : str
+        Path to LOFAR data filefolder.
+    """
+    scanrecinfo = ScanRecInfo()
+    scanrecinfo.scanrecpath = ff
+    scanrecinfo.read_scanrec(ff)
+    stnid = scanrecinfo.get_stnid()
+    filenames = scanrecinfo.list_ldatfiles()
+    hfilename = LDatInfo.headerfromdatfile(filenames[0])
+    hfilepath = os.path.join(ff, hfilename)
+    ldatinfo = LDatInfo.read_ldat_header(hfilepath)
+    print(f"antset={ldatinfo.antset.split('_')[0]} stnid={stnid} "
+          f"start={modeparms.astimestr(ldatinfo.get_starttime())} "
+          f"dur={ldatinfo.duration_subscan} intg={ldatinfo.integration} "
+          f"direction={ldatinfo.direction}"
+    )
+    #obsinfo = filefolder2obsinfo(ff)
+    #print(obsinfo)
+
 
 def viewbst(bstff, freq=0., filenr=None, pol_stokes=True,
             printout=False, update_wait=False):
@@ -2592,5 +2619,4 @@ def cli_view():
 
 
 if __name__ == "__main__":
-    #cli_view()
     summarize_lofardata(sys.argv[1])
