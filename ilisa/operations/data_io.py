@@ -1026,13 +1026,14 @@ class LDatInfo(object):
         (bfilename, _dat) = datfile.split('.')
         hfilename = bfilename + '.h'
         # Check if xst might have some extra stuff in name
+        # or if bst there will be a X and Y file.
         #   So first get ldattype
         ymd, hms, ldattype_full = bfilename.split('_', 2)
         if '_' in ldattype_full:
             ldattype, _rest = ldattype_full.split('_', 1)
         else:
             ldattype = ldattype_full
-        if ldattype == 'xst':
+        if ldattype == 'bst' or ldattype == 'xst':
             hfilename = ymd + '_' + hms + '_' + ldattype + '.h'
         return hfilename
 
