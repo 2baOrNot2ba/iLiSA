@@ -323,6 +323,29 @@ def bearing_stn(pos):
     return noffsetang
 
 
+def backrotationtile(stnid):
+    """\
+    Compute back rotation of antenna in tile of gievn station
+
+    Parameters
+    ----------
+    stnid: str
+        Station ID.
+
+    Returns
+    -------
+    bra: float
+        Back rotation angle (radian) N over E.
+    """
+    _, stnrot, _, stnintilepos = get_antset_params(stnid, 'HBA')
+    basvecstile = (stnintilepos @ stnrot)[:,:2]
+    deltabasvec = np.asarray([basvecstile[1,0]-basvecstile[0,0],
+                             basvecstile[1,1]-basvecstile[0,1]])
+    bra = np.arctan2(deltabasvec[1], deltabasvec[0])
+    bra -= np.pi/2
+    return bra
+
+
 def zenoffsetangle(stnid, antset):
     """\
     Compute the Zenith offset angle of a station antennaset
