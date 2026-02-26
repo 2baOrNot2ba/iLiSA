@@ -296,7 +296,7 @@ def get_antset_params(stnid, antset):
     return stnpos, stnrot, stnrelpos, stnintilepos
 
 
-def northoffsetangle(pos):
+def bearing_stn(pos):
     """\
     Compute the North offset angle of a LOFAR station given by ITRF position
 
@@ -363,14 +363,14 @@ def antset_lonlat(stnid, antset):
     -------
     stnpos_lonlat : tuple
         Tuple with (longitude, latitude, height)
-    noa : float
-        North offset angle (radians)
+    bearing : float
+        Bearing of station (radians)
     """
     stnpos, stnrot, stnrelpos, stnintilepos = get_antset_params(stnid, antset)
     r = stnrot[:, -1]
-    noa = northoffsetangle(r)
+    bearing = bearing_stn(r)
     stnpos_lonlat = ITRF2lonlat(*stnpos.squeeze())
-    return stnpos_lonlat, noa
+    return stnpos_lonlat, bearing
 
 
 def list_stations(antenna_field_dir=ANTENNAFIELDDIR):
