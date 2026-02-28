@@ -440,18 +440,11 @@ def convert2bst(bfs_filefolder, integration_req=1.0):
 
     It also adds the novel combination of X*Y data.
     """
-    bfs_filefolder = bfs_filefolder.rstrip('/')
-    if bfs_filefolder.endswith('_bfs'):
-        (bfs_root, bfs_ff_name) = os.path.split(bfs_filefolder)
-    else:
-        raise RuntimeError('Not BFS filefolder')
+    bfs_root, bfs_ff_name, bfs_files, laneports = parse_bfs_ff(bfs_filefolder)
     obsinfo_bsf = dio.filefolder2obsinfo(bfs_ff_name)
-
-    bfs_files = filter(lambda _f: _f.startswith('udp_') and not _f.endswith('.zst'),
-                       os.listdir(bfs_filefolder))
-    bfs_filepaths = [os.path.join(bfs_filefolder, bfs_file) for bfs_file in bfs_files]
     fstart_dt = datetime.strptime(obsinfo_bsf['filenametime'],
                                   '%Y%m%d_%H%M%S').replace(tzinfo=timezone.utc)
+    bfs_filepaths = [os.path.join(bfs_root, bfs_ff_name, bfs_file) for bfs_file in bfs_files]
     bfs_filepath_skips = []
     for _filep in bfs_filepaths:
         packetstart, realstart = firstwholesecond(_filep, fstart_dt)
@@ -638,7 +631,6 @@ def firstwholesecond(bfs_filename, filestart):
     print('Searching for first whole second in {}...'
           .format(os.path.basename(bfs_filename)))
     for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
-        #print(header['datetime'],header['nanosecs'])
         packetnr += 1
         if header['datetime'] < filestart:
             # BFS can have left over packets
