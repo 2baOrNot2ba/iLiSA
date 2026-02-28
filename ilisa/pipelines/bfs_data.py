@@ -613,6 +613,7 @@ def firstwholesecond(bfs_filename, filestart):
             prev_second = header['datetime'].second
             continue
         if prev_second != header['datetime'].second:
+            packetnr -= 1
             break
     return packetnr, header['datetime']
 
