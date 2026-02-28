@@ -457,11 +457,12 @@ def convert2bst(bfs_filefolder, integration_req=1.0):
     obsinfo_bst['filenametime'] = datetime.strftime(realstart, '%Y%m%d_%H%M%S')
     bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
     bst_abspath = os.path.join(bfs_root, bst_ff_name)
-    nrblsperfile = obsinfo_bst['max_nr_bls'] // 4
+    lanes_nr = len(laneports)
+    nrblsperfile = obsinfo_bst['max_nr_bls'] // lanes_nr
     os.makedirs(bst_abspath, exist_ok=True)
 
     from itertools import repeat, starmap
-    with Pool(4) as p:
+    with Pool(lanes_nr) as p:
         p.starmap(correlate_bfs, zip(bfs_filepath_skips, repeat(bst_abspath),
                                      repeat(integration_req)))
     # Non multiprocess version:
@@ -481,8 +482,8 @@ def convert2bst(bfs_filefolder, integration_req=1.0):
                 bstdat[corr].append(_bstdat.T)
     # The nr of int samps may be different in the different lanes,
     # so pad the missing samps at the ends:
-    nrintsmps_max = np.max([bstdat['XX'][lane].shape[-1] for lane in range(4)])
-    for lane in range(4):
+    nrintsmps_max = np.max([bstdat['XX'][lane].shape[-1] for lane in range(lanes_nr)])
+    for lane in range(lanes_nr):
         for corr in ['XX', 'YY', 'XY']:
             nrintsmps_cur = bstdat[corr][lane].shape[-1]
             nrintsmps_xtr = nrintsmps_max - nrintsmps_cur
