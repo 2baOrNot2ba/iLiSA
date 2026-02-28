@@ -380,6 +380,13 @@ def filefolder2obsinfo(filefolderpath):
             bits = 4
         missing_nr_sbs = maxnrbls - totnrsbs
 
+        # Correct for possibility that nrlanes is less than 4
+        bmltperlane = modeparms.BASE_NR_BEAMLETS // modeparms.MAX_NRLANES
+        while bits == 16 and missing_nr_sbs >= bmltperlane:
+            # Assume iLiSA strategy of maximizing bits with less than max lanes
+            missing_nr_sbs -= bmltperlane
+            maxnrbls -= bmltperlane
+
         if missing_nr_sbs > 0:
             nrsbs = missing_nr_sbs
             sblo = sbhi + 1
