@@ -310,6 +310,40 @@ def readbfsfile(bfs_filename, bfsmeta, savenpy=True):
     return x_strm, y_strm
 
 
+def parse_bfs_ff(bfs_filefolder):
+    """\
+    Parse BFS filefolder to get its root, name, bfs files and lane port numbers
+
+    Parameters
+    ----------
+    bfs_filefolder: str
+        Path to BFS filefolder
+
+    Returns
+    -------
+    bfs_root: str
+        Root path containing BFS filefolder
+    bfs_ff_name: str
+        Name of BFS filefolder
+    bfs_files: list of str
+        Name of BFS files contained in filefolder
+    laneports: list
+        Port numbers of lanes associated with the BFS files
+    """
+    bfs_filefolder = bfs_filefolder.rstrip('/')
+    if bfs_filefolder.endswith('_bfs'):
+        (bfs_root, bfs_ff_name) = os.path.split(bfs_filefolder)
+    else:
+        raise RuntimeError('Not BFS filefolder')
+    bfs_files = filter(lambda _f: _f.startswith('udp_')
+                        and not _f.endswith('.zst'), os.listdir(bfs_filefolder))
+    bfs_files = list(bfs_files)
+    laneports = []
+    for _p in bfs_files:
+        laneports.append(int(_p.split('.')[0].split('_')[-1]))
+    return bfs_root, bfs_ff_name, bfs_files, laneports
+
+
 def convert2binary(bfs_filepath):
     """\
     Convert BFS file to binary data file
