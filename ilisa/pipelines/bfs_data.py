@@ -526,8 +526,9 @@ def print_packet(header, x, y, print_names=True):
         print("station:", header['station'])
         print("nrbeamlets:", header['nrbeamlets'])
         print("nrblocks:", header['nrblocks'])
-        print("datetime:", header['datetime'].isoformat())
-        print("nanosecs:", header['nanosecs'])
+        #print("datetime:", header['datetime'].isoformat())
+        #print("nanosecs:", header['nanosecs'])
+        print("datetime64:", header['datetime64'])
         # print("blocksequencenumber:", header['_blocksequencenumber'])
     # print X, Y beamlet data
     for beamletnr in range(header['nrbeamlets']):
