@@ -171,6 +171,33 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
     return header, x, y
 
 
+def missing_in_sequence(seqdif):
+    """\
+    Compute number of missing packets from sequence increment
+
+    Parameters
+    ----------
+    seqdif: str
+        Difference in block sequence number since last one.
+
+    Returns
+    -------
+    missedpackets: int
+        Number of missed packets.
+    """
+    missedpackets = 0
+    if seqdif != 16 and seqdif != -195297 and seqdif != -195296:
+        if seqdif < 0:
+            if (195312 + seqdif) % 16 == 0:
+                seqdif += 195312
+            elif (195313 + seqdif) % 16 == 0:
+                seqdif += 195313
+            else:
+                raise RuntimeError('Anomalous seqdif: ' + str(seqdif))
+        missedpackets = seqdif // 16 - 1
+    return missedpackets
+
+
 def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
                   firstpacket=0):
     if bfs_filename.endswith('.pcap'):
@@ -203,8 +230,8 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
             else:
                 seqdif = header['_blocksequencenumber'] - seqprev
                 seqprev = header['_blocksequencenumber']
-            if seqdif != 16 and seqdif != -195297 and seqdif != -195296:
-                missingpackets = seqdif//16 - 1
+            missingpackets = missing_in_sequence(seqdif)
+            if missingpackets:
                 missed_pkts_tot += missingpackets
                 for blkpktidx in range(missingpackets):
                     _header_ = dict(header)  # Todo: update header
@@ -711,10 +738,9 @@ def check_packets(bfs_filename):
             seqdif = seq - seqprev
         else:
             seqdif = 16
-        if seqdif != 16 and seqdif != -195297 and seqdif != -195296:
-            missedpackets += seqdif//16-1
-            if False:
-                print(seqdif)
+        if seqdif < 0:
+            print('seqdif', seqdif, packetnr)
+        missedpackets += missing_in_sequence(seqdif)
         seqprev = seq
         packetnr += 1
     print("Missed packets: ", missedpackets, "/", packetnr, " ",
