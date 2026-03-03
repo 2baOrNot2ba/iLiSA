@@ -6,12 +6,14 @@ import sys
 import struct
 import math
 from multiprocessing import Pool
-
+from itertools import repeat
 from datetime import datetime, timedelta, timezone
 import argparse
+
 import numpy as np
 import matplotlib.pyplot as plt
 
+import ilisa.operations
 import ilisa.operations.data_io as dio
 from ilisa.pipelines.bfbackend import rawfilesinfolder
 
@@ -195,7 +197,7 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
             EOF = True
             break
         if padmissing:
-            if packetnr == 0:
+            if packetnr == firstpacket:
                 seqprev = header['_blocksequencenumber']
                 seqdif = 16
             else:
@@ -310,6 +312,40 @@ def readbfsfile(bfs_filename, bfsmeta, savenpy=True):
     return x_strm, y_strm
 
 
+def parse_bfs_filename(bfs_filepath):
+    """\
+    Parse the name of a BFS file
+
+    Parameters
+    ----------
+    bfs_filepath: str
+        Path to bfs file.
+
+    Returns
+    -------
+    fstart_dt: datetime
+        Start datetime based on file name.
+    port: int
+        Port number used to rec UDP stream.
+    rec_chunk_nr: int
+        Ordinal of recording chunk.
+    stnid: str
+        Station ID of observation.
+    """
+    bfs_filename = os.path.basename(bfs_filepath)
+    _dest, druname, fnametime, rec_chunk_nr = bfs_filename.split('.', 3)
+    prefix, stnid, port = _dest.split('_', 2)
+    fstart_dt = datetime.strptime(fnametime, ilisa.operations.DATETIMESTRFMT).replace(tzinfo=timezone.utc)
+    port = int(port)
+    return prefix, stnid, port, druname, fstart_dt, rec_chunk_nr
+
+
+def format_bfs_filename(prefix, stnid, port, druname, fstart_dt, rec_chunk_nr):
+    _dest = '_'.join([prefix, stnid, str(port)])
+    bfs_filename = '.'.join([_dest, druname, fstart_dt, rec_chunk_nr])
+    return bfs_filename
+
+
 def parse_bfs_ff(bfs_filefolder):
     """\
     Parse BFS filefolder to get its root, name, bfs files and lane port numbers
@@ -334,14 +370,74 @@ def parse_bfs_ff(bfs_filefolder):
     if bfs_filefolder.endswith('_bfs'):
         (bfs_root, bfs_ff_name) = os.path.split(bfs_filefolder)
     else:
-        raise RuntimeError('Not BFS filefolder')
+        raise RuntimeError('Not BFS filefolder: '+bfs_filefolder)
     bfs_files = filter(lambda _f: _f.startswith('udp_')
-                        and not _f.endswith('.zst'), os.listdir(bfs_filefolder))
+                       and not _f.endswith('.zst') and not _f.endswith('.bin'),
+                       os.listdir(bfs_filefolder))
     bfs_files = list(bfs_files)
     laneports = []
     for _p in bfs_files:
-        laneports.append(int(_p.split('.')[0].split('_')[-1]))
+        _, _, port, _, _, _ = parse_bfs_filename(_p)
+        laneports.append(port)
     return bfs_root, bfs_ff_name, bfs_files, laneports
+
+
+def _firstwholesecond(bfs_filename, filestart=None):
+    """\
+    Find first whole second in BFS file
+
+    Parameters
+    ----------
+    bfs_filename: str
+        Name of BFS file
+    filestart: datetime
+        Datetime of filestart. If None (default) then determine from filename.
+
+    Returns
+    -------
+    packetnr: int
+        Packet number.
+    start_dt: datetime
+        Datetime of first whole second.
+    """
+    packetnr = 0
+    print('Searching for first whole second in {}...'
+          .format(os.path.basename(bfs_filename)))
+    if filestart is None:
+        _, _, _, _, filestart, _ = parse_bfs_filename(bfs_filename)
+    for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
+        # BFS can have left over packets at beginning of file;
+        # they have datetime < filestart
+        if header['datetime'] >= filestart:
+            break
+        packetnr += 1
+    start_dt = header['datetime']
+    return packetnr, start_dt
+
+
+def fix_filestart_bfsff(bfs_file_path):
+    """\
+    Fix start of BFS file in filefolder
+
+    Remove leftover packets at start of a BFS file.
+
+    Parameters
+    ----------
+    bfs_file_path: str
+        Path to a BFS file.
+    """
+    nrpackets = nrpackets_in_file(bfs_file_path)
+    pre, stnid, port, drunm, fstart_dt, chunknr = parse_bfs_filename(bfs_file_path)
+    startpacket, start_dt = _firstwholesecond(bfs_file_path)
+    fnametime = start_dt.strftime(ilisa.operations.DATETIMESTRFMT)
+    totnrpackets_new = nrpackets - startpacket + 0
+    newfp = format_bfs_filename(pre, stnid, port, drunm, fnametime, chunknr)
+    newfp = '__'+newfp
+    bfs_ff_path = os.path.dirname(bfs_file_path)
+    newfp = os.path.join(bfs_ff_path, newfp)
+    with open(bfs_file_path, 'rb') as fp, open(newfp, 'wb') as nfp:
+        fp.seek(startpacket * BytesBFPacket)
+        nfp.write(fp.read(totnrpackets_new * BytesBFPacket))
 
 
 def convert2binary(bfs_filepath):
@@ -393,7 +489,8 @@ def correlate_bfs(bfs_filepath_skip, bst_abspath, integration_req=1.0):
     nrpackets = nrpackets_in_file(bfs_filepath) - skip
     totnrtimsamp = 0
     initialize = True
-    for header, x, y in next_bfpacket(bfs_filepath, False):
+    for header, x, y in next_bfpacket(bfs_filepath, False,
+                                      firstpacket=skip):
         if initialize:
             # Set packet format parameters using first packet
             #    Get samprate
@@ -441,27 +538,25 @@ def convert2bst(bfs_filefolder, integration_req=1.0):
     It also adds the novel combination of X*Y data.
     """
     bfs_root, bfs_ff_name, bfs_files, laneports = parse_bfs_ff(bfs_filefolder)
-    obsinfo_bsf = dio.filefolder2obsinfo(bfs_ff_name)
-    fstart_dt = datetime.strptime(obsinfo_bsf['filenametime'],
-                                  '%Y%m%d_%H%M%S').replace(tzinfo=timezone.utc)
+    obsinfo_bfs = dio.filefolder2obsinfo(bfs_ff_name)
+
     bfs_filepaths = [os.path.join(bfs_root, bfs_ff_name, bfs_file) for bfs_file in bfs_files]
     bfs_filepath_skips = []
     for _filep in bfs_filepaths:
-        packetstart, realstart = firstwholesecond(_filep, fstart_dt)
+        packetstart = 0
+        _, _, _, _, fstart_dt, _ = parse_bfs_filename(_filep)
         bfs_filepath_skips.append((_filep, packetstart))
-
     # Create BST filefolder
-    obsinfo_bst = dict(obsinfo_bsf)
+    obsinfo_bst = dict(obsinfo_bfs)
     obsinfo_bst['ldat_type'] = 'bst'
     obsinfo_bst['integration'] = integration_req
-    obsinfo_bst['filenametime'] = datetime.strftime(realstart, '%Y%m%d_%H%M%S')
+    obsinfo_bst['filenametime'] = datetime.strftime(fstart_dt, '%Y%m%d_%H%M%S')
     bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
     bst_abspath = os.path.join(bfs_root, bst_ff_name)
     lanes_nr = len(laneports)
     nrblsperfile = obsinfo_bst['max_nr_bls'] // lanes_nr
     os.makedirs(bst_abspath, exist_ok=True)
 
-    from itertools import repeat, starmap
     with Pool(lanes_nr) as p:
         p.starmap(correlate_bfs, zip(bfs_filepath_skips, repeat(bst_abspath),
                                      repeat(integration_req)))
@@ -626,25 +721,6 @@ def check_packets(bfs_filename):
           100 * missedpackets / float(packetnr), '%')
 
 
-def firstwholesecond(bfs_filename, filestart):
-    packetnr = 0
-    prev_second = None
-    print('Searching for first whole second in {}...'
-          .format(os.path.basename(bfs_filename)))
-    for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
-        packetnr += 1
-        if header['datetime'] < filestart:
-            # BFS can have left over packets
-            continue
-        if prev_second is None:
-            prev_second = header['datetime'].second
-            continue
-        if prev_second != header['datetime'].second:
-            packetnr -= 1
-            break
-    return packetnr, header['datetime']
-
-
 class BFS_dataset:
 
     def __init__(self, bfs_ff, segdur=None):
@@ -803,7 +879,7 @@ def main_cli():
 
     parser_bst = subparsers.add_parser('bst', help='Convert to BST files')
     parser_bst.set_defaults(func=convert2bst)
-    parser_bst.add_argument('bfs_filename', help="BFS filename")
+    parser_bst.add_argument('bfs_ff', help="BFS filefolder path")
     parser_bst.add_argument('integration', type=float,
                             help="Integration in float seconds")
 
@@ -820,9 +896,17 @@ def main_cli():
     parser_meta.set_defaults(func=BFSmeta)
     parser_meta.add_argument('bfs_filename', help="BFS filename")
 
+    parser_strip = subparsers.add_parser('fix', help='Strip BFS')
+    parser_strip.set_defaults(func=fix_filestart_bfsff)
+    parser_strip.add_argument('bfs_ff', help="BFS filefolder")
+
     args = cmdln_prsr.parse_args()
 
-    if args.bfs_filename.endswith('zst'):
+    try:
+        bfs_filename = args.bfs_filename
+    except:
+        bfs_filename = ''
+    if bfs_filename.endswith('zst'):
         print("Please uncompress the BFS file first")
         sys.exit()
 
@@ -858,6 +942,13 @@ def main_cli():
         convert2npy(args.bfs_filename)
     elif args.func == BFSmeta:
         print(BFSmeta(args.bfs_filename))
+    elif args.func == fix_filestart_bfsff:
+        bfs_root, bfs_ff_name, bfs_files, laneports = parse_bfs_ff(args.bfs_ff)
+        bfs_fps = []
+        for _fn in bfs_files:
+            bfs_fps.append(os.path.join(bfs_root, bfs_ff_name, _fn))
+        with Pool() as pool:
+            pool.map(fix_filestart_bfsff, bfs_fps)
 
 
 if __name__ == "__main__":
