@@ -738,8 +738,6 @@ def check_packets(bfs_filename):
             seqdif = seq - seqprev
         else:
             seqdif = 16
-        if seqdif < 0:
-            print('seqdif', seqdif, packetnr)
         missedpackets += missing_in_sequence(seqdif)
         seqprev = seq
         packetnr += 1
