@@ -9,6 +9,7 @@ from multiprocessing import Pool
 from itertools import repeat
 from datetime import datetime, timedelta, timezone
 import argparse
+import warnings
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -361,8 +362,11 @@ def parse_bfs_filename(bfs_filepath):
     """
     bfs_filename = os.path.basename(bfs_filepath)
     _dest, druname, fnametime, rec_chunk_nr = bfs_filename.split('.', 3)
-    prefix, stnid, port = _dest.split('_', 2)
-    fstart_dt = datetime.strptime(fnametime, ilisa.operations.DATETIMESTRFMT).replace(tzinfo=timezone.utc)
+    prefix, stnid, port = _dest.rsplit('_', 2)
+    if prefix != 'udp':
+        warnings.warn('BFS file prefix is "'+prefix+'" rather than nominal "udp"')
+    fstart_dt = (datetime.strptime(fnametime, ilisa.operations.DATETIMESTRFMT)
+                 .replace(tzinfo=timezone.utc))
     port = int(port)
     return prefix, stnid, port, druname, fstart_dt, rec_chunk_nr
 
