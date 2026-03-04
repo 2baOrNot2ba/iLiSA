@@ -1992,6 +1992,10 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
     # Plot
     frqlabel = 'Frequency [MHz]'
     timlabel = 'UTC [d H:M]'
+    dynspc_title = ('Dynamicspectrum\n'
+                     + 'Starttime: {} Station: {} Duration: {}').format(
+        starttime, obsinfo['station_id'],
+        datetime.timedelta(seconds=obsinfo['duration_scan']))
     if freqreq:
         show = 'persb'
     else:
@@ -2021,9 +2025,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
                 plt.xlabel(frqlabel)
                 plt.ylabel(timlabel)
             plt.colorbar()
-            plt.title('Mean (over RCUs) dynamicspectrum\n'
-                      + 'Starttime: {} Station: {}'
-                      .format(starttime, obsinfo['station_id']))
+            plt.title('Mean over RCUs '+dynspc_title)
         else:
             # Only one integration so show it as 2D spectrum
             plt.plot(freqs/1e6, res[0, :])
@@ -2046,10 +2048,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
                 plt.xlabel(frqlabel)
                 plt.ylabel(timlabel)
             plt.colorbar()
-            plt.title(('Dynamicspectrum of RCU {}\n'
-                      + 'Starttime: {} Station: {}')
-                      .format(rcu_sel, starttime, obsinfo['station_id']))
-
+            plt.title('RCU '+str(rcu_sel)+' '+dynspc_title)
         else:
             # Only one integration so show it as 2D spectrum
             plt.plot(freqs/1e6, res[0, :])
@@ -2111,7 +2110,6 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
         plt.suptitle('RCU spectra @ {} UT, station {}'.format(
             ts[sample_nr], obsinfo['station_id']))
     elif show == 'overlay':
-
         res = sstdata[rcu_sel, sample_nr, :].squeeze()
         plt.semilogy(freqs, numpy.transpose(res))
         rcus = range(rcu_sel.start, rcu_sel.stop)
