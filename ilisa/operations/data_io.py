@@ -1904,7 +1904,8 @@ def viewbst(bstff, freq=0., filenr=None, pol_stokes=True,
                 print(del_t, freq/1e6, dataval_p, dataval_q, sep=' ')
 
 
-def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
+def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
+            frqVStim=True):
     """\
     View SST data
 
@@ -1940,6 +1941,8 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
         RCU number or range of numbers.
     printout : bool
         Print out data instead of plotting it.
+    frqVStim : bool
+        For dynamic spectra, plot frequency versus datetime.
     """
     sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(sstff)
     starttime = obsinfo['datetime']
@@ -1987,6 +1990,8 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
                 print(*_out)
         return
     # Plot
+    frqlabel = 'Frequency [MHz]'
+    timlabel = 'UTC [d H:M]'
     if freqreq:
         show = 'persb'
     else:
@@ -2003,15 +2008,22 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
         meandynspec = numpy.mean(sstdata, axis=0)
         res = meandynspec
         if res.shape[0] > 1:
-            plt.pcolormesh(freqs/1e6, ts, res,
+            if frqVStim:
+                plt.pcolormesh(ts, freqs/1e6, res.T,
                            norm=colors.LogNorm(vmax=None),
                            shading='nearest')
+                plt.xlabel(timlabel)
+                plt.ylabel(frqlabel)
+            else:
+                plt.pcolormesh(freqs/1e6, ts, res,
+                           norm=colors.LogNorm(vmax=None),
+                           shading='nearest')
+                plt.xlabel(frqlabel)
+                plt.ylabel(timlabel)
             plt.colorbar()
             plt.title('Mean (over RCUs) dynamicspectrum\n'
                       + 'Starttime: {} Station: {}'
                       .format(starttime, obsinfo['station_id']))
-            plt.xlabel('Frequency [MHz]')
-            plt.ylabel('UTC [d H:M]')
         else:
             # Only one integration so show it as 2D spectrum
             plt.plot(freqs/1e6, res[0, :])
@@ -2023,14 +2035,21 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False):
         dynspec = numpy.mean(sstdata[rcu_sel], axis=0)
         res = dynspec
         if res.shape[0] > 1:
-            plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm(),
-                           shading='nearest')
+            if frqVStim:
+                plt.pcolormesh(ts, freqs/1e6, res.T, norm=colors.LogNorm(),
+                               shading='nearest')
+                plt.xlabel(timlabel)
+                plt.ylabel(frqlabel)
+            else:
+                plt.pcolormesh(freqs/1e6, ts, res, norm=colors.LogNorm(),
+                               shading='nearest')
+                plt.xlabel(frqlabel)
+                plt.ylabel(timlabel)
             plt.colorbar()
             plt.title(('Dynamicspectrum of RCU {}\n'
                       + 'Starttime: {} Station: {}')
                       .format(rcu_sel, starttime, obsinfo['station_id']))
-            plt.xlabel('Frequency [MHz]')
-            plt.ylabel('UTC [d H:M]')
+
         else:
             # Only one integration so show it as 2D spectrum
             plt.plot(freqs/1e6, res[0, :])
@@ -2258,7 +2277,7 @@ def latest_scanrec_path():
 
 
 def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
-               cmplxrep=None):
+               cmplxrep=None, timVSfrq=False):
     """\
     View BST, SST, XST statistics data files
 
@@ -2296,6 +2315,9 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
         Complex representation of complex values: 'ReIm' or 'AbsArg',
         for real-imaginary (cartesian) or absolute-argument (polar)
         representation.
+    timVSfrq : bool
+        Plot dynamic spectra as time versus frequency if True, otherwise plot
+        with frequency versus time.
     """
     if not dataff:
         dataff = next(latest_scanrec_path())
@@ -2367,7 +2389,7 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     _sampnr = sampidx
                     if sampnr is None:
                         _sampnr = None
-                    viewsst(dataff, freq, _sampnr, rcunr, printout)
+                    viewsst(dataff, freq, _sampnr, rcunr, printout, not timVSfrq)
                 elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON' \
                         or lofar_datatype=='acc':
                     # Get selected data
@@ -2621,12 +2643,14 @@ def cli_view():
                         help='Complex format: "ReIm" or "AbsArg", def: "ReIm"')
     parser.add_argument('-o', '--printout', action="store_true",
                         help='Print out data to stdout, else plot')
+    parser.add_argument('--timVSfrq', action="store_true",
+                        help='Plot dynamicspectra with time vs freq')
     parser.add_argument('dataff', nargs='?', default=None,
                         help="acc, bst, sst or xst filefolder")
     args = parser.parse_args()
 
     view_bsxst(args.dataff, args.filenr, args.sampnr, args.freq, args.printout,
-               args.pol, args.cmplx)
+               args.pol, args.cmplx, args.timVSfrq)
 
 
 if __name__ == "__main__":
