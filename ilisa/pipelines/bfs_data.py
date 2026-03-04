@@ -962,8 +962,7 @@ def main_cli():
     elif args.func == convert2binary:
         convert2binary(args.bfs_filename)
     elif args.func == convert2bst:
-        integration = 1.0
-        convert2bst(args.bfs_filename, args.integration)
+        convert2bst(args.bfs_ff, args.integration)
     elif args.func == __read_use_np:
         __read_use_np(args.bfs_filename)
     elif args.func == convert2npy:
