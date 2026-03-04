@@ -732,13 +732,17 @@ def check_packets(bfs_filename):
     """\
     Check the packets of a BFS file
     """
-    packetnr = 0
+    # Report on if file start is OK
+    startpacketnr, start_dt = _firstwholesecond(bfs_filename)
+    print('Start packetnr:', startpacketnr, ' @ ', start_dt)
+    # Go through all packets from start
+    packetnr = startpacketnr
     missedpackets = 0
     for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
         seq = header['_blocksequencenumber']
         if header['error'] == 1:
             print("Error in packet")
-        if packetnr != 0:
+        if packetnr != startpacketnr:
             seqdif = seq - seqprev
         else:
             seqdif = 16
