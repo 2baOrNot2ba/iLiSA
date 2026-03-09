@@ -172,7 +172,7 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
     return header, x, y
 
 
-def missing_in_sequence(seqdif):
+def _missing_in_sequence(seqdif):
     """\
     Compute number of missing packets from sequence increment
 
@@ -231,7 +231,7 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
             else:
                 seqdif = header['_blocksequencenumber'] - seqprev
                 seqprev = header['_blocksequencenumber']
-            missingpackets = missing_in_sequence(seqdif)
+            missingpackets = _missing_in_sequence(seqdif)
             if missingpackets:
                 missed_pkts_tot += missingpackets
                 for blkpktidx in range(missingpackets):
@@ -746,7 +746,7 @@ def check_packets(bfs_filename):
             seqdif = seq - seqprev
         else:
             seqdif = 16
-        missedpackets += missing_in_sequence(seqdif)
+        missedpackets += _missing_in_sequence(seqdif)
         seqprev = seq
         packetnr += 1
     print("Missed packets: ", missedpackets, "/", packetnr, " ",
