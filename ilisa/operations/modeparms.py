@@ -657,6 +657,31 @@ def slicestr2seqlists(slicestr):
     return seqlists
 
 
+def bitmode2nrbits(bitmode):
+    """\
+    Convert bitmode into number of bits
+
+    Parameters
+    ----------
+    bitmode: int | str
+        Bit mode index.
+
+    Returns
+    -------
+    nrbits: int
+        Number of bits.
+    """
+    bitmode = int(bitmode)
+    if bitmode == 0:
+        nrbits = 16
+    elif bitmode == 1:
+        nrbits =  8
+    elif bitmode == 2:
+        nrbits = 4
+    else:
+        raise ValueError('Bitmode '+str(bitmode)+' unknown')
+    return nrbits
+
 def band2rcumode(band):
     """Map band to rcumode string (Inverse of rcumode2band())"""
     if band == "10_90":
