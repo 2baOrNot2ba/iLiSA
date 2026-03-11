@@ -68,7 +68,8 @@ def datafolder_type(datafolderpath):
         datatype = 'acc'
     elif suf == 'bfs':
         datatype = 'bfs'
-    elif suf == 'bst':
+    elif suf.endswith('bst'):
+        # Allows for extended bst eg '12bst' ie with less than 4 lanes
         datatype = 'bst'
     elif suf == 'bstc':
         datatype = 'bstc'
