@@ -48,9 +48,6 @@ from ilisa.operations import USER_CACHE_DIR
 import ilisa.operations.modeparms as modeparms
 
 
-_RCU_SB_SEP = "+"
-
-
 def datafolder_type(datafolderpath):
     """Determine what type of LOFAR local mode recording the datafolder is.
 
@@ -82,106 +79,6 @@ def datafolder_type(datafolderpath):
     else:
         datatype = None
     return datatype
-
-
-def seqlists2slicestr(seqlists):
-    """
-    Convert a sequence list to slice format
-
-    Instead of comma separated list format (e.g. 202,204,206), try to construct
-    subband slice syntax (e.g. 202:2:206), if possible. One use-case is in the
-    construction of file names containing subband selection, in order to avoid
-    file names that are potentially longer than 255 chars.
-
-    Parameters
-    ----------
-    seqlists : list or str
-        List of strings with comma separated numbers that are monotonically
-        increasing by a constant increment.
-
-    Returns
-    -------
-    slicestr : str
-        Slice expression string.
-
-    Examples
-    --------
-    Simple string with comma separated numbers:
-    >>> from ilisa.operations.data_io import seqlists2slicestr
-    >>> seqlists2slicestr('2,3,4,5,6')
-    '2:6'
-
-    Lists of strings with comma separated numbers:
-    >>> seqlists2slicestr(['1,2,3','11,12,13'])
-    '1:3+11:13'
-
-    If number sequences increment by more than 1:
-    >>> seqlists2slicestr(['1,3,5','12,15,18'])
-    '1:2:5+12:3:18'
-
-    """
-    def seqlist2slice(seqlist):
-        seqlistcanon = []
-        for seqel in seqlist.split(','):
-            seqel = [int(el) for el in seqel.split(':')]
-            seq = range(seqel[0], seqel[-1]+1)
-            seqlistcanon.extend(seq)
-        seqsteps = set(numpy.diff(seqlistcanon))
-        if len(seqsteps) > 1:
-            raise ValueError('Subband spec {} too complicated.'.format(seqlist))
-        elif len(seqsteps) == 0:
-            slicestr = "{}".format(seqlistcanon[0])
-        else:
-            seqstep = seqsteps.pop()
-            seqstepstr = str(seqstep) + ':' if seqstep > 1 else ''
-            slicestr = "{}:{}{}".format(seqlistcanon[0], seqstepstr,
-                                        seqlistcanon[-1])
-        return slicestr
-
-    if type(seqlists) is list:
-        slicestrlist = []
-        for seqlist in seqlists:
-            seqstr = seqlist2slice(seqlist)
-            slicestrlist.append(seqstr)
-        slicestr = _RCU_SB_SEP.join(slicestrlist)
-    else:
-        slicestr = seqlist2slice(seqlists)
-    return slicestr
-
-
-def slicestr2seqlists(slicestr):
-    """
-    Convert slicestr to seqlists
-
-    Inverse of seqlists2slicestr().
-
-    Parameters
-    ----------
-    slicestr: str
-        A slice str e.g. '1:2:5+12:3:18'.
-
-    Returns
-    -------
-    seqlists: list
-        A list of sequence lists e.g. ['1,3,5','12,15,18'].
-    """
-    seqlists = []
-    slicelist = slicestr.split(_RCU_SB_SEP)
-    for sl in slicelist:
-        sliceargs = [int(s) for s in sl.split(':')]
-        slice_inc = 1
-        if len(sliceargs) == 1:
-            seqstr = str(sliceargs[0])
-        else:
-            if len(sliceargs)>2:
-                slice_inc = sliceargs[1]
-                sliceargs[-1] += slice_inc
-            else:
-                sliceargs[-1] += 1
-            seqstr = ','.join(
-                [str(s) for s in range(sliceargs[0], sliceargs[-1], slice_inc)])
-        seqlists.append(seqstr)
-    return seqlists
 
 
 def obsinfo2filefolder(obsinfo):
@@ -235,7 +132,7 @@ def obsinfo2filefolder(obsinfo):
     if ldat_type != 'sst' and ldat_type != 'acc':
         if obsinfo['subbands'] != [] and obsinfo['subbands'] != '':
             filefoldername += "_sb"
-            filefoldername += seqlists2slicestr(obsinfo['subbands'])
+            filefoldername += modeparms.seqlists2slicestr(obsinfo['subbands'])
     if 'integration' in obsinfo and obsinfo['integration']:
         filefoldername += '_int' + str(obsinfo['integration'])
     if 'duration_scan' in obsinfo:
@@ -342,7 +239,7 @@ def filefolder2obsinfo(filefolderpath):
             # If multi-spw, then set antennaset to combined antennaset
             obsinfo['antennaset'] = 'LBA+HBA'
 
-    obsinfo['subbands'] = slicestr2seqlists(obsinfo['subbands'])
+    obsinfo['subbands'] = modeparms.slicestr2seqlists(obsinfo['subbands'])
     if type(obsinfo['subbands']) is not list:
         obsinfo['subbands'] = [obsinfo['subbands']]
     obsinfo['frequencies'] = numpy.empty(0)
@@ -359,7 +256,7 @@ def filefolder2obsinfo(filefolderpath):
         obsinfo['frequencies'] = numpy.append(obsinfo['frequencies'],
                                               numpy.linspace(freqlo, freqhi,
                                                              nrsbs))
-        bmltarg = seqlists2slicestr(
+        bmltarg = modeparms.seqlists2slicestr(
             ','.join([str(_b) for _b in range(nrsbs)]))
         beamlets.append(bmltarg)
         totnrsbs += nrsbs
