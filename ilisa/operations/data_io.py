@@ -179,26 +179,31 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo = {}
     filefolderpath = os.path.normpath(filefolderpath)
     filefoldername = os.path.basename(filefolderpath)
+    ldat_type = datafolder_type(filefoldername)
     # Format:
     # stnid_Ymd_HMS_spwstr_intstr_durstr_dirstr_[cal*]_acc
     # stnidantset_Ymd_HMS_spwstr_intstr_durstr_dirstr_[cal*]_acc
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_bst
+    # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_[str]bst
     # stnid?_Ymd_HMS_rcustr_intstr_durstr_sst
     # stnid?_Ymd_HMS_rcustr_sbstr_intstr_durstr_dirstr_xst
     # stnid_Ymd_HMS_rcustr_sbstr_durstr_dirstr_bfs
     filefoldersplit = filefoldername.split('_')
     # Take care of possible "cal*" or "mod" tag just before ldattype:
-    if filefoldersplit[-2].startswith('cal')\
-            or filefoldersplit[-2].startswith('mod'):
+    if (filefoldersplit[-2].startswith('cal')
+            or filefoldersplit[-2].startswith('mod')
+            or filefoldersplit[-2].startswith('xtr')):
         # Special modality for this ldat either
         # calibration has been applied
         # or this is a visibility model for the ldat.
         modality = filefoldersplit.pop(-2)
         obsinfo[modality] = True
-    ldat_type = filefoldersplit.pop()
+    ff_suffix = filefoldersplit.pop()  # Could have extra info about ldat_type
+    # Add `int<str>` field if missing
     if ldat_type == 'bfs':
         # Does not have int<int> field so insert int 0:
         filefoldersplit.insert(-2, 'int0')
+    # Get `dir<str>` and `sb<str>` fields if missing
     if ldat_type != 'sst' and ldat_type != 'acc':
         # Have a sb<str> field:
         dirstr = filefoldersplit.pop()
@@ -210,6 +215,7 @@ def filefolder2obsinfo(filefolderpath):
         else:
             dirstr = filefoldersplit.pop()
         sbstr = 'sb0:511'
+    # Get `<stnid><antset>`
     if len(filefoldersplit[0]) >= 5:
         stnidantset = filefoldersplit.pop(0)
         stnid = stnidantset[:5]
@@ -217,6 +223,7 @@ def filefolder2obsinfo(filefolderpath):
         obsinfo['antennaset'] = antennaset
     else:
         stnid = None
+    # Main split of filefolder into obs parameters:
     (Ymd, HMS, spwstr, intstr, durstr) = filefoldersplit[:]
 
     obsinfo['station_id'] = stnid
@@ -229,9 +236,10 @@ def filefolder2obsinfo(filefolderpath):
     obsinfo['duration_scan'] = int(durstr[3:])
     obsinfo['pointing'] = dirstr[3:]
     obsinfo['ldat_type'] = ldat_type
-
+    # Split spw str of chars into list of chars
     obsinfo['spw'] = list(obsinfo['spw'])
 
+    # Figure out 'antennaset' field
     if not obsinfo['antennaset']:
         # Assume a sensible value for antennaset based on spw:
         _antennaset = modeparms.rcumode2antset_eu(obsinfo['spw'][0])
@@ -240,6 +248,7 @@ def filefolder2obsinfo(filefolderpath):
             # If multi-spw, then set antennaset to combined antennaset
             obsinfo['antennaset'] = 'LBA+HBA'
 
+    # Figure out 'subbands' and 'frequencies' fields
     obsinfo['subbands'] = modeparms.slicestr2seqlists(obsinfo['subbands'])
     if type(obsinfo['subbands']) is not list:
         obsinfo['subbands'] = [obsinfo['subbands']]
@@ -261,30 +270,36 @@ def filefolder2obsinfo(filefolderpath):
             ','.join([str(_b) for _b in range(nrsbs)]))
         beamlets.append(bmltarg)
         totnrsbs += nrsbs
+
+    # Figure out bits and lanes
     bits = 16
-
-    if ldat_type == 'bst' or ldat_type == 'bfs' or ldat_type == 'bstc':
-        # When the beamlets allocated is less than the maximum (given by bit
-        # depth) the RSPs fill the remaining ones regardless. Hence we have to
-        # account for them:
-        if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
-            maxnrbls = modeparms.BASE_NR_BEAMLETS
-            bits = 16
-        elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
-            maxnrbls = modeparms.BASE_NR_BEAMLETS * 2
-            bits = 8
-        else:
-            maxnrbls = modeparms.BASE_NR_BEAMLETS * 4
-            bits = 4
+    if  ldat_type == 'bst' or ldat_type == 'bfs':
+        if ldat_type == 'bst':
+            maxnrbls = modeparms.NRBEAMLETSBYBITS[bits]
+            # Get nr of lanes and bits from filefolder suffix if it exists
+            if len(ff_suffix) > 3:
+                _bm, _laness = ff_suffix[:2]
+                bits = modeparms.bitmode2nrbits(_bm)
+                nrlanes = len(_laness)
+                maxnrbls = modeparms.NRBEAMLETSBYBITS[bits]
+                lanes_slc = slice(int(_laness[0]))
+                if nrlanes > 1:
+                    lanes_slc = slice(int(_laness[0]), int(_laness[1])+1)
+                maxnrbls = (maxnrbls // modeparms.MAX_NRLANES) * nrlanes
+        if ldat_type == 'bfs':
+            # When the beamlets allocated is less than the maximum (given by bit
+            # depth) the RSPs fill the remaining ones regardless. Hence we have to
+            # account for them:
+            if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
+                maxnrbls = modeparms.BASE_NR_BEAMLETS
+                bits = 16
+            elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
+                maxnrbls = modeparms.BASE_NR_BEAMLETS * 2
+                bits = 8
+            else:
+                maxnrbls = modeparms.BASE_NR_BEAMLETS * 4
+                bits = 4
         missing_nr_sbs = maxnrbls - totnrsbs
-
-        # Correct for possibility that nrlanes is less than 4
-        bmltperlane = modeparms.BASE_NR_BEAMLETS // modeparms.MAX_NRLANES
-        while bits == 16 and missing_nr_sbs >= bmltperlane:
-            # Assume iLiSA strategy of maximizing bits with less than max lanes
-            missing_nr_sbs -= bmltperlane
-            maxnrbls -= bmltperlane
-
         if missing_nr_sbs > 0:
             nrsbs = missing_nr_sbs
             sblo = sbhi + 1
@@ -292,8 +307,21 @@ def filefolder2obsinfo(filefolderpath):
             freqlo = modeparms.sb2freq(sblo, nz)
             freqhi = modeparms.sb2freq(sbhi, nz)
             obsinfo['frequencies'] = numpy.append(obsinfo['frequencies'],
-                                                  numpy.linspace(freqlo, freqhi,
-                                                                 nrsbs))
+                                        numpy.linspace(freqlo, freqhi, nrsbs))
+        elif missing_nr_sbs < 0:
+            # Not all lanes are being used so adjust subbands & freqs
+            _nrsbs = 0
+            allsbs = []
+            for _beam in obsinfo['subbands']:
+                allsbs.extend(modeparms.seqarg2list(_beam))
+            bls_pl = maxnrbls // nrlanes
+            if lanes_slc.start is None:
+                lanes_slc = slice(lanes_slc.stop, lanes_slc.stop+1)
+            print(lanes_slc)
+            lane_sbs = allsbs[lanes_slc.start*bls_pl:lanes_slc.stop*bls_pl]
+            print(len(lane_sbs))
+            obsinfo['frequencies'] = obsinfo['frequencies'][range(len(lane_sbs))]
+
         obsinfo['max_nr_bls'] = maxnrbls
 
     # Assemble _cmds
@@ -304,7 +332,11 @@ def filefolder2obsinfo(filefolderpath):
     beamctl_cmds = []
     for spw_nr, spw in enumerate(obsinfo['spw']):
         band = modeparms.rcumode2band(spw)
-        anadigdir = ','.join(obsinfo['pointing'])
+        try:
+            anadigdir = ilisa.operations.directions.normalizebeamctldir(
+                obsinfo['pointing'])
+        except ValueError:
+            anadigdir = obsinfo['pointing']
         beamctl_cmd = modeparms.beamctl_args2cmds(beamlets[spw_nr],
                                                   obsinfo['subbands'][spw_nr],
                                                   band, anadigdir)
