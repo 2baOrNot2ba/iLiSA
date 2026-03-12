@@ -683,6 +683,33 @@ def bitmode2nrbits(bitmode):
         raise ValueError('Bitmode '+str(bitmode)+' unknown')
     return nrbits
 
+
+def nrbits2bitmode(nrbits):
+    """\
+    Number of bits to bit mode enum
+
+    Inverse of bitmode2nrbits().
+
+    Parameters
+    ----------
+    nrbits: int
+        Number of bits used for sampling.
+
+    Returns
+    -------
+    bm: int
+        Enumeration: 0=>16, 1=>8, 2=>4.
+    """
+    if nrbits == 0:
+        return 16
+    elif nrbits == 1:
+        return 8
+    elif nrbits == 2:
+        return 4
+    else:
+        raise ValueError('Nr bits '+nrbits+' is not 16,8,4.')
+
+
 def band2rcumode(band):
     """Map band to rcumode string (Inverse of rcumode2band())"""
     if band == "10_90":
