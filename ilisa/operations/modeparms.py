@@ -19,7 +19,7 @@ nrofrcus = 192  # Number of RCUs
 MIN_STATS_INTG = 1.0  # Minimum integration for statistics data in seconds.
 MAX_NRLANES = 4
 BASE_NR_BEAMLETS = 244  # Base number of total beamlets available
-MAX_NR_BEAMLETS_PER_LANE = BASE_NR_BEAMLETS // MAX_NRLANES  # 61
+#MAX_NR_BEAMLETS_PER_LANE = BASE_NR_BEAMLETS // MAX_NRLANES  # 61
 NRBEAMLETSBYBITS = {16:   BASE_NR_BEAMLETS,
                     8:  2*BASE_NR_BEAMLETS,
                     4:  4*BASE_NR_BEAMLETS}
@@ -700,14 +700,14 @@ def nrbits2bitmode(nrbits):
     bm: int
         Enumeration: 0=>16, 1=>8, 2=>4.
     """
-    if nrbits == 0:
-        return 16
-    elif nrbits == 1:
-        return 8
-    elif nrbits == 2:
-        return 4
+    if nrbits == 16:
+        return 0
+    elif nrbits == 8:
+        return 1
+    elif nrbits == 4:
+        return 2
     else:
-        raise ValueError('Nr bits '+nrbits+' is not 16,8,4.')
+        raise ValueError('Nr bits '+str(nrbits)+' is not 16,8,4.')
 
 
 def band2rcumode(band):
