@@ -261,7 +261,6 @@ def filefolder2obsinfo(filefolderpath):
                 maxnrbls = modeparms.BASE_NR_BEAMLETS * 4
                 bits = 4
         missing_nr_sbs = maxnrbls - totnrsbs
-        print('mis',missing_nr_sbs, totnrsbs)
         if missing_nr_sbs > 0:
             nrsbs = missing_nr_sbs
             sblo = sbhi + 1
