@@ -15,7 +15,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import ilisa.operations
-import ilisa.operations.data_io as dio
+from ilisa.operations.filefolder import obsinfo2filefolder, filefolder2obsinfo
+from ilisa.operations.modeparms import (MAX_NRLANES, NRBEAMLETSBYBITS,
+                                        nrbits2bitmode)
 from ilisa.pipelines.bfbackend import rawfilesinfolder
 
 # BF data/header format constants:
@@ -172,6 +174,14 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
     return header, x, y
 
 
+def integrate_int_samples(integration_req, samprate):
+    integrate_samps = (math.floor(integration_req * samprate
+                                  / (FFTSIZE * NRTIMS_PACKET))
+                       * NRTIMS_PACKET)
+    integration = integrate_samps / samprate * FFTSIZE
+    return integration, integration_req
+
+
 def _missing_in_sequence(seqdif):
     """\
     Compute number of missing packets from sequence increment
@@ -217,7 +227,10 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
     EOF = False
     packetnr = firstpacket
     missed_pkts_tot = 0
-    fin = open(bfs_filename, "rb")
+    _fil_open = open(bfs_filename, "rb")
+    import mmap
+    fin = mmap.mmap(_fil_open.fileno(), 0, access=mmap.ACCESS_READ)
+    fin = _fil_open
     fin.seek(startskip + packetnr*BytesBFPacket)
     while not EOF:
         header, x, y = read_bf_packet(fin, keepstruct, pcapfile)
@@ -243,7 +256,7 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
         yield header, x, y
     if padmissing:
         print('Missed packets total:', missed_pkts_tot, packetnr)
-    fin.close()
+    _fil_open.close()
 
 
 class BFSmeta:
@@ -272,7 +285,7 @@ class BFSmeta:
                                     / (NRTIMS_PACKET * FFTSIZE))
         self.xy_dtype = _x.dtype
         self.lane = header_first['lanenr']
-        obsinfo = dio.filefolder2obsinfo(os.path.dirname(self.bfs_filename))
+        obsinfo = filefolder2obsinfo(os.path.dirname(self.bfs_filename))
         beamlet_0 = self.lane*self.nrbeamlets
         beamlet_n = beamlet_0 + self.nrbeamlets
         self.freqs = obsinfo['frequencies'][beamlet_0:beamlet_n]
@@ -351,14 +364,18 @@ def parse_bfs_filename(bfs_filepath):
 
     Returns
     -------
-    fstart_dt: datetime
-        Start datetime based on file name.
-    port: int
-        Port number used to rec UDP stream.
-    rec_chunk_nr: int
-        Ordinal of recording chunk.
+    prefix: str
+        String prefixing BFS filename.
     stnid: str
         Station ID of observation.
+    port: int
+        Port number used to rec UDP stream.
+    druname: str
+        Name of Data-Recording Unit.
+    fstart_dt: datetime
+        Start datetime based on file name.
+    rec_chunk_nr: int
+        Ordinal of recording chunk.
     """
     bfs_filename = os.path.basename(bfs_filepath)
     _dest, druname, fnametime, rec_chunk_nr = bfs_filename.split('.', 3)
@@ -466,9 +483,13 @@ def fix_filestart_bfsff(bfs_file_path):
     newfp = '__'+newfp
     bfs_ff_path = os.path.dirname(bfs_file_path)
     newfp = os.path.join(bfs_ff_path, newfp)
+    print("Copying rest of file...")
     with open(bfs_file_path, 'rb') as fp, open(newfp, 'wb') as nfp:
         fp.seek(startpacket * BytesBFPacket)
-        nfp.write(fp.read(totnrpackets_new * BytesBFPacket))
+        #bufsiz = 1024*1024
+        for _p in range(totnrpackets_new):
+            _buf = fp.read(BytesBFPacket)
+            nfp.write(_buf)
 
 
 def convert2binary(bfs_filepath):
@@ -531,10 +552,7 @@ def correlate_bfs(bfs_filepath_skip, bst_abspath, integration_req=1.0):
             xx = np.zeros((nrbeamlets,), dtype=float)
             yy = np.zeros((nrbeamlets,), dtype=float)
             xy = np.zeros((nrbeamlets,), dtype=complex)
-            integrate_samps = (math.floor(integration_req * samprate
-                                          / (FFTSIZE * NRTIMS_PACKET))
-                               * NRTIMS_PACKET)
-            integration = integrate_samps / samprate * FFTSIZE
+            integration, integrate_samps = integrate_int_samples(integration_req, samprate)
             print("Requested {}s integration, but will instead use {}s".format(
                 integration_req, integration))
             normfac = 1.0 / integrate_samps * (samprate / FFTSIZE)
@@ -568,24 +586,29 @@ def convert2bst(bfs_filefolder, integration_req=1.0):
 
     It also adds the novel combination of X*Y data.
     """
-    bfs_root, bfs_ff_name, bfs_files, laneports = parse_bfs_ff(bfs_filefolder)
-    obsinfo_bfs = dio.filefolder2obsinfo(bfs_ff_name)
+    bfs_root, bfs_ff_name, filen_pl, bmlt_pl = laneinfo_bfs_file(bfs_filefolder)
+    obsinfo_bfs = filefolder2obsinfo(bfs_ff_name)
 
-    bfs_filepaths = [os.path.join(bfs_root, bfs_ff_name, bfs_file) for bfs_file in bfs_files]
     bfs_filepath_skips = []
-    for _filep in bfs_filepaths:
-        packetstart = 0
+    bfs_files = list(filter(None, filen_pl))
+    for _filen in bfs_files:
+        _filep = os.path.join(bfs_root, bfs_ff_name, _filen)
         _, _, _, _, fstart_dt, _ = parse_bfs_filename(_filep)
+        packetstart = 0
         bfs_filepath_skips.append((_filep, packetstart))
     # Create BST filefolder
     obsinfo_bst = dict(obsinfo_bfs)
-    obsinfo_bst['ldat_type'] = 'bst'
     obsinfo_bst['integration'] = integration_req
     obsinfo_bst['filenametime'] = datetime.strftime(fstart_dt, '%Y%m%d_%H%M%S')
-    bst_ff_name = dio.obsinfo2filefolder(obsinfo_bst)
+    lanes_nr = len(bfs_files)
+    nrblsperfile = sum(bmlt_pl) // lanes_nr
+    _bitsbynrbeamlets = {v//MAX_NRLANES: k for k, v in NRBEAMLETSBYBITS.items()}
+    bm = nrbits2bitmode(_bitsbynrbeamlets[nrblsperfile])
+    bmlt_pl_bin = int(''.join([str(e//nrblsperfile) for e in bmlt_pl]), 2)
+    suffix_head = f'{bm}{bmlt_pl_bin:x}'
+    obsinfo_bst['ldat_type'] = suffix_head + 'bst'
+    bst_ff_name = obsinfo2filefolder(obsinfo_bst)
     bst_abspath = os.path.join(bfs_root, bst_ff_name)
-    lanes_nr = len(laneports)
-    nrblsperfile = obsinfo_bst['max_nr_bls'] // lanes_nr
     os.makedirs(bst_abspath, exist_ok=True)
 
     with Pool(lanes_nr) as p:
@@ -727,6 +750,47 @@ def plot_packet(header, x, y, print_names=True):
         header['lanenr'], header['datetime'].isoformat()))
     plt.show()
 
+
+def laneinfo_bfs_file(bfs_filefolder):
+    """\
+    Info about BFS files in folder
+
+    Parameters
+    ----------
+    bfs_filefolder: str
+        Name of BFS file
+
+    Returns
+    -------
+    bfs_root: str
+        BFS root directory.
+    bfs_ff_name: str
+        BFS filefolder name.
+    filen_perlane:
+
+    bmlts_perlane
+    """
+    bfs_root, bfs_ff_name, bfs_files, laneports = parse_bfs_ff(bfs_filefolder)
+
+    bmlts_perlane = [0  for _ln in range(MAX_NRLANES)]
+    filen_perlane = ['' for _ln in range(MAX_NRLANES)]
+    for _f in bfs_files:
+        _fp = os.path.join(bfs_root, bfs_ff_name, _f)
+        startpacketnr, start_dt = _firstwholesecond(_fp)
+        print(_f, startpacketnr, start_dt, end=' ')
+        _, stnid, port, druname, fstart, chunk_nr = parse_bfs_filename(_fp)
+        print(stnid, port, druname, fstart, chunk_nr)
+        needs_start_fix = (start_dt-fstart).total_seconds()>=1.0
+
+        if needs_start_fix:
+            print('Need to fix start of', end=' ')
+        else:
+            print('Do not need to fix start of', end=' ')
+        print(_fp)
+        h,x,y = get_packet_h_x_y_fromfile(_fp)
+        bmlts_perlane[h['lanenr']] = h['nrbeamlets']
+        filen_perlane[h['lanenr']] = _f
+    return bfs_root, bfs_ff_name, filen_perlane, bmlts_perlane
 
 def check_packets(bfs_filename):
     """\
@@ -932,6 +996,10 @@ def main_cli():
     parser_strip.set_defaults(func=fix_filestart_bfsff)
     parser_strip.add_argument('bfs_ff', help="BFS filefolder")
 
+    parser_info = subparsers.add_parser('info', help='Info on BFS filefolder')
+    parser_info.set_defaults(func=laneinfo_bfs_file)
+    parser_info.add_argument('bfs_ff', help="BFS filefolder")
+
     args = cmdln_prsr.parse_args()
 
     try:
@@ -980,6 +1048,10 @@ def main_cli():
             bfs_fps.append(os.path.join(bfs_root, bfs_ff_name, _fn))
         with Pool() as pool:
             pool.map(fix_filestart_bfsff, bfs_fps)
+    elif args.func == laneinfo_bfs_file:
+        _, _, filen_perlane, bmlts_perlane = laneinfo_bfs_file(args.bfs_ff)
+        for _ln_idx, _ln in enumerate(filen_perlane):
+            print('lane', _ln, ':', bmlts_perlane[_ln_idx])
 
 
 if __name__ == "__main__":
