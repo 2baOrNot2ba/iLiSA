@@ -22,6 +22,7 @@ from casacore.measures import measures
 
 from ilisa.calim.geodesy import ITRF2lonlat, utcpos2lmst, lonlat2flt
 import ilisa.operations.modeparms as modeparms
+from ilisa.operations.filefolder import datafolder_type
 import ilisa.operations.data_io as data_io
 from . import USER_DATA_DIR
 from .imaging import plotskyimage, imggrid_res, fiducial_image,\
@@ -778,7 +779,7 @@ def create_vis_model_ff(cvcpath, gs_model, ant_model=''):
     FileExitsError
         If the model filefolder already exists.
     """
-    ldat_type = data_io.datafolder_type(cvcpath)
+    ldat_type = datafolder_type(cvcpath)
     if ldat_type != 'acc' and ldat_type != 'xst':
         raise ValueError("Not CVC data.")
     # Copy CVC folder within parent folder and add the tag "_cal_" in the name
