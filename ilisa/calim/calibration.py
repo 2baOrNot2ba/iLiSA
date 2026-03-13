@@ -8,7 +8,7 @@ from numpy.linalg import norm
 
 from ilisa.calim.geodesy import ITRF2lonlat
 from ilisa.antennameta import calibrationtables as calibrationtables
-from ilisa.operations.filefolder import datafolder_type
+from ilisa.operations.filefolder import datafolder_type, dataff_raw_model_cal
 from ilisa.operations import data_io as data_io, modeparms as modeparms
 from ilisa.operations.directions import _req_calsrc_proc
 from . import visibilities, skymodels, beam, imaging
@@ -230,7 +230,7 @@ def apply_polgains_cvcfolder(dataff, variant='legacy'):
     cvcobj_cal: CVCfiles
         The calibrated CVCfiles object
     """
-    dataff_raw, dataff_mod, dataff_cal = data_io.dataff_raw_model_cal(dataff)
+    dataff_raw, dataff_mod, dataff_cal = dataff_raw_model_cal(dataff)
     # Copy raw into cal
     shutil.copytree(dataff_raw, dataff_cal)
     # Read in cvcobj:
@@ -660,8 +660,7 @@ def solvegains_cli():
     variant = 'inv'
     if args.legacy_variant:
         variant = 'legacy'
-    dataff_raw, dataff_mod, _dataff_cal = \
-        data_io.dataff_raw_model_cal(args.dataff)
+    dataff_raw, dataff_mod, _dataff_cal = dataff_raw_model_cal(args.dataff)
     if not os.path.isdir(dataff_mod):
         raise IsADirectoryError('No model file-folder {} found.'.format(dataff_mod))
     # Direct output to '_mod' data file-folder
