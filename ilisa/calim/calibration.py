@@ -8,6 +8,7 @@ from numpy.linalg import norm
 
 from ilisa.calim.geodesy import ITRF2lonlat
 from ilisa.antennameta import calibrationtables as calibrationtables
+from ilisa.operations.filefolder import datafolder_type
 from ilisa.operations import data_io as data_io, modeparms as modeparms
 from ilisa.operations.directions import _req_calsrc_proc
 from . import visibilities, skymodels, beam, imaging
@@ -96,7 +97,7 @@ def applycal_cvcfolder(cvcpath, caltabpath):
         caltab, header = calibrationtables.read_caltabfile(caltabpath)
     except:
         raise
-    ldat_type = data_io.datafolder_type(cvcpath)
+    ldat_type = datafolder_type(cvcpath)
     if ldat_type != "acc" and ldat_type != "xst":
         raise ValueError("Not CVC data.")
     # Copy CVC folder within parent folder and add the tag "_cal_" in the name
