@@ -497,7 +497,7 @@ class ScanSession(object):
                     _sleepfor = (datetime.timedelta(seconds=scan_dur)
                                  + margin_scan_start)
                     _LOGGER.info('Not recording for {}s'.format(_sleepfor))
-                    time.sleep(_sleepfor)
+                    time.sleep(_sleepfor.total_seconds())
                 scanresult = lscan.scanresult
             scan['id'] = scanresult.get('scan_id', None)
             scanpath_scdat = scanresult.get('scanpath_scdat', None)
