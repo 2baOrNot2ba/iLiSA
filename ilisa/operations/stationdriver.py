@@ -15,6 +15,7 @@ import logging
 
 import ilisa.operations
 import ilisa.operations.directions as directions
+from ilisa.operations.filefolder import obsinfo2filefolder
 from ilisa.operations.lcuinterface import LCUInterface, RspctlError
 from ilisa.operations.druinterface import DRUinterface
 from ilisa.operations._rem_exec import ostimenow
@@ -568,7 +569,7 @@ class StationDriver(object):
                     'subbands': [],
                     'station_id': self.get_stnid()
                 }
-                accfilefolder = data_io.obsinfo2filefolder(obsinfo)
+                accfilefolder = obsinfo2filefolder(obsinfo)
                 scanrecpath = os.path.join(self.scanpath_scdat, accfilefolder)
             self.movefromlcu(accfilepath, scanrecpath)
             ldatinfo_acc.write_ldat_header(scanrecpath)
@@ -671,7 +672,7 @@ class StationDriver(object):
                         'subbands': freqsetup.subbands_spw,
                         'station_id': self.get_stnid()
                     }
-                    bsxfilefolder = data_io.obsinfo2filefolder(obsinfo)
+                    bsxfilefolder = obsinfo2filefolder(obsinfo)
                     scanrecpath = os.path.join(self.scanpath_scdat,
                                                bsxfilefolder)
                     continue_sub = yield scanrecpath
@@ -777,7 +778,7 @@ class StationDriver(object):
                     'station_id': self.get_stnid()
                 }
                 # Create BFS destination folder on DRU:
-                bfsfilefolder = data_io.obsinfo2filefolder(obsinfo)
+                bfsfilefolder = obsinfo2filefolder(obsinfo)
                 scanrecpath = os.path.join(self.scanpath_scdat, bfsfilefolder)
                 os.makedirs(scanrecpath)
                 yield scanrecpath
