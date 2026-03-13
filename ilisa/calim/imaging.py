@@ -17,6 +17,7 @@ import casacore.quanta.quantity
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 from ilisa.calim.flagging import Flags
 from ilisa.calim.visibilities import phaseref_xstpol
+from ilisa.operations.filefolder import datafolder_type
 from ilisa.operations import data_io as data_io
 from ilisa.operations.directions import _req_calsrc_proc, pointing_tuple2str
 from . import SPEED_OF_LIGHT as c
@@ -604,7 +605,7 @@ def image_cvcfile(dataff, filenr, sampnr, phaseref, correctpb, fluxpersterradian
     IndexError
         If filenr requested greater than the number of files.
     """
-    lofar_datatype = data_io.datafolder_type(dataff)
+    lofar_datatype = datafolder_type(dataff)
     fluxperbeam = not fluxpersterradian
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise ValueError("Datafolder '{}' is not ACC or XST type data."
@@ -733,7 +734,7 @@ def nfimage(dataff, filenr, sampnr):
     Make near-field image
     """
     polrep = 'S0'
-    lofar_datatype = data_io.datafolder_type(dataff)
+    lofar_datatype = datafolder_type(dataff)
     if lofar_datatype != 'acc' and lofar_datatype != 'xst':
         raise RuntimeError("Datafolder '{}'\n not ACC or XST type data."
                            .format(dataff))
