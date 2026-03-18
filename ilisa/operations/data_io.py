@@ -740,6 +740,7 @@ def readsstfolder(sstfolder):
     obsinfo : dict
         Observation metadata
     """
+    sst_dtype = numpy.dtype(('f8', (512,)))
     obsinfo = filefolder2obsinfo(sstfolder)
     intg = obsinfo['integration']
     freqs = obsinfo['frequencies']
@@ -748,10 +749,9 @@ def readsstfolder(sstfolder):
     sstfiles.sort()
     ts = []
     # For each RCU initialize a list for each (rcu) file SST data
-    sstdata_rcu = [[] for _ in range(192)]
+    file_rcuXdts = {}
     for sstfile in sstfiles:
-        # Read sst file
-        sst_filepath = os.path.join(sstfolder, sstfile)
+        # Scan sst filenames
         try:
             (Ymd, HMS, _sststr, rcudatstr) = sstfile.split('_')
             file_start_dattim = datetime.datetime.strptime(Ymd + 'T' + HMS,
@@ -760,29 +760,33 @@ def readsstfolder(sstfolder):
             rcu = int(rcu)
         except:
             raise ValueError("File name {} not in sst format.".format(sstfile))
-        # Now read the SST data
-        sst_dtype = numpy.dtype(('f8', (512,)))
-
-        # Normally just read all data into memory...
-        sstfiledata = numpy.fromfile(sst_filepath, dtype=sst_dtype)
-        # ...but in case data does not fit into memory (24h @ 1s) use memmap:
-        # #sstfiledata = numpy.memmap(sst_filepath, dtype=sst_dtype, mode='r')
-        # Note that using memmap can cause a linux error for too many open files
-        # in which case use bash> ulimit -n <N>  where <N> is no. files
-
-        # Append file data array for this rcu to full data array
-        sstdata_rcu[rcu].append(sstfiledata)
-        del sstfiledata
+        if file_rcuXdts.get(rcu) is None:
+            file_rcuXdts[rcu] = []
+        file_rcuXdts[rcu].append(sstfile)
         # Assume time of samples is same for all RCU files;
         # deal only with 1st one
         if rcu == 0:
-            Ymd, HMS, _ = sstfile.split('_', 2)
-            file_nrsmps = sstdata_rcu[0][0].shape[0]
+            file_nrsmps = (os.path.getsize(os.path.join(sstfolder, sstfile))
+                           / sst_dtype.itemsize)
             file_dur = intg * file_nrsmps
             ts_rel = numpy.arange(0., file_dur, intg)
             file_ts = [file_start_dattim + datetime.timedelta(seconds=t)
                        for t in ts_rel]
             ts.append(file_ts)
+    rcu_sel = range(len(file_rcuXdts))
+    sstdata_rcu = [[] for _ in rcu_sel]
+    for rcu in file_rcuXdts:
+        if rcu not in rcu_sel:
+            continue
+        for sstfile in file_rcuXdts[rcu]:
+            sst_filepath = os.path.join(sstfolder, sstfile)
+            # Now read the SST data
+            # Normally just read all data into memory...
+            sstdata_rcu[rcu_sel.index(rcu)].append(numpy.fromfile(sst_filepath, dtype=sst_dtype))
+            # ...but in case data does not fit into memory (24h @ 1s) use memmap:
+            # sstdata_rcu[rcu].append(numpy.memmap(sst_filepath, dtype=sst_dtype, mode='r'))
+            # Note that using memmap can cause a linux error for too many open files
+            # in which case use bash> ulimit -n <N>  where <N> is no. files
     return sstdata_rcu, ts, freqs, obsinfo
 
 
