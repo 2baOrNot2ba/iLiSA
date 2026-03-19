@@ -337,9 +337,10 @@ class LScan:
             flush_acc = True
         if flush_acc:
             # Move left-over ACCs to DRU
-            _LOGGER.info("Flushing leftover ACCs")
+            _LOGGER.info("Flushing leftover ACCs: "+','.join(leftacc_filtims))
             _scanrecpath = self.scanresult['acc'].scanrecpath
             self.stndrv.flush_acc(_scanrecpath)
+            _LOGGER.debug("...Finished flushing leftover ACCs")
             # Add their ldatinfos and write them to file
             for filtim in leftacc_filtims:
                 self.ldatinfos_acc.append(self.ldatinfos_acc[0])
