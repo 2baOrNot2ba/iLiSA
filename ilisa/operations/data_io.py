@@ -720,13 +720,17 @@ def readbstfolder(bst_filefolder):
     return bst_data_xx, bst_data_yy, bst_data_xy, ts, freqs, obsinfo
 
 
-def readsstfolder(sstfolder):
+def readsstfolder(sstfolder, rcu_sel=None, print_sizes=True):
     """Read-in SST datafile.
 
     Parameters
     ----------
     sstfolder : str
         The name of the folder which contains an SST datafile for each RCU.
+    rcu_sel :  int
+        RCU id to select. None (default) selects all extant RCUs.
+    print_sizes : bool
+        Print out number of files, samples per file, and number of RCUs.
 
     Returns
     -------
@@ -738,9 +742,11 @@ def readsstfolder(sstfolder):
     freqs : (F)
         Array of the subband freqs.
     obsinfo : dict
-        Observation metadata
+        Observation metadata with addition of obsinfo['rcus'] equal to list
+        of rcu
     """
-    sst_dtype = numpy.dtype(('f8', (512,)))
+    nrsbs = modeparms.TotNrOfsb
+    sst_dtype = numpy.dtype(('f8', (nrsbs,)))
     obsinfo = filefolder2obsinfo(sstfolder)
     intg = obsinfo['integration']
     freqs = obsinfo['frequencies']
@@ -750,6 +756,7 @@ def readsstfolder(sstfolder):
     ts = []
     # For each RCU initialize a list for each (rcu) file SST data
     file_rcuXdts = {}
+    _1st_rcu = None
     for sstfile in sstfiles:
         # Scan sst filenames
         try:
@@ -765,16 +772,31 @@ def readsstfolder(sstfolder):
         file_rcuXdts[rcu].append(sstfile)
         # Assume time of samples is same for all RCU files;
         # deal only with 1st one
-        if rcu == 0:
+        if _1st_rcu is None or rcu==_1st_rcu:
+            _1st_rcu = rcu
             file_nrsmps = (os.path.getsize(os.path.join(sstfolder, sstfile))
-                           / sst_dtype.itemsize)
+                           // sst_dtype.itemsize)
             file_dur = intg * file_nrsmps
             ts_rel = numpy.arange(0., file_dur, intg)
             file_ts = [file_start_dattim + datetime.timedelta(seconds=t)
                        for t in ts_rel]
             ts.append(file_ts)
-    rcu_sel = range(len(file_rcuXdts))
+    _extant_rcus = list(file_rcuXdts.keys())
+    if rcu_sel is None:
+        rcu_sel = _extant_rcus
     sstdata_rcu = [[] for _ in rcu_sel]
+    if print_sizes:
+        nrfiles = len(file_rcuXdts[_1st_rcu])
+        totnrrcus = len(_extant_rcus)
+        print('# nrfiles:', nrfiles)
+        print('# samps/file', file_nrsmps)
+        print('# nrsamps:', nrfiles*file_nrsmps)
+        print('# nrrcus:', totnrrcus)
+        print('# nrsbs:', nrsbs)
+    if len(rcu_sel)*nrfiles*file_nrsmps > 4*24*60*60:
+        print('Handling {} samples per subband'
+              .format(len(rcu_sel)*nrfiles*file_nrsmps))
+        print('Maybe select fewer RCUs or files?')
     for rcu in rcu_sel:
         for sstfile in file_rcuXdts[rcu]:
             sst_filepath = os.path.join(sstfolder, sstfile)
@@ -785,6 +807,7 @@ def readsstfolder(sstfolder):
             # sstdata_rcu[rcu].append(numpy.memmap(sst_filepath, dtype=sst_dtype, mode='r'))
             # Note that using memmap can cause a linux error for too many open files
             # in which case use bash> ulimit -n <N>  where <N> is no. files
+    obsinfo['rcus'] = _extant_rcus
     return sstdata_rcu, ts, freqs, obsinfo
 
 
@@ -1425,8 +1448,8 @@ def viewbst(bstff, freq=0., filenr=None, pol_stokes=True,
                 print(del_t, freq/1e6, dataval_p, dataval_q, sep=' ')
 
 
-def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
-            frqVStim=True):
+def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, file_sel=None,
+            printout=False, frqVStim=True):
     """\
     View SST data
 
@@ -1465,30 +1488,22 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
     frqVStim : bool
         For dynamic spectra, plot frequency versus datetime.
     """
-    sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(sstff)
-    starttime = obsinfo['datetime']
-
+    if rcu_sel is not None:
+        if type(rcu_sel) is str:
+            rcu_sel = modeparms.seqarg2list(rcu_sel)
+    sstdata_rcu, ts_list, freqs, obsinfo = readsstfolder(sstff, rcu_sel)
+    nrrcus = len(obsinfo['rcus'])
+    if rcu_sel is not None:
+        nrrcus = len(rcu_sel)
     # Squash file_nr and in file intg index to just samples
-    sstdata = numpy.array(sstdata_rcu).reshape((modeparms.nrofrcus, -1,
+    sstdata = numpy.array(sstdata_rcu).squeeze().reshape((nrrcus, -1,
                                                 modeparms.TotNrOfsb))
     nrrcus, nrsamps, nrsbs = sstdata.shape
-    nrfiles = len(sstdata_rcu[0])
-    sampsperfile = sstdata_rcu[0][0].shape[0]
-    print('# nrfiles:', nrfiles)
-    print('# samps/file', sampsperfile)
-    print('# nrsamps:', nrsamps)
-    print('# nrrcus:', nrrcus)
-    print('# nrsbs:', nrsbs)
+    starttime = obsinfo['datetime']
     ts = numpy.ravel(ts_list)
     sbreq = None
     if freqreq:
         sbreq = int(numpy.argmin(numpy.abs(freqs-freqreq)))
-    if rcu_sel is not None:
-        if ':' in rcu_sel:
-            rcu_sel = rcu_sel.split(':')
-            rcu_sel = slice(*[int(_a) for _a in rcu_sel])
-        else:
-            rcu_sel = slice(int(rcu_sel), int(rcu_sel) + 1)
     if printout:
         if rcu_sel is None:
             rcus_str = ' '.join(
@@ -1555,7 +1570,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
             plt.ylabel('Power [arb. unit]')
     elif show == 'dynspec':
         # Show dynamic spectrum of RCU
-        dynspec = numpy.mean(sstdata[rcu_sel], axis=0)
+        dynspec = numpy.mean(sstdata, axis=0)
         res = dynspec
         if res.shape[0] > 1:
             if frqVStim:
@@ -1580,21 +1595,21 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
         ampVStime = True
         _logplt = False  # Plot powers using log plot
         if rcu_sel is None:
-            rcu_sel_lst = numpy.array(range(nrrcus))
+            rcu_sel_lst = numpy.array(obsinfo['rcus'])
         else:
-            _step = rcu_sel.step
-            if _step is None:
-                _step = 1
-            rcu_sel_lst = numpy.array(range(rcu_sel.start, rcu_sel.stop, _step))
+            rcu_sel_lst = numpy.array(rcu_sel)
         res = sstdata[:, :, sbreq]
-        resX = res[0::2, :][rcu_sel_lst[rcu_sel_lst % 2 == 0]//2]
-        resY = res[1::2, :][rcu_sel_lst[rcu_sel_lst % 2 == 1]//2]
+        x_inds = rcu_sel_lst % 2 == 0
+        y_inds = rcu_sel_lst % 2 == 1
+        resX = res[x_inds, :]
+        resY = res[y_inds, :]
         plt.subplot(211)
         if ampVStime:
             if _logplt:
                 plt.semilogy(ts, numpy.transpose(resX))
             else:
                 plt.plot(ts, numpy.transpose(resX))
+            plt.legend(rcu_sel_lst[x_inds])
         else:
             plt.pcolormesh(ts, numpy.arange(96), resX, norm=colors.LogNorm())
         plt.title('X pol')
@@ -1604,6 +1619,7 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
                 plt.semilogy(ts, numpy.transpose(resY))
             else:
                 plt.plot(ts, numpy.transpose(resY))
+            plt.legend(rcu_sel_lst[y_inds])
             plt.gcf().autofmt_xdate()
         else:
             plt.pcolormesh(ts, numpy.arange(96), resY, norm=colors.LogNorm())
@@ -1631,10 +1647,9 @@ def viewsst(sstff, freqreq, sample_nr=None, rcu_sel=None, printout=False,
         plt.suptitle('RCU spectra @ {} UT, station {}'.format(
             ts[sample_nr], obsinfo['station_id']))
     elif show == 'overlay':
-        res = sstdata[rcu_sel, sample_nr, :].squeeze()
+        res = sstdata[:, sample_nr, :].squeeze()
         plt.semilogy(freqs, numpy.transpose(res))
-        rcus = range(rcu_sel.start, rcu_sel.stop)
-        plt.legend(rcus)
+        plt.legend(rcu_sel)
         plt.title('RCU spectrum @ {} UT, station {}'.format(
             ts[sample_nr], obsinfo['station_id']))
     plt.show()
@@ -1795,7 +1810,7 @@ def latest_scanrec_path():
             yield scanrecpath
 
 
-def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
+def view_bsxst(dataff, filenr, sampnr, rcunr, freq, printout=False, poltype=None,
                cmplxrep=None, timVSfrq=False):
     """\
     View BST, SST, XST statistics data files
@@ -1824,6 +1839,8 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
         File number selection.
     sampnr : str
         Sample number selection.
+    rcunr : str
+        RCU number selection.
     freq : float
         Frequency selection.
     printout : bool
@@ -1848,8 +1865,9 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
         print('# comments:\n', scnrecinfo.comments)
     lofar_datatype = datafolder_type(dataff)
     if lofar_datatype == 'sst':
-        rcunr = filenr
-        filenr = None
+        # rcunr = filenr
+        #filenr = None
+        pass
     filenrs = [0]
     if filenr is not None:
         if ':' in filenr:
@@ -1908,7 +1926,8 @@ def view_bsxst(dataff, filenr, sampnr, freq, printout=False, poltype=None,
                     _sampnr = sampidx
                     if sampnr is None:
                         _sampnr = None
-                    viewsst(dataff, freq, _sampnr, rcunr, printout, not timVSfrq)
+                    viewsst(dataff, freq, _sampnr, rcunr, filenr, printout,
+                            not timVSfrq)
                 elif lofar_datatype == 'xst' or lofar_datatype == 'xst-SEPTON' \
                         or lofar_datatype=='acc':
                     # Get selected data
@@ -2151,7 +2170,9 @@ def cli_view():
     # sampnr : int
     #     Ordinal number of the record sample within the filenr-th file.
     parser.add_argument('-n', '--filenr', type=str, default=None,
-                        help="Can be file # or RCU #, or also a range #:#")
+                        help="File # or a range #:#")
+    parser.add_argument('-r', '--rcunr', type=str, default=None,
+                        help="RCU #, or a range #:#")
     parser.add_argument('-s', '--sampnr', type=str, default=None,
                         help="Sample # or a range #:#")
     parser.add_argument('-f', '--freq', type=float, default=None,
@@ -2168,8 +2189,8 @@ def cli_view():
                         help="acc, bst, sst or xst filefolder")
     args = parser.parse_args()
 
-    view_bsxst(args.dataff, args.filenr, args.sampnr, args.freq, args.printout,
-               args.pol, args.cmplx, args.timVSfrq)
+    view_bsxst(args.dataff, args.filenr, args.sampnr, args.rcunr, args.freq,
+               args.printout, args.pol, args.cmplx, args.timVSfrq)
 
 
 if __name__ == "__main__":
