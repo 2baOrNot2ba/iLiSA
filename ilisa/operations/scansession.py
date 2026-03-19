@@ -675,6 +675,10 @@ def obs(scansess_in, sac):
         scnsess.run_scansess(scansess_in)
     except ValueError as err:
         _LOGGER.error(err)
+        scnsess.failed = True
+    except Exception as err:
+        _LOGGER.error("Other Exception. "+err)
+        scnsess.failed = True
     cmd = 'obs:' + file
     with open(OBSLOGFILE, 'a') as lgf:
         if mockrun:
@@ -683,6 +687,8 @@ def obs(scansess_in, sac):
             priority_fld = '0'
         if scnsess.failed:
             lgf.write('FAILED ')
+            if err:
+                lgf.write('('+err+') ')
         lgf.write("{} {} {} {}".format(
             issued_at.replace(tzinfo=None).isoformat('T', timespec='seconds'),
             cli_start, priority_fld, projectid))
