@@ -145,8 +145,8 @@ def sched2at(schedfile, check=False):
         if sleep_before_at_secs:
             sleepcmd = "sleep {}\n".format(sleep_before_at_secs)
         # Send ilisa_cmd to pipe
-        cmdline_wlog = '{} {} >> err_{}.log\n'.format(sleepcmd, cmdline,
-                                                      station)
+        cmdline_wlog = ('{} {} > obs_out_{}.log 2> obs_err_{}.log\n'
+                        .format(sleepcmd, cmdline, station, station))
         if check:
             print(cmdline_wlog)
         else:
