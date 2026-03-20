@@ -7,6 +7,12 @@ import numpy
 import ilisa
 from ilisa.operations import modeparms
 
+class NotLDATffError(Exception):
+    """\
+    Exception for when path is not an LOFAR data filefolder
+    """
+    pass
+
 def datafolder_type(datafolderpath):
     """Determine what type of LOFAR local mode recording the datafolder is.
 
