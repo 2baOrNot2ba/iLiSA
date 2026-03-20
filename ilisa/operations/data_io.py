@@ -37,7 +37,7 @@ import ilisa.operations.directions
 from ilisa.operations import USER_CACHE_DIR
 import ilisa.operations.modeparms as modeparms
 from ilisa.operations.filefolder import filefolder2obsinfo, \
-    filename2obsparm, datafolder_type
+    filename2obsparm, datafolder_type, NotLDATffError
 from ilisa.pipelines.bfs_data import integrate_int_samples
 import ilisa.antennameta.antennafieldlib as antennafieldlib
 from ilisa.calim.visibilities import cov_flat2polidx
@@ -1860,10 +1860,12 @@ def view_bsxst(dataff, filenr, sampnr, rcunr, freq, printout=False, poltype=None
         print('dataff', dataff)
         filenr = '-1'
     dataff = os.path.normpath(dataff)
+    lofar_datatype = datafolder_type(dataff)
+    if lofar_datatype is None:
+        raise NotLDATffError('NotLDATffError: path '+dataff+' not LDAT filefolder')
     scnrecinfo = ScanRecInfo().read_scanrec(dataff)
     if scnrecinfo and scnrecinfo.comments:
         print('# comments:\n', scnrecinfo.comments)
-    lofar_datatype = datafolder_type(dataff)
     if lofar_datatype == 'sst':
         # rcunr = filenr
         #filenr = None
@@ -2189,8 +2191,12 @@ def cli_view():
                         help="acc, bst, sst or xst filefolder")
     args = parser.parse_args()
 
-    view_bsxst(args.dataff, args.filenr, args.sampnr, args.rcunr, args.freq,
-               args.printout, args.pol, args.cmplx, args.timVSfrq)
+    try:
+        view_bsxst(args.dataff, args.filenr, args.sampnr, args.rcunr, args.freq,
+                   args.printout, args.pol, args.cmplx, args.timVSfrq)
+    except NotLDATffError as err:
+        print()
+        print(err)
 
 
 if __name__ == "__main__":
