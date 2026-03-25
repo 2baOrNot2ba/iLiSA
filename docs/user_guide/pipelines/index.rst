@@ -20,7 +20,7 @@ recorders. When running ``pl_rec``
 
 .. code-block:: console
 
-    $ pl_rec -h
+    [DRU]$ pl_rec -h
     usage: pl_rec [-h] [-m] [-t STARTTIME] [-p PORTS] [-b BFDATADIR] [-d DURATION]
                   [-f FILE_DURATION] [-w WHICH] [-r RCUMODE] [-s STNID] [-c] [-v]
 
@@ -58,7 +58,7 @@ the CLI script ``pl_bfs``, which has several subcommands:
 
 .. code-block:: console
 
-    pl_bfs -h
+    [DRU]$ pl_bfs -h
     usage: pl_bfs [-h] {check,show,bin,bst,num,npy,meta,fix,info} ...
 
     positional arguments:
@@ -85,7 +85,7 @@ files) with the format
 
 .. code-block:: console
 
-    $ ln -s <BFS-folder> <iLiSA-filefolder>
+    [DRU]$ ln -s <BFS-folder> <iLiSA-filefolder>
     where <iLiSA-filefolder> :=
             <station_id(6c)>[<ANTSET>]_<filenametime>_spw<rcumodes>_sb<subbands>\
             _int<integration>_dur<duration_scan>[_dir<pointing>][_cal|_mod]\
@@ -106,6 +106,7 @@ cross-pol channel XY.
 
 .. code-block:: console
 
+    [DRU]$ pl_bfs bst -h
     usage: pl_bfs bst [-h] bfs_ff integration
 
     positional arguments:
