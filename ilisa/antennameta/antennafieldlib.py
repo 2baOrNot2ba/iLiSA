@@ -325,7 +325,7 @@ def bearing_stn(pos):
 
 def backrotationtile(stnid):
     """\
-    Compute back rotation of antenna in tile of gievn station
+    Compute back rotation of antenna in tile of given station
 
     Parameters
     ----------
@@ -533,7 +533,7 @@ def plot_layout_pos(pos, names, projection='3d', xyzlbls=('x','y','z'),
             ax.text(pos[idx, 0], pos[idx, 1], pos[idx, 2], '   '+name,
                     fontsize=4)
         else:
-            ax.text(pos[idx, 0], pos[idx, 1], '   ' + name, fontsize=4)
+            ax.text(pos[idx, 0], pos[idx, 1], '   ' + name, fontsize=6)
             ax.axis('equal')
 
     # Plot mean of positions
