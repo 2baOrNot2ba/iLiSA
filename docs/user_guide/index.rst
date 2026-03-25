@@ -6,3 +6,4 @@ Details on using ``iLiSA`` and its subpackages.
    :maxdepth: 2
 
    calim/index
+   pipelines/index
