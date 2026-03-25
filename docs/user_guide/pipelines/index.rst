@@ -19,6 +19,7 @@ package provides a unified wrapper called ``pl_rec`` that uses these two
 recorders. When running ``pl_rec``
 
 .. code-block:: console
+
     $ pl_rec -h
     usage: pl_rec [-h] [-m] [-t STARTTIME] [-p PORTS] [-b BFDATADIR] [-d DURATION]
                   [-f FILE_DURATION] [-w WHICH] [-r RCUMODE] [-s STNID] [-c] [-v]
@@ -56,6 +57,7 @@ includes  ``rec`` with ``BFS`` option. These BFS files can be processed using
 the CLI script ``pl_bfs``, which has several subcommands:
 
 .. code-block:: console
+
     pl_bfs -h
     usage: pl_bfs [-h] {check,show,bin,bst,num,npy,meta,fix,info} ...
 
@@ -82,6 +84,7 @@ as all is required is symbolic link (or renaming the folder containing the BFS
 files) with the format
 
 .. code-block:: console
+
     $ ln -s <BFS-folder> <iLiSA-filefolder>
     where <iLiSA-filefolder> :=
             <station_id(6c)>[<ANTSET>]_<filenametime>_spw<rcumodes>_sb<subbands>\
@@ -102,6 +105,7 @@ The BST-like files created here extend this to sub-second integration and adds t
 cross-pol channel XY.
 
 .. code-block:: console
+
     usage: pl_bfs bst [-h] bfs_ff integration
 
     positional arguments:
