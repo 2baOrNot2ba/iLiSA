@@ -525,9 +525,9 @@ def plot_layout_pos(pos, names, projection='3d', xyzlbls=('x','y','z'),
     ax.set_ylabel(ylbl + ' [m]')
     if projection == '3d':
         ax.set_zlabel(zlbl)
-        ax.plot(pos[:, 0], pos[:, 1], pos[:, 2], '*')
+        ax.plot(pos[:, 0], pos[:, 1], pos[:, 2], 'x')
     else:
-        ax.plot(pos[:, 0], pos[:, 1], '*')
+        ax.plot(pos[:, 0], pos[:, 1], 'x')
     for idx, name in enumerate(names):
         if projection == '3d':
             ax.text(pos[idx, 0], pos[idx, 1], pos[idx, 2], '   '+name,
