@@ -175,11 +175,29 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
 
 
 def integrate_int_samples(integration_req, samprate):
+    """\
+    Return number of samples matching desired integration at given samplerate
+
+    Parameters
+    ----------
+    integration_req: float
+        Requested integration time in seconds.
+    samprate: float
+        Sample rate in samples per second or Hz.
+
+    Returns
+    -------
+    integration: float
+        Integration time corresponding to whole number of samples integrated
+        over.
+    integrate_samps: int
+        Number of samples intgrated over.
+    """
     integrate_samps = (math.floor(integration_req * samprate
                                   / (FFTSIZE * NRTIMS_PACKET))
                        * NRTIMS_PACKET)
     integration = integrate_samps / samprate * FFTSIZE
-    return integration, integration_req
+    return integration, integrate_samps
 
 
 def _missing_in_sequence(seqdif):
@@ -552,7 +570,8 @@ def correlate_bfs(bfs_filepath_skip, bst_abspath, integration_req=1.0):
             xx = np.zeros((nrbeamlets,), dtype=float)
             yy = np.zeros((nrbeamlets,), dtype=float)
             xy = np.zeros((nrbeamlets,), dtype=complex)
-            integration, integrate_samps = integrate_int_samples(integration_req, samprate)
+            integration, integrate_samps = integrate_int_samples(
+                integration_req, samprate)
             print("Requested {}s integration, but will instead use {}s".format(
                 integration_req, integration))
             normfac = 1.0 / integrate_samps * (samprate / FFTSIZE)
