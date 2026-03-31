@@ -6,6 +6,7 @@ import numpy
 
 import ilisa
 from ilisa.operations import modeparms
+import ilisa.operations.directions
 
 class NotLDATffError(Exception):
     """\
