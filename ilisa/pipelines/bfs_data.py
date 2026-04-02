@@ -884,7 +884,7 @@ class BFS_dataset:
         else:
             xsegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
                 np.complex64)
-            ysegbin = xseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
+            ysegbin = yseg[self.fftbin, ...].view(np.int16).astype(np.float32).view(
                 np.complex64)
         return xsegbin, ysegbin
 
