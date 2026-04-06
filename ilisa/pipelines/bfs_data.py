@@ -437,9 +437,12 @@ def parse_bfs_ff(bfs_filefolder):
         (bfs_root, bfs_ff_name) = os.path.split(bfs_filefolder)
     else:
         raise RuntimeError('Not BFS filefolder: '+bfs_filefolder)
-    bfs_files = filter(lambda _f: _f.startswith('udp_')
-                       and not _f.endswith('.zst') and not _f.endswith('.bin'),
+    udp_files = filter(lambda _f: _f.startswith('udp_'),
                        os.listdir(bfs_filefolder))
+    bfs_files = filter(lambda _f: not _f.endswith('.zst') and
+                       not _f.endswith('.bin') and not _f.endswith('.npy')
+                       and not _f.endswith('.npz'),
+                       udp_files)
     bfs_files = list(bfs_files)
     laneports = []
     for _p in bfs_files:
