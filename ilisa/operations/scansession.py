@@ -677,7 +677,7 @@ def obs(scansess_in, sac):
         _LOGGER.error(err)
         scnsess.failed = True
     except Exception as err:
-        _LOGGER.error("Other Exception. "+err)
+        _LOGGER.error("Other Exception. "+str(err))
         scnsess.failed = True
     cmd = 'obs:' + file
     with open(OBSLOGFILE, 'a') as lgf:
@@ -687,7 +687,11 @@ def obs(scansess_in, sac):
             priority_fld = '0'
         if scnsess.failed:
             lgf.write('FAILED ')
-            if err:
+            try:
+                err
+            except UnboundLocalError:
+                pass
+            else:
                 lgf.write('('+err+') ')
         lgf.write("{} {} {} {}".format(
             issued_at.replace(tzinfo=None).isoformat('T', timespec='seconds'),
