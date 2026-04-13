@@ -48,8 +48,26 @@ def get_samprate(is200mhz):
     return samprate
 
 
-def bffmtparams(header):
-    if not hasattr(bffmtparams, 'drbits'):
+def bffmtparams(header, checkdrbits=False):
+    """\
+    Beamform stream format parameters
+
+    Parameters
+    ----------
+    header : dict
+        Packet header as dict.
+    checkdrbits :  bool
+        Whether to check dynamic range bits or not. Default: False means do not
+        check what the bit depth is.
+
+    Returns
+    -------
+    packetData_dtype :
+        dtype of packet data payload.
+    cint_smp :
+        Complex integer data sample datatype.
+    """
+    if not hasattr(bffmtparams, 'drbits') or checkdrbits:
         # Get size, in bits, of data samples
         # Seems like bitmode bm sometimes is not set,
         # so use nrbeamlets instead
@@ -89,7 +107,8 @@ def nrpackets_in_file(bfs_filepath):
     return nrpackets
 
 
-def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
+def read_bf_packet(filepointer, keepstruct=False, pcapfile=False,
+                   checkdrbits=False):
     """Read a Beamlet packet"""
     pcapheader = None
     if pcapfile:
@@ -141,7 +160,7 @@ def read_bf_packet(filepointer, keepstruct=False, pcapfile=False):
     #header['packno'] =
     # ((timestamps*1000000*(160+is200mhz*40)+oe*512)/1024+blocksequencenumber)/16
     # Get packet format parameters:
-    packetData_dtype, cint_smp = bffmtparams(header)
+    packetData_dtype, cint_smp = bffmtparams(header, checkdrbits)
 
     # Unpack BL data
     alt = 2
@@ -228,7 +247,7 @@ def _missing_in_sequence(seqdif):
 
 
 def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
-                  firstpacket=0):
+                  firstpacket=0, checkdrbits=False):
     if bfs_filename.endswith('.pcap'):
         pcapfile = True
         bytesperpacket = BytesPerPcapPacket
@@ -251,7 +270,7 @@ def next_bfpacket(bfs_filename, keepstruct=True, padmissing=True,
     fin = _fil_open
     fin.seek(startskip + packetnr*BytesBFPacket)
     while not EOF:
-        header, x, y = read_bf_packet(fin, keepstruct, pcapfile)
+        header, x, y = read_bf_packet(fin, keepstruct, pcapfile, checkdrbits)
         if header == '':
             EOF = True
             break
@@ -474,12 +493,15 @@ def _firstwholesecond(bfs_filename, filestart=None):
           .format(os.path.basename(bfs_filename)))
     if filestart is None:
         _, _, _, _, filestart, _ = parse_bfs_filename(bfs_filename)
-    for header, x, y in next_bfpacket(bfs_filename, padmissing=False):
+    for header, x, y in next_bfpacket(bfs_filename, padmissing=False,
+                                      checkdrbits=True):
         # BFS can have left over packets at beginning of file;
         # they have datetime < filestart
+        print('pktnr',header['datetime'],  filestart)
         if header['datetime'] >= filestart:
             break
         packetnr += 1
+    print('endpkt', packetnr)
     start_dt = header['datetime']
     return packetnr, start_dt
 
@@ -537,6 +559,7 @@ def convert2binary(bfs_filepath):
         xy[1, :, :] = y
         (xy.flatten('F')).tofile(fout)
     fout.close()
+
 
 def correlate_bfs(bfs_filepath_skip, bst_abspath, integration_req=1.0):
     """\
