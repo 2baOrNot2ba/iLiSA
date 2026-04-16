@@ -300,7 +300,7 @@ class ScanRecInfo(object):
         return self.scanrecparms['direction']
 
     def is_septon(self):
-        if not (self.scanrecparms['septonconf']
+        if not (self.scanrecparms.get('septonconf')
                 or self.get_datatype().endswith('SEPTON')):
             return False
         return True
