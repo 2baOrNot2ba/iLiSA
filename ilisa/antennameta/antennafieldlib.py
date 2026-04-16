@@ -271,6 +271,8 @@ def get_antset_params(stnid, antset):
     stnintilepos = np.array(hbadeltas)
     nrhbaelems = len(antfld['HBA']['REL_POS_X'])
     if arrband == 'LBA' and nrhbaelems < 96:
+        if '_' not in antset and stnid.startswith('FI'):
+            antset = 'LBA_INNER'
         if '_' in antset:
             _LBA, antsettype = antset.split('_', 1)
         else:
