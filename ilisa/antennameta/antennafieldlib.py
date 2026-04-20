@@ -263,7 +263,10 @@ def get_antset_params(stnid, antset):
         hbadeltas = [0., 0., 0.]
     elif antset.startswith('HBA'):
         arrband = 'HBA'
+        if arrband not in antfld:
+            arrband += '0'  # If antset 'HBA' asked for CS, assume 'HBA0'
         hbadeltas = parseiHBADeltasfile(stnid)
+    arrband += '0'
     stnpos = np.atleast_2d(antfld[arrband]['POSITION']).T
     stnrot = np.array(antfld[arrband]['ROTATION_MATRIX'])
     stnrelpos_x = np.array(antfld[arrband]['REL_POS_X'])
