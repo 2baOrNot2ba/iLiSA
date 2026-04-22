@@ -240,6 +240,18 @@ def filefolder2obsinfo(filefolderpath):
     # Figure out bits and lanes
     bits = 16
     if  ldat_type == 'bst' or ldat_type == 'bfs':
+        # When the beamlets allocated is less than the maximum (given by bit
+        # depth) the RSPs fill the remaining ones regardless. Hence we have to
+        # account for them:
+        if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
+            maxnrbls = modeparms.BASE_NR_BEAMLETS
+            bits = 16
+        elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
+            maxnrbls = modeparms.BASE_NR_BEAMLETS * 2
+            bits = 8
+        else:
+            maxnrbls = modeparms.BASE_NR_BEAMLETS * 4
+            bits = 4
         if ldat_type == 'bst':
             maxnrbls = modeparms.NRBEAMLETSBYBITS[bits]
             # Get nr of lanes and bits from filefolder suffix if it exists
@@ -254,19 +266,7 @@ def filefolder2obsinfo(filefolderpath):
                 lanes_slc = slice(lane_start, lane_stop+1)
                 nrlanes = _lanesbin.count('1')
                 maxnrbls = (maxnrbls // modeparms.MAX_NRLANES) * nrlanes
-        if ldat_type == 'bfs':
-            # When the beamlets allocated is less than the maximum (given by bit
-            # depth) the RSPs fill the remaining ones regardless. Hence we have to
-            # account for them:
-            if totnrsbs <= modeparms.BASE_NR_BEAMLETS:
-                maxnrbls = modeparms.BASE_NR_BEAMLETS
-                bits = 16
-            elif totnrsbs <= modeparms.BASE_NR_BEAMLETS * 2:
-                maxnrbls = modeparms.BASE_NR_BEAMLETS * 2
-                bits = 8
-            else:
-                maxnrbls = modeparms.BASE_NR_BEAMLETS * 4
-                bits = 4
+
         missing_nr_sbs = maxnrbls - totnrsbs
         if missing_nr_sbs > 0:
             nrsbs = missing_nr_sbs
