@@ -395,7 +395,20 @@ def antset_lonlat(stnid, antset):
     """
     stnpos, stnrot, stnrelpos, stnintilepos = get_antset_params(stnid, antset)
     r = stnrot[:, -1]
-    bearing = bearing_stn(r)
+    use_stnrot = False
+    if use_stnrot:
+        # Calculate bearing using station rotation matrix
+        ms = np.array([r[1],-r[0], 0])
+        ms = ms/np.linalg.norm(ms)  # station meridian normal in ITRF
+        ns = np.cross(ms, r)
+        ns = ns/np.linalg.norm(ns)  # True North at station in ITRF
+        q = stnrot[:, 1]  # Station North in ITRF
+        bearing_stnrot = np.arccos(np.dot(q, ns))
+        bearing = bearing_stnrot
+    else:
+        # Compute bearing using function based on station position only
+        bearing_pos = bearing_stn(r)
+        bearing = bearing_pos
     stnpos_lonlat = ITRF2lonlat(*stnpos.squeeze())
     return stnpos_lonlat, bearing
 
