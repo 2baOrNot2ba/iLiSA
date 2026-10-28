@@ -407,33 +407,38 @@ class HemiDiffuseSkyModel:
         return img
 
 
-def plot_gsm_for_obsdata(cvcobj, filenr=0, sampnr=0, gs_model='LFSM',
-                         imsize=200):
+def plot_skymodel_for_obsdata(cvcobj, filenr=0, sampnr=0, gs_model='LFSM',
+                              imsize=200):
     stnid = cvcobj.scanrecinfo.get_stnid()
     for fileidx in range(filenr, cvcobj.getnrfiles()):
         intgs = len(cvcobj.samptimeset[fileidx])
         for tidx in range(sampnr, intgs):
             dattim = cvcobj.samptimeset[fileidx][tidx]
             freq = cvcobj.freqset[fileidx][tidx]
-            lon, lat, h = ITRF2lonlat(cvcobj.stn_pos[0, 0],
-                                      cvcobj.stn_pos[1, 0],
-                                      cvcobj.stn_pos[2, 0])
-            skyimg_model = globaldiffuseskymodel(dattim, (lon, lat, h),
-                                                 freq, gs_model=gs_model,
-                                                 imsize=imsize)
-            l, m = np.linspace(-1, 1, imsize), np.linspace(-1, 1, imsize)
-            ll, mm = np.meshgrid(l, m)
-            img_zero = np.zeros_like(skyimg_model, dtype=float)
-            modality = 'model:'+gs_model
-            _phaseref_ = (0, np.pi/2,'AZEL')
-            integration = None
-            correctpb = True
-            fluxperbeam = False
-            plotskyimage(ll, mm, (skyimg_model, img_zero, img_zero, img_zero),
-                         'stokes', dattim, freq, stnid, integration, _phaseref_,
-                         modality, pbcor=correctpb, maskhrz=False,
-                         fluxperbeam=fluxperbeam, plot_title='Model image')
-            plt.show()
+            plot_skymodel(dattim, cvcobj.stn_pos, freq, gs_model=gs_model,
+                          imsize=imsize, stnid=stnid)
+
+
+def plot_skymodel(dattim, stn_pos, freq, gs_model='GSM2018', imsize=200,
+                  stnid='Unknown'):
+    lon, lat, h = ITRF2lonlat(stn_pos[0, 0],
+                              stn_pos[1, 0],
+                              stn_pos[2, 0])
+    skyimg_model = globaldiffuseskymodel(dattim, (lon, lat, h), freq,
+                                         gs_model=gs_model, imsize=imsize)
+    l, m = np.linspace(-1, 1, imsize), np.linspace(-1, 1, imsize)
+    ll, mm = np.meshgrid(l, m)
+    img_zero = np.zeros_like(skyimg_model, dtype=float)
+    modality = 'model:'+gs_model
+    _phaseref_ = (0, np.pi/2,'AZEL')
+    integration = None
+    correctpb = True
+    fluxperbeam = False
+    plotskyimage(ll, mm, (skyimg_model, img_zero, img_zero, img_zero),
+                 'stokes', dattim, freq, stnid, integration, _phaseref_,
+                 modality, pbcor=correctpb, maskhrz=False,
+                 fluxperbeam=fluxperbeam, plot_title='Model image')
+    plt.show()
 
 
 def vcz(ll, mm, skyimage, freq, ant_pos, imag_is_fd=False):
@@ -874,7 +879,7 @@ def main_cli():
             print(e, file=sys.stderr)
             print('Remove it to create a new vis model!', file=sys.stderr)
     elif args.rep == 'img':
-        plot_gsm_for_obsdata(cvcobj, args.filenr, args.sampnr, args.gs_model)
+        plot_skymodel_for_obsdata(cvcobj, args.filenr, args.sampnr, args.gs_model)
 
 
 if __name__ == "__main__":
